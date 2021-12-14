@@ -88,7 +88,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
             return self.preconditioner_override(self)
 
         if settings.max_preconditioner_size.value() == 0 or self.size(-1) < settings.min_preconditioning_size.value():
-            return None, None, None
+            return super()._preconditioner()
 
         # Cache a QR decomposition [Q; Q'] R = [D^{-1/2}; L]
         # This makes it fast to compute solves and log determinants with it
@@ -103,7 +103,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
                     "NaNs encountered in preconditioner computation. Attempting to continue without preconditioning.",
                     NumericalWarning,
                 )
-                return None, None, None
+                return super()._preconditioner()
             self._init_cache()
 
         # NOTE: We cannot memoize this precondition closure as it causes a memory leak
@@ -114,7 +114,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
                 return (1 / self._noise) * (tensor - qqt)
             return (tensor / self._noise) - qqt
 
-        return (precondition_closure, self._precond_lt, self._precond_logdet_cache)
+        return (precondition_closure, self._precond_lt)
 
     def _init_cache(self):
         *batch_shape, n, k = self._piv_chol_self.shape

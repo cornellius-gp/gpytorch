@@ -50,7 +50,7 @@ class LowRankRootAddedDiagLazyTensor(AddedDiagLazyTensor):
         return res
 
     def _preconditioner(self):
-        return None, None, None
+        return None, None
 
     def _solve(self, rhs, preconditioner=None, num_tridiag=0):
         A_inv = self._diag_tensor.inverse()  # This is fine since it's a DiagLazyTensor

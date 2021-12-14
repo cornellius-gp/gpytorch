@@ -112,7 +112,7 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
 
     def _preconditioner(self):
         # solves don't use CG so don't waste time computing it
-        return None, None, None
+        return None, None
 
     def _solve(self, rhs, preconditioner=None, num_tridiag=0):
 

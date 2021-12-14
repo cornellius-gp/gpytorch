@@ -64,7 +64,7 @@ class InvQuadLogDet(Function):
         # Get closure for matmul
         lazy_tsr = ctx.representation_tree(*matrix_args)
         with torch.no_grad():
-            preconditioner, precond_lt, logdet_correction = lazy_tsr._preconditioner()
+            preconditioner, precond_lt = lazy_tsr._preconditioner()
 
         ctx.preconditioner = preconditioner
 
@@ -175,8 +175,8 @@ class InvQuadLogDet(Function):
                 (logdet_term,) = slq.evaluate(ctx.matrix_shape, eigenvalues, eigenvectors, [lambda x: x.log()])
 
                 # Add correction
-                if logdet_correction is not None:
-                    logdet_term = logdet_term + logdet_correction
+                if precond_lt is not None:
+                    logdet_term = logdet_term + precond_lt.logdet()
 
         # Extract inv_quad solves from all the solves
         if ctx.inv_quad:

@@ -455,7 +455,7 @@ class LazyTensor(ABC):
         Returns:
             function: a function on x which performs P^{-1}(x)
         """
-        base_precond, _, _ = self._preconditioner()
+        base_precond, _ = self._preconditioner()
 
         if base_precond is not None:
             return base_precond
@@ -534,14 +534,15 @@ class LazyTensor(ABC):
             )
 
     def _preconditioner(self):
-        """
+        r"""
         (Optional) define a preconditioner (P) for linear conjugate gradients
 
-        Returns:
-            function: a function on x which performs P^{-1}(x)
-            scalar: the log determinant of P
+        :rtype: tuple(callable, ~gpytorch.lazy.LazyTensor)
+        :return:
+            - A function to compute :math:`\mathbf P^{-1} \mathbf v` for input vector :math:`\mathbf v`
+            - A LazyTensor representation of :math:`\mathbf P`
         """
-        return None, None, None
+        return None, None
 
     def _probe_vectors_and_norms(self):
         return None, None

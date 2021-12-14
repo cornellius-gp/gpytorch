@@ -40,7 +40,7 @@ def contour_integral_quad(
         num_contour_quadrature = settings.num_contour_quadrature.value()
 
     output_batch_shape = _mul_broadcast_shape(lazy_tensor.batch_shape, rhs.shape[:-2])
-    preconditioner, preconditioner_lt, _ = lazy_tensor._preconditioner()
+    preconditioner, preconditioner_lt = lazy_tensor._preconditioner()
 
     def sqrt_precond_matmul(rhs):
         if preconditioner_lt is not None:
