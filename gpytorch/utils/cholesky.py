@@ -9,7 +9,7 @@ from .errors import NanError, NotPSDError
 from .warnings import NumericalWarning
 
 
-def _psd_safe_cholesky(A, out=None, jitter=None, max_tries=3):
+def _psd_safe_cholesky(A, out=None, jitter=None, max_tries=None):
     # Maybe log
     if settings.verbose_linalg.on():
         settings.verbose_linalg.logger.debug(f"Running Cholesky on a matrix of size {A.shape}.")
@@ -27,6 +27,8 @@ def _psd_safe_cholesky(A, out=None, jitter=None, max_tries=3):
 
     if jitter is None:
         jitter = settings.cholesky_jitter.value(A.dtype)
+    if max_tries is None:
+        max_tries = settings.cholesky_max_tries.value()
     Aprime = A.clone()
     jitter_prev = 0
     for i in range(max_tries):
@@ -45,7 +47,7 @@ def _psd_safe_cholesky(A, out=None, jitter=None, max_tries=3):
     raise NotPSDError(f"Matrix not positive definite after repeatedly adding jitter up to {jitter_new:.1e}.")
 
 
-def psd_safe_cholesky(A, upper=False, out=None, jitter=None, max_tries=3):
+def psd_safe_cholesky(A, upper=False, out=None, jitter=None, max_tries=None):
     """Compute the Cholesky decomposition of A. If A is only p.s.d, add a small jitter to the diagonal.
     Args:
         :attr:`A` (Tensor):
