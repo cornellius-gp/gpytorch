@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import torch
+
 from ..distributions import MultivariateNormal
 from ..likelihoods import _GaussianLikelihoodBase
 from .marginal_log_likelihood import MarginalLogLikelihood
@@ -59,9 +61,17 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
 
         # Get the log prob of the marginal distribution
         output = self.likelihood(function_dist, *params)
-        res = output.log_prob(target)
-        res = self._add_other_terms(res, params)
+        res = output.log_prob(target, combine_terms=self.combine_terms)
 
         # Scale by the amount of data we have
         num_data = function_dist.event_shape.numel()
-        return res.div_(num_data)
+
+        if self.combine_terms:
+            res = self._add_other_terms(res, params)
+            return res.div(num_data)
+        else:
+            norm_const = res[-1]
+            other_terms = torch.zeros_like(norm_const)
+            other_terms = self._add_other_terms(other_terms, params)
+            res.append(other_terms)
+            return [term.div(num_data) for term in res]
