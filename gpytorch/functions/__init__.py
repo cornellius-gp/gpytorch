@@ -167,6 +167,36 @@ def logdet(mat):
     return res
 
 
+def pivoted_cholesky(mat, rank, error_tol=None, return_pivots=None):
+    r"""
+    Performs a partial pivoted Cholesky factorization of the (positive definite) matrix.
+    :math:`\mathbf L \mathbf L^\top = \mathbf K`.
+    The partial pivoted Cholesky factor :math:`\mathbf L \in \mathbb R^{N \times \text{rank}}`
+    forms a low rank approximation to the matrix.
+
+    The pivots are selected greedily, corresponding to the maximum diagonal element in the
+    residual after each Cholesky iteration. See `Harbrecht et al., 2012`_.
+
+    :param mat: The matrix :math:`\mathbf K` to decompose
+    :type mat: ~gpytorch.lazy.LazyTensor or ~torch.Tensor
+    :param int rank: The size of the partial pivoted Cholesky factor.
+    :param error_tol: Defines an optional stopping criterion.
+        If the residual of the factorization is less than :attr:`error_tol`, then the
+        factorization will exit early. This will result in a :math:`\leq \text{ rank}` factor.
+    :type error_tol: float, optional
+    :param bool return_pivots: (default: False) Whether or not to return the pivots alongside
+        the partial pivoted Cholesky factor.
+    :return: the `... x N x rank` factor (and optionally the `... x N` pivots)
+    :rtype: torch.Tensor or tuple(torch.Tensor, torch.Tensor)
+
+    .. _Harbrecht et al., 2012:
+        https://www.sciencedirect.com/science/article/pii/S0168927411001814
+    """
+    from ..lazy import lazify
+
+    return lazify(mat).pivoted_cholesky(rank=rank, error_tol=error_tol, return_pivots=return_pivots)
+
+
 def root_decomposition(mat):
     """
     Returns a (usually low-rank) root decomposotion lazy tensor of a PSD matrix.
@@ -201,6 +231,7 @@ __all__ = [
     "log_normal_cdf",
     "matmul",
     "normal_cdf",
+    "pivoted_cholesky",
     "root_decomposition",
     "root_inv_decomposition",
     # Deprecated

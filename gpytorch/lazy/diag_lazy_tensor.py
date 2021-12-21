@@ -267,19 +267,19 @@ class ConstantDiagLazyTensor(DiagLazyTensor):
         return (res,)
 
     def _sum_batch(self, dim):
-        return self.__class__(self.diag_values.sum(dim), diag_shape=self.diag_shape)
+        return ConstantDiagLazyTensor(self.diag_values.sum(dim), diag_shape=self.diag_shape)
 
     def abs(self):
-        return self.__class__(self.diag_values.abs(), diag_shape=self.diag_shape)
+        return ConstantDiagLazyTensor(self.diag_values.abs(), diag_shape=self.diag_shape)
 
     def exp(self):
-        return self.__class__(self.diag_values.exp(), diag_shape=self.diag_shape)
+        return ConstantDiagLazyTensor(self.diag_values.exp(), diag_shape=self.diag_shape)
 
     def inverse(self):
-        return self.__class__(self.diag_values.reciprocal(), diag_shape=self.diag_shape)
+        return ConstantDiagLazyTensor(self.diag_values.reciprocal(), diag_shape=self.diag_shape)
 
     def log(self):
-        return self.__class__(self.diag_values.log(), diag_shape=self.diag_shape)
+        return ConstantDiagLazyTensor(self.diag_values.log(), diag_shape=self.diag_shape)
 
     def matmul(self, other):
         if isinstance(other, ConstantDiagLazyTensor):
@@ -287,4 +287,4 @@ class ConstantDiagLazyTensor(DiagLazyTensor):
         return super().matmul(other)
 
     def sqrt(self):
-        return self.__class__(self.diag_values.sqrt(), diag_shape=self.diag_shape)
+        return ConstantDiagLazyTensor(self.diag_values.sqrt(), diag_shape=self.diag_shape)
