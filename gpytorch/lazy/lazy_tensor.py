@@ -455,7 +455,7 @@ class LazyTensor(ABC):
         Returns:
             function: a function on x which performs P^{-1}(x)
         """
-        base_precond, _ = self._preconditioner()
+        base_precond, _, _ = self._preconditioner()
 
         if base_precond is not None:
             return base_precond
@@ -534,15 +534,14 @@ class LazyTensor(ABC):
             )
 
     def _preconditioner(self):
-        r"""
+        """
         (Optional) define a preconditioner (P) for linear conjugate gradients
 
-        :rtype: tuple(callable, ~gpytorch.lazy.LazyTensor)
-        :return:
-            - A function to compute :math:`\mathbf P^{-1} \mathbf v` for input vector :math:`\mathbf v`
-            - A LazyTensor representation of :math:`\mathbf P`
+        Returns:
+            function: a function on x which performs P^{-1}(x)
+            scalar: the log determinant of P
         """
-        return None, None
+        return None, None, None
 
     def _probe_vectors_and_norms(self):
         return None, None
@@ -1336,7 +1335,7 @@ class LazyTensor(ABC):
         if inv_quad_rhs is not None:
             args = [inv_quad_rhs] + list(args)
 
-        preconditioner, precond_lt = self._preconditioner()
+        preconditioner, precond_lt, logdet_p = self._preconditioner()
         if precond_lt is None:
             from ..lazy.identity_lazy_tensor import IdentityLazyTensor
 
@@ -1346,6 +1345,7 @@ class LazyTensor(ABC):
                 dtype=self.dtype,
                 device=self.device,
             )
+            logdet_p = 0.0
 
         precond_args = precond_lt.representation()
         probe_vectors, probe_vector_norms = self._probe_vectors_and_norms()
@@ -1362,7 +1362,7 @@ class LazyTensor(ABC):
             *(list(args) + list(precond_args)),
         )
         logdet_term = pinvk_logdet
-        logdet_term = logdet_term + precond_lt.logdet()
+        logdet_term = logdet_term + logdet_p
 
         if inv_quad_term.numel() and reduce_inv_quad:
             inv_quad_term = inv_quad_term.sum(-1)

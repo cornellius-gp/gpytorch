@@ -63,11 +63,8 @@ class TestInvQuadLogDetNonBatch(BaseTestCase, unittest.TestCase):
         # Compare forward pass
         if inv_quad_rhs is not None:
             self.assertAllClose(res_inv_quad, actual_inv_quad, rtol=1e-2)
-        if logdet:
-            if improper_logdet:
-                self.assertAlmostEqual(res_logdet.norm().item(), 0)
-            else:
-                self.assertAllClose(res_logdet, actual_logdet, rtol=1e-1, atol=2e-1)
+        if logdet and not improper_logdet:
+            self.assertAllClose(res_logdet, actual_logdet, rtol=1e-1, atol=2e-1)
 
         # Backward
         if inv_quad_rhs is not None:
