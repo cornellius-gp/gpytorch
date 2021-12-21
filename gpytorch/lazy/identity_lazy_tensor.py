@@ -10,6 +10,7 @@ from ..utils.getitem import _compute_getitem_size, _is_noop_index
 from ..utils.memoize import cached
 from .diag_lazy_tensor import ConstantDiagLazyTensor
 from .lazy_tensor import LazyTensor
+from .zero_lazy_tensor import ZeroLazyTensor
 
 
 class IdentityLazyTensor(ConstantDiagLazyTensor):
@@ -118,6 +119,9 @@ class IdentityLazyTensor(ConstantDiagLazyTensor):
     def abs(self):
         return self
 
+    def exp(self):
+        return self
+
     def inverse(self):
         return self
 
@@ -143,6 +147,11 @@ class IdentityLazyTensor(ConstantDiagLazyTensor):
             logdet_term = torch.empty(0, dtype=self.dtype, device=self.device)
 
         return inv_quad_term, logdet_term
+
+    def log(self):
+        return ZeroLazyTensor(
+            *self._batch_shape, self.diag_shape, self.diag_shape, dtype=self._dtype, device=self._device
+        )
 
     def matmul(self, other):
         is_vec = False

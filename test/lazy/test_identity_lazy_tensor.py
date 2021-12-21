@@ -71,6 +71,16 @@ class TestIdentityLazyTensor(LazyTensorTestCase, unittest.TestCase):
         self.assertAllClose(evals, torch.ones(lazy_tensor.shape[:-1]))
         self.assertAllClose(evecs.evaluate(), torch.eye(lazy_tensor.size(-1)).expand(lazy_tensor.shape))
 
+    def test_exp(self):
+        lazy_tensor = self.create_lazy_tensor()
+        exp = lazy_tensor.exp().evaluate()
+        self.assertAllClose(exp, torch.eye(lazy_tensor.size(-1)).expand(*lazy_tensor.shape))
+
+    def test_log(self):
+        lazy_tensor = self.create_lazy_tensor()
+        log = lazy_tensor.log().evaluate()
+        self.assertAllClose(log, torch.zeros(*lazy_tensor.shape))
+
     def test_sqrt_inv_matmul(self):
         lazy_tensor = self.create_lazy_tensor().detach().requires_grad_(True)
         if len(lazy_tensor.batch_shape):
