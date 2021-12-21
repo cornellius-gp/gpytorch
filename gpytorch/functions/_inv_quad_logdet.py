@@ -86,9 +86,9 @@ class InvQuadLogdet(Function):
                     covar_root = precond_lt.root_decomposition().root
 
                 warnings.warn(
-                    "Deterministic probes will currently work only if you aren't training multiple independent"
-                    " models simultaneously.",
-                    UserWarning,
+                    "The deterministic probes feature is now deprecated. "
+                    "See https://github.com/cornellius-gp/gpytorch/pull/1836.",
+                    DeprecationWarning,
                 )
                 base_samples = settings.deterministic_probes.probe_vectors
                 if base_samples is None or covar_root.size(-1) != base_samples.size(-2):
