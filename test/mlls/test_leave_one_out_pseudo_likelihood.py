@@ -27,9 +27,7 @@ class TestLeaveOneOutPseudoLikelihood(unittest.TestCase):
         likelihood = gpytorch.likelihoods.GaussianLikelihood().to(dtype=dtype, device=device)
         model = ExactGPModel(train_x, train_y, likelihood).to(dtype=dtype, device=device)
         loocv = gpytorch.mlls.LeaveOneOutPseudoLikelihood(
-            likelihood=likelihood,
-            model=model,
-            combine_terms=combine_terms
+            likelihood=likelihood, model=model, combine_terms=combine_terms
         )
         return train_x, train_y, loocv
 

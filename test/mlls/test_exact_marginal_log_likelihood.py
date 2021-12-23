@@ -14,9 +14,7 @@ class TestExactMarginalLogLikelihood(unittest.TestCase):
         likelihood = gpytorch.likelihoods.GaussianLikelihood().to(dtype=dtype, device=device)
         model = ExactGPModel(train_x, train_y, likelihood).to(dtype=dtype, device=device)
         exact_mll = gpytorch.mlls.ExactMarginalLogLikelihood(
-            likelihood=likelihood,
-            model=model,
-            combine_terms=combine_terms
+            likelihood=likelihood, model=model, combine_terms=combine_terms
         )
         return train_x, train_y, exact_mll
 
