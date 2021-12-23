@@ -59,11 +59,11 @@ class LeaveOneOutPseudoLikelihood(ExactMarginalLogLikelihood):
 
         # Scale by the amount of data we have and then add on the scaled constant
         num_data = target.size(-1)
-        term1 = sigma2.log().sum(-1)
-        term2 = ((target - mu).pow(2.0) / sigma2).sum(-1)
-        norm_const = torch.tensor(num_data * math.log(2 * math.pi)).to(term1)
-        other_term = self._add_other_terms(torch.zeros_like(term1), params)
-        split_terms = [term1, term2, norm_const, other_term]
+        data_fit = ((target - mu).pow(2.0) / sigma2).sum(-1)
+        approx_logdet = sigma2.log().sum(-1)
+        norm_const = torch.tensor(num_data * math.log(2 * math.pi)).to(approx_logdet)
+        other_term = self._add_other_terms(torch.zeros_like(approx_logdet), params)
+        split_terms = [data_fit, approx_logdet, norm_const, other_term]
 
         if self.combine_terms:
             return -0.5 / num_data * sum(split_terms)
