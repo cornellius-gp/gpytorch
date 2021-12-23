@@ -219,19 +219,31 @@ class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
             var = torch.randn(4, device=device, dtype=dtype).abs_()
             values = torch.randn(4, device=device, dtype=dtype)
 
-            res = MultivariateNormal(mean, DiagLazyTensor(var)).log_prob(values)
+            mvn = MultivariateNormal(mean, DiagLazyTensor(var))
+            res = mvn.log_prob(values)
             actual = TMultivariateNormal(mean, torch.eye(4, device=device, dtype=dtype) * var).log_prob(values)
             self.assertLess((res - actual).div(res).abs().item(), 1e-2)
+
+            res2 = mvn.log_prob(values, combine_terms=False)
+            assert len(res2) == 3
+            res2 = sum(res2)
+            self.assertLess((res2 - actual).div(res).abs().item(), 1e-2)
 
             mean = torch.randn(3, 4, device=device, dtype=dtype)
             var = torch.randn(3, 4, device=device, dtype=dtype).abs_()
             values = torch.randn(3, 4, device=device, dtype=dtype)
 
-            res = MultivariateNormal(mean, DiagLazyTensor(var)).log_prob(values)
+            mvn = MultivariateNormal(mean, DiagLazyTensor(var))
+            res = mvn.log_prob(values)
             actual = TMultivariateNormal(
                 mean, var.unsqueeze(-1) * torch.eye(4, device=device, dtype=dtype).repeat(3, 1, 1)
             ).log_prob(values)
             self.assertLess((res - actual).div(res).abs().norm(), 1e-2)
+
+            res2 = mvn.log_prob(values, combine_terms=False)
+            assert len(res2) == 3
+            res2 = sum(res2)
+            self.assertLess((res2 - actual).div(res).abs().norm(), 1e-2)
 
     def test_log_prob_cuda(self):
         if torch.cuda.is_available():

@@ -21,27 +21,48 @@ class ExactGPModel(gpytorch.models.ExactGP):
 
 
 class TestLeaveOneOutPseudoLikelihood(unittest.TestCase):
-    def get_data(self, shapes, dtype=None, device=None):
+    def get_data(self, shapes, combine_terms, dtype=None, device=None):
         train_x = torch.rand(*shapes, dtype=dtype, device=device, requires_grad=True)
         train_y = torch.sin(train_x[..., 0]) + torch.cos(train_x[..., 1])
         likelihood = gpytorch.likelihoods.GaussianLikelihood().to(dtype=dtype, device=device)
         model = ExactGPModel(train_x, train_y, likelihood).to(dtype=dtype, device=device)
-        loocv = gpytorch.mlls.LeaveOneOutPseudoLikelihood(likelihood=likelihood, model=model)
+        loocv = gpytorch.mlls.LeaveOneOutPseudoLikelihood(
+            likelihood=likelihood,
+            model=model,
+            combine_terms=combine_terms
+        )
         return train_x, train_y, loocv
 
     def test_smoke(self):
         """Make sure the loocv works without batching."""
-        train_x, train_y, loocv = self.get_data([5, 2])
+        train_x, train_y, loocv = self.get_data([5, 2], combine_terms=True)
         output = loocv.model(train_x)
         loss = -loocv(output, train_y)
         loss.backward()
         self.assertTrue(train_x.grad is not None)
 
+        train_x, train_y, loocv = self.get_data([5, 2], combine_terms=False)
+        output = loocv.model(train_x)
+        mll_out = loocv(output, train_y)
+        loss = -1 * sum(mll_out)
+        loss.backward()
+        assert len(mll_out) == 4
+        self.assertTrue(train_x.grad is not None)
+
     def test_smoke_batch(self):
         """Make sure the loocv works without batching."""
-        train_x, train_y, loocv = self.get_data([3, 3, 3, 5, 2])
+        train_x, train_y, loocv = self.get_data([3, 3, 3, 5, 2], combine_terms=True)
         output = loocv.model(train_x)
         loss = -loocv(output, train_y)
+        assert loss.shape == (3, 3, 3)
+        loss.sum().backward()
+        self.assertTrue(train_x.grad is not None)
+
+        train_x, train_y, loocv = self.get_data([3, 3, 3, 5, 2], combine_terms=False)
+        output = loocv.model(train_x)
+        mll_out = loocv(output, train_y)
+        loss = -1 * sum(mll_out)
+        assert len(mll_out) == 4
         assert loss.shape == (3, 3, 3)
         loss.sum().backward()
         self.assertTrue(train_x.grad is not None)
@@ -50,7 +71,7 @@ class TestLeaveOneOutPseudoLikelihood(unittest.TestCase):
         """Make sure that the bordered system solves match the naive solution."""
         n = 5
         # Compute the pseudo-likelihood via the bordered systems in O(n^3)
-        train_x, train_y, loocv = self.get_data([n, 2], dtype=torch.float64)
+        train_x, train_y, loocv = self.get_data([n, 2], combine_terms=True, dtype=torch.float64)
         output = loocv.model(train_x)
         loocv_1 = loocv(output, train_y)
 

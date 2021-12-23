@@ -203,12 +203,12 @@ class MultitaskMultivariateNormal(MultivariateNormal):
             return base_samples.view(new_shape).transpose(-1, -2).contiguous()
         return base_samples.view(*sample_shape, *self._output_shape)
 
-    def log_prob(self, value):
+    def log_prob(self, value, combine_terms=True):
         if not self._interleaved:
             # flip shape of last two dimensions
             new_shape = value.shape[:-2] + value.shape[:-3:-1]
             value = value.view(new_shape).transpose(-1, -2).contiguous()
-        return super().log_prob(value.view(*value.shape[:-2], -1))
+        return super().log_prob(value.view(*value.shape[:-2], -1), combine_terms)
 
     @property
     def mean(self):

@@ -167,7 +167,9 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         # Get log determininant and first part of quadratic form
         covar = covar.evaluate_kernel()
         inv_quad, logdet = covar.inv_quad_logdet(inv_quad_rhs=diff.unsqueeze(-1), logdet=True)
-        norm_const = diff.size(-1) * math.log(2 * math.pi)
+        norm_const = torch.tensor(
+            diff.size(-1) * math.log(2 * math.pi)
+        ).to(inv_quad)
         split_terms = [inv_quad, logdet, norm_const]
 
         if combine_terms:

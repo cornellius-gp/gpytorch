@@ -19,6 +19,7 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
 
     :param ~gpytorch.likelihoods.GaussianLikelihood likelihood: The Gaussian likelihood for the model
     :param ~gpytorch.models.ExactGP model: The exact GP model
+    :param ~bool combine_terms (optional): If `False`, the MLL call returns each MLL term separately
 
     Example:
         >>> # model is a gpytorch.models.ExactGP
@@ -30,10 +31,10 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
         >>> loss.backward()
     """
 
-    def __init__(self, likelihood, model):
+    def __init__(self, likelihood, model, combine_terms=True):
         if not isinstance(likelihood, _GaussianLikelihoodBase):
             raise RuntimeError("Likelihood must be Gaussian for exact inference")
-        super(ExactMarginalLogLikelihood, self).__init__(likelihood, model)
+        super(ExactMarginalLogLikelihood, self).__init__(likelihood, model, combine_terms)
 
     def _add_other_terms(self, res, params):
         # Add additional terms (SGPR / learned inducing points, heteroskedastic likelihood models)
