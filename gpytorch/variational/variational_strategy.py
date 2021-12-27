@@ -5,10 +5,18 @@ import warnings
 import torch
 
 from ..distributions import MultivariateNormal
-from ..lazy import DiagLazyTensor, MatmulLazyTensor, RootLazyTensor, SumLazyTensor, TriangularLazyTensor, delazify
+from ..lazy import (
+    CholLazyTensor,
+    DiagLazyTensor,
+    MatmulLazyTensor,
+    RootLazyTensor,
+    SumLazyTensor,
+    TriangularLazyTensor,
+    delazify,
+)
 from ..settings import _linalg_dtype_cholesky, trace_mode
 from ..utils.cholesky import psd_safe_cholesky
-from ..utils.errors import CachingError
+from ..utils.errors import CachingError, NotPSDError
 from ..utils.memoize import cached, clear_cache_hook, pop_from_cache_ignore_args
 from ..utils.warnings import OldVersionWarning
 from ._variational_strategy import _VariationalStrategy
@@ -83,6 +91,54 @@ class VariationalStrategy(_VariationalStrategy):
         ones = torch.ones_like(zeros)
         res = MultivariateNormal(zeros, DiagLazyTensor(ones))
         return res
+
+    @property
+    @cached(name="pseudo_points_memo")
+    def pseudo_points(self):
+        # assume whitened
+        # retrieve the variational mean, m and covariance matrix, S.
+        var_cov_root = TriangularLazyTensor(self._variational_distribution.chol_variational_covar)
+        var_cov = CholLazyTensor(var_cov_root)
+        var_mean = self.variational_distribution.mean
+        if var_mean.shape[-1] != 1:
+            var_mean = var_mean.unsqueeze(-1)
+
+        # compute R = I - S
+        res = var_cov.add_jitter(-1.0)._mul_constant(-1.0)
+
+        # K^{1/2}
+        Kmm = self.covar_module(self.inducing_points)
+        Kmm_root = Kmm.cholesky()
+
+        cov_diff = res
+
+        # D_a = (S^{-1} - K^{-1})^{-1} = S + S R^{-1} S
+        # note that in the whitened case R = I - S, unwhitened R = K - S
+        # we compute (R R^{T})^{-1} R^T S for stability reasons as R is probably not PSD.
+        eval_lhs = var_cov.evaluate()
+        eval_rhs = cov_diff.transpose(-1, -2).matmul(eval_lhs)
+        inner_term = cov_diff.matmul(cov_diff.transpose(-1, -2))
+        inner_solve = inner_term.add_jitter(1e-3).inv_matmul(eval_rhs, eval_lhs.transpose(-1, -2))
+        inducing_covar = var_cov + inner_solve
+
+        inducing_covar = Kmm_root.matmul(inducing_covar).matmul(Kmm_root.transpose(-1, -2))
+
+        # mean term: D_a S^{-1} m
+        # unwhitened: (S - S R^{-1} S) S^{-1} m = (I - S R^{-1}) m
+        rhs = cov_diff.transpose(-1, -2).matmul(var_mean)
+        inner_rhs_mean_solve = inner_term.add_jitter(1e-3).inv_matmul(rhs)
+        new_mean = Kmm_root.matmul(inner_rhs_mean_solve)
+
+        # ensure inducing covar is psd
+        try:
+            final_inducing_covar = CholLazyTensor(inducing_covar.add_jitter(1e-3).cholesky()).evaluate()
+        except NotPSDError:
+            from gpytorch.lazy import DiagLazyTensor
+
+            evals, evecs = inducing_covar.symeig(eigenvectors=True)
+            final_inducing_covar = evecs.matmul(DiagLazyTensor(evals + 1e-4)).matmul(evecs.transpose(-1, -2)).evaluate()
+
+        return final_inducing_covar, new_mean
 
     def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None, **kwargs):
         # Compute full prior distribution

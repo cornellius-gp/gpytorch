@@ -1,14 +1,38 @@
 #!/usr/bin/env python3
 
+import functools
 from abc import ABC, abstractproperty
+from copy import deepcopy
 
 import torch
 
 from .. import settings
 from ..distributions import Delta, MultivariateNormal
+from ..kernels import InducingPointKernel
+from ..models import ExactGP
 from ..module import Module
 from ..utils.broadcasting import _mul_broadcast_shape
-from ..utils.memoize import cached, clear_cache_hook
+from ..utils.memoize import add_to_cache, cached, clear_cache_hook
+
+
+class _BaseExactGP(ExactGP):
+    def __init__(self, train_inputs, train_targets, likelihood, mean_module, covar_module):
+        super().__init__(train_inputs, train_targets, likelihood)
+        self.mean_module = mean_module
+        self.covar_module = covar_module
+
+    def forward(self, x):
+        mean = self.mean_module(x)
+        covar = self.covar_module(x)
+        return MultivariateNormal(mean, covar)
+
+
+def _add_cache_hook(tsr, pred_strat):
+    if tsr.grad_fn is not None:
+        wrapper = functools.partial(clear_cache_hook, pred_strat)
+        functools.update_wrapper(wrapper, clear_cache_hook)
+        tsr.grad_fn.register_hook(wrapper)
+    return tsr
 
 
 class _VariationalStrategy(Module, ABC):
@@ -96,6 +120,95 @@ class _VariationalStrategy(Module, ABC):
         with settings.max_preconditioner_size(0):
             kl_divergence = torch.distributions.kl.kl_divergence(self.variational_distribution, self.prior_distribution)
         return kl_divergence
+
+    @cached(name="inducing_model")
+    def inducing_model(self):
+        with torch.no_grad():
+            inducing_noise_covar, inducing_mean = self.pseudo_points()
+            inducing_points = self.variational_strategy.inducing_points.detach()
+
+            new_covar_module = InducingPointKernel(deepcopy(self.covar_module), inducing_points, self.likelihood)
+
+            inducing_exact_model = _BaseExactGP(
+                inducing_points,
+                inducing_mean,
+                mean_module=deepcopy(self.mean_module),
+                covar_module=new_covar_module,
+                likelihood=deepcopy(self.likelihood),
+            )
+
+            # now fantasize around this model
+            # as this model is new, we need to compute a posterior to construct the prediction strategy
+            # which uses the likelihood pseudo caches
+            faked_points = torch.randn(
+                *inducing_points.shape[:-2],
+                1,
+                inducing_points.shape[-1],
+                device=inducing_points.device,
+                dtype=inducing_points.dtype,
+            )
+            inducing_exact_model.eval()
+            _ = inducing_exact_model(faked_points)
+
+            # then we overwrite the likelihood to take into account the multivariate normal term
+            pred_strat = inducing_exact_model.prediction_strategy
+            pred_strat._memoize_cache = {}
+            with torch.no_grad():
+                updated_lik_train_train_covar = (
+                    pred_strat.train_prior_dist.lazy_covariance_matrix + inducing_noise_covar
+                )
+                pred_strat.lik_train_train_covar = updated_lik_train_train_covar
+
+            # do the mean cache because the mean cache doesn't solve against lik_train_train_covar
+            train_mean = inducing_exact_model.mean_module(*inducing_exact_model.train_inputs)
+            train_labels_offset = (inducing_exact_model.prediction_strategy.train_labels - train_mean).unsqueeze(-1)
+            mean_cache = updated_lik_train_train_covar.inv_matmul(train_labels_offset).squeeze(-1)
+            mean_cache = _add_cache_hook(mean_cache, inducing_exact_model.prediction_strategy)
+            add_to_cache(pred_strat, "mean_cache", mean_cache)
+
+            inducing_exact_model.prediction_strategy = pred_strat
+        return inducing_exact_model
+
+    def pseudo_points(self):
+        raise NotImplementedError("Each variational strategy must implement its own pseudo points method")
+
+    def get_fantasy_model(
+        self,
+        inputs,
+        targets,
+        noise=None,
+        **kwargs,
+    ):
+        """
+        Reference: "Conditioning Sparse Variational Gaussian Processes for Online Decision-Making,"
+            Maddox, Stanton, Wilson, NeurIPS, '21
+            https://papers.nips.cc/paper/2021/hash/325eaeac5bef34937cfdc1bd73034d17-Abstract.html
+        """
+        # first we construct an exact model over the inducing points with the inducing covariance
+        # matrix
+        inducing_exact_model = self.inducing_model()
+
+        # then we update this model by adding in the inputs and pseudo targets
+        if inputs.shape[-2] == 1 or targets.shape[-1] != 1:
+            targets = targets.unsqueeze(-1)
+            # put on a trailing bdim for bs of 1
+        # finally we fantasize wrt targets
+        if noise is not None:
+            kwargs["noise"] = noise
+        fantasy_model = inducing_exact_model.condition_on_observations(inputs, targets, **kwargs)
+        fant_pred_strat = fantasy_model.prediction_strategy
+
+        # first we update the lik_train_train_covar
+        # do the mean cache again because the mean cache resets the likelihood forward
+        train_mean = fantasy_model.mean_module(*fantasy_model.train_inputs)
+        train_labels_offset = (fant_pred_strat.train_labels - train_mean).unsqueeze(-1)
+        fantasy_lik_train_root_inv = fant_pred_strat.lik_train_train_covar.root_inv_decomposition()
+        mean_cache = fantasy_lik_train_root_inv.matmul(train_labels_offset).squeeze(-1)
+        mean_cache = _add_cache_hook(mean_cache, fant_pred_strat)
+        add_to_cache(fant_pred_strat, "mean_cache", mean_cache)
+
+        fantasy_model.prediction_strategy = fant_pred_strat
+        return fantasy_model
 
     def __call__(self, x, prior=False, **kwargs):
         # If we're in prior mode, then we're done!
