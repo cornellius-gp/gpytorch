@@ -437,7 +437,7 @@ class min_variance(_dtype_value_context):
 
 class cholesky_jitter(_dtype_value_context):
     """
-    The jitter value passed to `psd_safe_cholesky` when using cholesky solves.
+    The jitter value used by `psd_safe_cholesky` when using cholesky solves.
 
     - Default for `float`: 1e-6
     - Default for `double`: 1e-8
@@ -456,6 +456,16 @@ class cholesky_jitter(_dtype_value_context):
             )
             return cls._global_float_value
         return super().value(dtype=dtype)
+
+
+class cholesky_max_tries(_value_context):
+    """
+    The max_tries value used by `psd_safe_cholesky` when using cholesky solves.
+
+    (Default: 3)
+    """
+
+    _global_value = 3
 
 
 class cg_tolerance(_value_context):
