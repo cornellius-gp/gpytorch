@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import math
+import pickle
 import unittest
 
 import torch
@@ -170,6 +171,10 @@ class TestMaternKernel(unittest.TestCase, BaseKernelTestCase):
         self.create_kernel_with_prior(None)
         self.create_kernel_with_prior(NormalPrior(0, 1))
         self.assertRaises(TypeError, self.create_kernel_with_prior, 1)
+
+    def test_pickle_with_prior(self):
+        kernel = self.create_kernel_with_prior(NormalPrior(0, 1))
+        pickle.loads(pickle.dumps(kernel))  # Should be able to pickle and unpickle with a prior
 
 
 if __name__ == "__main__":
