@@ -7,7 +7,7 @@ import torch
 from torch import Tensor
 
 from .. import settings
-from ..utils import broadcasting, pivoted_cholesky
+from ..utils import broadcasting
 from ..utils.memoize import cached
 from ..utils.warnings import NumericalWarning
 from .diag_lazy_tensor import ConstantDiagLazyTensor, DiagLazyTensor
@@ -97,7 +97,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
         # Through matrix determinant lemma, log |L L^T + D| reduces down to 2 log |R|
         if self._q_cache is None:
             max_iter = settings.max_preconditioner_size.value()
-            self._piv_chol_self = pivoted_cholesky.pivoted_cholesky(self._lazy_tensor, max_iter)
+            self._piv_chol_self = self._lazy_tensor.pivoted_cholesky(rank=max_iter)
             if torch.any(torch.isnan(self._piv_chol_self)).item():
                 warnings.warn(
                     "NaNs encountered in preconditioner computation. Attempting to continue without preconditioning.",
