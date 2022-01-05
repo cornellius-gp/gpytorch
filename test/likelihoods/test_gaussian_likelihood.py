@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import pickle
 import unittest
 
 import torch
@@ -13,6 +14,7 @@ from gpytorch.likelihoods import (
     GaussianLikelihoodWithMissingObs,
 )
 from gpytorch.likelihoods.noise_models import FixedGaussianNoise
+from gpytorch.priors import GammaPrior
 from gpytorch.test.base_likelihood_test_case import BaseLikelihoodTestCase
 
 
@@ -21,6 +23,10 @@ class TestGaussianLikelihood(BaseLikelihoodTestCase, unittest.TestCase):
 
     def create_likelihood(self):
         return GaussianLikelihood()
+
+    def test_pickle_with_prior(self):
+        likelihood = GaussianLikelihood(noise_prior=GammaPrior(1, 1))
+        pickle.loads(pickle.dumps(likelihood))  # Should be able to pickle and unpickle with a prior
 
 
 class TestGaussianLikelihoodBatch(TestGaussianLikelihood):
