@@ -172,7 +172,7 @@ class Kernel(Module):
                 if not isinstance(lengthscale_prior, Prior):
                     raise TypeError("Expected gpytorch.priors.Prior but got " + type(lengthscale_prior).__name__)
                 self.register_prior(
-                    "lengthscale_prior", lengthscale_prior, lambda m: m.lengthscale, lambda m, v: m._set_lengthscale(v)
+                    "lengthscale_prior", lengthscale_prior, self._lengthscale_param, self._lengthscale_closure
                 )
 
             self.register_constraint("raw_lengthscale", lengthscale_constraint)
@@ -236,6 +236,12 @@ class Kernel(Module):
         Property to indicate whether kernel is stationary or not.
         """
         return self.has_lengthscale
+
+    def _lengthscale_param(self, m):
+        return m.lengthscale
+
+    def _lengthscale_closure(self, m, v):
+        return m._set_lengthscale(v)
 
     @property
     def lengthscale(self):
