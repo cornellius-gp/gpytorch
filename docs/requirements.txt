@@ -4,5 +4,5 @@ ipython
 ipykernel
 sphinx==1.8.5
 sphinx_rtd_theme
-nbsphinx
+nbsphinx==0.8.7
 m2r
