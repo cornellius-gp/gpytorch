@@ -31,7 +31,11 @@ def sparse_chol_inv(pd_mat, nn_k: int, nn_ind: Optional[Tensor] = None):
     # Getting nn_ind here is the only line of code that couldn't execute on arbitrary LazyTensors,
     # since we don't/can't support tril / argsort. If you pass in the equivalent of nn_ind
     if nn_ind is None:
-        nn_ind = delazify(pd_mat).tril().argsort(-1, descending=True)[..., :, 1 : (nn_k + 1)]
+        # nn_ind = delazify(pd_mat).tril().argsort(-1, descending=True)[..., :, 1 : (nn_k + 1)]
+
+        # no need to add the diagonal tensor
+        # pd_mat._lazy_tensor's diagonal entries are the largest anyway
+        nn_ind = pd_mat._lazy_tensor.tensor.topk(nn_k + 1, dim=-1, largest=True, sorted=True).indices[..., :, 1:]
 
     pd_mat = lazify(pd_mat)
 
@@ -77,7 +81,10 @@ def sparse_chol_inv(pd_mat, nn_k: int, nn_ind: Optional[Tensor] = None):
     B.scatter_(-1, nn_ind, b_vecs.squeeze(-1)).tril_(-1)
 
     F_sqrt_inv = DiagLazyTensor(f_diag.sqrt().reciprocal())
-    I_minus_B = lazify(-B).add_jitter(1.0).evaluate()
+    # I_minus_B = lazify(-B).add_jitter(1.0).evaluate()
+    I_minus_B = B
+    I_minus_B.mul_(-1)
+    I_minus_B.diagonal().add_(1.)
 
     chol_precision_mat = F_sqrt_inv @ I_minus_B
 

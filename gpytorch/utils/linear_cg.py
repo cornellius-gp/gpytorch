@@ -121,6 +121,11 @@ def linear_cg(
       result - a solution to the system (if n_tridiag is 0)
       result, tridiags - a solution to the system, and corresponding tridiagonal matrices (if n_tridiag > 0)
     """
+    # import traceback
+    # traceback.print_stack()
+    if settings.verbose_linalg.on():
+        settings.verbose_linalg.lst_residual_norm = []
+
     # Unsqueeze, if necesasry
     is_vector = rhs.ndimension() == 1
     if is_vector:
@@ -286,6 +291,7 @@ def linear_cg(
         if settings.verbose_linalg.on():
             settings.verbose_linalg.lst_residual_norm.append(residual_norm.mean().item())
             print(residual_norm.mean().item())
+            # assert 0
 
         if (
             k >= min(10, max_iter - 1)

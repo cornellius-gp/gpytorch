@@ -68,19 +68,25 @@ class AddedDiagLazyTensor(SumLazyTensor):
             return self.__class__(self._lazy_tensor + other, self._diag_tensor)
 
     def _preconditioner(self):
+        if settings.max_preconditioner_size.value() > 0:
+            return self._lr_preconditioner()
+
+        elif settings.max_sp_preconditioner_size.value() > 0:
+            return self._sp_preconditioner()
+
         # return _lr_preconditioner()
-        return self._sp_preconditioner()
+        # if settings.max_lr_preconditioner_size.value() == 0:
+        #     return self._sp_preconditioner()
 
     def _sp_preconditioner(self):
         from ..utils import sparse_chol_inv
         L_res_inv = sparse_chol_inv(
-            AddedDiagLazyTensor(self._lazy_tensor, self._diag_tensor),
-            10
+            # AddedDiagLazyTensor(self._lazy_tensor, self._diag_tensor),
+            self,
+            settings.max_sp_preconditioner_size.value(),
         )
-        """
-        CholLazyTensor is RootLazyTensor with the restriction that self.root is triangular?
-        Consider implementing a InverseLazyTensor?
-        """
+
+        # L_res_inv.inverse() causes memory overflow if L_res_inv is a dense matrix
         self._precond_lt = RootLazyTensor(L_res_inv.inverse())
 
         self._precond_logdet_cache = L_res_inv.log().sum().mul(-2)
@@ -88,7 +94,8 @@ class AddedDiagLazyTensor(SumLazyTensor):
         def precondition_closure(tensor):
             return L_res_inv.transpose(-2, -1) @ (L_res_inv @ tensor)
 
-        return precondition_closure, self._precond_lt, self._precond_logdet_cache
+        # return precondition_closure, self._precond_lt, self._precond_logdet_cache
+        return precondition_closure, None, None
 
     def _lr_preconditioner(self):
         r"""
