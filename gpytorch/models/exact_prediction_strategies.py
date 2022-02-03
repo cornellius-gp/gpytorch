@@ -40,7 +40,17 @@ class DefaultPredictionStrategy(object):
         self._train_shape = train_prior_dist.event_shape
 
         # Flatten the training labels
-        train_labels = train_labels.reshape(*train_labels.shape[: -len(self.train_shape)], self._train_shape.numel())
+        try:
+            train_labels = train_labels.reshape(
+                *train_labels.shape[: -len(self.train_shape)], self._train_shape.numel()
+            )
+        except RuntimeError:
+            raise RuntimeError(
+                "Flattening the training labels failed. This most common cause of this error "
+                + "is because shapes of the prior mean and the training labels are mismatched."
+                + "The shape of the train targets is {0}, ".format(train_labels.shape)
+                + "while the reported shape of the mean is {0}.".format(train_prior_dist.mean.shape)
+            )
 
         self.train_inputs = train_inputs
         self.train_prior_dist = train_prior_dist
