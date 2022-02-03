@@ -22,21 +22,24 @@ try:
 
         def _nonkeops_covar_func(self, x1, x2, diag=False):
             return self.covar_dist(
-                x1, x2, square_dist=True, diag=diag, dist_postprocess_func=postprocess_rbf, postprocess=True
+                x1, x2, square_dist=True, diag=diag, 
+                dist_postprocess_func=postprocess_rbf, postprocess=True
             )
 
         def covar_func(self, x1, x2, diag=False):
             # We only should use KeOps on big kernel matrices
             # If we would otherwise be performing Cholesky inference, (or when just computing a kernel matrix diag)
             # then don't apply KeOps
-            if (
-                diag
-                or x1.size(-2) < settings.max_cholesky_size.value()
-                or x2.size(-2) < settings.max_cholesky_size.value()
-            ):
-                return self._nonkeops_covar_func(x1, x2, diag=diag)
-
+            # enable gradients to ensure that test time caches on small predictions are still 
+            # backprop-able
             with torch.autograd.enable_grad():
+                if (
+                    diag
+                    or x1.size(-2) < settings.max_cholesky_size.value()
+                    or x2.size(-2) < settings.max_cholesky_size.value()
+                ):
+                    return self._nonkeops_covar_func(x1, x2, diag=diag)
+
                 x1_ = KEOLazyTensor(x1[..., :, None, :])
                 x2_ = KEOLazyTensor(x2[..., None, :, :])
 
