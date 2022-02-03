@@ -146,7 +146,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         else:
             return lazify(super().covariance_matrix)
 
-    def log_prob(self, value, combine_terms=True):
+    def log_prob_terms(self, value):
         if settings.fast_computations.log_prob.off():
             return super().log_prob(value)
 
@@ -175,12 +175,15 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         covar = covar.evaluate_kernel()
         inv_quad, logdet = covar.inv_quad_logdet(inv_quad_rhs=diff.unsqueeze(-1), logdet=True)
         norm_const = torch.tensor(diff.size(-1) * math.log(2 * math.pi)).to(inv_quad)
-        split_terms = [inv_quad, logdet, norm_const]
 
-        if combine_terms:
-            return -0.5 * sum(split_terms)
-        else:
-            return [-0.5 * term for term in split_terms]
+        split_terms = [inv_quad, logdet, norm_const]
+        split_terms = [-0.5 * term for term in split_terms]
+
+        return split_terms
+
+    def log_prob(self, value):
+        split_terms = self.log_prob_terms(value)
+        return sum(split_terms)
 
     def rsample(self, sample_shape=torch.Size(), base_samples=None):
         covar = self.lazy_covariance_matrix

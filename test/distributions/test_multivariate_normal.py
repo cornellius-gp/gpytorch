@@ -224,7 +224,7 @@ class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
             actual = TMultivariateNormal(mean, torch.eye(4, device=device, dtype=dtype) * var).log_prob(values)
             self.assertLess((res - actual).div(res).abs().item(), 1e-2)
 
-            res2 = mvn.log_prob(values, combine_terms=False)
+            res2 = mvn.log_prob_terms(values)
             assert len(res2) == 3
             res2 = sum(res2)
             self.assertLess((res2 - actual).div(res).abs().item(), 1e-2)
@@ -240,7 +240,7 @@ class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
             ).log_prob(values)
             self.assertLess((res - actual).div(res).abs().norm(), 1e-2)
 
-            res2 = mvn.log_prob(values, combine_terms=False)
+            res2 = mvn.log_prob_terms(values)
             assert len(res2) == 3
             res2 = sum(res2)
             self.assertLess((res2 - actual).div(res).abs().norm(), 1e-2)

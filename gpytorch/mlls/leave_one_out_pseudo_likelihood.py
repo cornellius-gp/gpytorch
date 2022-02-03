@@ -41,15 +41,7 @@ class LeaveOneOutPseudoLikelihood(ExactMarginalLogLikelihood):
         >>> loss.backward()
     """
 
-    def forward(self, function_dist: MultivariateNormal, target: Tensor, *params) -> Tensor:
-        r"""
-        Computes the leave one out likelihood given :math:`p(\mathbf f)` and `\mathbf y`
-
-        :param ~gpytorch.distributions.MultivariateNormal output: the outputs of the latent function
-            (the :obj:`~gpytorch.models.GP`)
-        :param torch.Tensor target: :math:`\mathbf y` The target values
-        :param dict kwargs: Additional arguments to pass to the likelihood's :attr:`forward` function.
-        """
+    def log_prob_terms(self, function_dist, target, *params):
         output = self.likelihood(function_dist, *params)
         m, L = output.mean, output.lazy_covariance_matrix.cholesky(upper=False)
         m = m.reshape(*target.shape)
@@ -64,8 +56,18 @@ class LeaveOneOutPseudoLikelihood(ExactMarginalLogLikelihood):
         norm_const = torch.tensor(num_data * math.log(2 * math.pi)).to(approx_logdet)
         other_term = self._add_other_terms(torch.zeros_like(approx_logdet), params)
         split_terms = [data_fit, approx_logdet, norm_const, other_term]
+        split_terms = [-0.5 / num_data * term for term in split_terms]
 
-        if self.combine_terms:
-            return -0.5 / num_data * sum(split_terms)
-        else:
-            return [-0.5 / num_data * term for term in split_terms]
+        return split_terms
+
+    def forward(self, function_dist: MultivariateNormal, target: Tensor, *params) -> Tensor:
+        r"""
+        Computes the leave one out likelihood given :math:`p(\mathbf f)` and `\mathbf y`
+
+        :param ~gpytorch.distributions.MultivariateNormal output: the outputs of the latent function
+            (the :obj:`~gpytorch.models.GP`)
+        :param torch.Tensor target: :math:`\mathbf y` The target values
+        :param dict kwargs: Additional arguments to pass to the likelihood's :attr:`forward` function.
+        """
+        split_terms = self.log_prob_terms(function_dist, target, *params)
+        return sum(split_terms)

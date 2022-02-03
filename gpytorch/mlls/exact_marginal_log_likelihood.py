@@ -62,17 +62,18 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
 
         # Get the log prob of the marginal distribution
         output = self.likelihood(function_dist, *params)
-        res = output.log_prob(target, combine_terms=self.combine_terms)
+        split_terms = output.log_prob_terms(target)
 
         # Scale by the amount of data we have
         num_data = function_dist.event_shape.numel()
 
         if self.combine_terms:
-            res = self._add_other_terms(res, params)
-            return res.div(num_data)
+            term_sum = sum(split_terms)
+            term_sum = self._add_other_terms(term_sum, params)
+            return term_sum.div(num_data)
         else:
-            norm_const = res[-1]
+            norm_const = split_terms[-1]
             other_terms = torch.zeros_like(norm_const)
             other_terms = self._add_other_terms(other_terms, params)
-            res.append(other_terms)
-            return [term.div(num_data) for term in res]
+            split_terms.append(other_terms)
+            return [term.div(num_data) for term in split_terms]
