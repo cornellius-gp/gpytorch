@@ -62,11 +62,11 @@ class TestLKJPrior(unittest.TestCase):
             with least_used_cuda_device():
                 self.test_lkj_prior_batch_log_prob(cuda=True)
 
-    def test_lkj_prior_rsample(self, seed=0):
+    def test_lkj_prior_sample(self, seed=0):
         torch.random.manual_seed(seed)
 
         prior = LKJPrior(n=5, eta=0.5)
-        random_samples = prior.rsample(torch.Size((8,)))
+        random_samples = prior.sample(torch.Size((8,)))
         self.assertTrue(_is_valid_correlation_matrix(random_samples))
         self.assertEqual(random_samples.shape, torch.Size((8, 5, 5)))
 
@@ -118,9 +118,9 @@ class TestLKJCholeskyFactorPrior(unittest.TestCase):
             with least_used_cuda_device():
                 self.test_lkj_cholesky_factor_prior_batch_log_prob(cuda=True)
 
-    def test_lkj_prior_rsample(self):
+    def test_lkj_prior_sample(self):
         prior = LKJCholeskyFactorPrior(2, 0.5)
-        random_samples = prior.rsample(torch.Size((6,)))
+        random_samples = prior.sample(torch.Size((6,)))
         self.assertTrue(_is_valid_correlation_matrix_cholesky_factor(random_samples))
         self.assertEqual(random_samples.shape, torch.Size((6, 2, 2)))
 
@@ -207,9 +207,9 @@ class TestLKJCovariancePrior(unittest.TestCase):
             with least_used_cuda_device():
                 self.test_lkj_covariance_prior_batch_log_prob(cuda=True)
 
-    def test_lkj_prior_rsample(self):
+    def test_lkj_prior_sample(self):
         prior = LKJCovariancePrior(2, 0.5, sd_prior=SmoothedBoxPrior(exp(-1), exp(1)))
-        random_samples = prior.rsample(torch.Size((6,)))
+        random_samples = prior.sample(torch.Size((6,)))
         # only need to check that this is a PSD matrix
         min_eval = torch.linalg.eigh(random_samples)[0].min()
         self.assertTrue(min_eval >= 0)

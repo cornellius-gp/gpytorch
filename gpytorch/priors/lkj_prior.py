@@ -35,10 +35,7 @@ class LKJCholeskyFactorPrior(Prior, LKJCholesky):
         self.eta = self.concentration
         self._transform = transform
 
-    def rsample(self, sample_shape=torch.Size()):
-        # mocking the sample call here
-        # TODO: determine why torch.distributions.LKJCholesky only implements sample
-        return super().sample(sample_shape=sample_shape)
+    # TODO: determine why torch.distributions.LKJCholesky only implements sample
 
 
 class LKJPrior(LKJCholeskyFactorPrior):
@@ -64,8 +61,8 @@ class LKJPrior(LKJCholeskyFactorPrior):
         X_cholesky = psd_safe_cholesky(X, upper=False)
         return super().log_prob(X_cholesky)
 
-    def rsample(self, sample_shape=torch.Size()):
-        R = super().rsample(sample_shape=sample_shape)
+    def sample(self, sample_shape=torch.Size()):
+        R = super().sample(sample_shape=sample_shape)
         return R.matmul(R.transpose(-1, -2))
 
 
@@ -109,8 +106,8 @@ class LKJCovariancePrior(LKJPrior):
         log_prob_sd = self.sd_prior.log_prob(marginal_sd)
         return log_prob_corr + log_prob_sd
 
-    def rsample(self, sample_shape=torch.Size()):
-        base_correlation = self.correlation_prior.rsample(sample_shape)
+    def sample(self, sample_shape=torch.Size()):
+        base_correlation = self.correlation_prior.sample(sample_shape)
         marginal_sds = self.sd_prior.rsample(sample_shape)
         # expand sds to have the same shape as the base correlation matrix
         marginal_sds = marginal_sds.repeat(*[1] * len(sample_shape), self.correlation_prior.n)
