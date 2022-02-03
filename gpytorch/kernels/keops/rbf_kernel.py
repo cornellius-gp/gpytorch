@@ -22,15 +22,19 @@ try:
 
         def _nonkeops_covar_func(self, x1, x2, diag=False):
             return self.covar_dist(
-                x1, x2, square_dist=True, diag=diag, 
-                dist_postprocess_func=postprocess_rbf, postprocess=True
+                x1,
+                x2,
+                square_dist=True,
+                diag=diag,
+                dist_postprocess_func=postprocess_rbf,
+                postprocess=True,
             )
 
         def covar_func(self, x1, x2, diag=False):
             # We only should use KeOps on big kernel matrices
             # If we would otherwise be performing Cholesky inference, (or when just computing a kernel matrix diag)
             # then don't apply KeOps
-            # enable gradients to ensure that test time caches on small predictions are still 
+            # enable gradients to ensure that test time caches on small predictions are still
             # backprop-able
             with torch.autograd.enable_grad():
                 if (

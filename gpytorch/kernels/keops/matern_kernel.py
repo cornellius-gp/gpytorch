@@ -43,7 +43,7 @@ try:
             # We only should use KeOps on big kernel matrices
             # If we would otherwise be performing Cholesky inference, (or when just computing a kernel matrix diag)
             # then don't apply KeOps
-            # enable gradients to ensure that test time caches on small predictions are still 
+            # enable gradients to ensure that test time caches on small predictions are still
             # backprop-able
             with torch.autograd.enable_grad():
                 if (
