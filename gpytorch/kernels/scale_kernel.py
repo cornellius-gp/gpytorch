@@ -81,10 +81,16 @@ class ScaleKernel(Kernel):
             if not isinstance(outputscale_prior, Prior):
                 raise TypeError("Expected gpytorch.priors.Prior but got " + type(outputscale_prior).__name__)
             self.register_prior(
-                "outputscale_prior", outputscale_prior, lambda m: m.outputscale, lambda m, v: m._set_outputscale(v)
+                "outputscale_prior", outputscale_prior, self._outputscale_param, self._outputscale_closure
             )
 
         self.register_constraint("raw_outputscale", outputscale_constraint)
+
+    def _outputscale_param(self, m):
+        return m.outputscale
+
+    def _outputscale_closure(self, m, v):
+        return m._set_outputscale(v)
 
     @property
     def outputscale(self):

@@ -15,8 +15,9 @@ from .. import settings, utils
 from ..functions._diagonalization import Diagonalization
 from ..functions._inv_matmul import InvMatmul
 from ..functions._inv_quad import InvQuad
-from ..functions._inv_quad_log_det import InvQuadLogDet
+from ..functions._inv_quad_logdet import InvQuadLogdet
 from ..functions._matmul import Matmul
+from ..functions._pivoted_cholesky import PivotedCholesky
 from ..functions._root_decomposition import RootDecomposition
 from ..functions._sqrt_inv_matmul import SqrtInvMatmul
 from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape, _to_helper
@@ -27,7 +28,6 @@ from ..utils.getitem import _compute_getitem_size, _convert_indices_to_tensors, 
 from ..utils.lanczos import _postprocess_lanczos_root_inv_decomp
 from ..utils.memoize import _is_in_cache_ignore_all_args, _is_in_cache_ignore_args, add_to_cache, cached, pop_from_cache
 from ..utils.pinverse import stable_pinverse
-from ..utils.pivoted_cholesky import pivoted_cholesky
 from ..utils.warnings import NumericalWarning
 from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
 
@@ -1295,6 +1295,14 @@ class LazyTensor(ABC):
                 reduce_inv_quad=reduce_inv_quad,
             )
 
+        # Short circuit to inv_quad function if we're not computing logdet
+        if not logdet:
+            if inv_quad_rhs is None:
+                raise RuntimeError("Either `inv_quad_rhs` or `logdet` must be specifed.")
+            return self.inv_quad(inv_quad_rhs, reduce_inv_quad=reduce_inv_quad), torch.zeros(
+                [], dtype=self.dtype, device=self.device
+            )
+
         # Default: use modified batch conjugate gradients to compute these terms
         # See NeurIPS 2018 paper: https://arxiv.org/abs/1809.11165
         if not self.is_square:
@@ -1327,22 +1335,34 @@ class LazyTensor(ABC):
         if inv_quad_rhs is not None:
             args = [inv_quad_rhs] + list(args)
 
+        preconditioner, precond_lt, logdet_p = self._preconditioner()
+        if precond_lt is None:
+            from ..lazy.identity_lazy_tensor import IdentityLazyTensor
+
+            precond_lt = IdentityLazyTensor(
+                diag_shape=self.size(-1),
+                batch_shape=self.batch_shape,
+                dtype=self.dtype,
+                device=self.device,
+            )
+            logdet_p = 0.0
+
+        precond_args = precond_lt.representation()
         probe_vectors, probe_vector_norms = self._probe_vectors_and_norms()
 
-        func = InvQuadLogDet.apply
-
-        inv_quad_term, logdet_term = func(
+        func = InvQuadLogdet.apply
+        inv_quad_term, pinvk_logdet = func(
             self.representation_tree(),
-            self.dtype,
-            self.device,
-            self.matrix_shape,
-            self.batch_shape,
+            precond_lt.representation_tree(),
+            preconditioner,
+            len(precond_args),
             (inv_quad_rhs is not None),
-            logdet,
             probe_vectors,
             probe_vector_norms,
-            *args,
+            *(list(args) + list(precond_args)),
         )
+        logdet_term = pinvk_logdet
+        logdet_term = logdet_term + logdet_p
 
         if inv_quad_term.numel() and reduce_inv_quad:
             inv_quad_term = inv_quad_term.sum(-1)
@@ -1473,6 +1493,37 @@ class LazyTensor(ABC):
             raise ValueError("At the moment, cannot permute the non-batch dimensions of LazyTensors.")
 
         return self._permute_batch(*dims[:-2])
+
+    def pivoted_cholesky(self, rank, error_tol=None, return_pivots=False):
+        r"""
+        Performs a partial pivoted Cholesky factorization of the (positive definite) LazyTensor.
+        :math:`\mathbf L \mathbf L^\top = \mathbf K`.
+        The partial pivoted Cholesky factor :math:`\mathbf L \in \mathbb R^{N \times \text{rank}}`
+        forms a low rank approximation to the LazyTensor.
+
+        The pivots are selected greedily, corresponding to the maximum diagonal element in the
+        residual after each Cholesky iteration. See `Harbrecht et al., 2012`_.
+
+        :param int rank: The size of the partial pivoted Cholesky factor.
+        :param error_tol: Defines an optional stopping criterion.
+            If the residual of the factorization is less than :attr:`error_tol`, then the
+            factorization will exit early. This will result in a :math:`\leq \text{ rank}` factor.
+        :type error_tol: float, optional
+        :param bool return_pivots: (default: False) Whether or not to return the pivots alongside
+            the partial pivoted Cholesky factor.
+        :return: the `... x N x rank` factor (and optionally the `... x N` pivots)
+        :rtype: torch.Tensor or tuple(torch.Tensor, torch.Tensor)
+
+        .. _Harbrecht et al., 2012:
+            https://www.sciencedirect.com/science/article/pii/S0168927411001814
+        """
+        func = PivotedCholesky.apply
+        res, pivots = func(self.representation_tree(), rank, error_tol, *self.representation())
+
+        if return_pivots:
+            return res, pivots
+        else:
+            return res
 
     def prod(self, dim=None):
         """
@@ -1663,6 +1714,7 @@ class LazyTensor(ABC):
         This can be used for sampling from a Gaussian distribution, or for obtaining a
         low-rank version of a matrix
         """
+        from . import lazify
         from .chol_lazy_tensor import CholLazyTensor
         from .root_lazy_tensor import RootLazyTensor
 
@@ -1691,8 +1743,8 @@ class LazyTensor(ABC):
                 method = "symeig"
 
         if method == "pivoted_cholesky":
-            root = pivoted_cholesky(self.evaluate(), max_iter=self._root_decomposition_size())
-        elif method == "symeig":
+            return RootLazyTensor(lazify(self.evaluate()).pivoted_cholesky(rank=self._root_decomposition_size()))
+        if method == "symeig":
             evals, evecs = self.symeig(eigenvectors=True)
             # TODO: only use non-zero evals (req. dealing w/ batches...)
             root = evecs * evals.clamp_min(0.0).sqrt().unsqueeze(-2)
