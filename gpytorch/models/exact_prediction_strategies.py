@@ -46,8 +46,8 @@ class DefaultPredictionStrategy(object):
             )
         except RuntimeError:
             raise RuntimeError(
-                "Flattening the training labels failed. This most common cause of this error "
-                + "is because shapes of the prior mean and the training labels are mismatched."
+                "Flattening the training labels failed. The most common cause of this error "
+                + "is that the shapes of the prior mean and the training labels are mismatched."
                 + "The shape of the train targets is {0}, ".format(train_labels.shape)
                 + "while the reported shape of the mean is {0}.".format(train_prior_dist.mean.shape)
             )
