@@ -147,9 +147,6 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             return lazify(super().covariance_matrix)
 
     def log_prob_terms(self, value):
-        if settings.fast_computations.log_prob.off():
-            return super().log_prob(value)
-
         if self._validate_args:
             self._validate_sample(value)
 
@@ -182,6 +179,8 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         return split_terms
 
     def log_prob(self, value):
+        if settings.fast_computations.log_prob.off():
+            return super().log_prob(value)
         split_terms = self.log_prob_terms(value)
         return sum(split_terms)
 
