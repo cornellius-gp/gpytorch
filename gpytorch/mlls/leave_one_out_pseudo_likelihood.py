@@ -70,4 +70,6 @@ class LeaveOneOutPseudoLikelihood(ExactMarginalLogLikelihood):
         :param dict kwargs: Additional arguments to pass to the likelihood's :attr:`forward` function.
         """
         split_terms = self.log_prob_terms(function_dist, target, *params)
-        return sum(split_terms)
+        if self.combine_terms:
+            return sum(split_terms)
+        return split_terms
