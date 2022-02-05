@@ -3,7 +3,12 @@ import unittest
 import torch
 
 import gpytorch
-from gpytorch.metrics import coverage_error, mean_standardized_log_loss, negative_log_predictive_density
+from gpytorch.metrics import (
+    average_coverage_error,
+    mean_standardized_log_loss,
+    negative_log_predictive_density,
+    percentile_coverage_error,
+)
 from gpytorch.models import ExactGP
 
 N_PTS = 50
@@ -68,5 +73,8 @@ class TestMetrics(unittest.TestCase):
     def test_msll(self):
         self.check_metric(mean_standardized_log_loss)
 
-    def test_ce(self):
-        self.check_metric(coverage_error)
+    def test_pce(self):
+        self.check_metric(percentile_coverage_error)
+
+    def test_ace(self):
+        self.check_metric(average_coverage_error)
