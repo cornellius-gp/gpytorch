@@ -1,7 +1,13 @@
-from .metrics import coverage_error, mean_standardized_log_loss, negative_log_predictive_density
+from .metrics import (
+    average_coverage_error,
+    mean_standardized_log_loss,
+    negative_log_predictive_density,
+    percentile_coverage_error,
+)
 
 __all__ = [
-    "coverage_error",
+    "average_coverage_error",
     "mean_standardized_log_loss",
     "negative_log_predictive_density",
+    "percentile_coverage_error",
 ]
