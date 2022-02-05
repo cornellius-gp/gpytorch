@@ -68,6 +68,10 @@ class TestLKJPrior(unittest.TestCase):
         prior = LKJPrior(n=5, eta=0.5)
         random_samples = prior.sample(torch.Size((8,)))
         self.assertTrue(_is_valid_correlation_matrix(random_samples))
+
+        max_non_symm = (random_samples - random_samples.transpose(-1, -2)).abs().max()
+        self.assertLess(max_non_symm, 1e-4)
+
         self.assertEqual(random_samples.shape, torch.Size((8, 5, 5)))
 
 
@@ -210,9 +214,12 @@ class TestLKJCovariancePrior(unittest.TestCase):
     def test_lkj_prior_sample(self):
         prior = LKJCovariancePrior(2, 0.5, sd_prior=SmoothedBoxPrior(exp(-1), exp(1)))
         random_samples = prior.sample(torch.Size((6,)))
-        # only need to check that this is a PSD matrix
+        # need to check that these are positive semi-sefinite
         min_eval = torch.linalg.eigh(random_samples)[0].min()
         self.assertTrue(min_eval >= 0)
+        # and that they are symmetric
+        max_non_symm = (random_samples - random_samples.transpose(-1, -2)).abs().max()
+        self.assertLess(max_non_symm, 1e-4)
 
         self.assertEqual(random_samples.shape, torch.Size((6, 2, 2)))
 

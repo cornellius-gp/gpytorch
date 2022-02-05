@@ -35,7 +35,7 @@ class LKJCholeskyFactorPrior(Prior, LKJCholesky):
         self.eta = self.concentration
         self._transform = transform
 
-    # TODO: determine why torch.distributions.LKJCholesky only implements sample
+    # TODO: change from sample to rsample if pytorch #69281 goes in providing rsample method
 
 
 class LKJPrior(LKJCholeskyFactorPrior):
