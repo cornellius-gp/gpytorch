@@ -35,26 +35,26 @@ def mean_standardized_log_loss(
         return 0.5 * (torch.log(2 * pi * f_var) + torch.square(test_y - f_mean) / (2 * f_var)).mean().item()
 
 
-def percentile_coverage_error(
+def quantile_coverage_error(
     pred_dist: MultivariateNormal,
     test_y: torch.Tensor,
-    percentile: float = 95,
+    quantile: float = 95,
 ):
     """
-    Percentile Coverage error.
+    Quantile coverage error.
 
     """
 
-    assert 0 <= percentile <= 100, "Percentile must be between 0 and 100"
+    assert 0 <= quantile <= 100, "Quantile must be between 0 and 100"
 
     standard_normal = torch.distributions.Normal(loc=0.0, scale=1.0)
     with torch.no_grad():
-        deviation = standard_normal.icdf(torch.tensor(0.5 + 0.5 * (percentile / 100)))
+        deviation = standard_normal.icdf(torch.tensor(0.5 + 0.5 * (quantile / 100)))
         lower = pred_dist.mean - deviation * pred_dist.stddev
         upper = pred_dist.mean + deviation * pred_dist.stddev
         n_samples_within_bounds = ((test_y > lower) * (test_y < upper)).sum()
         fraction = (n_samples_within_bounds / test_y.shape[0]).item()
-        return abs(fraction - percentile / 100)
+        return abs(fraction - quantile / 100)
 
 
 def average_coverage_error(
@@ -66,8 +66,8 @@ def average_coverage_error(
     Average Coverage error.
 
     """
-    bins = torch.linspace(0, 100, n_bins + 1)[1:-1]
+    bins = torch.linspace(100 / n_bins, 100 - 100 / n_bins, n_bins - 1)
     res = 0
-    for percentile in bins:
-        res += percentile_coverage_error(pred_dist, test_y, percentile)
+    for quantile in bins:
+        res += quantile_coverage_error(pred_dist, test_y, quantile)
     return res / n_bins

@@ -7,7 +7,7 @@ from gpytorch.metrics import (
     average_coverage_error,
     mean_standardized_log_loss,
     negative_log_predictive_density,
-    percentile_coverage_error,
+    quantile_coverage_error,
 )
 from gpytorch.models import ExactGP
 
@@ -57,7 +57,7 @@ class TestMetrics(unittest.TestCase):
 
         model.train()
         likelihood.train()
-        for i in range(50):
+        for i in range(20):
             optimizer.zero_grad()
             output = model(train_data)
             loss = -mll(output, labels)
@@ -73,8 +73,8 @@ class TestMetrics(unittest.TestCase):
     def test_msll(self):
         self.check_metric(mean_standardized_log_loss)
 
-    def test_pce(self):
-        self.check_metric(percentile_coverage_error)
+    def test_qce(self):
+        self.check_metric(quantile_coverage_error)
 
     def test_ace(self):
         self.check_metric(average_coverage_error)
