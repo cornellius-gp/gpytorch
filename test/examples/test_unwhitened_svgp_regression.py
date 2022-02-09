@@ -79,7 +79,7 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
         likelihood.eval()
         test_preds = likelihood(model(train_x)).mean.squeeze()
         mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
-        self.assertLess(mean_abs_error.item(), 1e-1)
+        self.assertLess(mean_abs_error.item(), 0.014)
 
 
 if __name__ == "__main__":
