@@ -39,32 +39,32 @@ class TestMetrics(unittest.TestCase):
         labels = torch.sin(train_data) + torch.randn_like(train_data) * 0.5
         return likelihood, labels.ravel()
 
-    def get_metric(self, model, likelihood, train_data, labels, metric):
+    def get_metric(self, model, likelihood, train_data, labels, metric, **kwargs):
         model.eval()
         likelihood.eval()
         with torch.no_grad():
             pred_dist = likelihood(model(train_data))
-            return metric(pred_dist, labels)
+            return metric(pred_dist, labels, **kwargs)
 
-    def check_metric(self, metric):
+    def check_metric(self, metric, **kwargs):
         train_data = self.create_test_data()
         likelihood, labels = self.create_likelihood_and_labels(train_data)
         model = self.create_model(train_data, labels, likelihood)
         mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
 
-        init_value = self.get_metric(model, likelihood, train_data, labels, metric)
+        init_value = self.get_metric(model, likelihood, train_data, labels, metric, **kwargs)
 
         model.train()
         likelihood.train()
-        for i in range(20):
+        for _ in range(5):
             optimizer.zero_grad()
             output = model(train_data)
             loss = -mll(output, labels)
             loss.backward()
             optimizer.step()
 
-        final_value = self.get_metric(model, likelihood, train_data, labels, metric)
+        final_value = self.get_metric(model, likelihood, train_data, labels, metric, **kwargs)
         self.assertLess(final_value, init_value)
 
     def test_nlpd(self):
@@ -74,7 +74,7 @@ class TestMetrics(unittest.TestCase):
         self.check_metric(mean_standardized_log_loss)
 
     def test_qce(self):
-        self.check_metric(quantile_coverage_error)
+        self.check_metric(quantile_coverage_error, quantile=68)
 
     def test_ace(self):
         self.check_metric(average_coverage_error)
