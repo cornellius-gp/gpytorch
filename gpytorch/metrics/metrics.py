@@ -48,8 +48,8 @@ def quantile_coverage_error(
     assert 0 <= quantile <= 100, "Quantile must be between 0 and 100"
 
     standard_normal = torch.distributions.Normal(loc=0.0, scale=1.0)
+    deviation = standard_normal.icdf(torch.as_tensor(0.5 + 0.5 * (quantile / 100)))
     with torch.no_grad():
-        deviation = standard_normal.icdf(torch.tensor(0.5 + 0.5 * (quantile / 100)))
         lower = pred_dist.mean - deviation * pred_dist.stddev
         upper = pred_dist.mean + deviation * pred_dist.stddev
         n_samples_within_bounds = ((test_y > lower) * (test_y < upper)).sum(0)
