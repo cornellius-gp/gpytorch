@@ -7,9 +7,16 @@ import torch
 
 from gpytorch.kernels import PeriodicKernel
 from gpytorch.priors import NormalPrior
+from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
 
 
-class TestPeriodicKernel(unittest.TestCase):
+class TestPeriodicKernel(unittest.TestCase, BaseKernelTestCase):
+    def create_kernel_no_ard(self, **kwargs):
+        return PeriodicKernel(**kwargs)
+
+    def create_kernel_ard(self, num_dims, **kwargs):
+        return PeriodicKernel(**kwargs)
+
     def test_computes_periodic_function(self):
         a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
         b = torch.tensor([0, 2], dtype=torch.float).view(2, 1)
