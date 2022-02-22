@@ -7,13 +7,38 @@ from ..distributions import MultivariateNormal
 pi = torch.tensor(pi)
 
 
+def mean_absolute_error(
+    pred_dist: MultivariateNormal,
+    test_y: torch.Tensor,
+):
+    """
+    Mean Absolute Error.
+
+    """
+    return torch.abs(pred_dist.mean - test_y).mean(dim=0)
+
+
+def mean_squared_error(
+    pred_dist: MultivariateNormal,
+    test_y: torch.Tensor,
+    squared: bool = True,
+):
+    """
+    Mean Squared Error.
+
+    """
+    res = torch.square(pred_dist.mean - test_y).mean(dim=0)
+    if not squared:
+        return res ** 0.5
+    return res
+
+
 def negative_log_predictive_density(
     pred_dist: MultivariateNormal,
     test_y: torch.Tensor,
 ):
 
-    with torch.no_grad():
-        return -pred_dist.log_prob(test_y).item()
+    return -pred_dist.log_prob(test_y) / test_y.shape[0]
 
 
 def mean_standardized_log_loss(
@@ -29,10 +54,9 @@ def mean_standardized_log_loss(
     The MIT Press, 2006. ISBN 0-262-18253-X
     """
 
-    with torch.no_grad():
-        f_mean = pred_dist.mean
-        f_var = pred_dist.variance
-        return 0.5 * (torch.log(2 * pi * f_var) + torch.square(test_y - f_mean) / (2 * f_var)).mean().item()
+    f_mean = pred_dist.mean
+    f_var = pred_dist.variance
+    return 0.5 * (torch.log(2 * pi * f_var) + torch.square(test_y - f_mean) / (2 * f_var)).mean(dim=0)
 
 
 def quantile_coverage_error(
@@ -49,12 +73,11 @@ def quantile_coverage_error(
 
     standard_normal = torch.distributions.Normal(loc=0.0, scale=1.0)
     deviation = standard_normal.icdf(torch.as_tensor(0.5 + 0.5 * (quantile / 100)))
-    with torch.no_grad():
-        lower = pred_dist.mean - deviation * pred_dist.stddev
-        upper = pred_dist.mean + deviation * pred_dist.stddev
-        n_samples_within_bounds = ((test_y > lower) * (test_y < upper)).sum(0)
-        fraction = n_samples_within_bounds / test_y.shape[0]
-        return abs(fraction - quantile / 100)
+    lower = pred_dist.mean - deviation * pred_dist.stddev
+    upper = pred_dist.mean + deviation * pred_dist.stddev
+    n_samples_within_bounds = ((test_y > lower) * (test_y < upper)).sum(0)
+    fraction = n_samples_within_bounds / test_y.shape[0]
+    return torch.abs(fraction - quantile / 100)
 
 
 def average_coverage_error(
