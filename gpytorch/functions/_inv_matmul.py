@@ -17,7 +17,7 @@ def _solve(lazy_tsr, rhs):
         return lazy_tsr.cholesky()._cholesky_solve(rhs)
     else:
         with torch.no_grad():
-            preconditioner = lazy_tsr.detach()._inv_matmul_preconditioner()
+            preconditioner = lazy_tsr.detach_()._inv_matmul_preconditioner()
         return lazy_tsr._solve(rhs, preconditioner)
 
 
