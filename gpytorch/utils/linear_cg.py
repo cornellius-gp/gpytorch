@@ -290,7 +290,7 @@ def linear_cg(
         # Record the residual norm
         if settings.verbose_linalg.on():
             settings.verbose_linalg.lst_residual_norm.append(residual_norm.mean().item())
-            print(residual_norm.mean().item())
+            # print(residual_norm.mean().item())
             # assert 0
 
         if (
