@@ -19,7 +19,7 @@ def sparse_chol_inv(pd_mat, nn_k: int, nn_ind: Optional[Tensor] = None):
         nn_ind (torch.LongTensor, optional): An n x 3 set of nearest neighbors for each point.
             nn_ind[i] should contain the nearest neighbors of x[i] in x[0...i-1].
     """
-    from ..lazy import lazify, delazify, DiagLazyTensor
+    from ..lazy import lazify, delazify, DiagLazyTensor, InverseSparseTriangularLazyTensor
 
     batch_shape = pd_mat.shape[:-2]
 
@@ -33,9 +33,14 @@ def sparse_chol_inv(pd_mat, nn_k: int, nn_ind: Optional[Tensor] = None):
     if nn_ind is None:
         # nn_ind = delazify(pd_mat).tril().argsort(-1, descending=True)[..., :, 1 : (nn_k + 1)]
 
-        # no need to add the diagonal tensor
-        # pd_mat._lazy_tensor's diagonal entries are the largest anyway
-        nn_ind = pd_mat._lazy_tensor.tensor.topk(nn_k + 1, dim=-1, largest=True, sorted=True).indices[..., :, 1:]
+        # pd_mat_eval = pd_mat._lazy_tensor.tensor.clone()
+        # idx = torch.arange(pd_mat.size(-1), dtype=torch.long, device=pd_mat.device)
+        # pd_mat_eval[idx, idx] += pd_mat._diag_tensor.diag_values
+        # nn_ind = delazify(pd_mat_eval).tril().topk(nn_k + 1, dim=-1, largest=True, sorted=True).indices[..., :, 1:]
+        # del pd_mat_eval
+        # del idx
+
+        nn_ind = delazify(pd_mat).tril().topk(nn_k + 1, dim=-1, largest=True, sorted=True).indices[..., :, 1:]
 
     pd_mat = lazify(pd_mat)
 
@@ -77,18 +82,25 @@ def sparse_chol_inv(pd_mat, nn_k: int, nn_ind: Optional[Tensor] = None):
 
     f_diag = pd_mat_self_self - (pd_mat_nn_self.transpose(-2, -1) @ b_vecs).squeeze(-1).squeeze(-1)
 
-    B = torch.zeros(*batch_shape, pd_mat.size(-2), pd_mat.size(-1), dtype=pd_mat.dtype, device=pd_mat.device)
-    B.scatter_(-1, nn_ind, b_vecs.squeeze(-1)).tril_(-1)
+    idx_diag = torch.arange(
+        nn_ind.size(-2),
+        dtype=nn_ind.dtype,
+        device=nn_ind.device,
+    ).unsqueeze(-1)
+    indices = torch.cat((idx_diag, nn_ind), dim=-1)
 
-    F_sqrt_inv = DiagLazyTensor(f_diag.sqrt().reciprocal())
-    # I_minus_B = lazify(-B).add_jitter(1.0).evaluate()
-    I_minus_B = B
-    I_minus_B.mul_(-1)
-    I_minus_B.diagonal().add_(1.)
+    b_vecs = b_vecs.squeeze(-1)
+    ones = torch.ones(
+        b_vecs.size(-2), 1,
+        dtype=b_vecs.dtype,
+        device=b_vecs.device
+    )
+    values = torch.cat((ones, b_vecs.mul(-1)), dim=-1)
 
-    chol_precision_mat = F_sqrt_inv @ I_minus_B
+    values = f_diag.sqrt().reciprocal().unsqueeze(-1) * values
 
-    return chol_precision_mat
+    # return s_inv = (F_sqrt_inv @ (I - B))^{-1}
+    return InverseSparseTriangularLazyTensor(indices, values)
 
 
 def lr_plus_sparse_precond_closure(added_diag_lt, lr_k, nn_k):
