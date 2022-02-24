@@ -26,6 +26,7 @@ from .mul_lazy_tensor import MulLazyTensor
 from .non_lazy_tensor import NonLazyTensor, lazify
 from .psd_sum_lazy_tensor import PsdSumLazyTensor
 from .root_lazy_tensor import RootLazyTensor
+from .inverse_sparse_triangular_lazy_tensor import InverseSparseTriangularLazyTensor
 from .sum_batch_lazy_tensor import SumBatchLazyTensor
 from .sum_kronecker_lazy_tensor import SumKroneckerLazyTensor
 from .sum_lazy_tensor import SumLazyTensor
@@ -50,12 +51,12 @@ __all__ = [
     "ConstantMulLazyTensor",
     "DiagLazyTensor",
     "InterpolatedLazyTensor",
+    "InverseSparseTriangularLazyTensor",
     "KeOpsLazyTensor",
     "KroneckerProductLazyTensor",
     "KroneckerProductAddedDiagLazyTensor",
     "KroneckerProductDiagLazyTensor",
     "KroneckerProductTriangularLazyTensor",
-    "SumKroneckerLazyTensor",
     "LowRankRootAddedDiagLazyTensor",
     "LowRankRootLazyTensor",
     "MatmulLazyTensor",
@@ -63,8 +64,9 @@ __all__ = [
     "NonLazyTensor",
     "PsdSumLazyTensor",
     "RootLazyTensor",
-    "SumLazyTensor",
     "SumBatchLazyTensor",
+    "SumKroneckerLazyTensor",
+    "SumLazyTensor",
     "ToeplitzLazyTensor",
     "TriangularLazyTensor",
     "ZeroLazyTensor",
