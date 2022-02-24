@@ -65,7 +65,7 @@ class InverseSparseTriangularLazyTensor(LazyTensor):
         return self.values.dtype
 
     def logdet(self):
-        return self.values[:, 0].log().sum().mul(-1)
+        return self.diag().abs().log().sum()
 
     def _matmul(self, rhs):
         """

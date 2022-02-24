@@ -140,12 +140,11 @@ class AddedDiagLazyTensor(SumLazyTensor):
                 settings.max_sp_preconditioner_size.value(),
             )
 
+            self._precond_lt = RootLazyTensor(self._s_inv_cache)
+            self._precond_logdet_cache = self._s_inv_cache.logdet().mul(2)
+
         def precondition_closure(tensor):
             return self._s_inv_cache.transpose(-2, -1).inv_matmul(self._s_inv_cache.inv_matmul(tensor))
-
-        self._precond_lt = RootLazyTensor(self._s_inv_cache)
-
-        self._precond_logdet_cache = self._s_inv_cache.diag().log().sum().mul(-2)
 
         return precondition_closure, self._precond_lt, self._precond_logdet_cache
 
@@ -179,17 +178,17 @@ class AddedDiagLazyTensor(SumLazyTensor):
             self._q_cache = self._q_cache[..., :n, :]
             self._stq_cache = self._s_inv_cache.transpose(-2, -1).inv_matmul(self._q_cache)
 
+            self._precond_lt = PsdSumLazyTensor(
+                RootLazyTensor(self._piv_chol_self),
+                RootLazyTensor(self._s_inv_cache),
+            )
+
+            self._precond_logdet_cache = self._r_cache.diag().abs().log().sum().mul(2) + self._s_inv_cache.logdet().mul(2)
+
         def precondition_closure(tensor):
             sts = self._s_inv_cache.transpose(-2, -1).inv_matmul(self._s_inv_cache.inv_matmul(tensor))
             stqqts = self._stq_cache.matmul(self._stq_cache.transpose(-2, -1).matmul(tensor))
             return sts - stqqts
-
-        self._precond_lt = PsdSumLazyTensor(
-            RootLazyTensor(self._piv_chol_self),
-            RootLazyTensor(self._s_inv_cache),
-        )
-
-        self._precond_logdet_cache = self._r_cache.diag().abs().log().sum().mul(2) - self._s_inv_cache.diag().log().sum().mul(2)
 
         return precondition_closure, self._precond_lt, self._precond_logdet_cache
 
