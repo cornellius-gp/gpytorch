@@ -47,11 +47,17 @@ class AddedDiagLazyTensor(SumLazyTensor):
         # Placeholders
         self._constant_diag = None
         self._noise = None
+
         self._piv_chol_self = None  # <- Doesn't need to be an attribute, but used for testing purposes
-        self._precond_lt = None
-        self._precond_logdet_cache = None
+
         self._q_cache = None
         self._r_cache = None
+
+        self._s_inv_cache = None
+        self._stq_cache = None
+
+        self._precond_lt = None
+        self._precond_logdet_cache = None
 
     def _matmul(self, rhs):
         return torch.addcmul(self._lazy_tensor._matmul(rhs), self._diag_tensor._diag.unsqueeze(-1), rhs)
@@ -68,34 +74,20 @@ class AddedDiagLazyTensor(SumLazyTensor):
             return self.__class__(self._lazy_tensor + other, self._diag_tensor)
 
     def _preconditioner(self):
-        if settings.max_preconditioner_size.value() > 0:
+        if self.preconditioner_override is not None:
+            return self.preconditioner_override(self)
+
+        if settings.max_preconditioner_size.value() == 0 or self.size(-1) < settings.min_preconditioning_size.value():
+            return None, None, None
+
+        if settings.max_preconditioner_size.value() > 0 and settings.max_sp_preconditioner_size.value() == 0:
             return self._lr_preconditioner()
 
-        elif settings.max_sp_preconditioner_size.value() > 0:
+        elif settings.max_preconditioner_size.value() == 0 and settings.max_sp_preconditioner_size.value() > 0:
             return self._sp_preconditioner()
 
-        # return _lr_preconditioner()
-        # if settings.max_lr_preconditioner_size.value() == 0:
-        #     return self._sp_preconditioner()
-
-    def _sp_preconditioner(self):
-        from ..utils import sparse_chol_inv
-        L_res_inv = sparse_chol_inv(
-            # AddedDiagLazyTensor(self._lazy_tensor, self._diag_tensor),
-            self,
-            settings.max_sp_preconditioner_size.value(),
-        )
-
-        # L_res_inv.inverse() causes memory overflow if L_res_inv is a dense matrix
-        self._precond_lt = RootLazyTensor(L_res_inv.inverse())
-
-        self._precond_logdet_cache = L_res_inv.log().sum().mul(-2)
-    
-        def precondition_closure(tensor):
-            return L_res_inv.transpose(-2, -1) @ (L_res_inv @ tensor)
-
-        # return precondition_closure, self._precond_lt, self._precond_logdet_cache
-        return precondition_closure, None, None
+        else:
+            return self._lr_sp_preconditioner()
 
     def _lr_preconditioner(self):
         r"""
@@ -113,13 +105,6 @@ class AddedDiagLazyTensor(SumLazyTensor):
         - A LazyTensor `precondition_lt` that represents (L L^T + D)
         - The log determinant of (L L^T + D)
         """
-
-        if self.preconditioner_override is not None:
-            return self.preconditioner_override(self)
-
-        if settings.max_preconditioner_size.value() == 0 or self.size(-1) < settings.min_preconditioning_size.value():
-            return None, None, None
-
         # Cache a QR decomposition [Q; Q'] R = [D^{-1/2}; L]
         # This makes it fast to compute solves and log determinants with it
         #
@@ -145,6 +130,68 @@ class AddedDiagLazyTensor(SumLazyTensor):
             return (tensor / self._noise) - qqt
 
         return (precondition_closure, self._precond_lt, self._precond_logdet_cache)
+
+    def _sp_preconditioner(self):
+        from ..utils import sparse_chol_inv
+
+        if self._s_inv_cache is None:
+            self._s_inv_cache = sparse_chol_inv(
+                self,
+                settings.max_sp_preconditioner_size.value(),
+            )
+
+        def precondition_closure(tensor):
+            return self._s_inv_cache.transpose(-2, -1).inv_matmul(self._s_inv_cache.inv_matmul(tensor))
+
+        self._precond_lt = RootLazyTensor(self._s_inv_cache)
+
+        self._precond_logdet_cache = self._s_inv_cache.diag().log().sum().mul(-2)
+
+        return precondition_closure, self._precond_lt, self._precond_logdet_cache
+
+    def _lr_sp_preconditioner(self):
+        from ..utils import sparse_chol_inv
+
+        if self._s_inv_cache is None or self._stq_cache is None:
+            self._piv_chol_self = pivoted_cholesky.pivoted_cholesky(
+                self._lazy_tensor,
+                settings.max_preconditioner_size.value(),
+            )
+            if torch.any(torch.isnan(self._piv_chol_self)).item():
+                assert 0
+
+            from .root_lazy_tensor import RootLazyTensor
+            residual = self - RootLazyTensor(self._piv_chol_self)
+            self._s_inv_cache = sparse_chol_inv(
+                residual,
+                settings.max_sp_preconditioner_size.value()
+            )
+
+            *_, n, k = self._piv_chol_self.size()
+            eye = torch.eye(
+                k,
+                dtype=self._piv_chol_self.dtype,
+                device=self._piv_chol_self.device,
+            )
+            self._q_cache, self._r_cache = torch.linalg.qr(
+                torch.cat((self._s_inv_cache.inv_matmul(self._piv_chol_self), eye), dim=-2)
+            )
+            self._q_cache = self._q_cache[..., :n, :]
+            self._stq_cache = self._s_inv_cache.transpose(-2, -1).inv_matmul(self._q_cache)
+
+        def precondition_closure(tensor):
+            sts = self._s_inv_cache.transpose(-2, -1).inv_matmul(self._s_inv_cache.inv_matmul(tensor))
+            stqqts = self._stq_cache.matmul(self._stq_cache.transpose(-2, -1).matmul(tensor))
+            return sts - stqqts
+
+        self._precond_lt = PsdSumLazyTensor(
+            RootLazyTensor(self._piv_chol_self),
+            RootLazyTensor(self._s_inv_cache),
+        )
+
+        self._precond_logdet_cache = self._r_cache.diag().abs().log().sum().mul(2) - self._s_inv_cache.diag().log().sum().mul(2)
+
+        return precondition_closure, self._precond_lt, self._precond_logdet_cache
 
     def _init_cache(self):
         *batch_shape, n, k = self._piv_chol_self.shape
