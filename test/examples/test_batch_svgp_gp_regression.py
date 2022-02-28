@@ -94,7 +94,7 @@ class TestSVGPRegression(unittest.TestCase):
         test_preds = likelihood(model(train_x)).mean.squeeze()
         mean_abs_error = torch.mean(torch.abs(train_y[0, :] - test_preds[0, :]) / 2)
         mean_abs_error2 = torch.mean(torch.abs(train_y[1, :] - test_preds[1, :]) / 2)
-        self.assertLess(mean_abs_error.item(), 1e-1)
+        self.assertLess(mean_abs_error.item(), 0.012)
         self.assertLess(mean_abs_error2.item(), 1e-1)
 
     def test_regression_error_shared_inducing_locations(self):
@@ -129,8 +129,8 @@ class TestSVGPRegression(unittest.TestCase):
         test_preds = likelihood(model(train_x)).mean.squeeze()
         mean_abs_error = torch.mean(torch.abs(train_y[0, :] - test_preds[0, :]) / 2)
         mean_abs_error2 = torch.mean(torch.abs(train_y[1, :] - test_preds[1, :]) / 2)
-        self.assertLess(mean_abs_error.item(), 1e-1)
-        self.assertLess(mean_abs_error2.item(), 1e-1)
+        self.assertLess(mean_abs_error.item(), 1e-2)
+        self.assertLess(mean_abs_error2.item(), 2e-2)
 
     def test_regression_error_cuda(self):
         if not torch.cuda.is_available():
