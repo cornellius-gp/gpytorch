@@ -8,7 +8,6 @@ import torch
 
 from .. import settings
 from ..distributions import Delta, MultivariateNormal
-from ..kernels import InducingPointKernel
 from ..models import ExactGP
 from ..module import Module
 from ..utils.broadcasting import _mul_broadcast_shape
@@ -124,17 +123,18 @@ class _VariationalStrategy(Module, ABC):
     @cached(name="inducing_model")
     def inducing_model(self):
         with torch.no_grad():
-            inducing_noise_covar, inducing_mean = self.pseudo_points()
-            inducing_points = self.variational_strategy.inducing_points.detach()
+            inducing_noise_covar, inducing_mean = self.pseudo_points
+            inducing_points = self.inducing_points.detach()
 
-            new_covar_module = InducingPointKernel(deepcopy(self.covar_module), inducing_points, self.likelihood)
+            # TODO: add flag for conditioning into SGPR after building fantasy strategy for SGPR
+            new_covar_module = deepcopy(self.model.covar_module)
 
             inducing_exact_model = _BaseExactGP(
                 inducing_points,
-                inducing_mean,
-                mean_module=deepcopy(self.mean_module),
+                inducing_mean.squeeze(),
+                mean_module=deepcopy(self.model.mean_module),
                 covar_module=new_covar_module,
-                likelihood=deepcopy(self.likelihood),
+                likelihood=deepcopy(self.model.likelihood),
             )
 
             # now fantasize around this model
@@ -176,7 +176,6 @@ class _VariationalStrategy(Module, ABC):
         self,
         inputs,
         targets,
-        noise=None,
         **kwargs,
     ):
         """
@@ -189,13 +188,11 @@ class _VariationalStrategy(Module, ABC):
         inducing_exact_model = self.inducing_model()
 
         # then we update this model by adding in the inputs and pseudo targets
-        if inputs.shape[-2] == 1 or targets.shape[-1] != 1:
-            targets = targets.unsqueeze(-1)
-            # put on a trailing bdim for bs of 1
+        # if inputs.shape[-2] == 1 or targets.shape[-1] != 1:
+        #     targets = targets.unsqueeze(-1)
+        # put on a trailing bdim for bs of 1
         # finally we fantasize wrt targets
-        if noise is not None:
-            kwargs["noise"] = noise
-        fantasy_model = inducing_exact_model.condition_on_observations(inputs, targets, **kwargs)
+        fantasy_model = inducing_exact_model.get_fantasy_model(inputs, targets, **kwargs)
         fant_pred_strat = fantasy_model.prediction_strategy
 
         # first we update the lik_train_train_covar

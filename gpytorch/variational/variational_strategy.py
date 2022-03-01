@@ -104,13 +104,13 @@ class VariationalStrategy(_VariationalStrategy):
             var_mean = var_mean.unsqueeze(-1)
 
         # compute R = I - S
-        res = var_cov.add_jitter(-1.0)._mul_constant(-1.0)
+        # TODO: fix potential device errors here
+        cov_diff = var_cov.add_jitter(-1.0)  # ._mul_constant(-1.0 * torch.ones(1))
+        cov_diff = -1.0 * cov_diff
 
         # K^{1/2}
-        Kmm = self.covar_module(self.inducing_points)
+        Kmm = self.model.covar_module(self.inducing_points)
         Kmm_root = Kmm.cholesky()
-
-        cov_diff = res
 
         # D_a = (S^{-1} - K^{-1})^{-1} = S + S R^{-1} S
         # note that in the whitened case R = I - S, unwhitened R = K - S
