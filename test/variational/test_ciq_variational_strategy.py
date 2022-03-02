@@ -37,6 +37,10 @@ class TestCiqVariationalGP(VariationalTestCase, unittest.TestCase):
         self.assertFalse(cholesky_mock.called)
         self.assertEqual(ciq_mock.call_count, 2)  # One for each evaluation call
 
+    def test_fantasy_call(self, *args, **kwargs):
+        with self.assertRaises(AttributeError):
+            super().test_fantasy_call(*args, **kwargs)
+
 
 class TestMeanFieldCiqVariationalGP(TestCiqVariationalGP):
     @property
