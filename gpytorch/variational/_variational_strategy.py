@@ -135,9 +135,12 @@ class _VariationalStrategy(Module, ABC):
             # TODO: add flag for conditioning into SGPR after building fantasy strategy for SGPR
             new_covar_module = deepcopy(self.model.covar_module)
 
+            # update inducing mean if necessary
+            inducing_mean = inducing_mean.squeeze() + self.model.mean_module(inducing_points)
+
             inducing_exact_model = _BaseExactGP(
                 inducing_points,
-                inducing_mean.squeeze(),
+                inducing_mean,
                 mean_module=deepcopy(self.model.mean_module),
                 covar_module=new_covar_module,
                 likelihood=deepcopy(self.model.likelihood),

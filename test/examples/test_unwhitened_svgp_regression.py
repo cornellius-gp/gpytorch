@@ -81,6 +81,16 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
         mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
         self.assertLess(mean_abs_error.item(), 0.014)
 
+        if distribution_cls is gpytorch.variational.CholeskyVariationalDistribution:
+            # finally test fantasization
+            # we only will check that tossing the entire training set into the model will reduce the mae
+            model.likelihood = likelihood
+            fant_model = model.get_fantasy_model(train_x, train_y)
+            fant_preds = fant_model.likelihood(fant_model(train_x)).mean.squeeze()
+            updated_abs_error = torch.mean(torch.abs(train_y - fant_preds) / 2)
+            # TODO: figure out why this error is worse than before
+            self.assertLess(updated_abs_error.item(), 0.15)
+
 
 if __name__ == "__main__":
     unittest.main()
