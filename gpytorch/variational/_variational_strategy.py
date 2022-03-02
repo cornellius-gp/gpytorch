@@ -210,8 +210,6 @@ class _VariationalStrategy(Module, ABC):
         #     targets = targets.unsqueeze(-1)
         # put on a trailing bdim for bs of 1
         # finally we fantasize wrt targets
-        print("ie model: ", inducing_exact_model.train_inputs[0].shape, inducing_exact_model.train_targets.shape)
-        print(inputs.shape, targets.shape, "in fantasy")
         fantasy_model = inducing_exact_model.get_fantasy_model(inputs, targets, **kwargs)
         fant_pred_strat = fantasy_model.prediction_strategy
 

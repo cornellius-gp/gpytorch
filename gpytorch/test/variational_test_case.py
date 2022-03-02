@@ -101,7 +101,6 @@ class VariationalTestCase(BaseTestCase):
         val_y = torch.linspace(-1, 1, num_fant)
         val_y = val_y.view(num_fant, *([1] * (len(self.event_shape) - 1)))
         val_y = val_y.expand(*batch_shape, num_fant, *self.event_shape[1:])
-        print("val shapes: ", val_x.shape, val_y.shape)
         if cuda:
             model = model.cuda()
             val_x = val_x.cuda()
