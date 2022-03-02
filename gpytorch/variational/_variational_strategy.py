@@ -13,6 +13,9 @@ from ..module import Module
 from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.memoize import add_to_cache, cached, clear_cache_hook
 
+# from gpytorch.variational.cholesky_variational_distribution import CholeskyVariationalDistribution
+# from gpytorch.variational.variational_strategy import VariationalStrategy
+
 
 class _BaseExactGP(ExactGP):
     def __init__(self, train_inputs, train_targets, likelihood, mean_module, covar_module):
@@ -38,6 +41,8 @@ class _VariationalStrategy(Module, ABC):
     """
     Abstract base class for all Variational Strategies.
     """
+
+    has_fantasy_strategy = False
 
     def __init__(self, model, inducing_points, variational_distribution, learn_inducing_locations=True):
         super().__init__()
@@ -125,7 +130,8 @@ class _VariationalStrategy(Module, ABC):
         with torch.no_grad():
             inducing_noise_covar, inducing_mean = self.pseudo_points
             inducing_points = self.inducing_points.detach()
-
+            if inducing_points.ndim < inducing_mean.ndim:
+                inducing_points = inducing_points.expand(*inducing_mean.shape[:-2], *inducing_points.shape)
             # TODO: add flag for conditioning into SGPR after building fantasy strategy for SGPR
             new_covar_module = deepcopy(self.model.covar_module)
 
@@ -141,7 +147,7 @@ class _VariationalStrategy(Module, ABC):
             # as this model is new, we need to compute a posterior to construct the prediction strategy
             # which uses the likelihood pseudo caches
             faked_points = torch.randn(
-                *inducing_points.shape[:-2],
+                *inducing_mean.shape[:-2],
                 1,
                 inducing_points.shape[-1],
                 device=inducing_points.device,
@@ -165,6 +171,7 @@ class _VariationalStrategy(Module, ABC):
             mean_cache = updated_lik_train_train_covar.inv_matmul(train_labels_offset).squeeze(-1)
             mean_cache = _add_cache_hook(mean_cache, inducing_exact_model.prediction_strategy)
             add_to_cache(pred_strat, "mean_cache", mean_cache)
+            # TODO: check to see if we need to do the covar_cache?
 
             inducing_exact_model.prediction_strategy = pred_strat
         return inducing_exact_model
@@ -183,6 +190,17 @@ class _VariationalStrategy(Module, ABC):
             Maddox, Stanton, Wilson, NeurIPS, '21
             https://papers.nips.cc/paper/2021/hash/325eaeac5bef34937cfdc1bd73034d17-Abstract.html
         """
+
+        # currently, we only support fantasization for CholeskyVariationalDistribution and
+        # whitened / unwhitened variational strategies
+        # from .variational_strategy import VariationalStrategy
+        # from .unwhitened_variational_strategy import UnwhitenedVariationalStrategy
+        if not self.has_fantasy_strategy:
+            raise NotImplementedError(
+                "No fantasy model support for ",
+                self.__name__,
+                ". Only VariationalStrategy and UnwhitenedVariationalStrategy are currently supported.",
+            )
         # first we construct an exact model over the inducing points with the inducing covariance
         # matrix
         inducing_exact_model = self.inducing_model()
@@ -192,6 +210,8 @@ class _VariationalStrategy(Module, ABC):
         #     targets = targets.unsqueeze(-1)
         # put on a trailing bdim for bs of 1
         # finally we fantasize wrt targets
+        print("ie model: ", inducing_exact_model.train_inputs[0].shape, inducing_exact_model.train_targets.shape)
+        print(inputs.shape, targets.shape, "in fantasy")
         fantasy_model = inducing_exact_model.get_fantasy_model(inputs, targets, **kwargs)
         fant_pred_strat = fantasy_model.prediction_strategy
 

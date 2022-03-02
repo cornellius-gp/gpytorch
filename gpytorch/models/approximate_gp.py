@@ -75,8 +75,8 @@ class ApproximateGP(GP, _PyroMixin):
         """
         return super().pyro_model(input, beta=beta, name_prefix=name_prefix)
 
-    def get_fantasy_strategy(self, inputs, targets, **kwargs):
-        return self.variational_strategy.get_fantasy_strategy(inputs=inputs, targets=targets, **kwargs)
+    def get_fantasy_model(self, inputs, targets, **kwargs):
+        return self.variational_strategy.get_fantasy_model(inputs=inputs, targets=targets, **kwargs)
 
     def __call__(self, inputs, prior=False, **kwargs):
         if inputs.dim() == 1:
