@@ -164,4 +164,4 @@ class TestMetricsMultiTask(TestMetricsSingleTask):
 class TestMetricsBatchedMultiTask(TestMetricsMultiTask):
     def setUp(self):
         batch_shape = torch.Size((4,))
-        super().setUp(batch_shape=batch_shape
+        super().setUp(batch_shape=batch_shape)
