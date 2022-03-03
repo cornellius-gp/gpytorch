@@ -1,5 +1,4 @@
 from .metrics import (
-    average_coverage_error,
     mean_absolute_error,
     mean_squared_error,
     mean_standardized_log_loss,
@@ -8,7 +7,6 @@ from .metrics import (
 )
 
 __all__ = [
-    "average_coverage_error",
     "mean_absolute_error",
     "mean_squared_error",
     "mean_standardized_log_loss",
