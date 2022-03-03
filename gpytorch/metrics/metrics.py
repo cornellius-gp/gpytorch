@@ -69,4 +69,4 @@ def quantile_coverage_error(
     upper = pred_dist.mean + deviation * pred_dist.stddev
     n_samples_within_bounds = ((test_y > lower) * (test_y < upper)).sum(combine_dim)
     fraction = n_samples_within_bounds / test_y.shape[combine_dim]
-return torch.abs(fraction - quantile / 100)
+    return torch.abs(fraction - quantile / 100)
