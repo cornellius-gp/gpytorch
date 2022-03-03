@@ -4,6 +4,7 @@ from ..distributions import MultivariateNormal, MultitaskMultivariateNormal
 
 pi = torch.tensor(pi)
 
+
 def mean_absolute_error(
     pred_dist: MultivariateNormal,
     test_y: torch.Tensor,
@@ -14,6 +15,7 @@ def mean_absolute_error(
     combine_dim = -2 if isinstance(pred_dist, MultitaskMultivariateNormal) else -1
     return torch.abs(pred_dist.mean - test_y).mean(dim=combine_dim)
 
+
 def mean_squared_error(
     pred_dist: MultivariateNormal,
     test_y: torch.Tensor,
@@ -23,11 +25,11 @@ def mean_squared_error(
     Mean Squared Error.
     """
     combine_dim = -2 if isinstance(pred_dist, MultitaskMultivariateNormal) else -1
-    print(pred_dist.mean.shape, test_y.shape)
     res = torch.square(pred_dist.mean - test_y).mean(dim=combine_dim)
     if not squared:
         return res ** 0.5
     return res
+
 
 def negative_log_predictive_density(
     pred_dist: MultivariateNormal,
@@ -35,6 +37,7 @@ def negative_log_predictive_density(
 ):
     combine_dim = -2 if isinstance(pred_dist, MultitaskMultivariateNormal) else -1
     return -pred_dist.log_prob(test_y) / test_y.shape[combine_dim]
+
 
 def mean_standardized_log_loss(
     pred_dist: MultivariateNormal,
@@ -51,6 +54,7 @@ def mean_standardized_log_loss(
     f_mean = pred_dist.mean
     f_var = pred_dist.variance
     return 0.5 * (torch.log(2 * pi * f_var) + torch.square(test_y - f_mean) / (2 * f_var)).mean(dim=combine_dim)
+
 
 def quantile_coverage_error(
     pred_dist: MultivariateNormal,
