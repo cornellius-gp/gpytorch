@@ -47,7 +47,7 @@ class TestMetricsSingleTask(unittest.TestCase):
         untrained_model = self.create_model(train_x, train_y)
         self.trained_model = self.train_model(untrained_model, train_x, train_y)
         self.untrained_model = self.create_model(train_x, train_y)
-        self.testing_pts = self.create_data_and_labels(batch_shape=batch_shape,is_training=False)
+        self.testing_pts = self.create_data_and_labels(batch_shape=batch_shape, is_training=False)
         self.train_x = train_x
         self.train_y = train_y
 
@@ -90,8 +90,12 @@ class TestMetricsSingleTask(unittest.TestCase):
         return model
 
     def check_metric(self, metric, **kwargs):
-        init_value = self.get_metric(self.untrained_model, self.untrained_model.likelihood, *self.testing_pts, metric, **kwargs)
-        final_value = self.get_metric(self.trained_model, self.trained_model.likelihood, *self.testing_pts, metric, **kwargs)
+        init_value = self.get_metric(
+            self.untrained_model, self.untrained_model.likelihood, *self.testing_pts, metric, **kwargs,
+        )
+        final_value = self.get_metric(
+            self.trained_model, self.trained_model.likelihood, *self.testing_pts, metric, **kwargs,
+        )
         return init_value, final_value
 
     def _test_metric(self, metric, should_check_differentiable=True, **kwargs):
@@ -149,7 +153,6 @@ class TestMetricsMultiTask(TestMetricsSingleTask):
 
     def _test_metric(self, metric, should_check_differentiable=True, **kwargs):
         init_value, final_value = self.check_metric(metric, **kwargs)
-        print(init_value, final_value, init_value.mean(), final_value.mean())
         # here the trailing dimension is the number of tasks
         self.assertEqual(final_value.shape, torch.Size((*self.train_y.shape[:-2], self.train_y.shape[-1],)))
         self.assertTrue(torch.all(final_value.mean() <= init_value.mean()))
