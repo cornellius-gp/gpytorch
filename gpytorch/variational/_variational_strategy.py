@@ -13,9 +13,6 @@ from ..module import Module
 from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.memoize import add_to_cache, cached, clear_cache_hook
 
-# from gpytorch.variational.cholesky_variational_distribution import CholeskyVariationalDistribution
-# from gpytorch.variational.variational_strategy import VariationalStrategy
-
 
 class _BaseExactGP(ExactGP):
     def __init__(self, train_inputs, train_targets, likelihood, mean_module, covar_module):
@@ -188,7 +185,11 @@ class _VariationalStrategy(Module, ABC):
         targets,
         **kwargs,
     ):
-        """
+        r"""
+        Performs the online variational conditioning (OVC) strategy of Maddox et al, '21 to return
+        an exact GP model that incorporates the inputs and targets alongside the variational model's inducing
+        points and targets.
+
         Reference: "Conditioning Sparse Variational Gaussian Processes for Online Decision-Making,"
             Maddox, Stanton, Wilson, NeurIPS, '21
             https://papers.nips.cc/paper/2021/hash/325eaeac5bef34937cfdc1bd73034d17-Abstract.html
