@@ -1,6 +1,8 @@
 from math import pi
+
 import torch
-from ..distributions import MultivariateNormal, MultitaskMultivariateNormal
+
+from ..distributions import MultitaskMultivariateNormal, MultivariateNormal
 
 pi = torch.tensor(pi)
 
@@ -59,7 +61,7 @@ def mean_standardized_log_loss(
 def quantile_coverage_error(
     pred_dist: MultivariateNormal,
     test_y: torch.Tensor,
-    quantile: float = 95.,
+    quantile: float = 95.0,
 ):
     """
     Quantile coverage error.

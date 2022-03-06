@@ -1,13 +1,14 @@
 import math
 import unittest
+
+import torch
+
+import gpytorch
+from gpytorch.distributions import MultitaskMultivariateNormal, MultivariateNormal
+from gpytorch.kernels import MultitaskKernel, RBFKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood, MultitaskGaussianLikelihood
 from gpytorch.means import ConstantMean, MultitaskMean
-from gpytorch.kernels import ScaleKernel, RBFKernel, MultitaskKernel
-from gpytorch.distributions import MultivariateNormal, MultitaskMultivariateNormal
-import torch
-import gpytorch
-from gpytorch.metrics import (
-    # average_coverage_error,
+from gpytorch.metrics import (  # average_coverage_error,
     mean_absolute_error,
     mean_squared_error,
     mean_standardized_log_loss,
@@ -58,7 +59,7 @@ class TestMetricsSingleTask(unittest.TestCase):
         return model
 
     def create_data_and_labels(self, n=20, batch_shape=None, seed=0, is_training=True):
-        input_range = [0., 1.] if is_training else [1., 1.2]
+        input_range = [0.0, 1.0] if is_training else [1.0, 1.2]
         torch.random.manual_seed(seed)
         if batch_shape is None:
             batch_shape = torch.Size()
@@ -91,10 +92,18 @@ class TestMetricsSingleTask(unittest.TestCase):
 
     def check_metric(self, metric, **kwargs):
         init_value = self.get_metric(
-            self.untrained_model, self.untrained_model.likelihood, *self.testing_pts, metric, **kwargs,
+            self.untrained_model,
+            self.untrained_model.likelihood,
+            *self.testing_pts,
+            metric,
+            **kwargs,
         )
         final_value = self.get_metric(
-            self.trained_model, self.trained_model.likelihood, *self.testing_pts, metric, **kwargs,
+            self.trained_model,
+            self.trained_model.likelihood,
+            *self.testing_pts,
+            metric,
+            **kwargs,
         )
         return init_value, final_value
 
@@ -118,7 +127,7 @@ class TestMetricsSingleTask(unittest.TestCase):
         self._test_metric(mean_standardized_log_loss)
 
     def test_quantile_coverage_error(self):
-        self._test_metric(quantile_coverage_error, should_check_differentiable=False, quantile=95.)
+        self._test_metric(quantile_coverage_error, should_check_differentiable=False, quantile=95.0)
 
 
 class TestMetricsBatchedSingleTask(TestMetricsSingleTask):
@@ -129,7 +138,7 @@ class TestMetricsBatchedSingleTask(TestMetricsSingleTask):
 
 class TestMetricsMultiTask(TestMetricsSingleTask):
     def create_data_and_labels(self, n=20, batch_shape=None, seed=0, is_training=True):
-        input_range = [0., 1.] if is_training else [1., 1.2]
+        input_range = [0.0, 1.0] if is_training else [1.0, 1.2]
         torch.random.manual_seed(seed)
         if batch_shape is None:
             batch_shape = torch.Size()
@@ -142,7 +151,7 @@ class TestMetricsMultiTask(TestMetricsSingleTask):
                 torch.sin(inputs * (2 * math.pi)) + torch.randn_like(inputs) * 0.1,
                 torch.cos(inputs * (2 * math.pi)) + torch.randn_like(inputs) * 0.1,
             ],
-            -1
+            -1,
         )
         return inputs, labels.squeeze().contiguous()
 
@@ -154,7 +163,15 @@ class TestMetricsMultiTask(TestMetricsSingleTask):
     def _test_metric(self, metric, should_check_differentiable=True, **kwargs):
         init_value, final_value = self.check_metric(metric, **kwargs)
         # here the trailing dimension is the number of tasks
-        self.assertEqual(final_value.shape, torch.Size((*self.train_y.shape[:-2], self.train_y.shape[-1],)))
+        self.assertEqual(
+            final_value.shape,
+            torch.Size(
+                (
+                    *self.train_y.shape[:-2],
+                    self.train_y.shape[-1],
+                )
+            ),
+        )
         self.assertTrue(torch.all(final_value.mean() <= init_value.mean()))
         if should_check_differentiable:
             self.assertTrue(final_value.requires_grad)  # check that the metric is differentiable
