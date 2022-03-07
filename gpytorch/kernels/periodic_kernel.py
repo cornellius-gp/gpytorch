@@ -131,6 +131,7 @@ class PeriodicKernel(Kernel):
 
         x1_ = x1.div(self.period_length / math.pi)
         x2_ = x2.div(self.period_length / math.pi)
+        # We are automatically overriding last_dim_is_batch here so that we can manually sum over dimensions.
         diff = self.covar_dist(x1_, x2_, diag=diag, last_dim_is_batch=True, **params)
 
         sin_sq = diff.sin().pow(2.0)
