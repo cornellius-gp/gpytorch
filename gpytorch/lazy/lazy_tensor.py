@@ -1408,6 +1408,23 @@ class LazyTensor(ABC):
 
         return Matmul.apply(self.representation_tree(), other, *self.representation())
 
+    def rmatmul(self, other):
+        """
+        Multiplies a matrix by self.
+
+        Args:
+            other (:obj:`torch.tensor`): Matrix or vector to multiply with. Can be either a :obj:`torch.tensor`
+                or a :obj:`gpytorch.lazy.LazyTensor`.
+
+        Returns:
+            :obj:`torch.tensor`: Tensor or LazyTensor containing the result of the matrix multiplication :math:`MK`,
+            where :math:`M` is the (batched) matrix input to this method, and :math:`K` is the (batched) matrix that
+            this :obj:`gpytorch.lazy.LazyTensor` represents.
+        """
+        if other.ndim == 1:
+            return self.transpose(-1, -2).matmul(other)
+        return self.transpose(-1, -2).matmul(other.transpose(-1, -2)).transpose(-1, -2)
+
     @property
     def matrix_shape(self):
         """
@@ -2308,9 +2325,7 @@ class LazyTensor(ABC):
         return self.matmul(other)
 
     def __rmatmul__(self, other: Tensor) -> Tensor:
-        if other.ndim == 1:
-            return self.transpose(-1, -2).matmul(other)
-        return self.transpose(-1, -2).matmul(other.transpose(-1, -2)).transpose(-1, -2)
+        return self.rmatmul(other)
 
     def __mul__(self, other):
         return self.mul(other)
