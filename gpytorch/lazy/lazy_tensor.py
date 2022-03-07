@@ -2307,6 +2307,11 @@ class LazyTensor(ABC):
     def __matmul__(self, other):
         return self.matmul(other)
 
+    def __rmatmul__(self, other: Tensor) -> Tensor:
+        if other.ndim == 1:
+            return self.transpose(-1, -2).matmul(other)
+        return self.transpose(-1, -2).matmul(other.transpose(-1, -2)).transpose(-1, -2)
+
     def __mul__(self, other):
         return self.mul(other)
 

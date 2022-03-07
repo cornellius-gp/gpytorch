@@ -41,6 +41,24 @@ class TestLazyEvaluatedKernelTensorBatch(LazyTensorTestCase, unittest.TestCase):
             lazy_tensor.x1.grad + lazy_tensor.x2.grad, lazy_tensor_copy.x1.grad + lazy_tensor_copy.x2.grad, rtol=1e-3
         )
 
+    def _test_rmatmul(self, lhs):
+        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
+        lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
+
+        res = lhs @ lazy_tensor
+        actual = lhs @ evaluated
+        self.assertAllClose(res, actual)
+
+        grad = torch.randn_like(res)
+        res.backward(gradient=grad)
+        actual.backward(gradient=grad)
+        for param, param_copy in zip(lazy_tensor.kernel.parameters(), lazy_tensor_copy.kernel.parameters()):
+            self.assertAllClose(param.grad, param_copy.grad, rtol=1e-3)
+        self.assertAllClose(
+            lazy_tensor.x1.grad + lazy_tensor.x2.grad, lazy_tensor_copy.x1.grad + lazy_tensor_copy.x2.grad, rtol=1e-3
+        )
+
     def _test_inv_matmul(self, rhs, lhs=None, cholesky=False):
         lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
         lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
