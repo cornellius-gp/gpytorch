@@ -15,7 +15,7 @@ class TestPeriodicKernel(unittest.TestCase, BaseKernelTestCase):
         return PeriodicKernel(**kwargs)
 
     def create_kernel_ard(self, num_dims, **kwargs):
-        return PeriodicKernel(**kwargs)
+        return PeriodicKernel(ard_num_dims=num_dims, **kwargs)
 
     def test_computes_periodic_function(self):
         a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)

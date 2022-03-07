@@ -37,10 +37,9 @@ class PeriodicKernel(Kernel):
         This kernel does not have an `outputscale` parameter. To add a scaling parameter,
         decorate this kernel with a :class:`gpytorch.kernels.ScaleKernel`.
 
-    .. note::
-
-        This kernel does not have an ARD lengthscale or period length option.
-
+    :param ard_num_dims: (Default: `None`) Set this if you want a separate lengthscale for each
+        input dimension. It should be `d` if :attr:`x1` is a `... x n x d` matrix.
+    :type ard_num_dims: int, optional
     :param batch_shape: (Default: `None`) Set this if you want a separate lengthscale for each
          batch of input data. It should be `torch.Size([b1, b2])` for a `b1 x b2 x n x m` kernel output.
     :type batch_shape: torch.Size, optional
@@ -63,8 +62,10 @@ class PeriodicKernel(Kernel):
     :param eps: (Default: 1e-6) The minimum value that the lengthscale can take (prevents divide by zero errors).
     :type eps: float, optional
 
-    :var torch.Tensor lengthscale: The lengthscale parameter. Size = `*batch_shape x 1 x 1`.
-    :var torch.Tensor period_length: The period length parameter. Size = `*batch_shape x 1 x 1`.
+    :var torch.Tensor lengthscale: The lengthscale parameter. Size/shape of parameter depends on the
+        :attr:`ard_num_dims` and :attr:`batch_shape` arguments.
+    :var torch.Tensor period_length: The period length parameter. Size/shape of parameter depends on the
+        :attr:`ard_num_dims` and :attr:`batch_shape` arguments.
 
     Example:
         >>> x = torch.randn(10, 5)
@@ -94,8 +95,9 @@ class PeriodicKernel(Kernel):
         if period_length_constraint is None:
             period_length_constraint = Positive()
 
+        ard_num_dims = kwargs.get("ard_num_dims", 1)
         self.register_parameter(
-            name="raw_period_length", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, 1))
+            name="raw_period_length", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, ard_num_dims))
         )
 
         if period_length_prior is not None:
@@ -134,13 +136,13 @@ class PeriodicKernel(Kernel):
         # We are automatically overriding last_dim_is_batch here so that we can manually sum over dimensions.
         diff = self.covar_dist(x1_, x2_, diag=diag, last_dim_is_batch=True, **params)
 
-        sin_sq = diff.sin().pow(2.0)
-        if last_dim_is_batch:
-            lengthscale = lengthscale[..., None, :, :]
-        else:
-            sin_sq = sin_sq.sum(dim=-3)
         if diag:
-            lengthscale = lengthscale.squeeze(-1)
+            lengthscale = lengthscale[..., 0, :, None]
+        else:
+            lengthscale = lengthscale[..., 0, :, None, None]
+        exp_term = diff.sin().pow(2.0).div(lengthscale).mul(-2.0)
 
-        res = sin_sq.div(lengthscale).mul(-2.0).exp()
-        return res
+        if not last_dim_is_batch:
+            exp_term = exp_term.sum(dim=(-2 if diag else -3))
+
+        return exp_term.exp()
