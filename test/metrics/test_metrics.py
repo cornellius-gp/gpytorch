@@ -128,7 +128,9 @@ class TestMetricsSingleTask(unittest.TestCase):
 
     def test_quantile_coverage_error(self):
         self._test_metric(
-            quantile_coverage_error, should_check_differentiable=False, quantile=95.0,
+            quantile_coverage_error,
+            should_check_differentiable=False,
+            quantile=95.0,
         )
         # check that negative or very positive quantile coverages raise errors
         with self.assertRaises(NotImplementedError):
