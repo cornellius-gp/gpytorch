@@ -95,7 +95,16 @@ class VariationalTestCase(BaseTestCase):
 
         return output
 
-    def _fantasy_iter(self, model, likelihood, batch_shape=torch.Size([]), cuda=False, num_fant=10):
+    def _fantasy_iter(
+        self,
+        model,
+        likelihood,
+        batch_shape=torch.Size([]),
+        cuda=False,
+        num_fant=10,
+        covar_module=None,
+        mean_module=None,
+    ):
         model.likelihood = likelihood
         val_x = torch.randn(*batch_shape, num_fant, 2).clamp(-2.5, 2.5)
         val_y = torch.linspace(-1, 1, num_fant)
@@ -105,7 +114,7 @@ class VariationalTestCase(BaseTestCase):
             model = model.cuda()
             val_x = val_x.cuda()
             val_y = val_y.cuda()
-        updated_model = model.get_fantasy_model(val_x, val_y)
+        updated_model = model.get_fantasy_model(val_x, val_y, covar_module=covar_module, mean_module=mean_module)
         return updated_model
 
     @abstractproperty
@@ -312,14 +321,54 @@ class VariationalTestCase(BaseTestCase):
             num_inducing=num_inducing,
         )
 
-        fant_model = self._fantasy_iter(model, likelihood, data_batch_shape, self.cuda, num_fant=num_fant)
-        self.assertTrue(isinstance(fant_model, gpytorch.models.ExactGP))
-        self.assertTrue(fant_model.prediction_strategy is not None)
-        for key in fant_model.prediction_strategy._memoize_cache.keys():
-            if key[0] == "mean_cache":
-                break
-        mean_cache = fant_model.prediction_strategy._memoize_cache[key]
-        self.assertEqual(mean_cache.shape, torch.Size([*expected_batch_shape, num_inducing + num_fant]))
+        # we iterate through the covar and mean module possible settings
+        covar_mean_options = [
+            {"covar_module": None, "mean_module": None},
+            {"covar_module": gpytorch.kernels.MaternKernel(), "mean_module": gpytorch.means.ZeroMean()},
+        ]
+        for cm_dict in covar_mean_options:
+            fant_model = self._fantasy_iter(
+                model, likelihood, data_batch_shape, self.cuda, num_fant=num_fant, **cm_dict
+            )
+            self.assertTrue(isinstance(fant_model, gpytorch.models.ExactGP))
+
+            # we check to ensure setting the covar_module and mean_modules are okay
+            if cm_dict["covar_module"] is None:
+                self.assertEqual(type(fant_model.covar_module), type(model.covar_module))
+            else:
+                self.assertNotEqual(type(fant_model.covar_module), type(model.covar_module))
+            if cm_dict["mean_module"] is None:
+                self.assertEqual(type(fant_model.mean_module), type(model.mean_module))
+            else:
+                self.assertNotEqual(type(fant_model.mean_module), type(model.mean_module))
+
+            # now we check to ensure the shapes of the fantasy strategy are correct
+            self.assertTrue(fant_model.prediction_strategy is not None)
+            for key in fant_model.prediction_strategy._memoize_cache.keys():
+                if key[0] == "mean_cache":
+                    break
+            mean_cache = fant_model.prediction_strategy._memoize_cache[key]
+            self.assertEqual(mean_cache.shape, torch.Size([*expected_batch_shape, num_inducing + num_fant]))
+
+        # we remove the mean_module and covar_module and check for errors
+        del model.mean_module
+        with self.assertRaises(ModuleNotFoundError):
+            self._fantasy_iter(model, likelihood, data_batch_shape, self.cuda, num_fant=num_fant)
+
+        model.mean_module = gpytorch.means.ZeroMean()
+        del model.covar_module
+        with self.assertRaises(ModuleNotFoundError):
+            self._fantasy_iter(model, likelihood, data_batch_shape, self.cuda, num_fant=num_fant)
+
+        # finally we check to ensure failure for a non-gaussian likelihood
+        with self.assertRaises(NotImplementedError):
+            self._fantasy_iter(
+                model,
+                gpytorch.likelihoods.BernoulliLikelihood(),
+                data_batch_shape,
+                self.cuda,
+                num_fant=num_fant,
+            )
 
     def test_fantasy_call_batch_inducing(self):
         return self.test_fantasy_call(

@@ -8,6 +8,7 @@ import torch
 
 from .. import settings
 from ..distributions import Delta, MultivariateNormal
+from ..likelihoods import GaussianLikelihood
 from ..models import ExactGP
 from ..module import Module
 from ..utils.broadcasting import _mul_broadcast_shape
@@ -122,23 +123,27 @@ class _VariationalStrategy(Module, ABC):
             kl_divergence = torch.distributions.kl.kl_divergence(self.variational_distribution, self.prior_distribution)
         return kl_divergence
 
-    @cached(name="inducing_model")
-    def inducing_model(self):
+    @cached(name="amortized_exact_gp")
+    def amortized_exact_gp(self, mean_module=None, covar_module=None):
+        mean_module = self.model.mean_module if mean_module is None else mean_module
+        covar_module = self.model.covar_module if covar_module is None else covar_module
+
         with torch.no_grad():
-            inducing_noise_covar, inducing_mean = self.pseudo_points
-            inducing_points = self.inducing_points.detach()
-            if inducing_points.ndim < inducing_mean.ndim:
-                inducing_points = inducing_points.expand(*inducing_mean.shape[:-2], *inducing_points.shape)
+            # from here on down, we refer to the inducing points as pseudo_inputs
+            pseudo_target_covar, pseudo_target_mean = self.pseudo_points
+            pseudo_inputs = self.inducing_points.detach()
+            if pseudo_inputs.ndim < pseudo_target_mean.ndim:
+                pseudo_inputs = pseudo_inputs.expand(*pseudo_target_mean.shape[:-2], *pseudo_inputs.shape)
             # TODO: add flag for conditioning into SGPR after building fantasy strategy for SGPR
-            new_covar_module = deepcopy(self.model.covar_module)
+            new_covar_module = deepcopy(covar_module)
 
             # update inducing mean if necessary
-            inducing_mean = inducing_mean.squeeze() + self.model.mean_module(inducing_points)
+            pseudo_target_mean = pseudo_target_mean.squeeze() + mean_module(pseudo_inputs)
 
             inducing_exact_model = _BaseExactGP(
-                inducing_points,
-                inducing_mean,
-                mean_module=deepcopy(self.model.mean_module),
+                pseudo_inputs,
+                pseudo_target_mean,
+                mean_module=deepcopy(mean_module),
                 covar_module=new_covar_module,
                 likelihood=deepcopy(self.model.likelihood),
             )
@@ -147,11 +152,11 @@ class _VariationalStrategy(Module, ABC):
             # as this model is new, we need to compute a posterior to construct the prediction strategy
             # which uses the likelihood pseudo caches
             faked_points = torch.randn(
-                *inducing_mean.shape[:-2],
+                *pseudo_target_mean.shape[:-2],
                 1,
-                inducing_points.shape[-1],
-                device=inducing_points.device,
-                dtype=inducing_points.dtype,
+                pseudo_inputs.shape[-1],
+                device=pseudo_inputs.device,
+                dtype=pseudo_inputs.dtype,
             )
             inducing_exact_model.eval()
             _ = inducing_exact_model(faked_points)
@@ -160,9 +165,7 @@ class _VariationalStrategy(Module, ABC):
             pred_strat = inducing_exact_model.prediction_strategy
             pred_strat._memoize_cache = {}
             with torch.no_grad():
-                updated_lik_train_train_covar = (
-                    pred_strat.train_prior_dist.lazy_covariance_matrix + inducing_noise_covar
-                )
+                updated_lik_train_train_covar = pred_strat.train_prior_dist.lazy_covariance_matrix + pseudo_target_covar
                 pred_strat.lik_train_train_covar = updated_lik_train_train_covar
 
             # do the mean cache because the mean cache doesn't solve against lik_train_train_covar
@@ -183,12 +186,21 @@ class _VariationalStrategy(Module, ABC):
         self,
         inputs,
         targets,
+        mean_module=None,
+        covar_module=None,
         **kwargs,
     ):
         r"""
         Performs the online variational conditioning (OVC) strategy of Maddox et al, '21 to return
         an exact GP model that incorporates the inputs and targets alongside the variational model's inducing
         points and targets.
+
+        Currently, instead of directly updating the variational parameters (and inducing points), we instead
+        return an ExactGP model rather than an updated variational GP model. This is done primarily for
+        numerical stability.
+
+        Unlike the ExactGP's call for get_fantasy_model, we enable options for mean_module and covar_module
+        that allow specification of the mean / covariance.
 
         Reference: "Conditioning Sparse Variational Gaussian Processes for Online Decision-Making,"
             Maddox, Stanton, Wilson, NeurIPS, '21
@@ -197,22 +209,41 @@ class _VariationalStrategy(Module, ABC):
 
         # currently, we only support fantasization for CholeskyVariationalDistribution and
         # whitened / unwhitened variational strategies
-        # from .variational_strategy import VariationalStrategy
-        # from .unwhitened_variational_strategy import UnwhitenedVariationalStrategy
         if not self.has_fantasy_strategy:
             raise NotImplementedError(
                 "No fantasy model support for ",
                 self.__name__,
                 ". Only VariationalStrategy and UnwhitenedVariationalStrategy are currently supported.",
             )
+        if not isinstance(self.model.likelihood, GaussianLikelihood):
+            raise NotImplementedError(
+                "No fantasy model support for ",
+                self.model.likelihood,
+                ". Only GaussianLikelihoods are currently supported.",
+            )
+        # we assume that either the user has given the model a mean_module and a covar_module
+        # or that it will be passed into the get_fantasy_model function. we check for these.
+        if mean_module is None:
+            mean_module = getattr(self.model, "mean_module", None)
+            if mean_module is None:
+                raise ModuleNotFoundError(
+                    "Either you must provide a mean_module as input to get_fantasy_model",
+                    "or it must be an attribute of the model.",
+                )
+        if covar_module is None:
+            covar_module = getattr(self.model, "covar_module", None)
+            if covar_module is None:
+                # raise an error
+                raise ModuleNotFoundError(
+                    "Either you must provide a covar_module as input to get_fantasy_model",
+                    "or it must be an attribute of the model.",
+                )
+
         # first we construct an exact model over the inducing points with the inducing covariance
         # matrix
-        inducing_exact_model = self.inducing_model()
+        inducing_exact_model = self.amortized_exact_gp(mean_module=mean_module, covar_module=covar_module)
 
         # then we update this model by adding in the inputs and pseudo targets
-        # if inputs.shape[-2] == 1 or targets.shape[-1] != 1:
-        #     targets = targets.unsqueeze(-1)
-        # put on a trailing bdim for bs of 1
         # finally we fantasize wrt targets
         fantasy_model = inducing_exact_model.get_fantasy_model(inputs, targets, **kwargs)
         fant_pred_strat = fantasy_model.prediction_strategy
@@ -225,6 +256,7 @@ class _VariationalStrategy(Module, ABC):
         mean_cache = fantasy_lik_train_root_inv.matmul(train_labels_offset).squeeze(-1)
         mean_cache = _add_cache_hook(mean_cache, fant_pred_strat)
         add_to_cache(fant_pred_strat, "mean_cache", mean_cache)
+        # TODO: should we update the covar_cache?
 
         fantasy_model.prediction_strategy = fant_pred_strat
         return fantasy_model

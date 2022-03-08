@@ -129,11 +129,11 @@ class VariationalStrategy(_VariationalStrategy):
         # D_a = (S^{-1} - K^{-1})^{-1} = S + S R^{-1} S
         # note that in the whitened case R = I - S, unwhitened R = K - S
         # we compute (R R^{T})^{-1} R^T S for stability reasons as R is probably not PSD.
-        eval_lhs = var_cov.evaluate()
-        eval_rhs = cov_diff.transpose(-1, -2).matmul(eval_lhs)
+        eval_var_cov = var_cov.evaluate()
+        eval_rhs = cov_diff.transpose(-1, -2).matmul(eval_var_cov)
         inner_term = cov_diff.matmul(cov_diff.transpose(-1, -2))
         # TODO: flag the jitter here
-        inner_solve = inner_term.add_jitter(1e-3).inv_matmul(eval_rhs, eval_lhs.transpose(-1, -2))
+        inner_solve = inner_term.add_jitter(1e-3).inv_matmul(eval_rhs, eval_var_cov.transpose(-1, -2))
         inducing_covar = var_cov + inner_solve
 
         inducing_covar = Kmm_root.matmul(inducing_covar).matmul(Kmm_root.transpose(-1, -2))
@@ -143,19 +143,19 @@ class VariationalStrategy(_VariationalStrategy):
         rhs = cov_diff.transpose(-1, -2).matmul(var_mean)
         # TODO: this jitter too
         inner_rhs_mean_solve = inner_term.add_jitter(1e-3).inv_matmul(rhs)
-        new_mean = Kmm_root.matmul(inner_rhs_mean_solve)
+        pseudo_target_mean = Kmm_root.matmul(inner_rhs_mean_solve)
 
         # ensure inducing covar is psd
         # TODO: make this be an explicit root decomposition
         try:
-            final_inducing_covar = CholLazyTensor(inducing_covar.add_jitter(1e-3).cholesky()).evaluate()
+            pseudo_target_covar = CholLazyTensor(inducing_covar.add_jitter(1e-3).cholesky()).evaluate()
         except NotPSDError:
             from gpytorch.lazy import DiagLazyTensor
 
             evals, evecs = inducing_covar.symeig(eigenvectors=True)
-            final_inducing_covar = evecs.matmul(DiagLazyTensor(evals + 1e-4)).matmul(evecs.transpose(-1, -2)).evaluate()
+            pseudo_target_covar = evecs.matmul(DiagLazyTensor(evals + 1e-4)).matmul(evecs.transpose(-1, -2)).evaluate()
 
-        return final_inducing_covar, new_mean
+        return pseudo_target_covar, pseudo_target_mean
 
     def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None, **kwargs):
         # Compute full prior distribution

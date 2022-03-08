@@ -101,18 +101,18 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
         # unwhitened: (S - S R^{-1} S) S^{-1} m = (I - S R^{-1}) m
         rhs = cov_diff.transpose(-1, -2).matmul(var_mean)
         inner_rhs_mean_solve = inner_term.add_jitter(1e-3).inv_matmul(rhs)
-        new_mean = var_mean + var_cov.matmul(inner_rhs_mean_solve)
+        pseudo_target_mean = var_mean + var_cov.matmul(inner_rhs_mean_solve)
 
         # ensure inducing covar is psd
         try:
-            final_inducing_covar = CholLazyTensor(inducing_covar.add_jitter(1e-3).cholesky()).evaluate()
+            pseudo_target_covar = CholLazyTensor(inducing_covar.add_jitter(1e-3).cholesky()).evaluate()
         except NotPSDError:
             from gpytorch.lazy import DiagLazyTensor
 
             evals, evecs = inducing_covar.symeig(eigenvectors=True)
-            final_inducing_covar = evecs.matmul(DiagLazyTensor(evals + 1e-4)).matmul(evecs.transpose(-1, -2)).evaluate()
+            pseudo_target_covar = evecs.matmul(DiagLazyTensor(evals + 1e-4)).matmul(evecs.transpose(-1, -2)).evaluate()
 
-        return final_inducing_covar, new_mean
+        return pseudo_target_covar, pseudo_target_mean
 
     def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None):
         # If our points equal the inducing points, we're done
