@@ -127,7 +127,9 @@ class TestMetricsSingleTask(unittest.TestCase):
         self._test_metric(mean_standardized_log_loss)
 
     def test_quantile_coverage_error(self):
-        self._test_metric(quantile_coverage_error, should_check_differentiable=False, quantile=95.)
+        self._test_metric(
+            quantile_coverage_error, should_check_differentiable=False, quantile=95.0,
+        )
         # check that negative or very positive quantile coverages raise errors
         with self.assertRaises(NotImplementedError):
             self.get_metric(
@@ -145,7 +147,6 @@ class TestMetricsSingleTask(unittest.TestCase):
                 quantile_coverage_error,
                 quantile=1000.0,
             )
-        self._test_metric(quantile_coverage_error, should_check_differentiable=False, quantile=95.0)
 
 
 class TestMetricsBatchedSingleTask(TestMetricsSingleTask):
