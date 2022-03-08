@@ -55,6 +55,22 @@ class RectangularLazyTensorTestCase(BaseTestCase):
             if arg_copy.requires_grad and arg_copy.is_leaf and arg_copy.grad is not None:
                 self.assertAllClose(arg.grad, arg_copy.grad, **self.tolerances["matmul"])
 
+    def _test_rmatmul(self, lhs):
+        lazy_tensor = self.create_lazy_tensor().detach().requires_grad_(True)
+        lazy_tensor_copy = lazy_tensor.clone().detach().requires_grad_(True)
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
+
+        res = lhs @ lazy_tensor
+        actual = lhs @ evaluated
+        self.assertAllClose(res, actual)
+
+        grad = torch.randn_like(res)
+        res.backward(gradient=grad)
+        actual.backward(gradient=grad)
+        for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
+            if arg_copy.requires_grad and arg_copy.is_leaf and arg_copy.grad is not None:
+                self.assertAllClose(arg.grad, arg_copy.grad, **self.tolerances["matmul"])
+
     def test_add(self):
         lazy_tensor = self.create_lazy_tensor()
         evaluated = self.evaluate_lazy_tensor(lazy_tensor)
@@ -72,19 +88,35 @@ class RectangularLazyTensorTestCase(BaseTestCase):
 
     def test_matmul_vec(self):
         lazy_tensor = self.create_lazy_tensor()
-        rhs = torch.randn(lazy_tensor.size(-1))
 
         # We skip this test if we're dealing with batch LazyTensors
         # They shouldn't multiply by a vec
         if lazy_tensor.ndimension() > 2:
             return
-        else:
-            return self._test_matmul(rhs)
+
+        rhs = torch.randn(lazy_tensor.size(-1))
+        return self._test_matmul(rhs)
+
+    def test_rmatmul_vec(self):
+        lazy_tensor = self.create_lazy_tensor()
+
+        # We skip this test if we're dealing with batch LazyTensors
+        # They shouldn't multiply by a vec
+        if lazy_tensor.ndimension() > 2:
+            return
+
+        lhs = torch.randn(lazy_tensor.size(-2))
+        return self._test_rmatmul(lhs)
 
     def test_matmul_matrix(self):
         lazy_tensor = self.create_lazy_tensor()
         rhs = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 4)
         return self._test_matmul(rhs)
+
+    def test_rmatmul_matrix(self):
+        lazy_tensor = self.create_lazy_tensor()
+        lhs = torch.randn(*lazy_tensor.batch_shape, 4, lazy_tensor.size(-2))
+        return self._test_rmatmul(lhs)
 
     def test_matmul_matrix_broadcast(self):
         lazy_tensor = self.create_lazy_tensor()
@@ -104,6 +136,25 @@ class RectangularLazyTensorTestCase(BaseTestCase):
             batch_shape = torch.Size((*lazy_tensor.batch_shape[:-1], 1))
             rhs = torch.randn(*batch_shape, lazy_tensor.size(-1), 4)
             self._test_matmul(rhs)
+
+    def test_rmatmul_matrix_broadcast(self):
+        lazy_tensor = self.create_lazy_tensor()
+
+        # Left hand size has one more batch dimension
+        batch_shape = torch.Size((3, *lazy_tensor.batch_shape))
+        lhs = torch.randn(*batch_shape, 4, lazy_tensor.size(-2))
+        self._test_rmatmul(lhs)
+
+        if lazy_tensor.ndimension() > 2:
+            # Left hand size has one fewer batch dimension
+            batch_shape = torch.Size(lazy_tensor.batch_shape[1:])
+            lhs = torch.randn(*batch_shape, 4, lazy_tensor.size(-2))
+            self._test_rmatmul(lhs)
+
+            # Left hand size has a singleton dimension
+            batch_shape = torch.Size((*lazy_tensor.batch_shape[:-1], 1))
+            lhs = torch.randn(*batch_shape, 4, lazy_tensor.size(-2))
+            self._test_rmatmul(lhs)
 
     def test_constant_mul(self):
         lazy_tensor = self.create_lazy_tensor()

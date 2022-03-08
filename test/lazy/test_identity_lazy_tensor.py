@@ -18,6 +18,15 @@ class TestIdentityLazyTensor(LazyTensorTestCase, unittest.TestCase):
         actual = evaluated.matmul(rhs)
         self.assertAllClose(res, actual)
 
+    def _test_rmatmul(self, lhs):
+        lazy_tensor = self.create_lazy_tensor().detach().requires_grad_(True)
+        lazy_tensor_copy = lazy_tensor.clone().detach().requires_grad_(True)
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
+
+        res = lhs @ lazy_tensor
+        actual = lhs @ evaluated
+        self.assertAllClose(res, actual)
+
     def _test_inv_matmul(self, rhs, lhs=None, cholesky=False):
         lazy_tensor = self.create_lazy_tensor().detach().requires_grad_(True)
         lazy_tensor_copy = lazy_tensor.clone().detach().requires_grad_(True)
