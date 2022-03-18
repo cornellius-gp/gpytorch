@@ -46,9 +46,6 @@ class InverseSparseTriangularLazyTensor(LazyTensor):
 
         return coo_tensor
 
-    # def _solve(self, rhs):
-    #     return self.coo_tensor.matmul(rhs)
-
     def inv_matmul(self, rhs):
         """
         TODO:
@@ -68,6 +65,10 @@ class InverseSparseTriangularLazyTensor(LazyTensor):
         return self.diag().abs().log().sum()
 
     def _matmul(self, rhs):
+        from gpytorch.cusparse import sparse_triangular_solve
+        return sparse_triangular_solve(self.coo_tensor, rhs)
+
+    def _matmul_python(self, rhs):
         """
         The forward and backward substitution are implemented in Python and might be slow.
         Assume that rhs is unsqueezed if it is a vector.
