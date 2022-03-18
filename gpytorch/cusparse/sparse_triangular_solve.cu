@@ -40,8 +40,10 @@ CUSA_R_32F
 1. Only works for float tensor. No double tensor.
 2. All tensors have to be on cuda:0.
 3. The matrix has to be lower triangular. No upper triangular matrix.
+4. Returned tensor will be copied.
+5. Consider use a sparse tensor class for the first argument.
 */
-torch::Tensor sparse_triangular_solve(torch::Tensor mat, torch::Tensor rhs) {
+torch::Tensor sparse_triangular_solve(const torch::Tensor &mat, const torch::Tensor &rhs) {
     auto n = mat.size(0);
     auto m = rhs.size(1);
     auto nnz = mat._values().size(0);

@@ -10,34 +10,24 @@ cusparse = load(name="cusparse", sources=[os.path.join(path_cusparse, "sparse_tr
 from cusparse import sparse_triangular_solve
 
 if __name__ == "__main__":
-    # indices = torch.tensor([[0, 1, 1, 2, 2, 2, 0], [0, 0, 1, 0, 1, 2, 2]], dtype=torch.long, device='cuda:0')
-    # values = torch.tensor([1., 2., 3., 4., 5., 6., 0.], dtype=torch.float, device='cuda:0')
+    indices = torch.tensor([[0, 1, 1, 2, 2, 2, 0], [0, 0, 1, 0, 1, 2, 2]], dtype=torch.long, device='cuda:0')
+    values = torch.tensor([1., 2., 3., 4., 5., 6., 0.], dtype=torch.float, device='cuda:0')
 
-    # s = torch.sparse_coo_tensor(indices, values, (3, 3))
-    # x = torch.tensor([[1., 2.], [1., 2.], [1., 2.]], dtype=torch.float, device='cuda:0')
+    s = torch.sparse_coo_tensor(indices, values, (3, 3))
+    x = torch.tensor([[1., 2.], [1., 2.], [1., 2.]], dtype=torch.float, device='cuda:0')
 
-    # b = s.matmul(x)
+    b = s.matmul(x)
 
-    # print(s.to_dense())
-    # print(b)
+    print(s.to_dense())
+    print(b)
 
-    # ret = sparse_triangular_solve(s, b)
-    # print(ret)
+    ret = sparse_triangular_solve(s, b)
+    print(ret)
 
-    # # any nonzero entries in the upper triangular part does not matter
-    # s._values()[-1] = 100.
-    # print(s.to_dense())
-    # print(b)
+    # nonzero entries in the upper triangular part will be ignored
+    s._values()[-1] = 100.
+    print(s.to_dense())
+    print(b)
 
-    # ret = sparse_triangular_solve(s, b)
-    # print(ret)
-
-    indices = torch.tensor([[0, 1, 1, 2, 2], [0, 1, 0, 2, 1]], dtype=torch.float, device='cuda:0'),
-    values = torch.tensor([2., 1., 1., 4., 1.], dtype=torch.float, device='cuda:0')
-
-    b = torch.tensor(
-        [
-            [1., 4.],
-            [2., 5.],
-            [3., 6.],
-        ], dtype=torch.float)
+    ret = sparse_triangular_solve(s, b)
+    print(ret)
