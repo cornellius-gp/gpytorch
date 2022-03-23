@@ -16,41 +16,26 @@ class InverseSparseTriangularLazyTensor(LazyTensor):
 
         self.upper = upper
 
-    def _size(self):
-        return self.indices.size(-2), self.indices.size(-2)
-
-    def _transpose_nonbatch(self):
-        return InverseSparseTriangularLazyTensor(self.indices, self.values, upper=not self.upper)
-
-    @property
-    def coo_tensor(self):
-        """
-        Does the cache work if there are in-place updates?
-        """
-        return self._coo_tensor(indices=self.indices, values=self.values, upper=self.upper)
-
-    @cached
-    def _coo_tensor(self, indices, values, upper):
-        """
-        Make it a @property?
-        """
         from gpytorch.utils.sparse import make_sparse_from_indices_and_values
-        coo_tensor = make_sparse_from_indices_and_values(
+        self.coo_tensor = make_sparse_from_indices_and_values(
             indices,
             values,
             indices.size(-2)
         )
 
         if not upper:
-            coo_tensor = coo_tensor.t()
+            self.coo_tensor = self.coo_tensor.t()
 
-        return coo_tensor
+    def _size(self):
+        return self.indices.size(-2), self.indices.size(-2)
+
+    def _transpose_nonbatch(self):
+        return InverseSparseTriangularLazyTensor(self.indices, self.values, upper=not self.upper)
 
     def inv_matmul(self, rhs):
         """
         TODO:
         - implement the batch mode
-        - coo representation
         """
         return self.coo_tensor.matmul(rhs)
 
