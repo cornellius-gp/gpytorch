@@ -123,7 +123,7 @@ def linear_cg(
     """
     # import traceback
     # traceback.print_stack()
-    if settings.verbose_linalg.on():
+    if settings.record_cg.on():
         settings.verbose_linalg.lst_residual_norm = []
 
     # Unsqueeze, if necesasry
@@ -288,8 +288,8 @@ def linear_cg(
         torch.lt(residual_norm, stop_updating_after, out=has_converged)
 
         # Record the residual norm
-        if settings.verbose_linalg.on():
-            settings.verbose_linalg.lst_residual_norm.append(residual_norm.mean().item())
+        if settings.record_cg.on():
+            settings.record_cg.lst_residual_norm.append(residual_norm.mean().item())
             # print(residual_norm.mean().item())
             # assert 0
 

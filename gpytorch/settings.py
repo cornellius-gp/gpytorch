@@ -796,5 +796,13 @@ class verbose_linalg(_feature_flag):
     ch.setFormatter(formatter)
     logger.addHandler(ch)
 
+
+class record_cg(_feature_flag):
+    """
+    Whether record iterations in cg or not.
+    """
+
+    _default = False
+
     # Record the residual norm
     lst_residual_norm = []
