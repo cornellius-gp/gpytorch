@@ -124,7 +124,7 @@ def linear_cg(
     # import traceback
     # traceback.print_stack()
     if settings.record_cg.on():
-        settings.verbose_linalg.lst_residual_norm = []
+        settings.record_cg.lst_residual_norm = []
 
     # Unsqueeze, if necesasry
     is_vector = rhs.ndimension() == 1
