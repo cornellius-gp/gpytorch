@@ -54,6 +54,8 @@ class AddedDiagLazyTensor(SumLazyTensor):
         self._r_cache = None
 
         self._s_inv_cache = None
+        self._st_inv_cache = None
+
         self._stq_cache = None
 
         self._precond_lt = None
@@ -151,7 +153,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
     def _lr_sp_preconditioner(self):
         from ..utils import sparse_chol_inv
 
-        if self._s_inv_cache is None or self._stq_cache is None:
+        if self._s_inv_cache is None or self._st_inv_cache is None or self._stq_cache is None:
             self._piv_chol_self = pivoted_cholesky.pivoted_cholesky(
                 self._lazy_tensor,
                 settings.max_preconditioner_size.value(),
@@ -165,6 +167,11 @@ class AddedDiagLazyTensor(SumLazyTensor):
                 residual,
                 settings.max_sp_preconditioner_size.value()
             )
+            """
+            Store an extra copy of transpose.
+            Because self._s_inv_cache.transpose(-2, -1) calls .coalesce() which is time-consuming.
+            """
+            self._st_inv_cache = self._s_inv_cache.transpose(-2, -1)
 
             *_, n, k = self._piv_chol_self.size()
             eye = torch.eye(
@@ -176,7 +183,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
                 torch.cat((self._s_inv_cache.inv_matmul(self._piv_chol_self), eye), dim=-2)
             )
             self._q_cache = self._q_cache[..., :n, :]
-            self._stq_cache = self._s_inv_cache.transpose(-2, -1).inv_matmul(self._q_cache)
+            self._stq_cache = self._st_inv_cache.inv_matmul(self._q_cache)
 
             self._precond_lt = PsdSumLazyTensor(
                 RootLazyTensor(self._piv_chol_self),
@@ -186,7 +193,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
             self._precond_logdet_cache = self._r_cache.diag().abs().log().sum().mul(2) + self._s_inv_cache.logdet().mul(2)
 
         def precondition_closure(tensor):
-            sts = self._s_inv_cache.transpose(-2, -1).inv_matmul(self._s_inv_cache.inv_matmul(tensor))
+            sts = self._st_inv_cache.inv_matmul(self._s_inv_cache.inv_matmul(tensor))
             stqqts = self._stq_cache.matmul(self._stq_cache.transpose(-2, -1).matmul(tensor))
             return sts - stqqts
 
