@@ -23,6 +23,9 @@ class InverseSparseTriangularLazyTensor(LazyTensor):
             indices.size(-2)
         )
 
+        """
+        make_sparse_from_indices_and_values creates the transpose of the sparse tensor
+        """
         if not upper:
             self.coo_tensor = self.coo_tensor.t()
 
@@ -83,3 +86,7 @@ class InverseSparseTriangularLazyTensor(LazyTensor):
                 ret[i] = (rhs[i] - inner_product) / self.values[i, 0]
 
         return ret
+
+
+if __name__ == "__main__":
+    pass
