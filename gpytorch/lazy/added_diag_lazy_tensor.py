@@ -136,17 +136,18 @@ class AddedDiagLazyTensor(SumLazyTensor):
     def _sp_preconditioner(self):
         from ..utils import sparse_chol_inv
 
-        if self._s_inv_cache is None:
+        if self._s_inv_cache is None or self._st_inv_cache is None:
             self._s_inv_cache = sparse_chol_inv(
                 self,
                 settings.max_sp_preconditioner_size.value(),
             )
+            self._st_inv_cache = self._s_inv_cache.transpose(-2, -1)
 
             self._precond_lt = RootLazyTensor(self._s_inv_cache)
             self._precond_logdet_cache = self._s_inv_cache.logdet().mul(2)
 
         def precondition_closure(tensor):
-            return self._s_inv_cache.transpose(-2, -1).inv_matmul(self._s_inv_cache.inv_matmul(tensor))
+            return self._st_inv_cache.inv_matmul(self._s_inv_cache.inv_matmul(tensor))
 
         return precondition_closure, self._precond_lt, self._precond_logdet_cache
 
