@@ -26,6 +26,11 @@ class InverseSparseTriangularLazyTensor(LazyTensor):
         if not upper:
             self.coo_tensor = self.coo_tensor.t()
 
+        """
+        Preprocessing self.coo_tensor using coalesce() speeds up sparse matmul.
+        """
+        self.coo_tensor = self.coo_tensor.coalesce()
+
     def _size(self):
         return self.indices.size(-2), self.indices.size(-2)
 
