@@ -79,7 +79,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
         if self.preconditioner_override is not None:
             return self.preconditioner_override(self)
 
-        if settings.max_preconditioner_size.value() == 0 or self.size(-1) < settings.min_preconditioning_size.value():
+        if settings.max_preconditioner_size.value() + settings.max_sp_preconditioner_size.value() == 0 or self.size(-1) < settings.min_preconditioning_size.value():
             return None, None, None
 
         if settings.max_preconditioner_size.value() > 0 and settings.max_sp_preconditioner_size.value() == 0:
