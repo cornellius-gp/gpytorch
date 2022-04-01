@@ -40,7 +40,17 @@ def sparse_chol_inv(pd_mat, nn_k: int, nn_ind: Optional[Tensor] = None):
         # del pd_mat_eval
         # del idx
 
-        nn_ind = delazify(pd_mat).tril().topk(nn_k + 1, dim=-1, largest=True, sorted=True).indices[..., :, 1:]
+        # nn_ind = delazify(pd_mat).tril().abs().topk(nn_k + 1, dim=-1, largest=True, sorted=True).indices[..., :, 1:]
+        abs_tril_pd_mat = delazify(pd_mat).tril().abs()
+        abs_tril_pd_mat.fill_diagonal_(-torch.inf)
+        nn_ind = abs_tril_pd_mat.topk(nn_k, dim=-1, largest=True, sorted=True).indices
+
+        tmp = delazify(pd_mat).diag() - delazify(pd_mat).max(dim=-1).values
+        # assert tmp.abs().le(1e-8).all()
+        # if not tmp.abs().le(1e-8).all():
+        #     import ipdb
+        #     ipdb.set_trace()
+        # assert delazify(pd_mat).ge(-1e-7).all()
 
     pd_mat = lazify(pd_mat)
 
