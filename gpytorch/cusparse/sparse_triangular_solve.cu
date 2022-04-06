@@ -39,11 +39,11 @@ CUSA_R_32F
 
 1. Only works for float tensor. No double tensor.
 2. All tensors have to be on cuda:0.
-3. The matrix has to be lower triangular. No upper triangular matrix.
+3. [Done] The matrix has to be lower triangular. No upper triangular matrix.
 4. Returned tensor will be copied.
 5. Consider use a sparse tensor class for the first argument.
 */
-torch::Tensor sparse_triangular_solve(const torch::Tensor &mat, const torch::Tensor &rhs) {
+torch::Tensor sparse_triangular_solve(const torch::Tensor &mat, const torch::Tensor &rhs, bool upper=false) {
     auto n = mat.size(0);
     auto m = rhs.size(1);
     auto nnz = mat._values().size(0);
@@ -86,6 +86,10 @@ torch::Tensor sparse_triangular_solve(const torch::Tensor &mat, const torch::Ten
 
     // Specify Lower | Upper fill mode.
     cusparseFillMode_t fillmode = CUSPARSE_FILL_MODE_LOWER;
+    if (upper) {
+        fillmode = CUSPARSE_FILL_MODE_UPPER;
+    }
+
     cusparseSpMatSetAttribute(
         descr_mat, CUSPARSE_SPMAT_FILL_MODE,
         &fillmode, sizeof(fillmode)
@@ -107,6 +111,8 @@ torch::Tensor sparse_triangular_solve(const torch::Tensor &mat, const torch::Ten
     /* descriptor of ret */
     float *dret = NULL;
     cudaMalloc((void**) &dret, n * m * sizeof(float));
+
+    assert(dret != NULL);
 
     cusparseCreateDnMat(
         &descr_ret, n, m, m, dret,

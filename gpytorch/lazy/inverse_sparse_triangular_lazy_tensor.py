@@ -59,7 +59,7 @@ class InverseSparseTriangularLazyTensor(LazyTensor):
 
     def _matmul(self, rhs):
         from gpytorch.cusparse import sparse_triangular_solve
-        return sparse_triangular_solve(self.coo_tensor, rhs)
+        return sparse_triangular_solve(self.coo_tensor, rhs, self.upper)
 
     def _matmul_python(self, rhs):
         """
