@@ -31,7 +31,7 @@ jobs:
           pip install torch==1.9+cpu -f https://download.pytorch.org/whl/torch_stable.html;
         fi
         if [[ ${{ matrix.pyro }} == "with-pyro" ]]; then
-          pip install git+https://github.com/pyro-ppl/pyro@master;
+          pip install "pyro-ppl<=1.8";
         fi
         pip install -r requirements.txt
     - name: Run unit tests
