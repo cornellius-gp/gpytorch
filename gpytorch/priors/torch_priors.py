@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import torch
-from torch.distributions import Gamma, LogNormal, MultivariateNormal, Normal, Uniform
+from torch.distributions import Gamma, HalfCauchy, LogNormal, MultivariateNormal, Normal, Uniform
 from torch.nn import Module as TModule
 
 from .prior import Prior
@@ -58,6 +58,20 @@ class UniformPrior(Prior, Uniform):
     def expand(self, batch_shape):
         batch_shape = torch.Size(batch_shape)
         return UniformPrior(self.low.expand(batch_shape), self.high.expand(batch_shape))
+
+
+class HalfCauchyPrior(Prior, HalfCauchy):
+    """
+    Half-Cauchy prior.
+    """
+
+    def __init__(self, scale, validate_args=None, transform=None):
+        TModule.__init__(self)
+        HalfCauchy.__init__(self, scale=scale, validate_args=validate_args)
+        self._transform = transform
+
+    def expand(self, batch_shape):
+        return HalfCauchy(self.loc.expand(batch_shape), self.scale.expand(batch_shape))
 
 
 class GammaPrior(Prior, Gamma):
