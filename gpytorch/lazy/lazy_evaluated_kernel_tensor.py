@@ -137,6 +137,9 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         if len(batch_indices) == 0 or all(ind == slice(None, None, None) for ind in batch_indices):
             new_kernel = self.kernel  # Avoid unnecessary copying when we aren't explicitly indexing batch dims
         else:
+            # Deal with the fact that the batch shape could be different from the kernel's batch shape (e.g. due to broadcasting))
+            while len(batch_indices) > len(self.kernel._batch_shape) and batch_indices[0] == _noop_index:
+                batch_indices = batch_indices[1:]
             new_kernel = self.kernel.__getitem__(batch_indices)
 
         # Now construct a kernel with those indices
