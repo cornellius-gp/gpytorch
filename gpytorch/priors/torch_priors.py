@@ -71,7 +71,6 @@ class HalfCauchyPrior(Prior, HalfCauchy):
         self._transform = transform
 
     def expand(self, batch_shape):
-        batch_shape = torch.Size(batch_shape)
         return HalfCauchy(self.loc.expand(batch_shape), self.scale.expand(batch_shape))
 
 
