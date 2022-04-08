@@ -24,6 +24,12 @@ Standard Priors
 .. autoclass:: GammaPrior
    :members:
 
+:hidden:`HalfCauchyPrior`
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: HalfCauchyPrior
+   :members:
+
 :hidden:`LKJCovariancePrior`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
