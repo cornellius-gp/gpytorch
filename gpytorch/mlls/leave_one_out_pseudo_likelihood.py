@@ -29,6 +29,7 @@ class LeaveOneOutPseudoLikelihood(ExactMarginalLogLikelihood):
 
     :param ~gpytorch.likelihoods.GaussianLikelihood likelihood: The Gaussian likelihood for the model
     :param ~gpytorch.models.ExactGP model: The exact GP model
+    :param ~bool combine_terms (optional): If `False`, the MLL call returns each MLL term separately
 
     Example:
         >>> # model is a gpytorch.models.ExactGP
@@ -40,10 +41,24 @@ class LeaveOneOutPseudoLikelihood(ExactMarginalLogLikelihood):
         >>> loss.backward()
     """
 
-    def __init__(self, likelihood, model):
-        super().__init__(likelihood=likelihood, model=model)
-        self.likelihood = likelihood
-        self.model = model
+    def log_prob_terms(self, function_dist, target, *params):
+        output = self.likelihood(function_dist, *params)
+        m, L = output.mean, output.lazy_covariance_matrix.cholesky(upper=False)
+        m = m.reshape(*target.shape)
+        identity = torch.eye(*L.shape[-2:], dtype=m.dtype, device=m.device)
+        sigma2 = 1.0 / L._cholesky_solve(identity, upper=False).diagonal(dim1=-1, dim2=-2)  # 1 / diag(inv(K))
+        mu = target - L._cholesky_solve((target - m).unsqueeze(-1), upper=False).squeeze(-1) * sigma2
+
+        # Scale by the amount of data we have and then add on the scaled constant
+        num_data = target.size(-1)
+        data_fit = ((target - mu).pow(2.0) / sigma2).sum(-1)
+        approx_logdet = sigma2.log().sum(-1)
+        norm_const = torch.tensor(num_data * math.log(2 * math.pi)).to(approx_logdet)
+        other_term = self._add_other_terms(torch.zeros_like(approx_logdet), params)
+        split_terms = [data_fit, approx_logdet, norm_const, other_term]
+        split_terms = [-0.5 / num_data * term for term in split_terms]
+
+        return split_terms
 
     def forward(self, function_dist: MultivariateNormal, target: Tensor, *params) -> Tensor:
         r"""
@@ -54,18 +69,7 @@ class LeaveOneOutPseudoLikelihood(ExactMarginalLogLikelihood):
         :param torch.Tensor target: :math:`\mathbf y` The target values
         :param dict kwargs: Additional arguments to pass to the likelihood's :attr:`forward` function.
         """
-        output = self.likelihood(function_dist, *params)
-        m, L = output.mean, output.lazy_covariance_matrix.cholesky(upper=False)
-        m = m.reshape(*target.shape)
-        identity = torch.eye(*L.shape[-2:], dtype=m.dtype, device=m.device)
-        sigma2 = 1.0 / L._cholesky_solve(identity, upper=False).diagonal(dim1=-1, dim2=-2)  # 1 / diag(inv(K))
-        mu = target - L._cholesky_solve((target - m).unsqueeze(-1), upper=False).squeeze(-1) * sigma2
-        term1 = -0.5 * sigma2.log()
-        term2 = -0.5 * (target - mu).pow(2.0) / sigma2
-        res = (term1 + term2).sum(dim=-1)
-
-        res = self._add_other_terms(res, params)
-
-        # Scale by the amount of data we have and then add on the scaled constant
-        num_data = target.size(-1)
-        return res.div_(num_data) - 0.5 * math.log(2 * math.pi)
+        split_terms = self.log_prob_terms(function_dist, target, *params)
+        if self.combine_terms:
+            return sum(split_terms)
+        return split_terms

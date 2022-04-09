@@ -48,7 +48,11 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             # TODO: Integrate argument validation for LazyTensors into torch.distribution validation logic
             super(TMultivariateNormal, self).__init__(batch_shape, event_shape, validate_args=False)
         else:
-            super().__init__(loc=mean, covariance_matrix=covariance_matrix, validate_args=validate_args)
+            super().__init__(
+                loc=mean,
+                covariance_matrix=covariance_matrix,
+                validate_args=validate_args,
+            )
 
     @property
     def _unbroadcasted_scale_tril(self):
@@ -142,10 +146,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         else:
             return lazify(super().covariance_matrix)
 
-    def log_prob(self, value):
-        if settings.fast_computations.log_prob.off():
-            return super().log_prob(value)
-
+    def log_prob_terms(self, value):
         if self._validate_args:
             self._validate_sample(value)
 
@@ -157,7 +158,10 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             if len(diff.shape[:-1]) < len(covar.batch_shape):
                 diff = diff.expand(covar.shape[:-1])
             else:
-                padded_batch_shape = (*(1 for _ in range(diff.dim() + 1 - covar.dim())), *covar.batch_shape)
+                padded_batch_shape = (
+                    *(1 for _ in range(diff.dim() + 1 - covar.dim())),
+                    *covar.batch_shape,
+                )
                 covar = covar.repeat(
                     *(diff_size // covar_size for diff_size, covar_size in zip(diff.shape[:-1], padded_batch_shape)),
                     1,
@@ -167,9 +171,18 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         # Get log determininant and first part of quadratic form
         covar = covar.evaluate_kernel()
         inv_quad, logdet = covar.inv_quad_logdet(inv_quad_rhs=diff.unsqueeze(-1), logdet=True)
+        norm_const = torch.tensor(diff.size(-1) * math.log(2 * math.pi)).to(inv_quad)
 
-        res = -0.5 * sum([inv_quad, logdet, diff.size(-1) * math.log(2 * math.pi)])
-        return res
+        split_terms = [inv_quad, logdet, norm_const]
+        split_terms = [-0.5 * term for term in split_terms]
+
+        return split_terms
+
+    def log_prob(self, value):
+        if settings.fast_computations.log_prob.off():
+            return super().log_prob(value)
+        split_terms = self.log_prob_terms(value)
+        return sum(split_terms)
 
     def rsample(self, sample_shape=torch.Size(), base_samples=None):
         covar = self.lazy_covariance_matrix
@@ -286,7 +299,10 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             raise RuntimeError("Can only multiply by scalars")
         if other == 1:
             return self
-        return self.__class__(mean=self.mean * other, covariance_matrix=self.lazy_covariance_matrix * (other ** 2))
+        return self.__class__(
+            mean=self.mean * other,
+            covariance_matrix=self.lazy_covariance_matrix * (other ** 2),
+        )
 
     def __truediv__(self, other):
         return self.__mul__(1.0 / other)
@@ -341,5 +357,12 @@ def kl_mvn_mvn(p_dist, q_dist):
     trace_plus_inv_quad_form, logdet_q_covar = q_covar.inv_quad_logdet(inv_quad_rhs=inv_quad_rhs, logdet=True)
 
     # Compute the KL Divergence.
-    res = 0.5 * sum([logdet_q_covar, logdet_p_covar.mul(-1), trace_plus_inv_quad_form, -float(mean_diffs.size(-1))])
+    res = 0.5 * sum(
+        [
+            logdet_q_covar,
+            logdet_p_covar.mul(-1),
+            trace_plus_inv_quad_form,
+            -float(mean_diffs.size(-1)),
+        ]
+    )
     return res

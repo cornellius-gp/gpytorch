@@ -25,7 +25,7 @@ class MarginalLogLikelihood(Module):
     these functions must be negated for optimization).
     """
 
-    def __init__(self, likelihood, model):
+    def __init__(self, likelihood, model, combine_terms=True):
         super(MarginalLogLikelihood, self).__init__()
         if not isinstance(model, GP):
             raise RuntimeError(
@@ -35,6 +35,7 @@ class MarginalLogLikelihood(Module):
             )
         self.likelihood = likelihood
         self.model = model
+        self.combine_terms = combine_terms
 
     def forward(self, output, target, **kwargs):
         r"""

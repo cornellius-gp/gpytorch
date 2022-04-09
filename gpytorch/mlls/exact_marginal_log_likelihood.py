@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import torch
+
 from ..distributions import MultivariateNormal
 from ..likelihoods import _GaussianLikelihoodBase
 from .marginal_log_likelihood import MarginalLogLikelihood
@@ -17,6 +19,7 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
 
     :param ~gpytorch.likelihoods.GaussianLikelihood likelihood: The Gaussian likelihood for the model
     :param ~gpytorch.models.ExactGP model: The exact GP model
+    :param ~bool combine_terms (optional): If `False`, the MLL call returns each MLL term separately
 
     Example:
         >>> # model is a gpytorch.models.ExactGP
@@ -28,10 +31,10 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
         >>> loss.backward()
     """
 
-    def __init__(self, likelihood, model):
+    def __init__(self, likelihood, model, combine_terms=True):
         if not isinstance(likelihood, _GaussianLikelihoodBase):
             raise RuntimeError("Likelihood must be Gaussian for exact inference")
-        super(ExactMarginalLogLikelihood, self).__init__(likelihood, model)
+        super(ExactMarginalLogLikelihood, self).__init__(likelihood, model, combine_terms)
 
     def _add_other_terms(self, res, params):
         # Add additional terms (SGPR / learned inducing points, heteroskedastic likelihood models)
@@ -59,9 +62,18 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
 
         # Get the log prob of the marginal distribution
         output = self.likelihood(function_dist, *params)
-        res = output.log_prob(target)
-        res = self._add_other_terms(res, params)
+        split_terms = output.log_prob_terms(target)
 
         # Scale by the amount of data we have
         num_data = function_dist.event_shape.numel()
-        return res.div_(num_data)
+
+        if self.combine_terms:
+            term_sum = sum(split_terms)
+            term_sum = self._add_other_terms(term_sum, params)
+            return term_sum.div(num_data)
+        else:
+            norm_const = split_terms[-1]
+            other_terms = torch.zeros_like(norm_const)
+            other_terms = self._add_other_terms(other_terms, params)
+            split_terms.append(other_terms)
+            return [term.div(num_data) for term in split_terms]
