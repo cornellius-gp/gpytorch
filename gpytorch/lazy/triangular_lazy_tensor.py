@@ -15,7 +15,13 @@ from .non_lazy_tensor import NonLazyTensor
 Allsor = Union[Tensor, LazyTensor]
 
 
-class TriangularLazyTensor(LazyTensor):
+class _TriangularLazyTensorBase:
+    """Base class that all triangular lazy tensors are derived from."""
+
+    pass
+
+
+class TriangularLazyTensor(LazyTensor, _TriangularLazyTensorBase):
     def __init__(self, tensor: Allsor, upper: bool = False) -> None:
         """
         Triangular lazy tensor. Supports arbitrary batch sizes.

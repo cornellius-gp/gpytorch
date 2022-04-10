@@ -13,7 +13,7 @@ from ..utils.memoize import cached
 from .diag_lazy_tensor import ConstantDiagLazyTensor, DiagLazyTensor
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import lazify
-from .triangular_lazy_tensor import TriangularLazyTensor
+from .triangular_lazy_tensor import TriangularLazyTensor, _TriangularLazyTensorBase
 
 
 def _kron_diag(*lts) -> Tensor:
@@ -320,7 +320,7 @@ class KroneckerProductLazyTensor(LazyTensor):
         return self.__class__(*(lazy_tensor._transpose_nonbatch() for lazy_tensor in self.lazy_tensors), **self._kwargs)
 
 
-class KroneckerProductTriangularLazyTensor(KroneckerProductLazyTensor):
+class KroneckerProductTriangularLazyTensor(KroneckerProductLazyTensor, _TriangularLazyTensorBase):
     def __init__(self, *lazy_tensors, upper=False):
         if not all(isinstance(lt, TriangularLazyTensor) for lt in lazy_tensors):
             raise RuntimeError("Components of KroneckerProductTriangularLazyTensor must be TriangularLazyTensor.")
