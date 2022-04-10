@@ -332,7 +332,7 @@ class SpectralMixtureKernel(Kernel):
         x1_cos_, x2_cos_ = self._create_input_grid(x1_cos, x2_cos, diag=diag, **params)
 
         # Compute the exponential and cosine terms
-        exp_term = (x1_exp_ - x2_exp_).pow_(2).mul_(-2 * math.pi ** 2)
+        exp_term = (x1_exp_ - x2_exp_).pow_(2).mul_(-2 * math.pi**2)
         cos_term = (x1_cos_ - x2_cos_).mul_(2 * math.pi)
         res = exp_term.exp_() * cos_term.cos_()
 

@@ -935,7 +935,7 @@ class LazyTensor(ABC):
         # we want the root decomposition of I_r + U S^2 U^T but S is q so we need to pad.
         one_padding = torch.ones(*S.shape[:-1], U.shape[-2] - S.shape[-1], device=S.device, dtype=S.dtype)
         # the non zero eigenvalues get updated by S^2 + 1, so we take the square root.
-        root_S_plus_identity = (S ** 2 + 1.0) ** 0.5
+        root_S_plus_identity = (S**2 + 1.0) ** 0.5
         # pad the nonzero eigenvalues with the ones
         #######
         # \tilde{S} = \left(((S^2 + 1)^{0.5}; 0

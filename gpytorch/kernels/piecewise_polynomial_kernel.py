@@ -91,13 +91,13 @@ class PiecewisePolynomialKernel(Kernel):
         if q == 1:
             return (j + 1) * r + 1
         if q == 2:
-            return 1 + (j + 2) * r + ((j ** 2 + 4 * j + 3) / 3.0) * r ** 2
+            return 1 + (j + 2) * r + ((j**2 + 4 * j + 3) / 3.0) * r**2
         if q == 3:
             return (
                 1
                 + (j + 3) * r
-                + ((6 * j ** 2 + 36 * j + 45) / 15.0) * r ** 2
-                + ((j ** 3 + 9 * j ** 2 + 23 * j + 15) / 15.0) * r ** 3
+                + ((6 * j**2 + 36 * j + 45) / 15.0) * r**2
+                + ((j**3 + 9 * j**2 + 23 * j + 15) / 15.0) * r**3
             )
 
     def forward(self, x1, x2, last_dim_is_batch=False, diag=False, **params):

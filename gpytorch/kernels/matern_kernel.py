@@ -107,7 +107,7 @@ class MaternKernel(Kernel):
             elif self.nu == 1.5:
                 constant_component = (math.sqrt(3) * distance).add(1)
             elif self.nu == 2.5:
-                constant_component = (math.sqrt(5) * distance).add(1).add(5.0 / 3.0 * distance ** 2)
+                constant_component = (math.sqrt(5) * distance).add(1).add(5.0 / 3.0 * distance**2)
             return constant_component * exp_component
         return MaternCovariance.apply(
             x1, x2, self.lengthscale, self.nu, lambda x1, x2: self.covar_dist(x1, x2, **params)

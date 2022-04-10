@@ -35,7 +35,7 @@ class HorseshoePrior(Prior):
         TModule.__init__(self)
         if isinstance(scale, Number):
             scale = torch.tensor(float(scale))
-        self.K = 1 / math.sqrt(2 * math.pi ** 3)
+        self.K = 1 / math.sqrt(2 * math.pi**3)
         self.scale = scale
         super().__init__(scale.shape, validate_args=validate_args)
         # now need to delete to be able to register buffer

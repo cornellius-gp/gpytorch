@@ -30,7 +30,6 @@ try:
     class Distribution(_DistributionBase, TorchDistributionMixin):
         pass
 
-
 except ImportError:
 
     class Distribution(_DistributionBase):

@@ -32,7 +32,7 @@ def _psd_safe_cholesky(A, out=None, jitter=None, max_tries=None):
     Aprime = A.clone()
     jitter_prev = 0
     for i in range(max_tries):
-        jitter_new = jitter * (10 ** i)
+        jitter_new = jitter * (10**i)
         # add jitter only where needed
         diag_add = ((info > 0) * (jitter_new - jitter_prev)).unsqueeze(-1).expand(*Aprime.shape[:-1])
         Aprime.diagonal(dim1=-1, dim2=-2).add_(diag_add)

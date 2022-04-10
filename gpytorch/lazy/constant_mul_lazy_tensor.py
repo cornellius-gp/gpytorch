@@ -160,6 +160,6 @@ class ConstantMulLazyTensor(LazyTensor):
     def root_decomposition(self, method: Optional[str] = None):
         if torch.all(self._constant >= 0):
             base_root = self.base_lazy_tensor.root_decomposition(method=method).root
-            return RootLazyTensor(ConstantMulLazyTensor(base_root, self._constant ** 0.5))
+            return RootLazyTensor(ConstantMulLazyTensor(base_root, self._constant**0.5))
 
         return super().root_decomposition(method=method)

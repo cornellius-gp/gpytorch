@@ -91,10 +91,10 @@ class Interpolation(object):
         num_coefficients = len(interp_points)
 
         interp_values = torch.ones(
-            num_target_points, num_coefficients ** num_dim, dtype=x_grid[0].dtype, device=x_grid[0].device
+            num_target_points, num_coefficients**num_dim, dtype=x_grid[0].dtype, device=x_grid[0].device
         )
         interp_indices = torch.zeros(
-            num_target_points, num_coefficients ** num_dim, dtype=torch.long, device=x_grid[0].device
+            num_target_points, num_coefficients**num_dim, dtype=torch.long, device=x_grid[0].device
         )
 
         for i in range(num_dim):
@@ -152,7 +152,7 @@ class Interpolation(object):
             offset = (interp_points - interp_points.min()).long().unsqueeze(-2)
             dim_interp_indices = lower_grid_pt_idxs.long().unsqueeze(-1) + offset  # indices of corresponding ind. pts.
 
-            n_inner_repeat = num_coefficients ** i
+            n_inner_repeat = num_coefficients**i
             n_outer_repeat = num_coefficients ** (num_dim - i - 1)
             # index_coeff = num_grid_points ** (num_dim - i - 1)  # TODO: double check
             index_coeff = reduce(mul, grid_sizes[i + 1 :], 1)  # Think this is right...

@@ -303,7 +303,6 @@ try:
                     "torch.Tensor for conditional predictions. Got a {}".format(input.__class__.__name__)
                 )
 
-
 except ImportError:
 
     class Likelihood(_Likelihood):
