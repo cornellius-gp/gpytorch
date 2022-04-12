@@ -9,6 +9,7 @@ from .pinverse import stable_pinverse
 from .qr import stable_qr
 from .sparse_chol_inv import lr_plus_sparse_precond_closure, sparse_chol_inv
 from .stochastic_lq import StochasticLQ
+from .learning_preconditioner import learning_low_rank_preconditioner
 
 
 def prod(items):

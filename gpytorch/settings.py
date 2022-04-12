@@ -529,6 +529,30 @@ class max_root_decomposition_size(_value_context):
     _global_value = 100
 
 
+class learning_preconditioner(_feature_flag):
+    """
+    Whether learning the preconditioner or not.
+    (Default: False)
+    """
+
+    _default = False
+
+
+class learning_preconditioner_max_iter(_value_context):
+
+    _global_value = 100
+
+
+class learning_preconditioner_verbose(_feature_flag):
+
+    _default = False
+
+
+class learning_preconditioner_step_size(_value_context):
+
+    _global_value = 1e-2
+
+
 class max_preconditioner_size(_value_context):
     """
     The maximum size of preconditioner to use. 0 corresponds to turning
@@ -538,10 +562,6 @@ class max_preconditioner_size(_value_context):
     """
 
     _global_value = 15
-
-
-# class max_lr_preconditioner_size(_value_context):
-#     _global_value = 15
 
 
 class max_sp_preconditioner_size(_value_context):
