@@ -42,9 +42,9 @@ class GridInterpolationVariationalStrategy(_VariationalStrategy):
         prev_points = None
         for i in range(len(grid_bounds)):
             for j in range(grid_size):
-                inducing_points[j * grid_size ** i : (j + 1) * grid_size ** i, i].fill_(grid[j, i])
+                inducing_points[j * grid_size**i : (j + 1) * grid_size**i, i].fill_(grid[j, i])
                 if prev_points is not None:
-                    inducing_points[j * grid_size ** i : (j + 1) * grid_size ** i, :i].copy_(prev_points)
+                    inducing_points[j * grid_size**i : (j + 1) * grid_size**i, :i].copy_(prev_points)
             prev_points = inducing_points[: grid_size ** (i + 1), : (i + 1)]
 
         super(GridInterpolationVariationalStrategy, self).__init__(

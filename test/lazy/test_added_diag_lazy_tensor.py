@@ -82,7 +82,7 @@ class TestAddedDiagLazyTensorPrecondOverride(unittest.TestCase):
             top_100_evecs = evecs[:, :100]
             top_100_evals = evals[:100] + 0.2 * torch.randn(100)
 
-            precond_lt = RootLazyTensor(top_100_evecs @ torch.diag(top_100_evals ** 0.5))
+            precond_lt = RootLazyTensor(top_100_evecs @ torch.diag(top_100_evals**0.5))
             logdet = top_100_evals.log().sum()
 
             def precond_closure(rhs):

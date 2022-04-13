@@ -63,7 +63,7 @@ class CholLazyTensor(RootLazyTensor):
             R = self.root._transpose_nonbatch().inv_matmul(tensor)
         else:
             R = self.root.inv_matmul(tensor)
-        inv_quad_term = (R ** 2).sum(dim=-2)
+        inv_quad_term = (R**2).sum(dim=-2)
         if inv_quad_term.numel() and reduce_inv_quad:
             inv_quad_term = inv_quad_term.sum(-1)
         return inv_quad_term

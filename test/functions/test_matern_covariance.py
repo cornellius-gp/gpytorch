@@ -77,7 +77,7 @@ class TestMaternCovariance(unittest.TestCase):
         res = gpytorch.functions.MaternCovariance.apply(x1, x2, lengthscale, nu, dist_func)
         scaled_unitless_dist = math.sqrt(nu * 2) * dist_func(x1, x2).div(lengthscale)
         exp_component = torch.exp(-scaled_unitless_dist)
-        actual = exp_component * (1 + scaled_unitless_dist + scaled_unitless_dist ** 2 / 3)
+        actual = exp_component * (1 + scaled_unitless_dist + scaled_unitless_dist**2 / 3)
         self.assertTrue(torch.allclose(res, actual))
 
     def test_5_2_backward(self):

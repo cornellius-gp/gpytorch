@@ -72,7 +72,7 @@ class TestMaternKernel(unittest.TestCase, BaseKernelTestCase):
         kernel.eval()
 
         dist = torch.tensor([[4, 2], [2, 0], [8, 6]], dtype=torch.float).mul_(math.sqrt(5) / lengthscale)
-        actual = (dist ** 2 / 3 + dist + 1).mul(torch.exp(-dist))
+        actual = (dist**2 / 3 + dist + 1).mul(torch.exp(-dist))
         res = kernel(a, b).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-3)
 
@@ -87,7 +87,7 @@ class TestMaternKernel(unittest.TestCase, BaseKernelTestCase):
 
         dist = torch.tensor([[1, 1], [2, 2]], dtype=torch.float)
         dist.mul_(math.sqrt(5))
-        actual = (dist ** 2 / 3 + dist + 1).mul(torch.exp(-dist))
+        actual = (dist**2 / 3 + dist + 1).mul(torch.exp(-dist))
         res = kernel(a, b).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-3)
 
@@ -99,7 +99,7 @@ class TestMaternKernel(unittest.TestCase, BaseKernelTestCase):
         # batch_dims
         dist = torch.tensor([[[0, 0], [2, 2]], [[1, 1], [0, 0]]], dtype=torch.float)
         dist.mul_(math.sqrt(5))
-        actual = (dist ** 2 / 3 + dist + 1).mul(torch.exp(-dist))
+        actual = (dist**2 / 3 + dist + 1).mul(torch.exp(-dist))
         res = kernel(a, b, last_dim_is_batch=True).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
@@ -118,7 +118,7 @@ class TestMaternKernel(unittest.TestCase, BaseKernelTestCase):
         kernel.eval()
 
         dist = torch.tensor([[[1], [1]], [[2], [0]]], dtype=torch.float).mul_(math.sqrt(5))
-        actual = (dist ** 2 / 3 + dist + 1).mul(torch.exp(-dist))
+        actual = (dist**2 / 3 + dist + 1).mul(torch.exp(-dist))
         res = kernel(a, b).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-3)
 
@@ -132,7 +132,7 @@ class TestMaternKernel(unittest.TestCase, BaseKernelTestCase):
         kernel.eval()
 
         dist = torch.tensor([[[1, 1], [1, 1]], [[4, 4], [0, 0]]], dtype=torch.float).mul_(math.sqrt(5))
-        actual = (dist ** 2 / 3 + dist + 1).mul(torch.exp(-dist))
+        actual = (dist**2 / 3 + dist + 1).mul(torch.exp(-dist))
         res = kernel(a, b).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-3)
 
@@ -152,7 +152,7 @@ class TestMaternKernel(unittest.TestCase, BaseKernelTestCase):
 
         dist.mul_(math.sqrt(5))
         dist = dist.view(3, 2, 2, 2).transpose(0, 1)
-        actual = (dist ** 2 / 3 + dist + 1).mul(torch.exp(-dist))
+        actual = (dist**2 / 3 + dist + 1).mul(torch.exp(-dist))
         res = kernel(a, b, last_dim_is_batch=True).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-5)
 

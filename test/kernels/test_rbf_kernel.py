@@ -114,7 +114,7 @@ class TestRBFKernel(unittest.TestCase, BaseKernelTestCase):
         kernel.eval()
 
         actual = torch.tensor([[16, 4, 0], [4, 0, 4], [64, 36, 16]], dtype=torch.float)
-        actual.mul_(-0.5).div_(lengthscale ** 2).exp_()
+        actual.mul_(-0.5).div_(lengthscale**2).exp_()
         res = kernel(a, b).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
@@ -132,7 +132,7 @@ class TestRBFKernel(unittest.TestCase, BaseKernelTestCase):
         kernel.eval()
 
         actual = torch.tensor([[16, 4, 0], [4, 0, 4], [64, 36, 16]], dtype=torch.float)
-        actual.mul_(-0.5).div_(lengthscale ** 2).exp_()
+        actual.mul_(-0.5).div_(lengthscale**2).exp_()
         res = kernel(a, b).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-5)
 

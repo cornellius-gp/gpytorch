@@ -1,6 +1,6 @@
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.0.1
+    rev: v4.2.0
     hooks:
     -   id: check-byte-order-marker
     -   id: check-case-conflict
@@ -18,28 +18,28 @@ repos:
         args: [--config=setup.cfg]
         exclude: ^(examples/*)|(docs/*)
 -   repo: https://github.com/ambv/black
-    rev: 21.11b1
+    rev: 22.3.0
     hooks:
     -   id: black
         exclude: ^(build/*)|(docs/*)|(examples/*)
-        args: [-l 120, --target-version=py36]
+        args: [-l 120, --target-version=py37]
 -   repo: https://github.com/pre-commit/mirrors-isort
-    rev: v5.9.3
+    rev: v5.10.1
     hooks:
     -   id: isort
         language_version: python3
         exclude: ^(build/*)|(docs/*)|(examples/*)
         args: [-w120, -m3, --tc, --project=gpytorch]
 -   repo: https://github.com/jumanjihouse/pre-commit-hooks
-    rev: 2.1.5
+    rev: 2.1.6
     hooks:
     -   id: require-ascii
-        exclude: ^(examples/LBFGS.py)|(examples/.*\.ipynb)
+        exclude: ^(examples/.*\.ipynb)|(.github/ISSUE_TEMPLATE/*)
     -   id: script-must-have-extension
     -   id: forbid-binary
-        exclude: ^(examples/*)
+        exclude: ^(examples/*)|(test/examples/old_variational_strategy_model.pth)
 -   repo: https://github.com/Lucas-C/pre-commit-hooks
-    rev: v1.1.10
+    rev: v1.1.13
     hooks:
     -   id: forbid-crlf
     -   id: forbid-tabs
