@@ -286,7 +286,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             raise RuntimeError("Can only multiply by scalars")
         if other == 1:
             return self
-        return self.__class__(mean=self.mean * other, covariance_matrix=self.lazy_covariance_matrix * (other ** 2))
+        return self.__class__(mean=self.mean * other, covariance_matrix=self.lazy_covariance_matrix * (other**2))
 
     def __truediv__(self, other):
         return self.__mul__(1.0 / other)

@@ -20,7 +20,7 @@ class TestGridVariationalGP(VariationalTestCase, unittest.TestCase):
     ):
         class _SVGPRegressionModel(gpytorch.models.ApproximateGP):
             def __init__(self):
-                variational_distribution = distribution_cls(num_inducing ** 2, batch_shape=batch_shape)
+                variational_distribution = distribution_cls(num_inducing**2, batch_shape=batch_shape)
                 variational_strategy = strategy_cls(self, num_inducing, [(-3, 3), (-3, 3)], variational_distribution)
                 super().__init__(variational_strategy)
                 if constant_mean:

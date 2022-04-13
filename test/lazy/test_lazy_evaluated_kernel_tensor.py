@@ -56,7 +56,10 @@ class TestLazyEvaluatedKernelTensorBatch(LazyTensorTestCase, unittest.TestCase):
         for param, param_copy in zip(lazy_tensor.kernel.parameters(), lazy_tensor_copy.kernel.parameters()):
             self.assertAllClose(param.grad, param_copy.grad, rtol=1e-3)
         self.assertAllClose(
-            lazy_tensor.x1.grad + lazy_tensor.x2.grad, lazy_tensor_copy.x1.grad + lazy_tensor_copy.x2.grad, rtol=1e-3
+            lazy_tensor.x1.grad + lazy_tensor.x2.grad,
+            lazy_tensor_copy.x1.grad + lazy_tensor_copy.x2.grad,
+            rtol=1e-3,
+            atol=1e-4,
         )
 
     def _test_inv_matmul(self, rhs, lhs=None, cholesky=False):

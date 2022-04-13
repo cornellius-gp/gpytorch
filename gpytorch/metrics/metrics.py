@@ -29,7 +29,7 @@ def mean_squared_error(
     combine_dim = -2 if isinstance(pred_dist, MultitaskMultivariateNormal) else -1
     res = torch.square(pred_dist.mean - test_y).mean(dim=combine_dim)
     if not squared:
-        return res ** 0.5
+        return res**0.5
     return res
 
 

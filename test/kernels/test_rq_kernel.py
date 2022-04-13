@@ -115,7 +115,7 @@ class TestRQKernel(unittest.TestCase, BaseKernelTestCase):
         kernel = RQKernel().initialize(lengthscale=lengthscale)
         kernel.eval()
 
-        dist = torch.tensor([[16, 4, 0], [4, 0, 4], [64, 36, 16]], dtype=torch.float).div(lengthscale ** 2)
+        dist = torch.tensor([[16, 4, 0], [4, 0, 4], [64, 36, 16]], dtype=torch.float).div(lengthscale**2)
         actual = dist.div_(2 * kernel.alpha).add_(1.0).pow(-kernel.alpha)
         res = kernel(a, b).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-5)
@@ -165,7 +165,7 @@ class TestRQKernel(unittest.TestCase, BaseKernelTestCase):
         kernel.eval()
 
         actual = torch.tensor([[16, 4, 0], [4, 0, 4], [64, 36, 16]], dtype=torch.float)
-        actual.div_(lengthscale ** 2).div_(2 * kernel.alpha).add_(1).pow_(-kernel.alpha)
+        actual.div_(lengthscale**2).div_(2 * kernel.alpha).add_(1).pow_(-kernel.alpha)
         res = kernel(a, b).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
