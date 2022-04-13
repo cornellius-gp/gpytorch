@@ -18,7 +18,6 @@ try:
             kwargs = {k: v.contiguous() if torch.is_tensor(v) else v for k, v in kwargs.items()}
             return super().__call__(*args, **kwargs)
 
-
 except ImportError:
 
     class KeOpsKernel(Kernel):

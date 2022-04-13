@@ -79,7 +79,7 @@ class PivotedCholesky(Function):
                 L_m.scatter_(-1, pi_i, L_m_new)
 
                 matrix_diag_current = matrix_diag.gather(-1, pi_i)
-                matrix_diag.scatter_(-1, pi_i, matrix_diag_current - L_m_new ** 2)
+                matrix_diag.scatter_(-1, pi_i, matrix_diag_current - L_m_new**2)
                 L[..., m, :] = L_m
 
                 # Keep track of errors - for potential early stopping

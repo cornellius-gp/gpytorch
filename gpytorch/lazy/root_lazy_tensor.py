@@ -86,7 +86,7 @@ class RootLazyTensor(LazyTensor):
 
     def diag(self):
         if isinstance(self.root, NonLazyTensor):
-            return (self.root.tensor ** 2).sum(-1)
+            return (self.root.tensor**2).sum(-1)
         else:
             return super().diag()
 

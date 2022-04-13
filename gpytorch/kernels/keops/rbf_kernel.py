@@ -62,7 +62,6 @@ try:
 
             return KeOpsLazyTensor(x1_, x2_, covar_func)
 
-
 except ImportError:
 
     class RBFKernel(KeOpsKernel):

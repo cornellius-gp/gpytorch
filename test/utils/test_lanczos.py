@@ -52,6 +52,6 @@ class TestLanczos(unittest.TestCase):
     def test_lanczos_tridiag_approx(self):
         size = 30
         orthogonal = torch.from_numpy(ortho_group.rvs(size)).float()
-        diag = torch.diag_embed(torch.FloatTensor([10 ** -i for i in range(size)]))
+        diag = torch.diag_embed(torch.FloatTensor([10**-i for i in range(size)]))
         matrix = torch.matmul(orthogonal, torch.matmul(diag, orthogonal.transpose(0, 1)))
         self.lanczos_tridiag_test(matrix)
