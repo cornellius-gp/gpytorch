@@ -50,7 +50,7 @@ class TestAdditiveAndProductKernel(unittest.TestCase):
         kernel = kernel_1 * kernel_2
 
         actual = torch.tensor([[16, 4], [4, 0], [64, 36]], dtype=torch.float)
-        actual = actual.mul_(-0.5).div_(lengthscale ** 2).exp() ** 2
+        actual = actual.mul_(-0.5).div_(lengthscale**2).exp() ** 2
 
         kernel.eval()
         res = kernel(a, b).evaluate()
@@ -66,7 +66,7 @@ class TestAdditiveAndProductKernel(unittest.TestCase):
         kernel = kernel_1 * kernel_2
 
         actual = torch.tensor([[16, 4], [4, 0], [64, 36]], dtype=torch.float)
-        actual = actual.mul_(-0.5).div_(lengthscale ** 2).exp() ** 2
+        actual = actual.mul_(-0.5).div_(lengthscale**2).exp() ** 2
         actual = actual.repeat(4, 1, 1)
 
         kernel.eval()
@@ -83,7 +83,7 @@ class TestAdditiveAndProductKernel(unittest.TestCase):
         kernel = kernel_1 + kernel_2
 
         actual = torch.tensor([[16, 4], [4, 0], [64, 36]], dtype=torch.float)
-        actual = actual.mul_(-0.5).div_(lengthscale ** 2).exp() * 2
+        actual = actual.mul_(-0.5).div_(lengthscale**2).exp() * 2
 
         kernel.eval()
         res = kernel(a, b).evaluate()
@@ -172,7 +172,7 @@ class TestAdditiveAndProductKernel(unittest.TestCase):
             self.assertIsInstance(sub_kernel, RBFKernel)
 
         actual = torch.tensor([[16, 4], [4, 0], [64, 36]], dtype=torch.float)
-        actual = actual.mul_(-0.5).div_(lengthscale ** 2).exp() ** 3
+        actual = actual.mul_(-0.5).div_(lengthscale**2).exp() ** 3
 
         kernel.eval()
         res = kernel(a, b).evaluate()
@@ -205,7 +205,7 @@ class TestAdditiveAndProductKernel(unittest.TestCase):
             self.assertIsInstance(sub_kernel, RBFKernel)
 
         actual = torch.tensor([[16, 4], [4, 0], [64, 36]], dtype=torch.float)
-        actual = actual.mul_(-0.5).div_(lengthscale ** 2).exp() ** 4
+        actual = actual.mul_(-0.5).div_(lengthscale**2).exp() ** 4
 
         kernel.eval()
         res = kernel(a, b).evaluate()
@@ -226,7 +226,7 @@ class TestAdditiveAndProductKernel(unittest.TestCase):
             self.assertIsInstance(sub_kernel, RBFKernel)
 
         actual = (
-            torch.tensor([[16, 4], [4, 0], [64, 36]], dtype=torch.float).mul_(-0.5).div_(lengthscale ** 2).exp() * 4
+            torch.tensor([[16, 4], [4, 0], [64, 36]], dtype=torch.float).mul_(-0.5).div_(lengthscale**2).exp() * 4
         )
 
         kernel.eval()
@@ -247,7 +247,7 @@ class TestAdditiveAndProductKernel(unittest.TestCase):
             self.assertIsInstance(sub_kernel, RBFKernel)
 
         actual = (
-            torch.tensor([[16, 4], [4, 0], [64, 36]], dtype=torch.float).mul_(-0.5).div_(lengthscale ** 2).exp() * 3
+            torch.tensor([[16, 4], [4, 0], [64, 36]], dtype=torch.float).mul_(-0.5).div_(lengthscale**2).exp() * 3
         )
 
         kernel.eval()

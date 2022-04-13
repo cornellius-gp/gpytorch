@@ -80,7 +80,6 @@ try:
 
             self.assertLess(torch.norm(res1 - res2), 1e-4)
 
-
 except ImportError:
     pass
 
