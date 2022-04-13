@@ -93,7 +93,7 @@ class PolynomialKernel(Kernel):
         if diag:
             return ((x1 * x2).sum(dim=-1) + self.offset).pow(self.power)
 
-        if x1.dim() == 2 and x2.dim() == 2:
+        if (x1.dim() == 2 and x2.dim() == 2) and offset.dim() == 2:
             return torch.addmm(offset, x1, x2.transpose(-2, -1)).pow(self.power)
         else:
             return (torch.matmul(x1, x2.transpose(-2, -1)) + offset).pow(self.power)
