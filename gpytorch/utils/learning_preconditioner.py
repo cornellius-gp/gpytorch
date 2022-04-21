@@ -19,7 +19,7 @@ def learning_low_rank_preconditioner(lzy_tsr, k):
 
     # optimizer = torch.optim.SGD([L], lr=1e-3, momentum=0.9, nesterov=True)
     # optimizer = torch.optim.Adam([L], lr=settings.learning_preconditioner_step_size.value())
-    optimizer = torch.optim.LBFGS([L], lr=settings.learning_preconditioner_step_size.value())
+    # optimizer = torch.optim.LBFGS([L], lr=settings.learning_preconditioner_step_size.value())
 
     with torch.enable_grad():
         for i in range(settings.learning_preconditioner_max_iter.value()):
@@ -33,10 +33,14 @@ def learning_low_rank_preconditioner(lzy_tsr, k):
                 if settings.learning_preconditioner_verbose.on() and i % 50 == 0:
                     print("iter {:d}, fro norm difference {:f}".format(i, diff.sqrt().item()))
 
-                # L -= 1. * L.grad / L.grad.norm()
-                # L.grad.zero_()
+                if i < 500:
+                    L -= 1. * L.grad / (L.grad.norm() + 1e-10)
+                else:
+                    L -= 0.1 * L.grad / (L.grad.norm() + 1e-10)
 
-            optimizer.step(objective)
-            optimizer.zero_grad()
+                L.grad.zero_()
+
+            # optimizer.step(objective)
+            # optimizer.zero_grad()
 
     return L.detach()
