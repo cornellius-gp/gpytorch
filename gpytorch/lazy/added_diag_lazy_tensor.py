@@ -163,7 +163,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
         return precondition_closure, self._precond_lt, self._precond_logdet_cache
 
     def _lr_sp_preconditioner(self):
-        from ..utils import sparse_chol_inv
+        from ..utils import sparse_chol_inv, block_jacobi
 
         if self._s_inv_cache is None or self._st_inv_cache is None or self._stq_cache is None:
             self._piv_chol_self = pivoted_cholesky.pivoted_cholesky(
@@ -182,7 +182,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
             #     settings.max_sp_preconditioner_size.value()
             # )
             self._s_inv_cache = block_jacobi(
-                self.evaluate(),
+                residual.evaluate(),
                 settings.max_sp_preconditioner_size.value(),
             )
             """
