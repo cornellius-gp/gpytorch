@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from . import broadcasting, cholesky, grid, interpolation, lanczos, pivoted_cholesky, quadrature, sparse, warnings
+from .block_jacobi import block_jacobi
 from .contour_integral_quad import contour_integral_quad
 from .linear_cg import linear_cg
 from .memoize import cached
@@ -25,6 +26,7 @@ def prod(items):
 
 
 __all__ = [
+    "block_jacobi",
     "broadcasting",
     "cached",
     "contour_integral_quad",

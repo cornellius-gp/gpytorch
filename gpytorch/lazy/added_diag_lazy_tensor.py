@@ -141,10 +141,15 @@ class AddedDiagLazyTensor(SumLazyTensor):
 
     def _sp_preconditioner(self):
         from ..utils import sparse_chol_inv
+        from ..utils import block_jacobi
 
         if self._s_inv_cache is None or self._st_inv_cache is None:
-            self._s_inv_cache = sparse_chol_inv(
-                self,
+            # self._s_inv_cache = sparse_chol_inv(
+            #     self,
+            #     settings.max_sp_preconditioner_size.value(),
+            # )
+            self._s_inv_cache = block_jacobi(
+                self.evaluate(),
                 settings.max_sp_preconditioner_size.value(),
             )
             self._st_inv_cache = self._s_inv_cache.transpose(-2, -1)
@@ -166,13 +171,19 @@ class AddedDiagLazyTensor(SumLazyTensor):
                 settings.max_preconditioner_size.value(),
             )
             if torch.any(torch.isnan(self._piv_chol_self)).item():
+                import ipdb
+                ipdb.set_trace()
                 assert 0
 
             from .root_lazy_tensor import RootLazyTensor
             residual = self - RootLazyTensor(self._piv_chol_self)
-            self._s_inv_cache = sparse_chol_inv(
-                residual,
-                settings.max_sp_preconditioner_size.value()
+            # self._s_inv_cache = sparse_chol_inv(
+            #     residual,
+            #     settings.max_sp_preconditioner_size.value()
+            # )
+            self._s_inv_cache = block_jacobi(
+                self.evaluate(),
+                settings.max_sp_preconditioner_size.value(),
             )
             """
             Store an extra copy of transpose.

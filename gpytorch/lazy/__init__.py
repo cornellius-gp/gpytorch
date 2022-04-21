@@ -3,6 +3,7 @@
 from .added_diag_lazy_tensor import AddedDiagLazyTensor
 from .batch_repeat_lazy_tensor import BatchRepeatLazyTensor
 from .block_diag_lazy_tensor import BlockDiagLazyTensor
+from .block_jacobi_lazy_tensor import BlockJacobiLazyTensor
 from .block_interleaved_lazy_tensor import BlockInterleavedLazyTensor
 from .block_lazy_tensor import BlockLazyTensor
 from .cat_lazy_tensor import CatLazyTensor, cat
@@ -44,6 +45,7 @@ __all__ = [
     "BatchRepeatLazyTensor",
     "BlockLazyTensor",
     "BlockDiagLazyTensor",
+    "BlockJacobiLazyTensor",
     "BlockInterleavedLazyTensor",
     "CatLazyTensor",
     "CholLazyTensor",
