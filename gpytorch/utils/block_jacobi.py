@@ -3,12 +3,31 @@
 import torch
 
 
-def permutation_heuristics(pd_mat, k):
-    return None
+def pivoting_heuristics(pd_mat, k):
+    n = pd_mat.size(-1)
+
+    num_blocks = n // k
+
+    pi = torch.arange(n, dtype=torch.long, device=pd_mat.device)
+
+    # import ipdb
+    # ipdb.set_trace()
+
+    for i in range(num_blocks):
+        """
+        i * k: (i + 1) * k
+        """
+        idx = torch.topk(pd_mat[pi[i * k], pi[i * k + 1:]].abs(), k=k - 1, largest=True).indices
+        # swap pi[i * k + 1:i * k + k] with pi[i * k + 1:][idx]
+        tmp = pi[i * k + 1:i * k + k].clone()
+        pi[i * k + 1:i * k + k] = pi[i * k + 1:][idx].clone()
+        pi[i * k + 1:][idx] = tmp
+
+    return pi
 
 
 def block_jacobi(pd_mat, k, pi=None):
-    from ..lazy import BlockJacobiLazyTensor
+    from ..lazy import BlockJacobiLazyTensor, BlockTriangularLazyTensor
 
     if pi is not None:
         pd_mat = pd_mat[pi, :]
@@ -37,8 +56,8 @@ def block_jacobi(pd_mat, k, pi=None):
 
     last_block = pd_mat[num_blocks * k:, num_blocks * k:]
 
-    # batched_chol = torch.linalg.cholesky(batched_blocks)
-    # last_chol = torch.linalg.cholesky(last_block)
+    batched_chol = torch.linalg.cholesky(batched_blocks)
+    last_chol = torch.linalg.cholesky(last_block)
 
     # tmp = tmp.clone()
     # tmp[idx, idx, :, :] = 0.
@@ -46,4 +65,4 @@ def block_jacobi(pd_mat, k, pi=None):
     # print("fro norm diff {:f}".format(error.sqrt().item()))
     # return batched_chol, last_chol, pi
 
-    return BlockJacobiLazyTensor(batched_blocks, last_block)
+    return BlockTriangularLazyTensor(batched_chol, last_chol)
