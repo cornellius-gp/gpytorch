@@ -732,9 +732,9 @@ class SGPRPredictionStrategy(DefaultPredictionStrategy):
         # Form LT using woodbury
         ones = torch.tensor(1.0, dtype=root.dtype, device=root.device)
         chol_factor = lazify(root.transpose(-1, -2) @ (inv_diag @ root)).add_diag(ones)  # (I + \sigma^{-2} R^T R)^{-1}
-        woodbury_term = inv_diag @ torch.triangular_solve(
-            root.transpose(-1, -2), chol_factor.cholesky().evaluate(), upper=False
-        )[0].transpose(-1, -2)
+        woodbury_term = inv_diag @ torch.linalg.solve_triangular(
+            chol_factor.cholesky().evaluate(), root.transpose(-1, -2), upper=False
+        ).transpose(-1, -2)
         # woodbury_term @ woodbury_term^T = \sigma^{-2} R (I + \sigma^{-2} R^T R)^{-1} R^T \sigma^{-2}
 
         inverse = AddedDiagLazyTensor(inv_diag, MatmulLazyTensor(-woodbury_term, woodbury_term.transpose(-1, -2)))
