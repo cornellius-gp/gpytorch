@@ -27,6 +27,7 @@ from .matmul_lazy_tensor import MatmulLazyTensor
 from .mul_lazy_tensor import MulLazyTensor
 from .non_lazy_tensor import NonLazyTensor, lazify
 from .psd_sum_lazy_tensor import PsdSumLazyTensor
+from .permutation_lazy_tensor import PermutationLazyTensor
 from .root_lazy_tensor import RootLazyTensor
 from .inverse_sparse_triangular_lazy_tensor import InverseSparseTriangularLazyTensor
 from .sum_batch_lazy_tensor import SumBatchLazyTensor
@@ -67,6 +68,7 @@ __all__ = [
     "MulLazyTensor",
     "NonLazyTensor",
     "PsdSumLazyTensor",
+    "PermutationLazyTensor",
     "RootLazyTensor",
     "SumBatchLazyTensor",
     "SumKroneckerLazyTensor",
