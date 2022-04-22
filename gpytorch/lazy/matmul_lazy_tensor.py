@@ -114,3 +114,6 @@ class MatmulLazyTensor(LazyTensor):
     @cached
     def evaluate(self):
         return torch.matmul(self.left_lazy_tensor.evaluate(), self.right_lazy_tensor.evaluate())
+
+    def inv_matmul(self, rhs):
+        return self.right_lazy_tensor.inv_matmul(self.left_lazy_tensor.inv_matmul(rhs))
