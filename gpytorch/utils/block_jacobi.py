@@ -10,9 +10,6 @@ def pivoting_heuristics(pd_mat, k):
 
     pi = torch.arange(n, dtype=torch.long, device=pd_mat.device)
 
-    # import ipdb
-    # ipdb.set_trace()
-
     for i in range(num_blocks):
         """
         i * k: (i + 1) * k
@@ -27,11 +24,13 @@ def pivoting_heuristics(pd_mat, k):
 
 
 def block_jacobi(pd_mat, k, pi=None):
-    from ..lazy import BlockJacobiLazyTensor, BlockTriangularLazyTensor
+    from ..lazy import BlockTriangularLazyTensor, PermutationLazyTensor
 
-    if pi is not None:
-        pd_mat = pd_mat[pi, :]
-        pd_mat = pd_mat[:, pi]
+    # if pi is not None:
+    #     pd_mat = pd_mat[pi, :][:, pi]
+
+    pi = pivoting_heuristics(pd_mat, k)
+    pd_mat = pd_mat[pi, :][:, pi]
 
     n = pd_mat.size(-1)
 
@@ -65,4 +64,4 @@ def block_jacobi(pd_mat, k, pi=None):
     # print("fro norm diff {:f}".format(error.sqrt().item()))
     # return batched_chol, last_chol, pi
 
-    return BlockTriangularLazyTensor(batched_chol, last_chol)
+    return PermutationLazyTensor(pi).transpose(-2, -1) @ BlockTriangularLazyTensor(batched_chol, last_chol)
