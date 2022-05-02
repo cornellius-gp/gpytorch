@@ -91,7 +91,7 @@ GPyTorch is primarily maintained by:
 - [Geoff Pleiss](http://github.com/gpleiss) (Columbia University)
 - [Kilian Weinberger](http://kilian.cs.cornell.edu/) (Cornell University)
 - [Andrew Gordon Wilson](https://cims.nyu.edu/~andrewgw/) (New York University)
-- [Max Balandat](https://research.fb.com/people/balandat-max/) (Facebook)
+- [Max Balandat](https://research.fb.com/people/balandat-max/) (Meta)
 
 We would like to thank our other contributors including (but not limited to)  David Arbour, Eytan Bakshy, David Eriksson, Jared Frank, Sam Stanton, Bram Wallace, Ke Alexander Wang, Ruihan Wu.
 
