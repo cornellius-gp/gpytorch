@@ -568,6 +568,10 @@ class max_sp_preconditioner_size(_value_context):
     _global_value = 15
 
 
+class use_pivoting_heuristic(_feature_flag):
+    _default = True
+
+
 class max_lanczos_quadrature_iterations(_value_context):
     r"""
     The maximum number of Lanczos iterations to perform when doing stochastic
