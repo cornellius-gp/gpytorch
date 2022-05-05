@@ -12,7 +12,13 @@ class ConstantMean(Mean):
         self.batch_shape = batch_shape
         self.register_parameter(name="constant", parameter=torch.nn.Parameter(torch.zeros(*batch_shape, 1)))
         if prior is not None:
-            self.register_prior("mean_prior", prior, "constant")
+            self.register_prior("mean_prior", prior, self._constant_param, self._constant_closure)
+
+    def _constant_param(self, m):
+        return m.constant
+
+    def _constant_closure(self, m, value):
+        return m.constant.data.fill_(value)
 
     def forward(self, input):
         if input.shape[:-2] == self.batch_shape:

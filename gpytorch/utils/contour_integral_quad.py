@@ -21,7 +21,7 @@ def contour_integral_quad(
     shift_offset=0,
 ):
     r"""
-    Performs :math:`\mathbf K^{1/2} \mathbf b` or `\mathbf K^{-1/2} \mathbf b`
+    Performs :math:`\mathbf K^{1/2} \mathbf b` or :math:`\mathbf K^{-1/2} \mathbf b`
     using contour integral quadrature.
 
     :param gpytorch.lazy.LazyTensor lazy_tensor: LazyTensor representing :math:`\mathbf K`
