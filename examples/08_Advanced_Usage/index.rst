@@ -81,3 +81,4 @@ how to convert both an exact GP and a variational GP to a ScriptModule that can 
 
    TorchScript_Exact_Models.ipynb
    TorchScript_Variational_Models.ipynb
+   SVGP_Model_Updating.ipynb
