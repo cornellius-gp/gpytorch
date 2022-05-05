@@ -2,37 +2,61 @@
 
 import torch
 
+from .. import settings
 
 def pivoting_heuristics(pd_mat, k):
     n = pd_mat.size(-1)
 
     num_blocks = n // k
 
-    pi = torch.arange(n, dtype=torch.long, device=pd_mat.device)
+    identity = torch.arange(n, dtype=torch.long, device=pd_mat.device)
+    pi = identity.clone()
 
     for i in range(num_blocks):
         """
         i * k: (i + 1) * k
         """
-        idx = torch.topk(pd_mat[pi[i * k], pi[i * k + 1:]].abs(), k=k - 1, largest=True).indices
+        # sorted=True is not required, but it is easier to debug
+        idx_topk = torch.topk(pd_mat[pi[i * k], pi[i * k + 1:]].abs(), k=k - 1, largest=True, sorted=True).indices
+
         # swap pi[i * k + 1:i * k + k] with pi[i * k + 1:][idx]
-        tmp = pi[i * k + 1:i * k + k].clone()
-        pi[i * k + 1:i * k + k] = pi[i * k + 1:][idx].clone()
-        pi[i * k + 1:][idx] = tmp
+        # notice that those two indices might overlap
+        first_indices = pi[i * k + 1:i * k + k]
+        second_indices = pi[i * k + 1:][idx_topk]
+
+        # before swapping, use mask to select non-overlapping indices
+        first_mask = (first_indices.unsqueeze(-1) == second_indices.unsqueeze(-2)).any(dim=-1).logical_not()
+        second_mask = (second_indices.unsqueeze(-1) == first_indices.unsqueeze(-2)).any(dim=-1).logical_not()
+
+        # finally, do the swap
+        tmp = pi[i * k + 1:i * k + k][first_mask]
+        pi[i * k + 1:i * k + k][first_mask] = pi[i * k + 1:][idx_topk[second_mask]]
+        pi[i * k + 1:][idx_topk[second_mask]] = tmp
+
+        # tmp = pi[i * k + 1:i * k + k].clone()
+        # pi[i * k + 1:i * k + k] = pi[i * k + 1:][idx_topk].clone()
+        # pi[i * k + 1:][idx_topk] = tmp
+
+    # make sure pi is a valid permutation
+    assert (pi.sort().values == identity).all()
 
     return pi
 
 
-def block_jacobi(pd_mat, k, pi=None):
+def block_jacobi(pd_mat, k):
+    # import ipdb
+    # ipdb.set_trace()
+
     from ..lazy import BlockTriangularLazyTensor, PermutationLazyTensor
 
-    # if pi is not None:
-    #     pd_mat = pd_mat[pi, :][:, pi]
-
-    pi = pivoting_heuristics(pd_mat, k)
-    pd_mat = pd_mat[pi, :][:, pi]
-
     n = pd_mat.size(-1)
+
+    if settings.use_pivoting_heuristic.on():
+        pi = pivoting_heuristics(pd_mat, k)
+    else:
+        pi = torch.arange(n, dtype=torch.long, device=pd_mat.device)
+
+    pd_mat = pd_mat.clone()[pi, :][:, pi]
 
     num_blocks = n // k
     # last_block_size = n - k * num_blocks
