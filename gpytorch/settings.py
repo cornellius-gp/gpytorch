@@ -425,13 +425,13 @@ class min_fixed_noise(_dtype_value_context):
     The minimum noise value that can be used in :obj:`~gpytorch.likelihoods.FixedNoiseGaussianLikelihood`.
     If the supplied noise values are smaller than this, they are rounded up and a warning is raised.
 
-    - Default for `float`: 1e-4
-    - Default for `double`: 1e-6
+    - Default for `float`: 1e-6
+    - Default for `double`: 1e-10
     - Default for `half`: 1e-3
     """
 
-    _global_float_value = 1e-4
-    _global_double_value = 1e-6
+    _global_float_value = 1e-5
+    _global_double_value = 1e-8
     _global_half_value = 1e-3
 
 
