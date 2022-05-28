@@ -4,7 +4,8 @@ import unittest
 
 import torch
 
-from gpytorch.lazy import IdentityLazyTensor
+from gpytorch.lazy.identity_lazy_tensor import IdentityLazyTensor
+from gpytorch.lazy.lazy_tensor import delazify
 from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
 
 
@@ -13,10 +14,12 @@ class TestIdentityLazyTensor(LazyTensorTestCase, unittest.TestCase):
         lazy_tensor = self.create_lazy_tensor().detach().requires_grad_(True)
         lazy_tensor_copy = lazy_tensor.clone().detach().requires_grad_(True)
         evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
+        rhs_evaluated = delazify(rhs)
 
         res = lazy_tensor.matmul(rhs)
-        actual = evaluated.matmul(rhs)
-        self.assertAllClose(res, actual)
+        actual = evaluated.matmul(rhs_evaluated)
+        res_evaluated = delazify(res)
+        self.assertAllClose(res_evaluated, actual)
 
     def _test_rmatmul(self, lhs):
         lazy_tensor = self.create_lazy_tensor().detach().requires_grad_(True)

@@ -123,7 +123,7 @@ class BlockDiagLazyTensor(BlockLazyTensor):
             return BlockDiagLazyTensor(self.base_lazy_tensor @ other.base_lazy_tensor)
         # special case if we have a DiagLazyTensor
         if isinstance(other, DiagLazyTensor):
-            diag_reshape = other._diag.view(*self.base_lazy_tensor.shape[:-1], 1)
+            diag_reshape = other._diag.view(*self.base_lazy_tensor.shape[:-2], 1, -1)
             return BlockDiagLazyTensor(self.base_lazy_tensor * diag_reshape)
         return super().matmul(other)
 

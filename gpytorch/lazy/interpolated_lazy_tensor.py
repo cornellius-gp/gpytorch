@@ -6,6 +6,7 @@ from ..utils import sparse
 from ..utils.broadcasting import _pad_with_singletons
 from ..utils.getitem import _noop_index
 from ..utils.interpolation import left_interp, left_t_interp
+from .diag_lazy_tensor import DiagLazyTensor
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import NonLazyTensor, lazify
 from .root_lazy_tensor import RootLazyTensor
@@ -397,6 +398,17 @@ class InterpolatedLazyTensor(LazyTensor):
         # We're using a custom matmul here, because it is significantly faster than
         # what we get from the function factory.
         # The _matmul_closure is optimized for repeated calls, such as for inv_matmul
+
+        if isinstance(tensor, DiagLazyTensor):
+            # if we know the rhs is diagonal this is easy
+            new_right_interp_values = self.right_interp_values * tensor._diag.unsqueeze(-1)
+            return InterpolatedLazyTensor(
+                base_lazy_tensor=self.base_lazy_tensor,
+                left_interp_indices=self.left_interp_indices,
+                left_interp_values=self.left_interp_values,
+                right_interp_indices=self.right_interp_indices,
+                right_interp_values=new_right_interp_values,
+            )
 
         if tensor.ndimension() == 1:
             is_vector = True
