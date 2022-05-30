@@ -818,3 +818,25 @@ class verbose_linalg(_feature_flag):
     formatter = logging.Formatter("%(name)s - %(levelname)s - %(message)s")
     ch.setFormatter(formatter)
     logger.addHandler(ch)
+
+
+class nn_jitter(_dtype_value_context):
+    """
+    The jitter value added to covariance matrix in nearest_neighbor_variational_strategy.
+    - Default for `float`: 1e-3
+    - Default for `double`: 1e-8
+    """
+
+    _global_float_value = 1e-3
+    _global_double_value = 1e-8
+
+    @classmethod
+    def value(cls, dtype=None):
+        if dtype is None:
+            # Deprecated in 1.4: remove in 1.5
+            warnings.warn(
+                "nn_jiter is now a _dtype_value_context and should be called with a dtype argument",
+                DeprecationWarning,
+            )
+            return cls._global_float_value
+        return super().value(dtype=dtype)
