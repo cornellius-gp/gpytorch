@@ -9,7 +9,7 @@ import gpytorch
 from gpytorch.kernels import InducingPointKernel, RBFKernel, ScaleKernel
 
 
-class TestModel(gpytorch.models.ExactGP):
+class _TestModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y):
         likelihood = gpytorch.likelihoods.GaussianLikelihood()
         super().__init__(train_x, train_y, likelihood)
@@ -31,7 +31,7 @@ class TestInducingPointKernel(unittest.TestCase):
         train_x = torch.randn(1000, 3)
         train_y = torch.randn(1000)
         test_x = torch.randn(500, 3)
-        model = TestModel(train_x, train_y)
+        model = _TestModel(train_x, train_y)
 
         # Make sure that the prior kernel is the correct type
         model.train()
