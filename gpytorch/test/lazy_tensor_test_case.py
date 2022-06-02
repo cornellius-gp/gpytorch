@@ -6,6 +6,7 @@ from abc import abstractmethod
 from itertools import combinations, product
 from unittest.mock import MagicMock, patch
 
+import linear_operator
 import torch
 
 import gpytorch
@@ -391,8 +392,8 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
             lhs.requires_grad_(True)
             lhs_copy = lhs.clone().detach().requires_grad_(True)
 
-        _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
-        with patch("gpytorch.utils.linear_cg", new=_wrapped_cg) as linear_cg_mock:
+        _wrapped_cg = MagicMock(wraps=linear_operator.utils.linear_cg)
+        with patch("linear_operator.utils.linear_cg", new=_wrapped_cg) as linear_cg_mock:
             with gpytorch.settings.max_cholesky_size(math.inf if cholesky else 0), gpytorch.settings.cg_tolerance(1e-4):
                 # Perform the inv_matmul
                 if lhs is not None:
@@ -431,8 +432,8 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
             vecs = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 3, requires_grad=True)
             vecs_copy = vecs.clone().detach().requires_grad_(True)
 
-            _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
-            with patch("gpytorch.utils.linear_cg", new=_wrapped_cg) as linear_cg_mock:
+            _wrapped_cg = MagicMock(wraps=linear_operator.utils.linear_cg)
+            with patch("linear_operator.utils.linear_cg", new=_wrapped_cg) as linear_cg_mock:
                 with gpytorch.settings.num_trace_samples(256), gpytorch.settings.max_cholesky_size(
                     math.inf if cholesky else 0
                 ), gpytorch.settings.cg_tolerance(1e-5):
@@ -678,8 +679,8 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
                 self.assertAllClose(lazy_tensor.prod(-4).evaluate(), evaluated.prod(-4), **self.tolerances["prod"])
 
     def test_root_decomposition(self, cholesky=False):
-        _wrapped_lanczos = MagicMock(wraps=gpytorch.utils.lanczos.lanczos_tridiag)
-        with patch("gpytorch.utils.lanczos.lanczos_tridiag", new=_wrapped_lanczos) as lanczos_mock:
+        _wrapped_lanczos = MagicMock(wraps=linear_operator.utils.lanczos.lanczos_tridiag)
+        with patch("linear_operator.utils.lanczos.lanczos_tridiag", new=_wrapped_lanczos) as lanczos_mock:
             lazy_tensor = self.create_lazy_tensor()
             test_mat = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 5)
             with gpytorch.settings.max_cholesky_size(math.inf if cholesky else 0):
@@ -695,8 +696,8 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
                 self.assertFalse(lanczos_mock.called)
 
     def test_diagonalization(self, symeig=False):
-        _wrapped_lanczos = MagicMock(wraps=gpytorch.utils.lanczos.lanczos_tridiag)
-        with patch("gpytorch.utils.lanczos.lanczos_tridiag", new=_wrapped_lanczos) as lanczos_mock:
+        _wrapped_lanczos = MagicMock(wraps=linear_operator.utils.lanczos.lanczos_tridiag)
+        with patch("linear_operator.utils.lanczos.lanczos_tridiag", new=_wrapped_lanczos) as lanczos_mock:
             lazy_tensor = self.create_lazy_tensor()
             test_mat = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 5)
             with gpytorch.settings.max_cholesky_size(math.inf if symeig else 0):

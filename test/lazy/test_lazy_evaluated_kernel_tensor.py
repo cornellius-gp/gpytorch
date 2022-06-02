@@ -4,6 +4,7 @@ import math
 import unittest
 from unittest.mock import MagicMock, patch
 
+import linear_operator
 import torch
 
 import gpytorch
@@ -78,8 +79,8 @@ class TestLazyEvaluatedKernelTensorBatch(LazyTensorTestCase, unittest.TestCase):
             lhs.requires_grad_(True)
             lhs_copy = lhs.clone().detach().requires_grad_(True)
 
-        _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
-        with patch("gpytorch.utils.linear_cg", new=_wrapped_cg) as linear_cg_mock:
+        _wrapped_cg = MagicMock(wraps=linear_operator.utils.linear_cg)
+        with patch("linear_operator.utils.linear_cg", new=_wrapped_cg) as linear_cg_mock:
             with gpytorch.settings.max_cholesky_size(math.inf if cholesky else 0), gpytorch.settings.cg_tolerance(1e-4):
                 # Perform the inv_matmul
                 if lhs is not None:
