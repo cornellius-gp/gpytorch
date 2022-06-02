@@ -109,7 +109,7 @@ def linear_cg(
       - matmul_closure - a function which performs a left matrix multiplication with lhs_mat
       - rhs - the right-hand side of the equation
       - n_tridiag - returns a tridiagonalization of the first n_tridiag columns of rhs
-      - tolerance - stop the solve when the max residual is less than this
+      - tolerance - stop the solve when the (average) norm of the residual(s) is less than this
       - eps - noise to add to prevent division by zero
       - stop_updating_after - will stop updating a vector after this residual norm is reached
       - max_iter - the maximum number of CG iterations
