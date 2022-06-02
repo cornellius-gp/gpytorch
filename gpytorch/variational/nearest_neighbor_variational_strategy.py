@@ -19,8 +19,62 @@ from .. import settings
 
 
 class NNVariationalStrategy(UnwhitenedVariationalStrategy):
+    r"""
+        This strategy sets all inducing point locations to observed inputs,
+        and employs a :math:`k`-nearest-neighbor approximation. It was introduced as the
+        `Variational Nearest Neighbor Gaussian Processes (VNNGP)` in `Wu et al (2022)`_.
+        See the `VNNGP tutorial`_ for an example.
 
-    def __init__(self, model, inducing_points, variational_distribution, k, training_batch_size, logger=None, verbose=True):
+        VNNGP assumes a k-nearest-neighbor generative process for inducing points :math:`\mathbf u`,
+        :math:`\mathbf q(\mathbf u) = \prod_{j=1}^M q(u_j | \mathbf u_{n(j)})`
+        where :math:`n(j)` denotes the indices of :math:`k` nearest neighbors for :math:`u_j` among
+        :math:`u_1, \cdots, u_{j-1}`. For any test observation :math:`\mathbf f`,
+        VNNGP makes predictive inference conditioned on its :math:`k` nearest inducing points
+        :math:`\mathbf u_{n(f)}`, i.e. :math:`p(f|\mathbf u_{n(f)})`.
+
+        VNNGP's objective factorizes over inducing points and observations, making stochastic optimization over both
+        immediately available. After a one-time cost of computing the :math:`k`-nearest neighbor structure,
+        the training and inference complexity is :math:`O(k^3)`.
+        Since VNNGP uses observations as inducing points, it is a user choice to either (1)
+        use the same mini-batch of inducing points and observations (recommended),
+        or (2) use different mini-batches of inducing points and observations. See the `VNNGP tutorial`_ for
+        implementation and comparison.
+
+
+        .. note::
+
+            Current implementation only supports :obj:`~gpytorch.variational._VariationalDistribution`.
+
+            It is recommended that this strategy is used with `faiss`_ (requiring separate package installment)
+            as the backend for nearest neighbor search, which will greatly speed up on large-scale datasets
+            over the default backend `scikit-learn`.
+
+            Different ording of inducing points will result in different nearest neighbor approximation.
+            We recommend randomizing the ordering of inducing points (i.e. the training data) before feeding them
+            into the strategy if there is no other prior knowledge.
+
+
+        :param ~gpytorch.models.ApproximateGP model: Model this strategy is applied to.
+            Typically passed in when the VariationalStrategy is created in the
+            __init__ method of the user defined model.
+        :param torch.Tensor inducing_points: Tensor containing a set of inducing
+            points to use for variational inference.
+        :param ~gpytorch.variational.VariationalDistribution variational_distribution: A
+            VariationalDistribution object that represents the form of the variational distribution :math:`q(\mathbf u)`
+        :param learn_inducing_locations: (Default True): Whether or not
+            the inducing point locations :math:`\mathbf Z` should be learned (i.e. are they
+            parameters of the model).
+        :type learn_inducing_locations: `bool`, optional
+
+        .. _Wu et al (2022):
+            https://arxiv.org/pdf/2202.01694.pdf
+        .. _VNNGP tutorial:
+            examples/04_Variational_and_Approximate_GPs/VNNGP.html
+        .. _faiss:
+            https://github.com/facebookresearch/faiss
+        """
+
+    def __init__(self, model, inducing_points, variational_distribution, k, training_batch_size):
 
         super().__init__(model, inducing_points, variational_distribution, learn_inducing_locations=False)
         # Make sure we don't try to initialize variational parameters - because of minibatching
@@ -38,7 +92,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
             f"Number of nearest neighbors k must be smaller than or equal to number of inducing points, but got k = {k}, M = {self.M}."
 
         self.nn_util = NNUtil(k, size=inducing_points.size(-1)).to(device=inducing_points.device)
-        self.compute_nn(logger=logger, verbose=verbose)
+        self.compute_nn()
 
         self.training_batch_size = training_batch_size
         self.set_training_iterator()
