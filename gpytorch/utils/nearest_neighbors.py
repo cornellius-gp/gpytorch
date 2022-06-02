@@ -68,18 +68,11 @@ class NNUtil(Module):
                 self.index.reset()
                 self.index.add(x)
 
-    def build_idx_for_inducing_points(self, inducing_points, M, D, logger=None, verbose=True):
+    def build_idx_for_inducing_points(self, inducing_points, M, D):
         assert self.nnlib == 'faiss'
         from faiss import IndexFlatL2
 
         # building nearest neighbor structure within inducing points
-        if logger is not None:
-            logger.info("Start build_nn_xinduce...")
-        else:
-            if verbose:
-                print("Start build_nn_xinduce...")
-        start = time.time()
-
         with torch.no_grad():
             gpu_index = IndexFlatL2(D)
             if self.res is not None:
@@ -96,13 +89,6 @@ class NNUtil(Module):
                     torch.from_numpy(gpu_index.search(row, self.k)[1][..., 0,:]).long().to(inducing_points.device)
                 )
                 gpu_index.add(row)
-
-        elapsed = time.time() - start
-        if logger is not None:
-            logger.info(f"Finish build_nn_xinduce. Takes {elapsed:.4f} sec.")
-        else:
-            if verbose:
-                print(f"Finish build_nn_xinduce. Takes {elapsed:.4f} sec.")
         return nn_xinduce_idx
 
     def to(self, device=None, dtype=None):
