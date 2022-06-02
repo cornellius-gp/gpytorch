@@ -821,10 +821,10 @@ class verbose_linalg(_feature_flag):
 
 
 class nn_jitter(_dtype_value_context):
-    """
-    The jitter value added to covariance matrix in nearest_neighbor_variational_strategy.
-    - Default for `float`: 1e-3
-    - Default for `double`: 1e-8
+    r"""The jitter value added to covariance matrix in nearest_neighbor_variational_strategy.
+
+    Default for `float`: 1e-3
+    Default for `double`: 1e-8
     """
 
     _global_float_value = 1e-3
