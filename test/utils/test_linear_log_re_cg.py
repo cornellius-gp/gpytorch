@@ -2,7 +2,8 @@ import os
 import random
 import unittest
 import torch
-from gpytorch.utils.linear_log_re_cg import linear_log_cg_re as linear_cg
+# from gpytorch.utils.linear_log_re_cg import linear_log_cg_re as linear_cg
+from gpytorch.utils.linear_alt import linear_log_cg_re as linear_cg
 
 
 class TestLinearCG(unittest.TestCase):
