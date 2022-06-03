@@ -671,7 +671,17 @@ class LazyTensor(ABC):
         return inv_roots
 
     def _solve(self, rhs, preconditioner, num_tridiag=0):
-        return utils.linear_cg(
+        if rhs.dtype == torch.float16:
+            output = utils.linear_log_cg_re(
+            matmul_closure=self._matmul,
+            rhs=rhs,
+            n_tridiag=num_tridiag,
+            max_iter=settings.max_cg_iterations.value(),
+            max_tridiag_iter=settings.max_lanczos_quadrature_iterations.value(),
+            preconditioner=preconditioner,
+        )
+        else:
+            output = utils.linear_cg(
             self._matmul,
             rhs,
             n_tridiag=num_tridiag,
@@ -679,6 +689,7 @@ class LazyTensor(ABC):
             max_tridiag_iter=settings.max_lanczos_quadrature_iterations.value(),
             preconditioner=preconditioner,
         )
+        return output
 
     def _sum_batch(self, dim):
         """
