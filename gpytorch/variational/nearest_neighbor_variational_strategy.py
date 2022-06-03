@@ -287,7 +287,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
     def compute_nn(self, logger=None, verbose=False):
         with torch.no_grad():
             self.nn_util.set_nn_idx(self.inducing_points.data.float())
-            self.nn_xinduce_idx = self.nn_util.build_idx_for_inducing_points(
+            self.nn_xinduce_idx = self.nn_util.build_sequential_nn_idx(
                 self.inducing_points.data.float(), self.M, self.D, logger, verbose=verbose)
         return self
 
