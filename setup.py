@@ -26,7 +26,12 @@ version = find_version("gpytorch", "__init__.py")
 
 
 torch_min = "1.11"
-install_requires = ["numpy", "scikit-learn", "scipy", "linear_operator>=0.0.1"]
+install_requires = [
+    "numpy",
+    "scikit-learn",
+    "scipy",
+    "linear_operator @ git+https://github.com/cornellius-gp/linear_operator.git@main",
+]
 # if recent dev version of PyTorch is installed, no need to install stable
 try:
     import torch
