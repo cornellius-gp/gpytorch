@@ -6,6 +6,7 @@ from .. import Module
 
 
 class NNUtil(Module):
+
     def __init__(self, k, size, preferred_nnlib="faiss"):
         super().__init__()
         self.k = k
@@ -68,7 +69,7 @@ class NNUtil(Module):
                 self.index.reset()
                 self.index.add(x)
 
-    def build_idx_for_inducing_points(self, inducing_points, M, D):
+    def build_sequential_nn_idx(self, x, M, D):
         assert self.nnlib == 'faiss'
         from faiss import IndexFlatL2
 
@@ -81,12 +82,12 @@ class NNUtil(Module):
 
             nn_xinduce_idx = torch.empty(M - self.k, self.k, dtype=torch.int64)
 
-            x = inducing_points.data.float().cpu().numpy()
-            gpu_index.add(x[:self.k])
+            x_np = x.data.float().cpu().numpy()
+            gpu_index.add(x_np[:self.k])
             for i in range(self.k, M):
-                row = x[i][None, :]
+                row = x_np[i][None, :]
                 nn_xinduce_idx[i-self.k].copy_(
-                    torch.from_numpy(gpu_index.search(row, self.k)[1][..., 0,:]).long().to(inducing_points.device)
+                    torch.from_numpy(gpu_index.search(row, self.k)[1][..., 0,:]).long().to(x.device)
                 )
                 gpu_index.add(row)
         return nn_xinduce_idx
