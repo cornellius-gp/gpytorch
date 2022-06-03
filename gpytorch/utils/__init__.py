@@ -3,6 +3,7 @@
 from . import broadcasting, cholesky, grid, interpolation, lanczos, permutation, quadrature, sparse, warnings
 from .contour_integral_quad import contour_integral_quad
 from .linear_cg import linear_cg
+from .linear_log_re_cg import linear_log_cg_re
 from .memoize import cached
 from .minres import minres
 from .pinverse import stable_pinverse
@@ -26,6 +27,7 @@ __all__ = [
     "cached",
     "contour_integral_quad",
     "linear_cg",
+    "linear_log_cg_re",
     "StochasticLQ",
     "cholesky",
     "grid",
