@@ -59,6 +59,14 @@ See the `1D derivatives GP example`_ or the `2D derivatives GP example`_ for exa
   Simple_Batch_Mode_GP_Regression.ipynb:
 
 
+Variational Fantasization
+----------------------------------
+We also include an example of how to perform fantasy modelling (e.g. efficient, closed form updates) for variational
+Gaussian process models, enabling their usage for lookahead optimization.
+
+.. _Variational fantasization:
+  SVGP_Model_Updating.ipynb
+
 Converting Models to TorchScript
 ----------------------------------
 
@@ -73,3 +81,4 @@ how to convert both an exact GP and a variational GP to a ScriptModule that can 
 
    TorchScript_Exact_Models.ipynb
    TorchScript_Variational_Models.ipynb
+   SVGP_Model_Updating.ipynb

@@ -4,14 +4,26 @@ import warnings
 
 import torch
 
+from gpytorch.variational._variational_strategy import _VariationalStrategy
+from gpytorch.variational.cholesky_variational_distribution import CholeskyVariationalDistribution
+
 from ..distributions import MultivariateNormal
-from ..lazy import DiagLazyTensor, MatmulLazyTensor, RootLazyTensor, SumLazyTensor, TriangularLazyTensor, delazify
+from ..lazy import (
+    CholLazyTensor,
+    DiagLazyTensor,
+    MatmulLazyTensor,
+    RootLazyTensor,
+    SumLazyTensor,
+    TriangularLazyTensor,
+    delazify,
+)
 from ..settings import _linalg_dtype_cholesky, trace_mode
 from ..utils.cholesky import psd_safe_cholesky
-from ..utils.errors import CachingError
+from ..utils.errors import CachingError, NotPSDError
 from ..utils.memoize import cached, clear_cache_hook, pop_from_cache_ignore_args
 from ..utils.warnings import OldVersionWarning
-from ._variational_strategy import _VariationalStrategy
+
+# from ._variational_strategy import _VariationalStrategy
 
 
 def _ensure_updated_strategy_flag_set(
@@ -67,6 +79,8 @@ class VariationalStrategy(_VariationalStrategy):
         self.register_buffer("updated_strategy", torch.tensor(True))
         self._register_load_state_dict_pre_hook(_ensure_updated_strategy_flag_set)
 
+        self.has_fantasy_strategy = True
+
     @cached(name="cholesky_factor", ignore_args=True)
     def _cholesky_factor(self, induc_induc_covar):
         L = psd_safe_cholesky(delazify(induc_induc_covar).type(_linalg_dtype_cholesky.value()))
@@ -83,6 +97,65 @@ class VariationalStrategy(_VariationalStrategy):
         ones = torch.ones_like(zeros)
         res = MultivariateNormal(zeros, DiagLazyTensor(ones))
         return res
+
+    @property
+    @cached(name="pseudo_points_memo")
+    def pseudo_points(self):
+        # TODO: have var_mean, var_cov come from a method of _variational_distribution
+        # while having Kmm_root be a root decomposition to enable CIQVariationalDistribution support.
+
+        # retrieve the variational mean, m and covariance matrix, S.
+        if not isinstance(self._variational_distribution, CholeskyVariationalDistribution):
+            raise NotImplementedError(
+                "Only CholeskyVariationalDistribution has pseudo-point support currently, ",
+                "but your _variational_distribution is a ",
+                self._variational_distribution.__name__,
+            )
+
+        var_cov_root = TriangularLazyTensor(self._variational_distribution.chol_variational_covar)
+        var_cov = CholLazyTensor(var_cov_root)
+        var_mean = self.variational_distribution.mean
+        if var_mean.shape[-1] != 1:
+            var_mean = var_mean.unsqueeze(-1)
+
+        # compute R = I - S
+        cov_diff = var_cov.add_jitter(-1.0)
+        cov_diff = -1.0 * cov_diff
+
+        # K^{1/2}
+        Kmm = self.model.covar_module(self.inducing_points)
+        Kmm_root = Kmm.cholesky()
+
+        # D_a = (S^{-1} - K^{-1})^{-1} = S + S R^{-1} S
+        # note that in the whitened case R = I - S, unwhitened R = K - S
+        # we compute (R R^{T})^{-1} R^T S for stability reasons as R is probably not PSD.
+        eval_var_cov = var_cov.evaluate()
+        eval_rhs = cov_diff.transpose(-1, -2).matmul(eval_var_cov)
+        inner_term = cov_diff.matmul(cov_diff.transpose(-1, -2))
+        # TODO: flag the jitter here
+        inner_solve = inner_term.add_jitter(1e-3).inv_matmul(eval_rhs, eval_var_cov.transpose(-1, -2))
+        inducing_covar = var_cov + inner_solve
+
+        inducing_covar = Kmm_root.matmul(inducing_covar).matmul(Kmm_root.transpose(-1, -2))
+
+        # mean term: D_a S^{-1} m
+        # unwhitened: (S - S R^{-1} S) S^{-1} m = (I - S R^{-1}) m
+        rhs = cov_diff.transpose(-1, -2).matmul(var_mean)
+        # TODO: this jitter too
+        inner_rhs_mean_solve = inner_term.add_jitter(1e-3).inv_matmul(rhs)
+        pseudo_target_mean = Kmm_root.matmul(inner_rhs_mean_solve)
+
+        # ensure inducing covar is psd
+        # TODO: make this be an explicit root decomposition
+        try:
+            pseudo_target_covar = CholLazyTensor(inducing_covar.add_jitter(1e-3).cholesky()).evaluate()
+        except NotPSDError:
+            from gpytorch.lazy import DiagLazyTensor
+
+            evals, evecs = inducing_covar.symeig(eigenvectors=True)
+            pseudo_target_covar = evecs.matmul(DiagLazyTensor(evals + 1e-4)).matmul(evecs.transpose(-1, -2)).evaluate()
+
+        return pseudo_target_covar, pseudo_target_mean
 
     def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None, **kwargs):
         # Compute full prior distribution
