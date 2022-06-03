@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import warnings
 import torch
 from .. import settings
@@ -43,7 +42,6 @@ def _jit_linear_cg_updates(
     curr_conjugate_vec.mul_(beta).add_(precond_residual)
 
 
-@torch.jit.script
 def _jit_linear_cg_updates_no_precond(
     mvms,
     result,
@@ -57,6 +55,8 @@ def _jit_linear_cg_updates_no_precond(
     mul_storage,
     is_zero,
     curr_conjugate_vec,
+    k,
+    prev_residuals,
 ):
     torch.mul(curr_conjugate_vec, mvms, out=mul_storage)
     torch.sum(mul_storage, dim=-2, keepdim=True, out=alpha)
@@ -73,6 +73,10 @@ def _jit_linear_cg_updates_no_precond(
     # Update residual
     # residual_{k} = residual_{k-1} - alpha_{k} mat p_vec_{k-1}
     torch.addcmul(residual, -alpha, mvms, out=residual)
+    for i in range(k - 1):
+        dotprod = (torch.sum(residual * prev_residuals[i], dim=-2, keepdim=True)
+                   * prev_residuals[i])
+        residual -= dotprod
 
     # Update precond_residual
     # precon_residual{k} = M^-1 residual_{k}
@@ -92,7 +96,7 @@ def _jit_linear_cg_updates_no_precond(
     )
 
 
-def linear_cg(
+def linear_log_cg_re(
     matmul_closure,
     rhs,
     n_tridiag=0,
@@ -251,6 +255,8 @@ def linear_cg(
     # It's conceivable we reach the tolerance on the last iteration, so can't just check
     # iteration number.
     tolerance_reached = False
+    prev_residuals = torch.zeros(size=(n_iter,) + rhs.shape,
+                                 dtype=rhs.dtype, device=rhs.device)
 
     # Start the iteration
     for k in range(n_iter):
@@ -305,6 +311,8 @@ def linear_cg(
                 mul_storage,
                 is_zero,
                 curr_conjugate_vec,
+                k,
+                prev_residuals,
             )
 
         torch.norm(residual, 2, dim=-2, keepdim=True, out=residual_norm)
