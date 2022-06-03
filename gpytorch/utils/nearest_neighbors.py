@@ -116,13 +116,13 @@ class NNUtil(Module):
         from faiss import IndexFlatL2
 
         # building nearest neighbor structure within inducing points
+        N, D = x.shape
         with torch.no_grad():
             gpu_index = IndexFlatL2(D)
             if self.res is not None:
                 from faiss import index_cpu_to_gpu
                 gpu_index = index_cpu_to_gpu(self.res, 0, gpu_index)
 
-            M, D = x.shape
             nn_xinduce_idx = torch.empty(N - self.k, self.k, dtype=torch.int64)
 
             x_np = x.data.float().cpu().numpy()
