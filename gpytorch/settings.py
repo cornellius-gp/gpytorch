@@ -141,10 +141,6 @@ class _value_context:
         return False
 
 
-class _use_eval_tolerance(_feature_flag):
-    _default = False
-
-
 class debug(_feature_flag):
     """
     Whether or not to perform "safety" checks on the supplied data.
@@ -392,7 +388,6 @@ class trace_mode(_feature_flag):
 __all__ = [
     "_linalg_dtype_symeig",
     "_linalg_dtype_cholesky",
-    "_use_eval_tolerance",
     "cg_tolerance",
     "cholesky_jitter",
     "cholesky_max_tries",

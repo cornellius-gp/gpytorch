@@ -134,10 +134,7 @@ def linear_cg(
     if initial_guess is None:
         initial_guess = torch.zeros_like(rhs)
     if tolerance is None:
-        if settings._use_eval_tolerance.on():
-            tolerance = settings.eval_cg_tolerance.value()
-        else:
-            tolerance = settings.cg_tolerance.value()
+        tolerance = settings.cg_tolerance.value()
     if preconditioner is None:
         preconditioner = _default_preconditioner
         precond = False

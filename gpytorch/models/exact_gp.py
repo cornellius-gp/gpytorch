@@ -315,7 +315,7 @@ class ExactGP(GP):
             test_shape = torch.Size([joint_shape[0] - self.prediction_strategy.train_shape[0], *tasks_shape])
 
             # Make the prediction
-            with settings._use_eval_tolerance():
+            with settings.cg_tolerance(settings.eval_cg_tolerance.value()):
                 predictive_mean, predictive_covar = self.prediction_strategy.exact_prediction(full_mean, full_covar)
 
             # Reshape predictive mean to match the appropriate event shape
