@@ -42,3 +42,9 @@ Grid Utilities
 
 .. automodule:: gpytorch.utils.grid
    :members:
+
+Nearest Neighbors Utilities
+~~~~~~~~~~~~~~~~~
+
+.. automodule:: gpytorch.utils.nearest_neighbors
+   :members:
