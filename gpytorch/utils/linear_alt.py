@@ -1,73 +1,391 @@
+import warnings
 import torch
+from .. import settings
+from .deprecation import bool_compat
+from .warnings import NumericalWarning
 
 
 def _default_preconditioner(x):
     return x.clone()
 
 
+@torch.jit.script
+def _jit_linear_cg_updates(
+    result,
+    alpha,
+    residual_inner_prod,
+    eps,
+    beta,
+    residual,
+    precond_residual,
+    mul_storage,
+    is_zero,
+    curr_conjugate_vec,
+):
+    # # Update result
+    # # result_{k} = result_{k-1} + alpha_{k} p_vec_{k-1}
+    result = torch.addcmul(result, alpha, curr_conjugate_vec, out=result)
+
+    # beta_{k} = (precon_residual{k}^T r_vec_{k}) / (precon_residual{k-1}^T r_vec_{k-1})
+    beta.resize_as_(residual_inner_prod).copy_(residual_inner_prod)
+    torch.mul(residual, precond_residual, out=mul_storage)
+    torch.sum(mul_storage, -2, keepdim=True, out=residual_inner_prod)
+
+    # Do a safe division here
+    torch.lt(beta, eps, out=is_zero)
+    beta.masked_fill_(is_zero, 1)
+    torch.div(residual_inner_prod, beta, out=beta)
+    beta.masked_fill_(is_zero, 0)
+
+    # Update curr_conjugate_vec
+    # curr_conjugate_vec_{k} = precon_residual{k} + beta_{k} curr_conjugate_vec_{k-1}
+    curr_conjugate_vec.mul_(beta).add_(precond_residual)
+
+
+def _jit_linear_cg_updates_no_precond(
+    mvms,
+    result,
+    has_converged,
+    alpha,
+    residual_inner_prod,
+    eps,
+    beta,
+    residual,
+    precond_residual,
+    mul_storage,
+    is_zero,
+    curr_conjugate_vec,
+    k,
+    prev_residuals,
+):
+    torch.mul(curr_conjugate_vec, mvms, out=mul_storage)
+    log_res = torch.log(residual_inner_prod)
+    alpha = update_alpha(log_res, curr_conjugate_vec, mvms, has_converged)
+
+    # torch.sum(mul_storage, dim=-2, keepdim=True, out=alpha)
+    # torch.lt(alpha, eps, out=is_zero)
+    # alpha.masked_fill_(is_zero, 1)
+    # torch.div(residual_inner_prod, alpha, out=alpha)
+    # alpha.masked_fill_(is_zero, 0)
+    # alpha.masked_fill_(has_converged, 0)
+
+    # Update residual
+    # residual_{k} = residual_{k-1} - alpha_{k} mat p_vec_{k-1}
+    torch.addcmul(residual, -alpha, mvms, out=residual)
+    for i in range(k - 1):
+        dotprod = (torch.sum(residual * prev_residuals[i], dim=-2, keepdim=True)
+                   * prev_residuals[i])
+        residual -= dotprod
+
+    # Update precond_residual
+    # precon_residual{k} = M^-1 residual_{k}
+    precond_residual = residual.clone()
+
+    _jit_linear_cg_updates(
+        result,
+        alpha,
+        residual_inner_prod,
+        eps,
+        beta,
+        residual,
+        precond_residual,
+        mul_storage,
+        is_zero,
+        curr_conjugate_vec,
+    )
+
+
 def linear_log_cg_re(
     matmul_closure,
     rhs,
-    tolerance,
-    max_iter,
-    initial_guess,
-    preconditioner=_default_preconditioner,
+    n_tridiag=0,
+    tolerance=None,
     eps=1e-10,
     stop_updating_after=1e-10,
-    max_tridiag_iter=0,
+    max_iter=None,
+    max_tridiag_iter=None,
+    initial_guess=None,
+    preconditioner=None,
 ):
-    x0 = initial_guess
+    """
+    Implements the linear conjugate gradients method for (approximately) solving systems
+    of the form
+
+        lhs result = rhs
+
+    for positive definite and symmetric matrices.
+
+    Args:
+      - matmul_closure - a function which performs a left matrix multiplication with lhs_mat
+      - rhs - the right-hand side of the equation
+      - n_tridiag - returns a tridiagonalization of the first n_tridiag columns of rhs
+      - tolerance - stop the solve when the (average) norm of the residual(s) is less than this
+      - eps - noise to add to prevent division by zero
+      - stop_updating_after - will stop updating a vector after this residual norm is reached
+      - max_iter - the maximum number of CG iterations
+      - max_tridiag_iter - the maximum size of the tridiagonalization matrix
+      - initial_guess - an initial guess at the solution `result`
+      - precondition_closure - a functions which left-preconditions a supplied vector
+
+    Returns:
+      result - a solution to the system (if n_tridiag is 0)
+      result, tridiags - a solution to the system, and corresponding tridiagonal matrices
+      (if n_tridiag > 0)
+    """
+    # Unsqueeze, if necesasry
+    is_vector = rhs.ndimension() == 1
+    if is_vector:
+        rhs = rhs.unsqueeze(-1)
+
+    # Some default arguments
+    if max_iter is None:
+        max_iter = settings.max_cg_iterations.value()
+    if max_tridiag_iter is None:
+        max_tridiag_iter = settings.max_lanczos_quadrature_iterations.value()
+    if initial_guess is None:
+        initial_guess = torch.zeros_like(rhs)
+    if tolerance is None:
+        if settings._use_eval_tolerance.on():
+            tolerance = settings.eval_cg_tolerance.value()
+        else:
+            tolerance = settings.cg_tolerance.value()
+    if preconditioner is None:
+        preconditioner = _default_preconditioner
+        precond = False
+    else:
+        precond = True
+
+    # If we are running m CG iterations, we obviously can't get more than m Lanczos coefficients
+    if max_tridiag_iter > max_iter:
+        text = "Getting a tridiagonalization larger than the number of CG iterations run "
+        text += "is not possible!"
+        raise RuntimeError(text)
+
+    # Check matmul_closure object
+    if torch.is_tensor(matmul_closure):
+        matmul_closure = matmul_closure.matmul
+    elif not callable(matmul_closure):
+        raise RuntimeError("matmul_closure must be a tensor, or a callable object!")
+
+    # Get some constants
+    num_rows = rhs.size(-2)
+    n_iter = min(max_iter, num_rows) if settings.terminate_cg_by_size.on() else max_iter
+    n_tridiag_iter = min(max_tridiag_iter, num_rows)
+    eps = torch.tensor(eps, dtype=rhs.dtype, device=rhs.device)
+
+    # Get the norm of the rhs - used for convergence checks
+    # Here we're going to make almost-zero norms actually be 1 (so we don't get
+    # divide-by-zero issues)
+    # But we'll store which norms were actually close to zero
     rhs_norm = rhs.norm(2, dim=-2, keepdim=True)
     rhs_is_zero = rhs_norm.lt(eps)
     rhs_norm = rhs_norm.masked_fill_(rhs_is_zero, 1)
+
+    # Let's normalize. We'll un-normalize afterwards
     rhs = rhs.div(rhs_norm)
 
-    state = initialize_log_re(matmul_closure, rhs, preconditioner, x0, max_iter)
-    for k in range(max_iter):
-        state = take_cg_step_log_re(state, matmul_closure, preconditioner)
-        if cond_fun(state, tolerance, max_iter):
+    # residual: residual_{0} = b_vec - lhs x_{0}
+    residual = rhs - matmul_closure(initial_guess)
+    batch_shape = residual.shape[:-2]
+
+    # result <- x_{0}
+    result = initial_guess.expand_as(residual).contiguous()
+
+    # Maybe log
+    if settings.verbose_linalg.on():
+        settings.verbose_linalg.logger.debug(
+            f"Running CG on a {rhs.shape} RHS for {n_iter} iterations (tol={tolerance})."
+            f"Output: {result.shape}."
+        )
+
+    # Check for NaNs
+    if not torch.equal(residual, residual):
+        raise RuntimeError(
+            "NaNs encountered when trying to perform matrix-vector multiplication"
+        )
+
+    # Sometime we're lucky and the preconditioner solves the system right away
+    # Check for convergence
+    residual_norm = residual.norm(2, dim=-2, keepdim=True)
+    has_converged = torch.lt(residual_norm, stop_updating_after)
+
+    if has_converged.all() and not n_tridiag:
+        n_iter = 0  # Skip the iteration!
+
+    # Otherwise, let's define precond_residual and curr_conjugate_vec
+    else:
+        # precon_residual{0} = M^-1 residual_{0}
+        precond_residual = preconditioner(residual)
+        curr_conjugate_vec = precond_residual
+        residual_inner_prod = precond_residual.mul(residual).sum(-2, keepdim=True)
+
+        # Define storage matrices
+        mul_storage = torch.empty_like(residual)
+        alpha = torch.empty(
+            *batch_shape, 1, rhs.size(-1), dtype=residual.dtype, device=residual.device
+        )
+        beta = torch.empty_like(alpha)
+        is_zero = torch.empty(
+            *batch_shape, 1, rhs.size(-1), dtype=bool_compat, device=residual.device
+        )
+
+    # Define tridiagonal matrices, if applicable
+    if n_tridiag:
+        t_mat = torch.zeros(
+            n_tridiag_iter,
+            n_tridiag_iter,
+            *batch_shape,
+            n_tridiag,
+            dtype=alpha.dtype,
+            device=alpha.device,
+        )
+        alpha_tridiag_is_zero = torch.empty(
+            *batch_shape, n_tridiag, dtype=bool_compat, device=t_mat.device
+        )
+        alpha_reciprocal = torch.empty(
+            *batch_shape, n_tridiag, dtype=t_mat.dtype, device=t_mat.device
+        )
+        prev_alpha_reciprocal = torch.empty_like(alpha_reciprocal)
+        prev_beta = torch.empty_like(alpha_reciprocal)
+
+    update_tridiag = True
+    last_tridiag_iter = 0
+
+    # It's conceivable we reach the tolerance on the last iteration, so can't just check
+    # iteration number.
+    tolerance_reached = False
+    prev_residuals = torch.zeros(size=(n_iter,) + rhs.shape,
+                                 dtype=rhs.dtype, device=rhs.device)
+
+    # Start the iteration
+    for k in range(n_iter):
+        # Get next alpha
+        # alpha_{k} = (residual_{k-1}^T precon_residual{k-1}) / (p_vec_{k-1}^T mat p_vec_{k-1})
+        mvms = matmul_closure(curr_conjugate_vec)
+        if precond:
+            torch.mul(curr_conjugate_vec, mvms, out=mul_storage)
+            torch.sum(mul_storage, -2, keepdim=True, out=alpha)
+
+            # Do a safe division here
+            torch.lt(alpha, eps, out=is_zero)
+            alpha.masked_fill_(is_zero, 1)
+            torch.div(residual_inner_prod, alpha, out=alpha)
+            alpha.masked_fill_(is_zero, 0)
+
+            # We'll cancel out any updates by setting alpha=0 for any vector that has
+            # already converged
+            alpha.masked_fill_(has_converged, 0)
+
+            # Update residual
+            # residual_{k} = residual_{k-1} - alpha_{k} mat p_vec_{k-1}
+            residual = torch.addcmul(residual, alpha, mvms, value=-1, out=residual)
+
+            # Update precond_residual
+            # precon_residual{k} = M^-1 residual_{k}
+            precond_residual = preconditioner(residual)
+
+            _jit_linear_cg_updates(
+                result,
+                alpha,
+                residual_inner_prod,
+                eps,
+                beta,
+                residual,
+                precond_residual,
+                mul_storage,
+                is_zero,
+                curr_conjugate_vec,
+            )
+        else:
+            _jit_linear_cg_updates_no_precond(
+                mvms,
+                result,
+                has_converged,
+                alpha,
+                residual_inner_prod,
+                eps,
+                beta,
+                residual,
+                precond_residual,
+                mul_storage,
+                is_zero,
+                curr_conjugate_vec,
+                k,
+                prev_residuals,
+            )
+
+        torch.norm(residual, 2, dim=-2, keepdim=True, out=residual_norm)
+        residual_norm.masked_fill_(rhs_is_zero, 0)
+        torch.lt(residual_norm, stop_updating_after, out=has_converged)
+
+        if (
+            k >= min(10, max_iter - 1)
+            and bool(residual_norm.mean() < tolerance)
+            and not (n_tridiag and k < min(n_tridiag_iter, max_iter - 1))
+        ):
+            tolerance_reached = True
             break
 
-    x0 = state[0]
-    x0 = x0.mul(rhs_norm)
-    return x0
+        # Update tridiagonal matrices, if applicable
+        if n_tridiag and k < n_tridiag_iter and update_tridiag:
+            alpha_tridiag = alpha.squeeze(-2).narrow(-1, 0, n_tridiag)
+            beta_tridiag = beta.squeeze(-2).narrow(-1, 0, n_tridiag)
+            torch.eq(alpha_tridiag, 0, out=alpha_tridiag_is_zero)
+            alpha_tridiag.masked_fill_(alpha_tridiag_is_zero, 1)
+            torch.reciprocal(alpha_tridiag, out=alpha_reciprocal)
+            alpha_tridiag.masked_fill_(alpha_tridiag_is_zero, 0)
+
+            if k == 0:
+                t_mat[k, k].copy_(alpha_reciprocal)
+            else:
+                torch.addcmul(
+                    alpha_reciprocal, prev_beta, prev_alpha_reciprocal, out=t_mat[k, k]
+                )
+                torch.mul(prev_beta.sqrt_(), prev_alpha_reciprocal, out=t_mat[k, k - 1])
+                t_mat[k - 1, k].copy_(t_mat[k, k - 1])
+
+                if t_mat[k - 1, k].max() < 1e-6:
+                    update_tridiag = False
+
+            last_tridiag_iter = k
+
+            prev_alpha_reciprocal.copy_(alpha_reciprocal)
+            prev_beta.copy_(beta_tridiag)
+
+    # Un-normalize
+    result = result.mul(rhs_norm)
+
+    if not tolerance_reached and n_iter > 0:
+        warnings.warn(
+            "CG terminated in {} iterations with average residual norm {}"
+            " which is larger than the tolerance of {} specified by"
+            " gpytorch.settings.cg_tolerance."
+            " If performance is affected, consider raising the maximum number of CG"
+            " iterations by running code in"
+            " a gpytorch.settings.max_cg_iterations(value) context.".format(
+                k + 1, residual_norm.mean(), tolerance
+            ),
+            NumericalWarning,
+        )
+
+    if is_vector:
+        result = result.squeeze(-1)
+
+    if n_tridiag:
+        t_mat = t_mat[: last_tridiag_iter + 1, : last_tridiag_iter + 1]
+        return (
+            result,
+            t_mat.permute(-1, *range(2, 2 + len(batch_shape)), 0, 1).contiguous(),
+        )
+    else:
+        return result
 
 
-def initialize_log_re(A, b, preconditioner, x0, max_iters):
-    r0 = b - A(x0)
-    z0 = preconditioner(r0)
-    p0 = z0
-    log_gamma0 = update_log_gamma_unclipped(r=r0, z=z0)
-    u_all = torch.zeros(size=(max_iters,) + b.shape, dtype=x0.dtype, device=x0.device)
-    return (x0, r0, log_gamma0, p0, u_all, torch.tensor(0, dtype=torch.int32))
-
-
-def take_cg_step_log_re(state, A, preconditioner):
-    x0, r0, log_gamma0, p0, u_all, k = state
-    r_norm = torch.linalg.norm(r0, axis=-2, keepdim=True)
-    has_converged = r_norm < torch.tensor(1.e-8, dtype=p0.dtype)
-    Ap0 = A(p0)
-
-    alpha = update_alpha_log_unclipped(log_gamma0, p0, Ap0, has_converged)
-    x1 = x0 + alpha * p0
-    r1 = r0 - alpha * Ap0
-    for i in range(k - 1):
-        dotprod = torch.sum(r1 * u_all[i], dim=-2, keepdim=True) * u_all[i]
-        r1 = r1 - dotprod
-    z1 = preconditioner(r1)
-    log_gamma1, beta = update_log_gamma_beta_unclipped(
-        r1, z1, log_gamma0, has_converged)
-    u_all[k] = r1 / torch.sqrt(torch.exp(log_gamma1))
-    p1 = z1 + beta * p0
-
-    return (x1, r1, log_gamma1, p1, u_all, k + 1)
-
-
-def update_alpha_log_unclipped(log_gamma, p, Ap, has_converged):
+def update_alpha(log_gamma, p, Ap, has_converged):
     log_alpha_abs, sign = compute_robust_denom_unclipped(p, Ap)
     log_denom = logsumexp(tensor=log_alpha_abs, dim=-2, mask=sign)
     alpha = torch.exp(log_gamma - log_denom)
-    alpha = torch.where(has_converged, torch.zeros_like(alpha), alpha)
+    alpha = torch.where(has_converged, torch.zeros_like(alpha, device=alpha.device), alpha)
     return alpha
 
 
@@ -77,32 +395,6 @@ def compute_robust_denom_unclipped(p, Ap):
     sign = torch.sign(p) * torch.sign(Ap)
     log_alpha_abs = torch.log(p_abs) + torch.log(Ap_abs)
     return log_alpha_abs, sign
-
-
-def update_log_gamma_beta_unclipped(r, z, log_gamma0, has_converged):
-    log_gamma1 = update_log_gamma_unclipped(r, z)
-    beta = torch.exp(log_gamma1 - log_gamma0)
-    beta = torch.where(has_converged, torch.zeros_like(beta), beta)
-    return log_gamma1, beta
-
-
-def update_log_gamma_unclipped(r, z):
-    r_abs = torch.abs(r)
-    z_abs = torch.abs(z)
-    sign = torch.sign(r) * torch.sign(z)
-    log_gamma_abs = torch.log(r_abs) + torch.log(z_abs)
-    log_gamma = logsumexp(tensor=log_gamma_abs, dim=-2, mask=sign)
-    return log_gamma
-
-
-def cond_fun(state, tolerance, max_iters):
-    _, r, *_, k = state
-    rs = torch.linalg.norm(r, axis=-2)
-    res_meet = torch.mean(rs) < tolerance
-    min_val = torch.minimum(torch.tensor(10, dtype=torch.int32),
-                            torch.tensor(max_iters, dtype=torch.int32))
-    flag = ((res_meet) & (k >= min_val) | (k > max_iters))
-    return flag
 
 
 def logsumexp(tensor, dim=-1, mask=None):
