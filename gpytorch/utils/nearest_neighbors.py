@@ -77,7 +77,7 @@ class NNUtil(Module):
         if k is None:
             k = self.k
         else:
-            assert k <= self.k, f"User-specified k={k} should be smalelr than or equal to the initialized k={self.k}."
+            assert k <= self.k, f"User-specified k={k} should be smaller than or equal to the initialized k={self.k}."
         with torch.no_grad():
             if self.nnlib == 'sklearn':
                 # TODO: check this
