@@ -1,8 +1,7 @@
 import torch
 import warnings
-import time
 
-from .. import Module
+from torch.nn import Module
 
 
 class NNUtil(Module):
