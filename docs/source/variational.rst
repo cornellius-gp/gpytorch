@@ -70,6 +70,13 @@ deterministic relationship between :math:`\mathbf f` and :math:`\mathbf u`.
    :members:
 
 
+:hidden:`NNVariationalStrategy`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: NNVariationalStrategy
+   :members:
+
+
 :hidden:`OrthogonallyDecoupledVariationalStrategy`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
