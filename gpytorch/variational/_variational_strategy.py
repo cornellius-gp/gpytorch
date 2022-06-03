@@ -200,7 +200,21 @@ class _VariationalStrategy(Module, ABC):
         numerical stability.
 
         Unlike the ExactGP's call for get_fantasy_model, we enable options for mean_module and covar_module
-        that allow specification of the mean / covariance.
+        that allow specification of the mean / covariance. We expect that either the mean and covariance
+        modules are attributes of the model itself called mean_module and covar_module respectively OR that you
+        pass them into this method explicitly.
+
+        :param torch.Tensor inputs: (`b1 x ... x bk x m x d` or `f x b1 x ... x bk x m x d`) Locations of fantasy
+            observations.
+        :param torch.Tensor targets: (`b1 x ... x bk x m` or `f x b1 x ... x bk x m`) Labels of fantasy observations.
+        :param torch.nn.Module mean_module: torch module describing the mean function of the GP model. Optional if
+            `mean_module` is already an attribute of the variational GP.
+        :param torch.nn.Module covar_module: torch module describing the covariance function of the GP model. Optional
+            if `covar_module` is already an attribute of the variational GP.
+        :return: An `ExactGP` model with `k + m` training examples, where the `m` fantasy examples have been added
+            and all test-time caches have been updated. We assume that there are `k` inducing points in this variational
+            GP. Note that we return an `ExactGP` rather than a variational GP.
+        :rtype: ~gpytorch.models.ExactGP
 
         Reference: "Conditioning Sparse Variational Gaussian Processes for Online Decision-Making,"
             Maddox, Stanton, Wilson, NeurIPS, '21
@@ -228,7 +242,7 @@ class _VariationalStrategy(Module, ABC):
             if mean_module is None:
                 raise ModuleNotFoundError(
                     "Either you must provide a mean_module as input to get_fantasy_model",
-                    "or it must be an attribute of the model.",
+                    "or it must be an attribute of the model called mean_module.",
                 )
         if covar_module is None:
             covar_module = getattr(self.model, "covar_module", None)
@@ -236,7 +250,7 @@ class _VariationalStrategy(Module, ABC):
                 # raise an error
                 raise ModuleNotFoundError(
                     "Either you must provide a covar_module as input to get_fantasy_model",
-                    "or it must be an attribute of the model.",
+                    "or it must be an attribute of the model called covar_module.",
                 )
 
         # first we construct an exact model over the inducing points with the inducing covariance
