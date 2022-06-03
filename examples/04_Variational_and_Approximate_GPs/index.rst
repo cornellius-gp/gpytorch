@@ -24,6 +24,7 @@ Here we provide some examples which highlight some of the common use cases:
 - **Large-scale regression** (when exact methods are too memory intensive): see the `stochastic variational regression example`_.
 - **Variational inference with natural gradient descent** (for faster/better optimization): see the `ngd example`_.
 - **Variational inference with contour integral quadrature** (for large numbers of inducing points): see the `ciq example`_.
+- **Variational inference with nearest neighbor approximation** (for large numbers of inducing points): see the `vnngp example`_.
 - **Variational distribution options** for different scalability/expressiveness: see the `strategy/distribution comparison`_.
 - **Alternative optimization objectives** for the GP's predictive distribution: see the `approximate GP objective functions notebook`_.
   This example compares and contrasts the variational ELBO with the predictive log likelihood of Jankowiak et al., 2020.
@@ -39,6 +40,7 @@ Here we provide some examples which highlight some of the common use cases:
    Modifying_the_variational_strategy_and_distribution.ipynb
    Natural_Gradient_Descent.ipynb
    SVGP_CIQ.ipynb
+   VNNGP.ipynb
    Approximate_GP_Objective_Functions.ipynb
    Non_Gaussian_Likelihoods.ipynb
    PolyaGamma_Binary_Classification.ipynb
@@ -56,6 +58,9 @@ Here we provide some examples which highlight some of the common use cases:
 
 .. _ciq example:
   ./SVGP_CIQ.ipynb
+
+.. _vnngp example:
+  ./VNNGP.ipynb
 
 .. _approximate GP objective functions notebook:
   ./Approximate_GP_Objective_Functions.ipynb
