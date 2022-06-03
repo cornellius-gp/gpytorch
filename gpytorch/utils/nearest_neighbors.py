@@ -75,8 +75,9 @@ class NNUtil(Module):
         :return: the indices of nearest neighbors in the training data
         """
         if k is None:
-            assert k <= self.k, f"User-specified k={k} should be smalelr than or equal to the initialized k={self.k}."
             k = self.k
+        else:
+            assert k <= self.k, f"User-specified k={k} should be smalelr than or equal to the initialized k={self.k}."
         with torch.no_grad():
             if self.nnlib == 'sklearn':
                 # TODO: check this
