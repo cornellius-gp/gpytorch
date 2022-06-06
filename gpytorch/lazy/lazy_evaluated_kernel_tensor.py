@@ -3,7 +3,7 @@
 import torch
 
 from .. import beta_features, settings
-from ..utils import broadcasting
+from ..utils import broadcasting, deprecation
 from ..utils.getitem import _noop_index
 from ..utils.memoize import cached
 from .lazy_tensor import LazyTensor
@@ -46,6 +46,71 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         # The behavior that differs from the base LazyTensor setter
         for param in self.kernel.parameters():
             param.requires_grad_(val)
+
+    def _bilinear_derivative(self, left_vecs, right_vecs):
+        # This _bilinear_derivative computes the kernel in chunks
+        # It is only used when we are using kernel checkpointing
+        # It won't be called if checkpointing is off
+        split_size = beta_features.checkpoint_kernel.value()
+        if not split_size:
+            raise RuntimeError(
+                "Should not have ended up in LazyEvaluatedKernelTensor._bilinear_derivative without kernel "
+                "checkpointing. This is probably a bug in GPyTorch."
+            )
+
+        x1 = self.x1.detach().requires_grad_(True)
+        x2 = self.x2.detach().requires_grad_(True)
+
+        # Break objects into chunks
+        sub_x1s = [sub_x1.detach() for sub_x1 in torch.split(x1, split_size, dim=-2)]
+        sub_left_vecss = torch.split(left_vecs, split_size, dim=-2)
+        # Compute the gradient in chunks
+        for sub_x1, sub_left_vecs in zip(sub_x1s, sub_left_vecss):
+            sub_x1.requires_grad_(True)
+            with torch.enable_grad(), settings.lazily_evaluate_kernels(False):
+                sub_kernel_matrix = lazify(
+                    self.kernel(
+                        sub_x1,
+                        x2,
+                        diag=False,
+                        last_dim_is_batch=self.last_dim_is_batch,
+                        **self.params,
+                    )
+                )
+            sub_grad_outputs = tuple(sub_kernel_matrix._bilinear_derivative(sub_left_vecs, right_vecs))
+            sub_kernel_outputs = tuple(sub_kernel_matrix.representation())
+            torch.autograd.backward(sub_kernel_outputs, sub_grad_outputs)
+
+        x1.grad = torch.cat([sub_x1.grad.data for sub_x1 in sub_x1s], dim=-2)
+        return x1.grad, x2.grad
+
+    @cached(name="kernel_diag")
+    def _diagonal(self) -> torch.Tensor:
+        # Getting the diagonal of a kernel can be handled more efficiently by
+        # transposing the batch and data dimension before calling the kernel.
+        # Implementing it this way allows us to compute predictions more efficiently
+        # in cases where only the variances are required.
+        from ..kernels import Kernel
+
+        x1 = self.x1
+        x2 = self.x2
+
+        res = super(Kernel, self.kernel).__call__(
+            x1, x2, diag=True, last_dim_is_batch=self.last_dim_is_batch, **self.params
+        )
+
+        # Now we'll make sure that the shape we're getting from diag makes sense
+        if settings.debug.on():
+            expected_shape = self.shape[:-1]
+            if res.shape != expected_shape:
+                raise RuntimeError(
+                    "The kernel {} is not equipped to handle and diag. Expected size {}. "
+                    "Got size {}".format(self.kernel.__class__.__name__, expected_shape, res.shape)
+                )
+
+        if isinstance(res, LazyTensor):
+            res = res.evaluate()
+        return res.view(self.shape[:-1]).contiguous()
 
     def _expand_batch(self, batch_shape):
         return self.evaluate_kernel()._expand_batch(batch_shape)
@@ -184,43 +249,6 @@ class LazyEvaluatedKernelTensor(LazyTensor):
             res = torch.cat(res, dim=-2)
             return res
 
-    def _quad_form_derivative(self, left_vecs, right_vecs):
-        # This _quad_form_derivative computes the kernel in chunks
-        # It is only used when we are using kernel checkpointing
-        # It won't be called if checkpointing is off
-        split_size = beta_features.checkpoint_kernel.value()
-        if not split_size:
-            raise RuntimeError(
-                "Should not have ended up in LazyEvaluatedKernelTensor._quad_form_derivative without kernel "
-                "checkpointing. This is probably a bug in GPyTorch."
-            )
-
-        x1 = self.x1.detach().requires_grad_(True)
-        x2 = self.x2.detach().requires_grad_(True)
-
-        # Break objects into chunks
-        sub_x1s = [sub_x1.detach() for sub_x1 in torch.split(x1, split_size, dim=-2)]
-        sub_left_vecss = torch.split(left_vecs, split_size, dim=-2)
-        # Compute the gradient in chunks
-        for sub_x1, sub_left_vecs in zip(sub_x1s, sub_left_vecss):
-            sub_x1.requires_grad_(True)
-            with torch.enable_grad(), settings.lazily_evaluate_kernels(False):
-                sub_kernel_matrix = lazify(
-                    self.kernel(
-                        sub_x1,
-                        x2,
-                        diag=False,
-                        last_dim_is_batch=self.last_dim_is_batch,
-                        **self.params,
-                    )
-                )
-            sub_grad_outputs = tuple(sub_kernel_matrix._quad_form_derivative(sub_left_vecs, right_vecs))
-            sub_kernel_outputs = tuple(sub_kernel_matrix.representation())
-            torch.autograd.backward(sub_kernel_outputs, sub_grad_outputs)
-
-        x1.grad = torch.cat([sub_x1.grad.data for sub_x1 in sub_x1s], dim=-2)
-        return x1.grad, x2.grad
-
     @cached(name="size")
     def _size(self):
         if settings.debug.on():
@@ -291,36 +319,6 @@ class LazyEvaluatedKernelTensor(LazyTensor):
             **self.params,
         )
 
-    @cached(name="kernel_diag")
-    def diag(self):
-        """
-        Getting the diagonal of a kernel can be handled more efficiently by
-        transposing the batch and data dimension before calling the kernel.
-        Implementing it this way allows us to compute predictions more efficiently
-        in cases where only the variances are required.
-        """
-        from ..kernels import Kernel
-
-        x1 = self.x1
-        x2 = self.x2
-
-        res = super(Kernel, self.kernel).__call__(
-            x1, x2, diag=True, last_dim_is_batch=self.last_dim_is_batch, **self.params
-        )
-
-        # Now we'll make sure that the shape we're getting from diag makes sense
-        if settings.debug.on():
-            expected_shape = self.shape[:-1]
-            if res.shape != expected_shape:
-                raise RuntimeError(
-                    "The kernel {} is not equipped to handle and diag. Expected size {}. "
-                    "Got size {}".format(self.kernel.__class__.__name__, expected_shape, res.shape)
-                )
-
-        if isinstance(res, LazyTensor):
-            res = res.evaluate()
-        return res.view(self.shape[:-1]).contiguous()
-
     @cached(name="kernel_eval")
     def evaluate_kernel(self):
         """
@@ -351,10 +349,6 @@ class LazyEvaluatedKernelTensor(LazyTensor):
                 )
 
         return lazify(res)
-
-    @cached
-    def evaluate(self):
-        return self.evaluate_kernel().evaluate()
 
     def repeat(self, *repeats):
         if len(repeats) == 1 and hasattr(repeats[0], "__iter__"):
@@ -389,6 +383,10 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         else:
             return self.evaluate_kernel().representation_tree()
 
+    @cached
+    def to_dense(self):
+        return self.evaluate_kernel().evaluate()
+
     def __getitem__(self, index):
         """
         Supports subindexing of the matrix this LazyTensor represents. This may return either another
@@ -403,3 +401,12 @@ class LazyEvaluatedKernelTensor(LazyTensor):
             return self._getitem(row_index, col_index, *batch_indices)
         else:
             return super().__getitem__(index)
+
+
+deprecation._deprecated_renamed_method(
+    LazyEvaluatedKernelTensor, old_method_name="_quad_form_derivative", new_method_name="_bilinear_derivative"
+)
+deprecation._deprecated_renamed_method(LazyEvaluatedKernelTensor, old_method_name="diag", new_method_name="diagonal")
+deprecation._deprecated_renamed_method(
+    LazyEvaluatedKernelTensor, old_method_name="evaluate", new_method_name="to_dense"
+)
