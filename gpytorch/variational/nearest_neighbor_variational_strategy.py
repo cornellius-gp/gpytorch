@@ -91,7 +91,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
         assert self.k <= self.M, \
             f"Number of nearest neighbors k must be smaller than or equal to number of inducing points, but got k = {k}, M = {self.M}."
 
-        self.nn_util = NNUtil(k, size=inducing_points.size(-1)).to(device=inducing_points.device)
+        self.nn_util = NNUtil(k, dim=self.D, device=inducing_points.device)
         self.compute_nn()
 
         self.training_batch_size = training_batch_size
