@@ -6,9 +6,8 @@ import warnings
 from typing import Any, Optional, Tuple, Union
 
 import torch
-from linear_operator import LinearOperator
-from linear_operator import cat as _cat
-from linear_operator import operators
+from linear_operator import LinearOperator, operators
+from linear_operator.operators.cat_linear_operator import cat as _cat
 
 from .lazy_evaluated_kernel_tensor import LazyEvaluatedKernelTensor
 from .lazy_tensor import LazyTensor, delazify, deprecated_lazy_tensor
