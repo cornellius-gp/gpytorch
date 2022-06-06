@@ -17,8 +17,8 @@ See our numerous [**examples and tutorials**](https://gpytorch.readthedocs.io/en
 ## Installation
 
 **Requirements**:
-- Python >= 3.7
-- PyTorch >= 1.10
+- Python >= 3.8
+- PyTorch >= 1.11
 
 Install GPyTorch using pip or conda:
 

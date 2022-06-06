@@ -30,7 +30,7 @@ install_requires = [
     "numpy",
     "scikit-learn",
     "scipy",
-    "linear_operator @ git+https://github.com/cornellius-gp/linear_operator.git@main",
+    "linear_operator>=0.1.0",
 ]
 # if recent dev version of PyTorch is installed, no need to install stable
 try:
@@ -60,7 +60,7 @@ setup(
     license="MIT",
     classifiers=["Development Status :: 4 - Beta", "Programming Language :: Python :: 3"],
     packages=find_packages(exclude=["test", "test.*"]),
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     install_requires=install_requires,
     extras_require={
         "dev": ["black", "twine", "pre-commit"],

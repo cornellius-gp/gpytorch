@@ -13,13 +13,14 @@ build:
 
 requirements:
   host:
-    - python>=3.7
+    - python>=3.8
 
   run:
-    - pytorch>=1.10
+    - pytorch>=1.11
     - numpy
     - scikit-learn
     - scipy
+    - linear_operator>=0.1.0
 
 test:
   imports:

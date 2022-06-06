@@ -1,8 +1,10 @@
 name: gpytorch
 channels:
   - pytorch
+  - gpytorch
 dependencies:
   - pytorch
   - numpy
   - scikit-learn
   - scipy
+  - linear_operator
