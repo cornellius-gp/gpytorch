@@ -3,10 +3,10 @@
 import unittest
 
 import torch
+from linear_operator.utils import minres
 
 import gpytorch
 from gpytorch.test.base_test_case import BaseTestCase
-from gpytorch.utils.minres import minres
 
 
 class TestMinres(BaseTestCase, unittest.TestCase):

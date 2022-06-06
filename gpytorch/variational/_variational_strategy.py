@@ -11,7 +11,6 @@ from ..distributions import Delta, MultivariateNormal
 from ..likelihoods import GaussianLikelihood
 from ..models import ExactGP
 from ..module import Module
-from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.memoize import add_to_cache, cached, clear_cache_hook
 
 
@@ -68,7 +67,7 @@ class _VariationalStrategy(Module, ABC):
         """
         Pre-processing step in __call__ to make x the same batch_shape as the inducing points
         """
-        batch_shape = _mul_broadcast_shape(inducing_points.shape[:-2], x.shape[:-2])
+        batch_shape = torch.broadcast_shapes(inducing_points.shape[:-2], x.shape[:-2])
         inducing_points = inducing_points.expand(*batch_shape, *inducing_points.shape[-2:])
         x = x.expand(*batch_shape, *x.shape[-2:])
         return x, inducing_points

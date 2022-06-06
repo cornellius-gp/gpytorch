@@ -17,7 +17,6 @@ from ..lazy import (
     ZeroLazyTensor,
     delazify,
 )
-from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.errors import NotPSDError
 from ..utils.memoize import add_to_cache, cached
@@ -156,7 +155,7 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
         if variational_inducing_covar is not None:
             root_variational_covar = variational_inducing_covar.root_decomposition().root.evaluate()
             shapes.append(root_variational_covar.shape[:-1])
-        shape = _mul_broadcast_shape(*shapes)
+        shape = torch.broadcast_shapes(*shapes)
         mean_diff = mean_diff.expand(*shape, mean_diff.size(-1))
         induc_data_covar = induc_data_covar.expand(*shape, induc_data_covar.size(-1))
         induc_induc_covar = induc_induc_covar.expand(*shape, induc_induc_covar.size(-1))

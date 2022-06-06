@@ -3,13 +3,12 @@
 from typing import Optional, Tuple
 
 import torch
+from linear_operator.utils import linear_cg
 
 from .. import settings
 from ..distributions import Delta, MultivariateNormal
 from ..lazy import DiagLazyTensor, MatmulLazyTensor, SumLazyTensor, lazify
 from ..module import Module
-from ..utils import linear_cg
-from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.memoize import cached
 from ._variational_strategy import _VariationalStrategy
 from .natural_variational_distribution import NaturalVariationalDistribution
@@ -41,7 +40,7 @@ class _NgdInterpTerms(torch.autograd.Function):
         diag = prec.diagonal(dim1=-1, dim2=-2).unsqueeze(-1)
 
         # Make sure that interp_term and natural_vec are the same batch shape
-        batch_shape = _mul_broadcast_shape(interp_term.shape[:-2], natural_vec.shape[:-1])
+        batch_shape = torch.broadcast_shapes(interp_term.shape[:-2], natural_vec.shape[:-1])
         expanded_interp_term = interp_term.expand(*batch_shape, *interp_term.shape[-2:])
         expanded_natural_vec = natural_vec.expand(*batch_shape, natural_vec.size(-1))
 

@@ -6,7 +6,6 @@ from .. import settings
 from ..distributions import MultitaskMultivariateNormal, MultivariateNormal
 from ..lazy import KroneckerProductLazyTensor, RootLazyTensor
 from ..module import Module
-from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.interpolation import left_interp
 from ._variational_strategy import _VariationalStrategy
 
@@ -19,7 +18,7 @@ def _select_lmc_coefficients(lmc_coefficients: torch.Tensor, indices: torch.Long
     lmc_coefficients: torch.Tensor ... x num_latents x ... x num_tasks
     indices: torch.Tesnor ... x N
     """
-    batch_shape = _mul_broadcast_shape(lmc_coefficients.shape[:-1], indices.shape[:-1])
+    batch_shape = torch.broadcast_shapes(lmc_coefficients.shape[:-1], indices.shape[:-1])
 
     # We will use the left_interp helper to do the indexing
     lmc_coefficients = lmc_coefficients.expand(*batch_shape, lmc_coefficients.shape[-1])[..., None]

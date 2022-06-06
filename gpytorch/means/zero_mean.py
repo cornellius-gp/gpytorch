@@ -2,7 +2,6 @@
 
 import torch
 
-from ..utils.broadcasting import _mul_broadcast_shape
 from .mean import Mean
 
 
@@ -16,4 +15,4 @@ class ZeroMean(Mean):
         if input.shape[:-2] == self.batch_shape:
             return mean.expand(input.shape[:-1])
         else:
-            return mean.expand(_mul_broadcast_shape(input.shape[:-1], mean.shape))
+            return mean.expand(torch.broadcast_shapes(input.shape[:-1], mean.shape))

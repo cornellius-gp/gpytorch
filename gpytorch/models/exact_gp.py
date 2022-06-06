@@ -8,7 +8,6 @@ import torch
 from .. import settings
 from ..distributions import MultivariateNormal
 from ..likelihoods import _GaussianLikelihoodBase
-from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.warnings import GPInputWarning
 from .exact_prediction_strategies import prediction_strategy
 from .gp import GP
@@ -181,11 +180,13 @@ class ExactGP(GP):
             )
 
         # Check whether we can properly broadcast batch dimensions
-        err_msg = (
-            f"Model batch shape ({model_batch_shape}) and target batch shape "
-            f"({target_batch_shape}) are not broadcastable."
-        )
-        _mul_broadcast_shape(model_batch_shape, target_batch_shape, error_msg=err_msg)
+        try:
+            torch.broadcast_shapes(model_batch_shape, target_batch_shape)
+        except RuntimeError:
+            raise RuntimeError(
+                f"Model batch shape ({model_batch_shape}) and target batch shape "
+                f"({target_batch_shape}) are not broadcastable."
+            )
 
         if len(model_batch_shape) > len(input_batch_shape):
             input_batch_shape = model_batch_shape
@@ -293,10 +294,10 @@ class ExactGP(GP):
             for train_input, input in zip(train_inputs, inputs):
                 # Make sure the batch shapes agree for training/test data
                 if batch_shape != train_input.shape[:-2]:
-                    batch_shape = _mul_broadcast_shape(batch_shape, train_input.shape[:-2])
+                    batch_shape = torch.broadcast_shapes(batch_shape, train_input.shape[:-2])
                     train_input = train_input.expand(*batch_shape, *train_input.shape[-2:])
                 if batch_shape != input.shape[:-2]:
-                    batch_shape = _mul_broadcast_shape(batch_shape, input.shape[:-2])
+                    batch_shape = torch.broadcast_shapes(batch_shape, input.shape[:-2])
                     train_input = train_input.expand(*batch_shape, *train_input.shape[-2:])
                     input = input.expand(*batch_shape, *input.shape[-2:])
                 full_inputs.append(torch.cat([train_input, input], dim=-2))

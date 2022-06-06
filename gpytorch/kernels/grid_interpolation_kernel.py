@@ -6,7 +6,6 @@ import torch
 
 from ..lazy import InterpolatedLazyTensor, lazify
 from ..models.exact_prediction_strategies import InterpolatedPredictionStrategy
-from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.grid import create_grid
 from ..utils.interpolation import Interpolation
 from .grid_kernel import GridKernel
@@ -191,7 +190,7 @@ class GridInterpolationKernel(GridKernel):
         else:
             right_interp_indices, right_interp_values = self._compute_grid(x2, last_dim_is_batch)
 
-        batch_shape = _mul_broadcast_shape(
+        batch_shape = torch.broadcast_shapes(
             base_lazy_tsr.batch_shape,
             left_interp_indices.shape[:-2],
             right_interp_indices.shape[:-2],

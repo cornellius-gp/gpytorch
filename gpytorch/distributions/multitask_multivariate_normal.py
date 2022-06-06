@@ -3,7 +3,6 @@
 import torch
 
 from ..lazy import BlockDiagLazyTensor, BlockInterleavedLazyTensor, CatLazyTensor, LazyTensor, lazify
-from ..utils.broadcasting import _mul_broadcast_shape
 from .multivariate_normal import MultivariateNormal
 
 
@@ -36,7 +35,7 @@ class MultitaskMultivariateNormal(MultivariateNormal):
 
         # Ensure that shapes are broadcasted appropriately across the mean and covariance
         # Means can have singleton dimensions for either the `n` or `t` dimensions
-        batch_shape = _mul_broadcast_shape(mean.shape[:-2], covariance_matrix.shape[:-2])
+        batch_shape = torch.broadcast_shapes(mean.shape[:-2], covariance_matrix.shape[:-2])
         if mean.shape[-2:].numel() != covariance_matrix.size(-1):
             if covariance_matrix.size(-1) % mean.shape[-2:].numel():
                 raise RuntimeError(

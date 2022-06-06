@@ -7,7 +7,6 @@ import torch
 from ..constraints import Interval, Positive
 from ..lazy import DiagLazyTensor, InterpolatedLazyTensor, PsdSumLazyTensor, RootLazyTensor
 from ..priors import Prior
-from ..utils.broadcasting import _mul_broadcast_shape
 from .kernel import Kernel
 
 
@@ -97,7 +96,7 @@ class IndexKernel(Kernel):
 
         i1, i2 = i1.long(), i2.long()
         covar_matrix = self._eval_covar_matrix()
-        batch_shape = _mul_broadcast_shape(i1.shape[:-2], i2.shape[:-2], self.batch_shape)
+        batch_shape = torch.broadcast_shapes(i1.shape[:-2], i2.shape[:-2], self.batch_shape)
 
         res = InterpolatedLazyTensor(
             base_lazy_tensor=covar_matrix,

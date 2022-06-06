@@ -5,8 +5,7 @@ import random
 import unittest
 
 import torch
-
-from gpytorch.utils.linear_cg import linear_cg
+from linear_operator.utils import linear_cg
 
 
 class TestLinearCG(unittest.TestCase):

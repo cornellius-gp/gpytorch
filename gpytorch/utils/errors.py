@@ -6,6 +6,10 @@ from typing import Any
 from linear_operator.utils import errors
 
 
+class CachingError(RuntimeError):
+    pass
+
+
 def __getattr__(name: str) -> Any:
     if hasattr(errors, name):
         warnings.warn(

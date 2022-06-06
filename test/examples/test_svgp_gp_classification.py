@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import gpytorch
+import linear_operator
 import torch
 from gpytorch.likelihoods import BernoulliLikelihood
 from gpytorch.models import ApproximateGP
@@ -59,8 +60,8 @@ class TestSVGPClassification(BaseTestCase, unittest.TestCase):
         likelihood.train()
         optimizer = optim.Adam([{"params": model.parameters()}, {"params": likelihood.parameters()}], lr=0.1)
 
-        _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
-        _cg_mock = patch("gpytorch.utils.linear_cg", new=_wrapped_cg)
+        _wrapped_cg = MagicMock(wraps=linear_operator.utils.linear_cg)
+        _cg_mock = patch("linear_operator.utils.linear_cg", new=_wrapped_cg)
         with _cg_mock as cg_mock:
             for _ in range(400):
                 optimizer.zero_grad()

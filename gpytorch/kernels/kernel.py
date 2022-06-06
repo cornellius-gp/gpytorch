@@ -14,7 +14,6 @@ from ..lazy import LazyEvaluatedKernelTensor, ZeroLazyTensor, delazify, lazify
 from ..models import exact_prediction_strategies
 from ..module import Module
 from ..priors import Prior
-from ..utils.broadcasting import _mul_broadcast_shape
 
 
 def default_postprocess_script(x):
@@ -213,7 +212,7 @@ class Kernel(Module):
     def batch_shape(self):
         kernels = list(self.sub_kernels())
         if len(kernels):
-            return _mul_broadcast_shape(self._batch_shape, *[k.batch_shape for k in kernels])
+            return torch.broadcast_shapes(self._batch_shape, *[k.batch_shape for k in kernels])
         else:
             return self._batch_shape
 

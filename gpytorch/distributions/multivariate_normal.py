@@ -10,7 +10,6 @@ from torch.distributions.utils import _standard_normal, lazy_property
 
 from .. import settings
 from ..lazy import DiagLazyTensor, LazyTensor, RootLazyTensor, delazify, lazify
-from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.warnings import NumericalWarning
 from .distribution import Distribution
 
@@ -41,7 +40,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             self._covar = covariance_matrix
             self.__unbroadcasted_scale_tril = None
             self._validate_args = validate_args
-            batch_shape = _mul_broadcast_shape(self.loc.shape[:-1], covariance_matrix.shape[:-2])
+            batch_shape = torch.broadcast_shapes(self.loc.shape[:-1], covariance_matrix.shape[:-2])
 
             event_shape = self.loc.shape[-1:]
 
@@ -318,7 +317,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
 
 @register_kl(MultivariateNormal, MultivariateNormal)
 def kl_mvn_mvn(p_dist, q_dist):
-    output_shape = _mul_broadcast_shape(p_dist.batch_shape, q_dist.batch_shape)
+    output_shape = torch.broadcast_shapes(p_dist.batch_shape, q_dist.batch_shape)
     if output_shape != p_dist.batch_shape:
         p_dist = p_dist.expand(output_shape)
     if output_shape != q_dist.batch_shape:

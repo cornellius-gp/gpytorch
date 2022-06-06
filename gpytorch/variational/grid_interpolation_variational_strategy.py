@@ -4,7 +4,6 @@ import torch
 
 from ..distributions import MultivariateNormal
 from ..lazy import InterpolatedLazyTensor
-from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.interpolation import Interpolation, left_interp
 from ..utils.memoize import cached
 from ._variational_strategy import _VariationalStrategy
@@ -64,7 +63,7 @@ class GridInterpolationVariationalStrategy(_VariationalStrategy):
         interp_values = interp_values.view(*batch_shape, n_data, -1)
 
         if (interp_indices.dim() - 2) != len(self._variational_distribution.batch_shape):
-            batch_shape = _mul_broadcast_shape(interp_indices.shape[:-2], self._variational_distribution.batch_shape)
+            batch_shape = torch.broadcast_shapes(interp_indices.shape[:-2], self._variational_distribution.batch_shape)
             interp_indices = interp_indices.expand(*batch_shape, *interp_indices.shape[-2:])
             interp_values = interp_values.expand(*batch_shape, *interp_values.shape[-2:])
         return interp_indices, interp_values

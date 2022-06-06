@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 import torch
+from linear_operator.utils.getitem import _noop_index
 
 from .. import beta_features, settings
-from ..utils import broadcasting, deprecation
-from ..utils.getitem import _noop_index
+from ..utils import deprecation
 from ..utils.memoize import cached
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import lazify
@@ -273,23 +273,19 @@ class LazyEvaluatedKernelTensor(LazyTensor):
 
         # When we're using broadcasting
         else:
-            expected_size = broadcasting._matmul_broadcast_shape(
-                torch.Size([*x1.shape[:-2], num_rows, x1.size(-1)]),
-                torch.Size([*x2.shape[:-2], x2.size(-1), num_cols]),
-                error_msg="x1 and x2 were not broadcastable to a proper kernel shape. "
-                "Got x1.shape = {} and x2.shape = {}".format(str(x1.shape), str(x2.shape)),
-            )
-            expected_size = (
-                broadcasting._mul_broadcast_shape(
-                    expected_size[:-2],
-                    self.kernel.batch_shape,
-                    error_msg=(
-                        f"x1 and x2 were not broadcastable with kernel of batch_shape {self.kernel.batch_shape}. "
-                        f"Got x1.shape = {x1.shape} and x2.shape = {x2.shape}"
-                    ),
+            try:
+                if x1.size(-1) != x2.size(-1):
+                    raise RuntimeError
+
+                expected_size = torch.broadcast_shapes(
+                    x1.shape[:-2], x2.shape[:-2], self.kernel.batch_shape
+                ) + torch.Size([num_rows, num_cols])
+
+            except RuntimeError:
+                raise RuntimeError(
+                    f"x1 and x2 were not broadcastable with kernel of batch_shape {self.kernel.batch_shape}. "
+                    f"Got x1.shape = {x1.shape} and x2.shape = {x2.shape}"
                 )
-                + expected_size[-2:]
-            )
 
         # Handle when the last dim is batch
         if self.last_dim_is_batch:
