@@ -8,6 +8,7 @@ from .minres import minres
 from .pinverse import stable_pinverse
 from .qr import stable_qr
 from .stochastic_lq import StochasticLQ
+from .nearest_neighbors import NNUtil
 
 
 def prod(items):
@@ -40,4 +41,5 @@ __all__ = [
     "stable_pinverse",
     "stable_qr",
     "warnings",
+    "NNUtil"
 ]
