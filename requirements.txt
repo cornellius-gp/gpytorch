@@ -1,4 +1,4 @@
 torch>=1.10
 numpy
-scikit-learn
+scikit-learn<=1.0.2
 scipy

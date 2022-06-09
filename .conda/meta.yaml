@@ -13,12 +13,12 @@ build:
 
 requirements:
   host:
-    - python>=3.8
+    - python>=3.7
 
   run:
     - pytorch>=1.10
     - numpy
-    - scikit-learn
+    - scikit-learn<=1.0.2
     - scipy
 
 test:
