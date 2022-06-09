@@ -96,4 +96,9 @@ GPyTorch is primarily maintained by:
 We would like to thank our other contributors including (but not limited to)  David Arbour, Eytan Bakshy, David Eriksson, Jared Frank, Sam Stanton, Bram Wallace, Ke Alexander Wang, Ruihan Wu.
 
 ## Acknowledgements
-Development of GPyTorch is supported by funding from the [Bill and Melinda Gates Foundation](https://www.gatesfoundation.org/), the [National Science Foundation](https://www.nsf.gov/), and [SAP](https://www.sap.com/index.html).
+Development of GPyTorch is supported by funding from the
+[Bill and Melinda Gates Foundation](https://www.gatesfoundation.org/),
+the [National Science Foundation](https://www.nsf.gov/),
+[SAP](https://www.sap.com/index.html),
+the [Simons Foundation](https://www.simonsfoundation.org),
+and the [Gatsby Charitable Trust](https://www.gatsby.org.uk).
