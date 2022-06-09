@@ -1,3 +1,4 @@
-torch>=1.9
+torch>=1.10
+numpy
 scikit-learn
 scipy

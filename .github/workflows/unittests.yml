@@ -22,13 +22,13 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: "3.7"
+        python-version: "3.8"
     - name: Install dependencies
       run: |
         if [[ ${{ matrix.pytorch-version }} = "master" ]]; then
           pip install --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html;
         else
-          pip install torch==1.9+cpu -f https://download.pytorch.org/whl/torch_stable.html;
+          pip install torch==1.10+cpu -f https://download.pytorch.org/whl/torch_stable.html;
         fi
         if [[ ${{ matrix.pyro }} == "with-pyro" ]]; then
           pip install "pyro-ppl<=1.8";

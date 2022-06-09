@@ -25,8 +25,8 @@ readme = open("README.md").read()
 version = find_version("gpytorch", "__init__.py")
 
 
-torch_min = "1.9"
-install_requires = [">=".join(["torch", torch_min]), "scikit-learn", "scipy"]
+torch_min = "1.10"
+install_requires = [">=".join(["torch", torch_min])]
 # if recent dev version of PyTorch is installed, no need to install stable
 try:
     import torch
@@ -35,6 +35,7 @@ try:
         install_requires = []
 except ImportError:
     pass
+install_requires += ["numpy", "scikit-learn", "scipy"]
 
 
 # Run the setup
@@ -54,7 +55,7 @@ setup(
     license="MIT",
     classifiers=["Development Status :: 4 - Beta", "Programming Language :: Python :: 3"],
     packages=find_packages(exclude=["test", "test.*"]),
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     install_requires=install_requires,
     extras_require={
         "dev": ["black", "twine", "pre-commit"],
