@@ -114,6 +114,16 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
             # Make sure CG was called (or not), and no warnings were thrown
             self.assertFalse(cg_mock.called)
 
+            if distribution_cls is gpytorch.variational.CholeskyVariationalDistribution:
+                # finally test fantasization
+                # we only will check that tossing the entire training set into the model will reduce the mae
+                model.likelihood = likelihood
+                fant_model = model.get_fantasy_model(train_x, train_y)
+                fant_preds = fant_model.likelihood(fant_model(train_x)).mean.squeeze()
+                updated_abs_error = torch.mean(torch.abs(train_y - fant_preds) / 2)
+                # TODO: figure out why this error is worse than before
+                self.assertLess(updated_abs_error.item(), 0.15)
+
     def test_predictive_ll_regression_error(self):
         return self.test_regression_error(
             mll_cls=gpytorch.mlls.PredictiveLogLikelihood,
