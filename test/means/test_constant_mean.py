@@ -17,7 +17,7 @@ class TestConstantMean(BaseMeanTestCase, unittest.TestCase):
         return ConstantMean(prior=prior, batch_shape=torch.Size([]))
 
     def test_prior(self):
-        if self.__class__.batch_shape is None:
+        if self.batch_shape is None:
             prior = NormalPrior(0.0, 1.0)
         else:
             prior = NormalPrior(torch.zeros(self.batch_shape), torch.ones(self.batch_shape))
