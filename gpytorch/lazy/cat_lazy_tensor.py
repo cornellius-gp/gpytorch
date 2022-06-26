@@ -8,7 +8,7 @@ from ..utils.deprecation import bool_compat
 from ..utils.getitem import _noop_index
 from .lazy_tensor import LazyTensor, delazify
 from .non_lazy_tensor import NonLazyTensor, lazify
-
+import numpy as np
 
 def cat(inputs, dim=0, output_device=None):
     if all(torch.is_tensor(i) for i in inputs):
@@ -270,9 +270,7 @@ class CatLazyTensor(LazyTensor):
                 curr_idx += size
             # copy result back to output device and sum
             res_list = [x.to(output_device) for x in res_list]
-            res = 0.0
-            for x in res_list:
-                res = res + x
+            res = np.sum(res_list)
         else:
             output_shape = _matmul_broadcast_shape(self.shape, rhs.shape)
             rhs = rhs.expand(*output_shape[:-2], *rhs.shape[-2:])
