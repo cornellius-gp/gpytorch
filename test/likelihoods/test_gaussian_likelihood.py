@@ -5,6 +5,7 @@ import unittest
 
 import torch
 
+from gpytorch import settings
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.lazy import DiagLazyTensor
 from gpytorch.likelihoods import (
@@ -84,6 +85,13 @@ class TestFixedNoiseGaussianLikelihood(BaseLikelihoodTestCase, unittest.TestCase
             obs_noise = 0.1 + torch.rand(5, device=device, dtype=dtype)
             out = lkhd(mvn, noise=obs_noise)
             self.assertTrue(torch.allclose(out.variance, 1 + obs_noise))
+            # test noise smaller than min_fixed_noise
+            expected_min_noise = settings.min_fixed_noise.value(dtype)
+            noise[:2] = 0
+            lkhd = FixedNoiseGaussianLikelihood(noise=noise)
+            expected_noise = noise.clone()
+            expected_noise[:2] = expected_min_noise
+            self.assertTrue(torch.allclose(lkhd.noise, expected_noise))
 
 
 class TestFixedNoiseGaussianLikelihoodBatch(BaseLikelihoodTestCase, unittest.TestCase):
