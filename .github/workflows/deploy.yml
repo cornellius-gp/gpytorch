@@ -36,10 +36,20 @@ jobs:
     runs-on: ubuntu-latest
     needs: run_test_suite
     steps:
-    - uses: actions/checkout@master
-    - name: publish-to-conda
-      uses: cornellius-gp/conda-package-publish-action@master
+    - uses: actions/checkout@v2
+    - uses: conda-incubator/setup-miniconda@v2
       with:
-        subDir: '.'
-        AnacondaUsername: ${{ secrets.ANACONDA_PASSWORD }}
-        AnacondaPassword: ${{ secrets.ANACONDA_USERNAME }}
+        auto-update-conda: false
+        python-version: "3.7"
+    - name: Install dependencies
+      run: |
+        conda install -y anaconda-client conda-build
+    - name: Build and publish
+      run: |
+        conda config --set anaconda_upload yes
+        conda config --append channels pytorch
+        /usr/share/miniconda/bin/anaconda login --username ${{ secrets.CONDA_USERNAME }} --password ${{ secrets.CONDA_PASSWORD }}
+        cd .conda
+        conda build .
+        /usr/share/miniconda/bin/anaconda logout
+        cd ..
