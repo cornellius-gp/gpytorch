@@ -8,9 +8,12 @@ on:
     types: [created]
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
+  run_test_suite:
+    uses: ./.github/workflows/run_test_suite.yml
 
+  deploy_pypi:
+    runs-on: ubuntu-latest
+    needs: run_test_suite
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python
@@ -29,9 +32,9 @@ jobs:
         python setup.py sdist bdist_wheel
         twine upload dist/*
 
-  publish:
+  deploy_conda:
     runs-on: ubuntu-latest
-
+    needs: run_test_suite
     steps:
     - uses: actions/checkout@master
     - name: publish-to-conda
