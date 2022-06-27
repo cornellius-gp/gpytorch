@@ -97,7 +97,7 @@ We would like to thank our other contributors including (but not limited to)  Da
 
 ## Acknowledgements
 Development of GPyTorch is supported by funding from
-[Bill and Melinda Gates Foundation](https://www.gatesfoundation.org/),
+the [Bill and Melinda Gates Foundation](https://www.gatesfoundation.org/),
 the [National Science Foundation](https://www.nsf.gov/),
 [SAP](https://www.sap.com/index.html),
 the [Simons Foundation](https://www.simonsfoundation.org),
