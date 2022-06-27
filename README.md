@@ -1,8 +1,7 @@
 # GPyTorch
 
 ---
-![GPyTorch Unit Tests](https://github.com/cornellius-gp/gpytorch/workflows/GPyTorch%20Unit%20Tests/badge.svg)
-![GPyTorch Examples](https://github.com/cornellius-gp/gpytorch/workflows/GPyTorch%20Examples/badge.svg)
+[![Test Suite](https://github.com/cornellius-gp/gpytorch/actions/workflows/run_test_suite.yml/badge.svg)](https://github.com/cornellius-gp/gpytorch/actions/workflows/run_test_suite.yml)
 [![Documentation Status](https://readthedocs.org/projects/gpytorch/badge/?version=latest)](https://gpytorch.readthedocs.io/en/latest/?badge=latest)
 
 GPyTorch is a Gaussian process library implemented using PyTorch. GPyTorch is designed for creating scalable, flexible, and modular Gaussian process models with ease.
