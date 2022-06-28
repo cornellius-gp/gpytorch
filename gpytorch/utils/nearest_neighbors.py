@@ -196,7 +196,7 @@ class NNUtil(Module):
         """
         Put the utility to a cpu or gpu device
         """
-        if device == "cpu":
+        if str(device) == "cpu":
             return self.cpu()
         elif "cuda" in str(device):
             return self.cuda()
