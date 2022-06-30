@@ -2,7 +2,7 @@
 
 
 import torch
-
+from .mean_field_variational_distribution import MeanFieldVariationalDistribution
 from .unwhitened_variational_strategy import UnwhitenedVariationalStrategy
 from ..distributions import MultivariateNormal
 from ..lazy import (
@@ -74,6 +74,9 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
     """
 
     def __init__(self, model, inducing_points, variational_distribution, k, training_batch_size):
+        
+        assert isinstance(variational_distribution, MeanFieldVariationalDistribution), "Currently, NNVariationalStrategy only supports MeanFieldVariationalDistribution."
+
 
         super().__init__(model, inducing_points, variational_distribution, learn_inducing_locations=False)
         # Make sure we don't try to initialize variational parameters - because of minibatching
