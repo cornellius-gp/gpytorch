@@ -97,7 +97,7 @@ class NNUtil(Module):
 
         test_n = test_x.shape[-2]
         test_x = test_x.view(-1, test_n, self.dim)
-        nn_idx = torch.empty(self.batch_shape.numel(), test_n, k, dtype=torch.int64)
+        nn_idx = torch.empty(self.batch_shape.numel(), test_n, k, dtype=torch.int64, device=test_x.device)
 
         with torch.no_grad():
             if self.nnlib == 'sklearn':
