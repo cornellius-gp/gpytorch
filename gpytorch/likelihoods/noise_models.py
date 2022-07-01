@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import warnings
 from typing import Any, Optional
 
 import torch
@@ -12,6 +13,7 @@ from ..distributions import MultivariateNormal
 from ..lazy import ConstantDiagLazyTensor, DiagLazyTensor, ZeroLazyTensor
 from ..module import Module
 from ..utils.broadcasting import _mul_broadcast_shape
+from ..utils.warnings import NumericalWarning
 
 
 class Noise(Module):
@@ -138,6 +140,15 @@ class HeteroskedasticNoise(Noise):
 class FixedGaussianNoise(Module):
     def __init__(self, noise: Tensor) -> None:
         super().__init__()
+        min_noise = settings.min_fixed_noise.value(noise.dtype)
+        if noise.lt(min_noise).any():
+            warnings.warn(
+                "Very small noise values detected. This will likely "
+                "lead to numerical instabilities. Rounding small noise "
+                f"values up to {min_noise}.",
+                NumericalWarning,
+            )
+            noise = noise.clamp_min(min_noise)
         self.noise = noise
 
     def forward(

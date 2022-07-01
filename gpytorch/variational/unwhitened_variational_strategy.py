@@ -4,6 +4,8 @@ import math
 
 import torch
 
+from gpytorch.variational.cholesky_variational_distribution import CholeskyVariationalDistribution
+
 from .. import settings
 from ..distributions import MultivariateNormal
 from ..lazy import (
@@ -17,6 +19,7 @@ from ..lazy import (
 )
 from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.cholesky import psd_safe_cholesky
+from ..utils.errors import NotPSDError
 from ..utils.memoize import add_to_cache, cached
 from ._variational_strategy import _VariationalStrategy
 
@@ -44,6 +47,7 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
         the inducing point locations :math:`\mathbf Z` should be learned (i.e. are they
         parameters of the model).
     """
+    has_fantasy_strategy = True
 
     @cached(name="cholesky_factor", ignore_args=True)
     def _cholesky_factor(self, induc_induc_covar):
@@ -57,6 +61,58 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
         out = self.model.forward(self.inducing_points)
         res = MultivariateNormal(out.mean, out.lazy_covariance_matrix.add_jitter())
         return res
+
+    @property
+    @cached(name="pseudo_points_memo")
+    def pseudo_points(self):
+        # TODO: implement for other distributions
+        # retrieve the variational mean, m and covariance matrix, S.
+        if not isinstance(self._variational_distribution, CholeskyVariationalDistribution):
+            raise NotImplementedError(
+                "Only CholeskyVariationalDistribution has pseudo-point support currently, ",
+                "but your _variational_distribution is a ",
+                self._variational_distribution.__name__,
+            )
+
+        # retrieve the variational mean, m and covariance matrix, S.
+        var_cov_root = TriangularLazyTensor(self._variational_distribution.chol_variational_covar)
+        var_cov = CholLazyTensor(var_cov_root)
+        var_mean = self.variational_distribution.mean  # .unsqueeze(-1)
+        if var_mean.shape[-1] != 1:
+            var_mean = var_mean.unsqueeze(-1)
+
+        # R = K - S
+        Kmm = self.model.covar_module(self.inducing_points)
+        res = Kmm - var_cov
+
+        cov_diff = res
+
+        # D_a = (S^{-1} - K^{-1})^{-1} = S + S R^{-1} S
+        # note that in the whitened case R = I - S, unwhitened R = K - S
+        # we compute (R R^{T})^{-1} R^T S for stability reasons as R is probably not PSD.
+        eval_lhs = var_cov.evaluate()
+        eval_rhs = cov_diff.transpose(-1, -2).matmul(eval_lhs)
+        inner_term = cov_diff.matmul(cov_diff.transpose(-1, -2))
+        # TODO: flag the jitter here
+        inner_solve = inner_term.add_jitter(1e-3).inv_matmul(eval_rhs, eval_lhs.transpose(-1, -2))
+        inducing_covar = var_cov + inner_solve
+
+        # mean term: D_a S^{-1} m
+        # unwhitened: (S - S R^{-1} S) S^{-1} m = (I - S R^{-1}) m
+        rhs = cov_diff.transpose(-1, -2).matmul(var_mean)
+        inner_rhs_mean_solve = inner_term.add_jitter(1e-3).inv_matmul(rhs)
+        pseudo_target_mean = var_mean + var_cov.matmul(inner_rhs_mean_solve)
+
+        # ensure inducing covar is psd
+        try:
+            pseudo_target_covar = CholLazyTensor(inducing_covar.add_jitter(1e-3).cholesky()).evaluate()
+        except NotPSDError:
+            from gpytorch.lazy import DiagLazyTensor
+
+            evals, evecs = inducing_covar.symeig(eigenvectors=True)
+            pseudo_target_covar = evecs.matmul(DiagLazyTensor(evals + 1e-4)).matmul(evecs.transpose(-1, -2)).evaluate()
+
+        return pseudo_target_covar, pseudo_target_mean
 
     def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None):
         # If our points equal the inducing points, we're done

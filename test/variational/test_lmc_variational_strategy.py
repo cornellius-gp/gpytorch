@@ -68,6 +68,10 @@ class TestLMCVariationalGP(VariationalTestCase, unittest.TestCase):
         self.assertFalse(cg_mock.called)
         self.assertFalse(ciq_mock.called)
 
+    def test_fantasy_call(self, *args, **kwargs):
+        with self.assertRaises(AttributeError):
+            super().test_fantasy_call(*args, **kwargs)
+
 
 class TestLMCPredictiveGP(TestLMCVariationalGP):
     @property

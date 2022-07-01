@@ -37,6 +37,14 @@ class TestVariationalGP(VariationalTestCase, unittest.TestCase):
         self.assertEqual(cholesky_mock.call_count, 1)  # One to compute cache, that's it!
         self.assertFalse(ciq_mock.called)
 
+    def test_fantasy_call(self, *args, **kwargs):
+        # we only want to check CholeskyVariationalDistribution
+        if self.distribution_cls is gpytorch.variational.CholeskyVariationalDistribution:
+            return super().test_fantasy_call(*args, **kwargs)
+
+        with self.assertRaises(AttributeError):
+            super().test_fantasy_call(*args, **kwargs)
+
 
 class TestPredictiveGP(TestVariationalGP):
     @property
