@@ -18,7 +18,7 @@ requirements:
   run:
     - pytorch>=1.10
     - numpy
-    - scikit-learn<=1.0.2  # newer versions require py3.8
+    - scikit-learn
     - scipy
 
 test:

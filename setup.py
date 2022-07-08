@@ -35,7 +35,7 @@ try:
         install_requires = []
 except ImportError:
     pass
-install_requires += ["numpy", "scikit-learn<=1.0.2", "scipy"]
+install_requires += ["numpy", "scikit-learn", "scipy"]
 
 
 # Run the setup
