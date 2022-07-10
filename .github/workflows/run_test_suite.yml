@@ -70,6 +70,7 @@ jobs:
     - name: Install dependencies
       run: |
         pip install pytest nbval jupyter tqdm matplotlib torchvision scipy
+        pip install -r requirements.txt
         python setup.py build develop
         pip install "pyro-ppl<=1.8";
     - name: Run example notebooks
