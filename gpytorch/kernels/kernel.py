@@ -97,16 +97,16 @@ class Kernel(Module):
 
     .. note::
 
-        The :attr:`lengthscale` parameter is parameterized on a log scale to constrain it to be positive.
-        You can set a prior on this parameter using the :attr:`lengthscale_prior` argument.
+        The lengthscale parameter is parameterized on a log scale to constrain it to be positive.
+        You can set a prior on this parameter using the lengthscale_prior argument.
 
-    Base Args:
+    Args:
         ard_num_dims (int, optional):
             Set this if you want a separate lengthscale for each input
-            dimension. It should be `d` if :attr:`x1` is a `n x d` matrix.  Default: `None`
+            dimension. It should be `d` if x1 is a `n x d` matrix.  Default: `None`
         batch_shape (torch.Size, optional):
             Set this if you want a separate lengthscale for each batch of input
-            data. It should be `b1 x ... x bk` if :attr:`x1` is a `b1 x ... x bk x n x d` tensor.
+            data. It should be `b1 x ... x bk` if x1 is a `b1 x ... x bk x n x d` tensor.
         active_dims (tuple of ints, optional):
             Set this if you want to compute the covariance of only a few input dimensions. The ints
             corresponds to the indices of the dimensions. Default: `None`.
@@ -117,10 +117,10 @@ class Kernel(Module):
         eps (float):
             The minimum value that the lengthscale can take (prevents divide by zero errors). Default: `1e-6`.
 
-    Base Attributes:
+    Attributes:
         lengthscale (Tensor):
             The lengthscale parameter. Size/shape of parameter depends on the
-            ard_num_dims and :attr:`batch_shape` arguments.
+            ard_num_dims and batch_shape arguments.
 
     Example:
         >>> covar_module = gpytorch.kernels.LinearKernel()

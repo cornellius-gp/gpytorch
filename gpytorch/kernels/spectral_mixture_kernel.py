@@ -23,14 +23,14 @@ class SpectralMixtureKernel(Kernel):
     .. note::
         Unlike other kernels,
 
-            * :attr:`ard_num_dims` **must equal** the number of dimensions of the data.
+            * ard_num_dims **must equal** the number of dimensions of the data.
             * This kernel should not be combined with a :class:`gpytorch.kernels.ScaleKernel`.
 
     :param int num_mixtures: The number of components in the mixture.
     :param int ard_num_dims: Set this to match the dimensionality of the input.
-        It should be `d` if :attr:`x1` is a `... x n x d` matrix. (Default: `1`.)
+        It should be `d` if x1 is a `... x n x d` matrix. (Default: `1`.)
     :param batch_shape: Set this if the data is batch of input data. It should
-        be `b_1 x ... x b_j` if :attr:`x1` is a `b_1 x ... x b_j x n x d` tensor. (Default: `torch.Size([])`.)
+        be `b_1 x ... x b_j` if x1 is a `b_1 x ... x b_j x n x d` tensor. (Default: `torch.Size([])`.)
     :type batch_shape: torch.Size, optional
     :param active_dims: Set this if you want to compute the covariance of only
         a few input dimensions. The ints corresponds to the indices of the dimensions. (Default: `None`.)
@@ -38,17 +38,17 @@ class SpectralMixtureKernel(Kernel):
     :param eps: The minimum value that the lengthscale can take (prevents divide by zero errors). (Default: `1e-6`.)
     :type eps: float, optional
 
-    :param mixture_scales_prior: A prior to set on the :attr:`mixture_scales` parameter
+    :param mixture_scales_prior: A prior to set on the mixture_scales parameter
     :type mixture_scales_prior: ~gpytorch.priors.Prior, optional
-    :param mixture_scales_constraint: A constraint to set on the :attr:`mixture_scales` parameter
+    :param mixture_scales_constraint: A constraint to set on the mixture_scales parameter
     :type mixture_scales_constraint: ~gpytorch.constraints.Interval, optional
-    :param mixture_means_prior: A prior to set on the :attr:`mixture_means` parameter
+    :param mixture_means_prior: A prior to set on the mixture_means parameter
     :type mixture_means_prior: ~gpytorch.priors.Prior, optional
-    :param mixture_means_constraint: A constraint to set on the :attr:`mixture_means` parameter
+    :param mixture_means_constraint: A constraint to set on the mixture_means parameter
     :type mixture_means_constraint: ~gpytorch.constraints.Interval, optional
-    :param mixture_weights_prior: A prior to set on the :attr:`mixture_weights` parameter
+    :param mixture_weights_prior: A prior to set on the mixture_weights parameter
     :type mixture_weights_prior: ~gpytorch.priors.Prior, optional
-    :param mixture_weights_constraint: A constraint to set on the :attr:`mixture_weights` parameter
+    :param mixture_weights_constraint: A constraint to set on the mixture_weights parameter
     :type mixture_weights_constraint: ~gpytorch.constraints.Interval, optional
 
     :ivar torch.Tensor mixture_scales: The lengthscale parameter. Given

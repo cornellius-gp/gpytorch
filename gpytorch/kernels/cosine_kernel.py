@@ -27,7 +27,7 @@ class CosineKernel(Kernel):
     Args:
         batch_shape (torch.Size, optional):
             Set this if you want a separate lengthscale for each
-            batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `torch.Size([])`
+            batch of input data. It should be `b` if x1 is a `b x n x d` tensor. Default: `torch.Size([])`
         active_dims (tuple of ints, optional):
             Set this if you want to compute the covariance of only a few input dimensions. The ints
             corresponds to the indices of the dimensions. Default: `None`.

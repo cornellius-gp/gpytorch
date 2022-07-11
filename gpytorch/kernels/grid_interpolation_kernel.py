@@ -37,12 +37,12 @@ class GridInterpolationKernel(GridKernel):
     * :math:`\mathbf{w_{x_1}}` and :math:`\mathbf{w_{x_2}}` are sparse vectors based on
       :math:`\mathbf{x_1}` and :math:`\mathbf{x_2}` that apply cubic interpolation.
 
-    The user should supply the size of the grid (using the :attr:`grid_size` attribute).
+    The user should supply the size of the grid (using the grid_size attribute).
     To choose a reasonable grid value, we highly recommend using the
     :func:`gpytorch.utils.grid.choose_grid_size` helper function.
     The bounds of the grid will automatically be determined by data.
 
-    (Alternatively, you can hard-code bounds using the :attr:`grid_bounds`, which
+    (Alternatively, you can hard-code bounds using the grid_bounds, which
     will speed up this kernel's computations.)
 
     .. note::

@@ -83,7 +83,7 @@ class DefaultPredictionStrategy(object):
             test_train_covar (:obj:`torch.tensor`): the observed noise (from the likelihood)
 
         Returns
-            - A precomputed cache
+            A precomputed cache
         """
         res = train_train_covar_inv_root
         if settings.detach_test_caches.on():
@@ -120,19 +120,18 @@ class DefaultPredictionStrategy(object):
         GP model, use the :meth:`~gpytorch.models.ExactGP.get_fantasy_model` method.
 
         Args:
-            - :attr:`inputs` (Tensor `b1 x ... x bk x m x d` or `f x b1 x ... x bk x m x d`): Locations of fantasy
+            inputs (Tensor `b1 x ... x bk x m x d` or `f x b1 x ... x bk x m x d`): Locations of fantasy
                 observations.
-            - :attr:`targets` (Tensor `b1 x ... x bk x m` or `f x b1 x ... x bk x m`): Labels of fantasy observations.
-            - :attr:`full_inputs` (Tensor `b1 x ... x bk x n+m x d` or `f x b1 x ... x bk x n+m x d`): Training data
+            targets (Tensor `b1 x ... x bk x m` or `f x b1 x ... x bk x m`): Labels of fantasy observations.
+            full_inputs (Tensor `b1 x ... x bk x n+m x d` or `f x b1 x ... x bk x n+m x d`): Training data
                 concatenated with fantasy inputs
-            - :attr:`full_targets` (Tensor `b1 x ... x bk x n+m` or `f x b1 x ... x bk x n+m`): Training labels
+            full_targets (Tensor `b1 x ... x bk x n+m` or `f x b1 x ... x bk x n+m`): Training labels
                 concatenated with fantasy labels.
-            - :attr:`full_output` (:class:`gpytorch.distributions.MultivariateNormal`): Prior called on full_inputs
+            full_output (:class:`gpytorch.distributions.MultivariateNormal`): Prior called on full_inputs
 
         Returns:
-            - :class:`DefaultPredictionStrategy`
-                A `DefaultPredictionStrategy` model with `n + m` training examples, where the `m` fantasy examples have
-                been added and all test-time caches have been updated.
+            A `DefaultPredictionStrategy` model with `n + m` training examples, where the `m` fantasy examples have
+            been added and all test-time caches have been updated.
         """
         full_mean, full_covar = full_output.mean, full_output.lazy_covariance_matrix
 

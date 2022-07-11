@@ -22,9 +22,9 @@ class BlockLazyTensor(LazyTensor):
     A `b x k x n x n` tensor represents `k` `b x n x n` blocks.
 
     Args:
-        - :attr:`base_lazy_tensor` (LazyTensor or Tensor):
+        base_lazy_tensor (LazyTensor or Tensor):
             Must be at least 3 dimenional.
-        - :attr:`block_dim` (int):
+        block_dim (int):
             The dimension that specifies blocks.
     """
 

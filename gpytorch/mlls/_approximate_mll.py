@@ -10,7 +10,7 @@ from .marginal_log_likelihood import MarginalLogLikelihood
 class _ApproximateMarginalLogLikelihood(MarginalLogLikelihood, ABC):
     r"""
     An approximate marginal log likelihood (typically a bound) for approximate GP models.
-    We expect that :attr:`model` is a :obj:`gpytorch.models.ApproximateGP`.
+    We expect that model is a :obj:`gpytorch.models.ApproximateGP`.
 
     Args:
         likelihood (:obj:`gpytorch.likelihoods.Likelihood`):

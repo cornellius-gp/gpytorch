@@ -21,7 +21,7 @@ class RBFKernel(Kernel):
           (\mathbf{x_1} - \mathbf{x_2})^\top \Theta^{-2} (\mathbf{x_1} - \mathbf{x_2}) \right)
        \end{equation*}
 
-    where :math:`\Theta` is a :attr:`lengthscale` parameter.
+    where :math:`\Theta` is a lengthscale parameter.
     See :class:`gpytorch.kernels.Kernel` for descriptions of the lengthscale options.
 
     .. note::
@@ -32,10 +32,10 @@ class RBFKernel(Kernel):
     Args:
         ard_num_dims (int, optional):
             Set this if you want a separate lengthscale for each
-            input dimension. It should be `d` if :attr:`x1` is a `n x d` matrix. Default: `None`
+            input dimension. It should be `d` if x1 is a `n x d` matrix. Default: `None`
         batch_shape (torch.Size, optional):
             Set this if you want a separate lengthscale for each
-            batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `torch.Size([])`.
+            batch of input data. It should be `b` if x1 is a `b x n x d` tensor. Default: `torch.Size([])`.
         active_dims (tuple of ints, optional):
             Set this if you want to compute the covariance of only a few input dimensions. The ints
             corresponds to the indices of the dimensions. Default: `None`.
@@ -49,7 +49,7 @@ class RBFKernel(Kernel):
     Attributes:
         lengthscale (Tensor):
             The lengthscale parameter. Size/shape of parameter depends on the
-            ard_num_dims and :attr:`batch_shape` arguments.
+            ard_num_dims and batch_shape arguments.
 
     Example:
         >>> x = torch.randn(10, 5)

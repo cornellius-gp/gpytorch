@@ -22,7 +22,7 @@ class PolynomialKernel(Kernel):
 
     where
 
-    * :math:`c` is an :attr:`offset` parameter.
+    * :math:`c` is an offset parameter.
 
     Args:
         offset_prior (:class:`gpytorch.priors.Prior`):

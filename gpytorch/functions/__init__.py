@@ -89,7 +89,7 @@ def matmul(mat, rhs):
 
 def inv_matmul(mat, right_tensor, left_tensor=None):
     r"""
-    Computes a linear solve (w.r.t :attr:`mat` = :math:`A`) with several right hand sides :math:`R`.
+    Computes a linear solve (w.r.t mat = :math:`A`) with several right hand sides :math:`R`.
     I.e. computes
 
     ... math::
@@ -98,9 +98,9 @@ def inv_matmul(mat, right_tensor, left_tensor=None):
             A^{-1} R,
         \end{equation}
 
-    where :math:`R` is :attr:`right_tensor` and :math:`A` is :attr:`mat`.
+    where :math:`R` is right_tensor and :math:`A` is mat.
 
-    If :attr:`left_tensor` is supplied, computes
+    If left_tensor is supplied, computes
 
     ... math::
 
@@ -108,7 +108,7 @@ def inv_matmul(mat, right_tensor, left_tensor=None):
             L A^{-1} R,
         \end{equation}
 
-    where :math:`L` is :attr:`left_tensor`. Supplying this can reduce the number of
+    where :math:`L` is left_tensor. Supplying this can reduce the number of
     CG calls required.
 
     Args:
@@ -181,7 +181,7 @@ def pivoted_cholesky(mat, rank, error_tol=None, return_pivots=None):
     :type mat: ~gpytorch.lazy.LazyTensor or ~torch.Tensor
     :param int rank: The size of the partial pivoted Cholesky factor.
     :param error_tol: Defines an optional stopping criterion.
-        If the residual of the factorization is less than :attr:`error_tol`, then the
+        If the residual of the factorization is less than error_tol, then the
         factorization will exit early. This will result in a :math:`\leq \text{ rank}` factor.
     :type error_tol: float, optional
     :param bool return_pivots: (default: False) Whether or not to return the pivots alongside

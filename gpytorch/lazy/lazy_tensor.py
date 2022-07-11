@@ -1178,9 +1178,9 @@ class LazyTensor(ABC):
                 A^{-1} R,
             \end{equation}
 
-        where :math:`R` is :attr:`right_tensor` and :math:`A` is the LazyTensor.
+        where :math:`R` is right_tensor and :math:`A` is the LazyTensor.
 
-        If :attr:`left_tensor` is supplied, computes
+        If left_tensor is supplied, computes
 
         ... math::
 
@@ -1188,7 +1188,7 @@ class LazyTensor(ABC):
                 L A^{-1} R,
             \end{equation}
 
-        where :math:`L` is :attr:`left_tensor`. Supplying this can reduce the number of
+        where :math:`L` is left_tensor. Supplying this can reduce the number of
         CG calls required.
 
         Args:
@@ -1523,7 +1523,7 @@ class LazyTensor(ABC):
 
         :param int rank: The size of the partial pivoted Cholesky factor.
         :param error_tol: Defines an optional stopping criterion.
-            If the residual of the factorization is less than :attr:`error_tol`, then the
+            If the residual of the factorization is less than error_tol, then the
             factorization will exit early. This will result in a :math:`\leq \text{ rank}` factor.
         :type error_tol: float, optional
         :param bool return_pivots: (default: False) Whether or not to return the pivots alongside

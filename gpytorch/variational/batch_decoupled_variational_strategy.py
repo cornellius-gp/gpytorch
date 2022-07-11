@@ -42,7 +42,7 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
     Additionally, you can use a different set of kernel hyperparameters for the mean and the variance function.
     We recommend using this feature only with the :obj:`~gpytorch.mlls.PredictiveLogLikelihood` objective function
     as proposed in "Parametric Gaussian Process Regressors" (`Jankowiak et al. (2020)`_).
-    Use the :attr:`mean_var_batch_dim` to indicate which batch dimension corresponds to the different mean/var
+    Use the mean_var_batch_dim to indicate which batch dimension corresponds to the different mean/var
     kernels.
 
     .. note::

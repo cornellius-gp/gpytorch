@@ -27,7 +27,7 @@ class CylindricalKernel(Kernel):
             The base kernel for computing the radial kernel
         batch_size (int, optional):
             Set this if the data is batch of input data.
-            It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `1`
+            It should be `b` if x1 is a `b x n x d` tensor. Default: `1`
         eps (float):
             Small floating point number used to improve numerical stability
             in kernel computations. Default: `1e-6`

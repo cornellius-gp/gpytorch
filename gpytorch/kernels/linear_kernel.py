@@ -24,7 +24,7 @@ class LinearKernel(Kernel):
 
     where
 
-    * :math:`v` is a :attr:`variance` parameter.
+    * :math:`v` is a variance parameter.
 
 
     .. note::

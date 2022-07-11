@@ -10,7 +10,7 @@ from .block_lazy_tensor import BlockLazyTensor
 class SumBatchLazyTensor(BlockLazyTensor):
     """
     Represents a lazy tensor that is actually the sum of several lazy tensors blocks.
-    The :attr:`block_dim` attribute specifies which dimension of the base LazyTensor
+    The block_dim attribute specifies which dimension of the base LazyTensor
     specifies the blocks.
     For example, (with `block_dim=-3` a `k x n x n` tensor represents `k` `n x n` blocks (a `n x n` matrix).
     A `b x k x n x n` tensor represents `k` `b x n x n` blocks (a `b x n x n` batch matrix).

@@ -9,7 +9,7 @@ from .block_lazy_tensor import BlockLazyTensor
 class BlockInterleavedLazyTensor(BlockLazyTensor):
     """
     Represents a lazy tensor that is the block diagonal of square matrices.
-    The :attr:`block_dim` attribute specifies which dimension of the base LazyTensor
+    The block_dim attribute specifies which dimension of the base LazyTensor
     specifies the blocks.
     For example, (with `block_dim=-3` a `k x n x n` tensor represents `k` `n x n` blocks (a `kn x kn` matrix).
     A `b x k x n x n` tensor represents `k` `b x n x n` blocks (a `b x kn x kn` batch matrix).
