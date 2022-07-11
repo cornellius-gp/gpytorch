@@ -80,6 +80,7 @@ release = version
 extensions = [
     "sphinx.ext.coverage",
     "sphinx.ext.mathjax",
+    'sphinx.ext.napoleon',
     "sphinx.ext.viewcode",
     "sphinx.ext.githubpages",
     "sphinx.ext.autodoc",
