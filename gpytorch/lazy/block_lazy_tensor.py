@@ -16,7 +16,7 @@ class BlockLazyTensor(LazyTensor):
     (e.g. block diagonal, sum over blocks, etc.)
 
     BlockLazyTensors represent the groups of blocks as a batched Tensor.
-    The :attr:block_dim` attribute specifies which dimension of the base LazyTensor
+    The block_dim attribute specifies which dimension of the base LazyTensor
     specifies the blocks.
     For example, (with `block_dim=-3` a `k x n x n` tensor represents `k` `n x n` blocks.
     A `b x k x n x n` tensor represents `k` `b x n x n` blocks.

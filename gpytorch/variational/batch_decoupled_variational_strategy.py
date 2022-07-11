@@ -46,7 +46,7 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
     kernels.
 
     .. note::
-        We recommend using the "right-most" batch dimension (i.e. :attr:`mean_var_batch_dim=-1`) for the dimension
+        We recommend using the "right-most" batch dimension (i.e. ``mean_var_batch_dim=-1``) for the dimension
         that corresponds to the different mean/variance kernel parameters.
 
         Assuming you want `b1` many independent GPs, the :obj:`~gpytorch.variational._VariationalDistribution`

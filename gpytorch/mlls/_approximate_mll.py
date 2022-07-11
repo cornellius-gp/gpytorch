@@ -49,8 +49,9 @@ class _ApproximateMarginalLogLikelihood(MarginalLogLikelihood, ABC):
                 :math:`q(\mathbf f)` the outputs of the latent function (the :obj:`gpytorch.models.ApproximateGP`)
             target (`torch.Tensor`):
                 :math:`\mathbf y` The target values
-            :attr:`**kwargs`:
-                Additional arguments passed to the likelihood's `expected_log_prob` function.
+
+        Keyword Args:
+            Additional arguments passed to the likelihood's `expected_log_prob` function.
         """
         # Get likelihood term and KL term
         num_batch = approximate_dist_f.event_shape[0]
