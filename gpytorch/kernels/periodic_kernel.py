@@ -62,8 +62,6 @@ class PeriodicKernel(Kernel):
     :param eps: (Default: 1e-6) The minimum value that the lengthscale can take (prevents divide by zero errors).
     :type eps: float, optional
 
-    :var torch.Tensor lengthscale: The lengthscale parameter. Size/shape of parameter depends on the
-        ard_num_dims and batch_shape arguments.
     :var torch.Tensor period_length: The period length parameter. Size/shape of parameter depends on the
         ard_num_dims and batch_shape arguments.
 

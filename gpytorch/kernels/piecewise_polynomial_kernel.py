@@ -51,9 +51,6 @@ class PiecewisePolynomialKernel(Kernel):
     :param eps: (Default: 1e-6) The minimum value that the lengthscale can take (prevents divide by zero errors).
     :type eps: float, optional
 
-    :var torch.Tensor lengthscale: The lengthscale parameter. Size/shape of parameter depends on the
-        ard_num_dims and batch_shape arguments.
-
     .. _Rasmussen and Williams (2006):
         http://www.gaussianprocess.org/gpml/
 
