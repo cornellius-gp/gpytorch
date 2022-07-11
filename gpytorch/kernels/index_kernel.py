@@ -25,18 +25,18 @@ class IndexKernel(Kernel):
     These parameters are learned.
 
     Args:
-        :attr:`num_tasks` (int):
+        num_tasks (int):
             Total number of indices.
-        :attr:`batch_shape` (torch.Size, optional):
+        batch_shape (torch.Size, optional):
             Set if the MultitaskKernel is operating on batches of data (and you want different
             parameters for each batch)
-        :attr:`rank` (int):
+        rank (int):
             Rank of :math:`B` matrix. Controls the degree of
             correlation between the outputs. With a rank of 1 the
             outputs are identical except for a scaling factor.
-        :attr:`prior` (:obj:`gpytorch.priors.Prior`):
+        prior (:obj:`gpytorch.priors.Prior`):
             Prior for :math:`B` matrix.
-        :attr:`var_constraint` (Constraint, optional):
+        var_constraint (Constraint, optional):
             Constraint for added diagonal component. Default: `Positive`.
 
     Attributes:

@@ -13,9 +13,9 @@ def add_diag(input, diag):
     Adds a diagonal matrix s*I to the input matrix input.
 
     Args:
-        :attr:`input` (Tensor (nxn) or (bxnxn)):
+        input (Tensor (nxn) or (bxnxn)):
             Tensor or LazyTensor wrapping matrix to add diagonal component to.
-        :attr:`diag` (scalar or Tensor (n) or Tensor (bxn) or Tensor (bx1)):
+        diag (scalar or Tensor (n) or Tensor (bxn) or Tensor (bx1)):
             Diagonal component to add to tensor
 
     Returns:

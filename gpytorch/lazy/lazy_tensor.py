@@ -213,11 +213,11 @@ class LazyTensor(ABC):
               handled by the `_getindices` method
 
         Args:
-            :attr:`row_index` (slice, Tensor):
+            row_index (slice, Tensor):
                 Index for the row of the LazyTensor
-            :attr:`col_index` (slice, Tensor):
+            col_index (slice, Tensor):
                 Index for the col of the LazyTensor
-            :attr:`batch_indices` (tuple of slice, int, Tensor):
+            batch_indices (tuple of slice, int, Tensor):
                 Indices for the batch dimensions
 
         Returns:
@@ -1553,7 +1553,7 @@ class LazyTensor(ABC):
                 Returns a `b/k x n x m` LazyTensor.
 
         Args:
-            :attr:`mul_batch_size` (int or None):
+            mul_batch_size (int or None):
                 Controls the number of groups that are multiplied over (default: None).
 
         Returns:
@@ -1903,7 +1903,7 @@ class LazyTensor(ABC):
         If set to None, then sums all dimensions
 
         Args:
-            :attr:`dim` (int):
+            dim (int):
                 Which dimension is being summed over (default=None)
 
         Returns:
@@ -1966,7 +1966,7 @@ class LazyTensor(ABC):
         structure. Does NOT sort the eigenvalues.
 
         Args:
-            :attr:`eigenvectors` (bool): If True, compute the eigenvectors in addition to the eigenvalues.
+            eigenvectors (bool): If True, compute the eigenvectors in addition to the eigenvalues.
         Returns:
             :obj:`torch.Tensor`:
                 The eigenvalues.
@@ -2099,7 +2099,7 @@ class LazyTensor(ABC):
         Self should be symmetric, either (batch_size x num_dim x num_dim) or (num_dim x num_dim)
 
         Args:
-            :attr:`num_samples` (int):
+            num_samples (int):
                 Number of samples to draw.
 
         Returns:
@@ -2150,7 +2150,7 @@ class LazyTensor(ABC):
         or lazy tensor.
 
         Args:
-            :attr:`other` (:obj:`torch.tensor` or :obj:`gpytorch.lazy.LazyTensor`):
+            other (:obj:`torch.tensor` or :obj:`gpytorch.lazy.LazyTensor`):
                 Matrix to add to this one.
 
         Returns:
@@ -2187,7 +2187,7 @@ class LazyTensor(ABC):
         the elementwise reciprocal of another matrix or lazy tensor.
 
         Args:
-            :attr:`other` (:obj:`torch.tensor` or :obj:`gpytorch.lazy.LazyTensor`):
+            other (:obj:`torch.tensor` or :obj:`gpytorch.lazy.LazyTensor`):
                 Matrix to divide this one by.
 
         Returns:

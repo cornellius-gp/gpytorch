@@ -30,29 +30,29 @@ class RQKernel(Kernel):
         decorate this kernel with a :class:`gpytorch.kernels.ScaleKernel`.
 
     Args:
-        :attr:`ard_num_dims` (int, optional):
+        ard_num_dims (int, optional):
             Set this if you want a separate lengthscale for each
             input dimension. It should be `d` if :attr:`x1` is a `n x d` matrix. Default: `None`
-        :attr:`batch_shape` (torch.Size, optional):
+        batch_shape (torch.Size, optional):
             Set this if you want a separate lengthscale for each
             batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `torch.Size([])`.
-        :attr:`active_dims` (tuple of ints, optional):
+        active_dims (tuple of ints, optional):
             Set this if you want to compute the covariance of only a few input dimensions. The ints
             corresponds to the indices of the dimensions. Default: `None`.
-        :attr:`lengthscale_prior` (Prior, optional):
+        lengthscale_prior (Prior, optional):
             Set this if you want to apply a prior to the lengthscale parameter.  Default: `None`.
-        :attr:`lengthscale_constraint` (Constraint, optional):
+        lengthscale_constraint (Constraint, optional):
             Set this if you want to apply a constraint to the lengthscale parameter. Default: `Positive`.
-        :attr:`alpha_constraint` (Constraint, optional):
+        alpha_constraint (Constraint, optional):
             Set this if you want to apply a constraint to the alpha parameter. Default: `Positive`.
-        :attr:`eps` (float):
+        eps (float):
             The minimum value that the lengthscale can take (prevents divide by zero errors). Default: `1e-6`.
 
     Attributes:
-        :attr:`lengthscale` (Tensor):
+        lengthscale (Tensor):
             The lengthscale parameter. Size/shape of parameter depends on the
-            :attr:`ard_num_dims` and :attr:`batch_shape` arguments.
-        :attr:`alpha` (Tensor):
+            ard_num_dims and :attr:`batch_shape` arguments.
+        alpha (Tensor):
             The rational quadratic relative weighting parameter. Size/shape of parameter depends
             on the :attr:`batch_shape` argument
     """

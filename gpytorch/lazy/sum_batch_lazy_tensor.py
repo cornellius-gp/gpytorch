@@ -16,9 +16,9 @@ class SumBatchLazyTensor(BlockLazyTensor):
     A `b x k x n x n` tensor represents `k` `b x n x n` blocks (a `b x n x n` batch matrix).
 
     Args:
-        :attr:`base_lazy_tensor` (LazyTensor):
+        base_lazy_tensor (LazyTensor):
             A `k x n x n` LazyTensor, or a `b x k x n x n` LazyTensor.
-        :attr:`block_dim` (int):
+        block_dim (int):
             The dimension that specifies the blocks.
     """
 

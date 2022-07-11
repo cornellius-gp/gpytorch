@@ -21,19 +21,19 @@ class CylindricalKernel(Kernel):
         The data must lie completely within the unit ball.
 
     Args:
-        :attr:`num_angular_weights` (int):
+        num_angular_weights (int):
             The number of components in the angular kernel
-        :attr:`radial_base_kernel` (gpytorch.kernel):
+        radial_base_kernel (gpytorch.kernel):
             The base kernel for computing the radial kernel
-        :attr:`batch_size` (int, optional):
+        batch_size (int, optional):
             Set this if the data is batch of input data.
             It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `1`
-        :attr:`eps` (float):
+        eps (float):
             Small floating point number used to improve numerical stability
             in kernel computations. Default: `1e-6`
-        :attr:`param_transform` (function, optional):
+        param_transform (function, optional):
             Set this if you want to use something other than softplus to ensure positiveness of parameters.
-        :attr:`inv_param_transform` (function, optional):
+        inv_param_transform (function, optional):
             Set this to allow setting parameters directly in transformed space and sampling from priors.
             Automatically inferred for common transformations such as torch.exp or torch.nn.functional.softplus.
     """

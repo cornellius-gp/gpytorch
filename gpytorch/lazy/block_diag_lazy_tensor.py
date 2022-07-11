@@ -19,9 +19,9 @@ class BlockDiagLazyTensor(BlockLazyTensor):
     A `b x k x n x n` tensor represents `k` `b x n x n` blocks (a `b x kn x kn` batch matrix).
 
     Args:
-        :attr:`base_lazy_tensor` (LazyTensor or Tensor):
+        base_lazy_tensor (LazyTensor or Tensor):
             Must be at least 3 dimensional.
-        :attr:`block_dim` (int):
+        block_dim (int):
             The dimension that specifies the blocks.
     """
 

@@ -31,20 +31,20 @@ class ScaleKernel(Kernel):
         You can set a prior on this parameter using the :attr:`outputscale_prior` argument.
 
     Args:
-        :attr:`base_kernel` (Kernel):
+        base_kernel (Kernel):
             The base kernel to be scaled.
-        :attr:`batch_shape` (int, optional):
+        batch_shape (int, optional):
             Set this if you want a separate outputscale for each batch of input data. It should be `b`
             if :attr:`x1` is a `b x n x d` tensor. Default: `torch.Size([])`
-        :attr:`outputscale_prior` (Prior, optional): Set this if you want to apply a prior to the outputscale
+        outputscale_prior (Prior, optional): Set this if you want to apply a prior to the outputscale
             parameter.  Default: `None`
-        :attr:`outputscale_constraint` (Constraint, optional): Set this if you want to apply a constraint to the
+        outputscale_constraint (Constraint, optional): Set this if you want to apply a constraint to the
             outputscale parameter. Default: `Positive`.
 
     Attributes:
-        :attr:`base_kernel` (Kernel):
+        base_kernel (Kernel):
             The kernel module to be scaled.
-        :attr:`outputscale` (Tensor):
+        outputscale (Tensor):
             The outputscale parameter. Size/shape of parameter depends on the :attr:`batch_shape` arguments.
 
     Example:

@@ -52,7 +52,7 @@ class PiecewisePolynomialKernel(Kernel):
     :type eps: float, optional
 
     :var torch.Tensor lengthscale: The lengthscale parameter. Size/shape of parameter depends on the
-        :attr:`ard_num_dims` and :attr:`batch_shape` arguments.
+        ard_num_dims and :attr:`batch_shape` arguments.
 
     .. _Rasmussen and Williams (2006):
         http://www.gaussianprocess.org/gpml/

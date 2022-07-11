@@ -27,10 +27,10 @@ class TriangularLazyTensor(LazyTensor, _TriangularLazyTensorBase):
         Triangular lazy tensor. Supports arbitrary batch sizes.
 
         Args:
-            :attr:`tensor` (Tensor or LazyTensor):
+            tensor (Tensor or LazyTensor):
                 A `b1 x ... x bk x n x n` Tensor, representing a `b1 x ... x bk`-sized batch
                 of `n x n` triangular matrices.
-            :attr:`upper` (bool):
+            upper (bool):
                 If True, the tensor is considered to be upper-triangular, otherwise lower-triangular.
         """
         if isinstance(tensor, TriangularLazyTensor):

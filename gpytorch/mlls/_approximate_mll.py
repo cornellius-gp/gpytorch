@@ -13,19 +13,19 @@ class _ApproximateMarginalLogLikelihood(MarginalLogLikelihood, ABC):
     We expect that :attr:`model` is a :obj:`gpytorch.models.ApproximateGP`.
 
     Args:
-        :attr:`likelihood` (:obj:`gpytorch.likelihoods.Likelihood`):
+        likelihood (:obj:`gpytorch.likelihoods.Likelihood`):
             The likelihood for the model
-        :attr:`model` (:obj:`gpytorch.models.ApproximateGP`):
+        model (:obj:`gpytorch.models.ApproximateGP`):
             The approximate GP model
-        :attr:`num_data` (int):
+        num_data (int):
             The total number of training data points (necessary for SGD)
-        :attr:`beta` (float - default 1.):
+        beta (float - default 1.):
             A multiplicative factor for the KL divergence term.
             Setting it to 1 (default) recovers true variational inference
             (as derived in `Scalable Variational Gaussian Process Classification`_).
             Setting it to anything less than 1 reduces the regularization effect of the model
             (similarly to what was proposed in `the beta-VAE paper`_).
-        :attr:`combine_terms` (bool):
+        combine_terms (bool):
             Whether or not to sum the expected NLL with the KL terms (default True)
     """
 
@@ -45,9 +45,9 @@ class _ApproximateMarginalLogLikelihood(MarginalLogLikelihood, ABC):
         Calling this function will call the likelihood's `expected_log_prob` function.
 
         Args:
-            :attr:`approximate_dist_f` (:obj:`gpytorch.distributions.MultivariateNormal`):
+            approximate_dist_f (:obj:`gpytorch.distributions.MultivariateNormal`):
                 :math:`q(\mathbf f)` the outputs of the latent function (the :obj:`gpytorch.models.ApproximateGP`)
-            :attr:`target` (`torch.Tensor`):
+            target (`torch.Tensor`):
                 :math:`\mathbf y` The target values
             :attr:`**kwargs`:
                 Additional arguments passed to the likelihood's `expected_log_prob` function.

@@ -37,11 +37,11 @@ class LinearKernel(Kernel):
         :math:`O(nd)` time and space.
 
     Args:
-        :attr:`variance_prior` (:class:`gpytorch.priors.Prior`):
+        variance_prior (:class:`gpytorch.priors.Prior`):
             Prior over the variance parameter (default `None`).
-        :attr:`variance_constraint` (Constraint, optional):
+        variance_constraint (Constraint, optional):
             Constraint to place on variance parameter. Default: `Positive`.
-        :attr:`active_dims` (list):
+        active_dims (list):
             List of data dimensions to operate on.
             `len(active_dims)` should equal `num_dimensions`.
     """
