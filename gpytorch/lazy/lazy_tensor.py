@@ -1949,12 +1949,8 @@ class LazyTensor(ABC):
         Does NOT sort the sigular values.
 
         Returns:
-            :obj:`~gpytorch.lazy.LazyTensor`:
-                The left singular vectors (`U`).
-            :obj:`torch.Tensor`:
-                The singular values (`S`).
-            :obj:`~gpytorch.lazy.LazyTensor`:
-                The right singular vectors (`V`).
+            Tuple containing the left singular vectors (`U`), the singular values (`S`),
+            and the right singular vectors (`V`).
         """
         return self._svd()
 
@@ -1968,11 +1964,9 @@ class LazyTensor(ABC):
         Args:
             eigenvectors (bool): If True, compute the eigenvectors in addition to the eigenvalues.
         Returns:
-            :obj:`torch.Tensor`:
-                The eigenvalues.
-            :obj:`~gpytorch.lazy.LazyTensor`:
-                The eigenvectors. If `eigenvectors=False`, this is None. Otherwise, this LazyTensor
-                contains the orthonormal eigenvectors of the matrix.
+            Tuple containing the eigenvalues and eigenvectors. If `eigenvectors=False`,
+            this is None. Otherwise, this LazyTensor contains the orthonormal eigenvectors
+            of the matrix.
         """
         try:
             evals, evecs = pop_from_cache(self, "symeig", eigenvectors=True)
