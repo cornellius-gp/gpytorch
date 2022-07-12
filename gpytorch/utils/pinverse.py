@@ -13,7 +13,7 @@ def stable_pinverse(A: Tensor) -> Tensor:
         Q, R = stable_qr(A)
         if hasattr(torch.linalg, "solve_triangular"):
             # PyTorch 1.11+
-            return torch.linalg.solve_triangular(R, Q.transpose(-1, -2))
+            return torch.linalg.solve_triangular(R, Q.transpose(-1, -2), upper=True)
         else:
             # PyTorch 1.10
             return torch.triangular_solve(Q.transpose(-1, -2), R).solution
@@ -22,7 +22,7 @@ def stable_pinverse(A: Tensor) -> Tensor:
         Q, R = stable_qr(A.transpose(-1, -2))
         if hasattr(torch.linalg, "solve_triangular"):
             # PyTorch 1.11+
-            return torch.linalg.solve_triangular(R, Q.transpose(-1, -2)).transpose(-1, -2)
+            return torch.linalg.solve_triangular(R, Q.transpose(-1, -2), upper=True).transpose(-1, -2)
         else:
             # PyTorch 1.10
             return torch.triangular_solve(Q.transpose(-1, -2), R).solution.transpose(-1, -2)

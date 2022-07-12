@@ -60,7 +60,7 @@ class InducingPointKernel(Kernel):
             eye = torch.eye(chol.size(-1), device=chol.device, dtype=chol.dtype)
             if hasattr(torch.linalg, "solve_triangular"):
                 # PyTorch 1.11+
-                inv_root = torch.linalg.solve_triangular(chol, eye)
+                inv_root = torch.linalg.solve_triangular(chol, eye, upper=True)
             else:
                 # PyTorch 1.10
                 inv_root = torch.triangular_solve(eye, chol)[0]
