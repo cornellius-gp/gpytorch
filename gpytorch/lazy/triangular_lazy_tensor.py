@@ -133,7 +133,12 @@ class TriangularLazyTensor(LazyTensor, _TriangularLazyTensorBase):
 
     def inv_matmul(self, right_tensor: Tensor, left_tensor: Optional[Tensor] = None) -> Tensor:
         if isinstance(self._tensor, NonLazyTensor):
-            res = torch.triangular_solve(right_tensor, self.evaluate(), upper=self.upper).solution
+            if hasattr(torch.linalg, "solve_triangular"):
+                # PyTorch 1.11+
+                res = torch.linalg.solve_triangular(self.evaluate(), right_tensor, upper=self.upper)
+            else:
+                # PyTorch 1.10
+                res = torch.triangular_solve(right_tensor, self.evaluate(), upper=self.upper).solution
         elif isinstance(self._tensor, BatchRepeatLazyTensor):
             res = self._tensor.base_lazy_tensor.inv_matmul(right_tensor, left_tensor)
             # TODO: Proper broadcasting

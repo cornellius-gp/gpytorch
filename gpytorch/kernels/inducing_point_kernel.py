@@ -58,7 +58,12 @@ class InducingPointKernel(Kernel):
         else:
             chol = psd_safe_cholesky(self._inducing_mat, upper=True)
             eye = torch.eye(chol.size(-1), device=chol.device, dtype=chol.dtype)
-            inv_root = torch.triangular_solve(eye, chol)[0]
+            if hasattr(torch.linalg, "solve_triangular"):
+                # PyTorch 1.11+
+                inv_root = torch.linalg.solve_triangular(chol, eye)
+            else:
+                # PyTorch 1.10
+                inv_root = torch.triangular_solve(eye, chol)[0]
 
             res = inv_root
             if not self.training:

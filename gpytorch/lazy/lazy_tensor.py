@@ -1807,7 +1807,12 @@ class LazyTensor(ABC):
             # we know L is triangular, so inverting is a simple triangular solve agaist the identity
             # we don't need the batch shape here, thanks to broadcasting
             Eye = torch.eye(L.shape[-2], device=L.device, dtype=L.dtype)
-            Linv = torch.triangular_solve(Eye, L, upper=False).solution
+            if hasattr(torch.linalg, "solve_triangular"):
+                # PyTorch 1.11+
+                Linv = torch.linalg.solve_triangular(L, Eye, upper=False)
+            else:
+                # PyTorch 1.10
+                Linv = torch.triangular_solve(Eye, L, upper=False).solution
             res = lazify(Linv.transpose(-1, -2))
             inv_root = res
         elif method == "lanczos":

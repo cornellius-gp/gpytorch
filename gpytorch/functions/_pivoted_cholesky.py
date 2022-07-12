@@ -110,10 +110,18 @@ class PivotedCholesky(Function):
             L = psd_safe_cholesky(Krows[..., :m, :])
 
             # Compute (Krows * L^{-T}) - the (pivoted) result of Pivoted Cholesky
-            res_pivoted = torch.cat(
-                [L, torch.triangular_solve(Krows[..., m:, :].transpose(-1, -2), L, upper=False)[0].transpose(-1, -2)],
-                dim=-2,
-            )
+            if hasattr(torch.linalg, "solve_triangular"):
+                # PyTorch 1.11+
+                res_pivoted = torch.cat(
+                    [L, torch.linalg.solve_triangular(L, Krows[..., m:, :].transpose(-1, -2), upper=False).transpose(-1, -2)],
+                    dim=-2,
+                )
+            else:
+                # PyTorch 1.10
+                res_pivoted = torch.cat(
+                    [L, torch.triangular_solve(Krows[..., m:, :].transpose(-1, -2), L, upper=False)[0].transpose(-1, -2)],
+                    dim=-2,
+                )
             res = apply_permutation(res_pivoted, left_permutation=_inverse_permutation, right_permutation=None)
 
             # Now compute the backward pass of res
