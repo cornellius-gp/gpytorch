@@ -190,9 +190,9 @@ class Module(nn.Module):
         Adds a parameter to the module. The parameter can be accessed as an attribute using the given name.
 
         Args:
-            :attr:`name` (str):
+            name (str):
                 The name of the parameter
-            :attr:`parameter` (torch.nn.Parameter):
+            parameter (torch.nn.Parameter):
                 The parameter
         """
         if "_parameters" not in self.__dict__:
@@ -204,11 +204,11 @@ class Module(nn.Module):
         Adds a prior to the module. The prior can be accessed as an attribute using the given name.
 
         Args:
-            :attr:`name` (str):
+            name (str):
                 The name of the prior
-            :attr:`prior` (Prior):
+            prior (Prior):
                 The prior to be registered`
-            :attr:`param_or_closure` (string or callable):
+            param_or_closure (string or callable):
                 Either the name of the parameter, or a closure (which upon calling evalutes a function on
                 the module instance and one or more parameters):
                 single parameter without a transform: `.register_prior("foo_prior", foo_prior, "foo_param")`
@@ -216,7 +216,7 @@ class Module(nn.Module):
                 `.register_prior("foo_prior", NormalPrior(0, 1), lambda module: torch.log(module.foo_param))`
                 function of multiple parameters:
                 `.register_prior("foo2_prior", foo2_prior, lambda module: f(module.param1, module.param2)))`
-            :attr:`setting_closure` (callable, optional):
+            setting_closure (callable, optional):
                 A function taking in the module instance and a tensor in (transformed) parameter space,
                 initializing the internal parameter representation to the proper value by applying the
                 inverse transform. Enables setting parametres directly in the transformed space, as well
@@ -408,7 +408,7 @@ class Module(nn.Module):
         the prior to properly set the unconstrained parameter.
 
         Args:
-            :attr:`samples_dict` (dict): Dictionary mapping *prior names* to sample values.
+            samples_dict (dict): Dictionary mapping *prior names* to sample values.
         """
         return _pyro_load_from_samples(module=self, samples_dict=samples_dict, memo=None, prefix="")
 

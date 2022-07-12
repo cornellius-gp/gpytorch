@@ -19,7 +19,7 @@ class IdentityLazyTensor(ConstantDiagLazyTensor):
         Identity matrix lazy tensor. Supports arbitrary batch sizes.
 
         Args:
-            :attr:`diag` (Tensor):
+            diag (Tensor):
                 A `b1 x ... x bk x n` Tensor, representing a `b1 x ... x bk`-sized batch
                 of `n x n` identity matrices
         """

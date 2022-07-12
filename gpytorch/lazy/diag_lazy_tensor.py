@@ -19,7 +19,7 @@ class DiagLazyTensor(TriangularLazyTensor):
         Diagonal lazy tensor. Supports arbitrary batch sizes.
 
         Args:
-            :attr:`diag` (Tensor):
+            diag (Tensor):
                 A `b1 x ... x bk x n` Tensor, representing a `b1 x ... x bk`-sized batch
                 of `n x n` diagonal matrices
         """
@@ -208,10 +208,10 @@ class ConstantDiagLazyTensor(DiagLazyTensor):
         Used e.g. for adding jitter to matrices.
 
         Args:
-            :attr:`diag_values` (Tensor):
+            diag_values (Tensor):
                 A `b1 x ... x bk x 1` Tensor, representing a `b1 x ... x bk`-sized batch
                 of `diag_shape x diag_shape` diagonal matrices
-            :attr:`diag_shape` (int):
+            diag_shape (int):
                 The (non-batch) dimension of the (square) matrix
         """
         if settings.debug.on():

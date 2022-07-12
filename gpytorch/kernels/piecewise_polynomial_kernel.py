@@ -33,7 +33,7 @@ class PiecewisePolynomialKernel(Kernel):
     :param int q: (default= 2) The smoothness parameter.
     :type q: int (0, 1, 2 or 3)
     :param ard_num_dims: (Default: `None`) Set this if you want a separate lengthscale for each
-        input dimension. It should be `d` if :attr:`x1` is a `... x n x d` matrix.
+        input dimension. It should be `d` if x1 is a `... x n x d` matrix.
     :type ard_num_dims: int, optional
     :param batch_shape: (Default: `None`) Set this if you want a separate lengthscale for each
          batch of input data. It should be `torch.Size([b1, b2])` for a `b1 x b2 x n x m` kernel output.
@@ -50,9 +50,6 @@ class PiecewisePolynomialKernel(Kernel):
     :type lengthscale_constraint: ~gpytorch.constraints.Positive, optional
     :param eps: (Default: 1e-6) The minimum value that the lengthscale can take (prevents divide by zero errors).
     :type eps: float, optional
-
-    :var torch.Tensor lengthscale: The lengthscale parameter. Size/shape of parameter depends on the
-        :attr:`ard_num_dims` and :attr:`batch_shape` arguments.
 
     .. _Rasmussen and Williams (2006):
         http://www.gaussianprocess.org/gpml/
