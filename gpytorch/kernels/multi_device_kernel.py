@@ -15,9 +15,9 @@ class MultiDeviceKernel(DataParallel, Kernel):
     Allocates the covariance matrix on distributed devices, e.g. multiple GPUs.
 
     Args:
-        - :attr:`base_kernel`: Base kernel to distribute
-        - :attr:`device_ids`: list of `torch.device` objects to place kernel chunks on
-        - :attr:`output_device`: Device where outputs will be placed
+        base_kernel: Base kernel to distribute
+        device_ids: list of `torch.device` objects to place kernel chunks on
+        output_device: Device where outputs will be placed
     """
 
     def __init__(

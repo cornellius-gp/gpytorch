@@ -24,7 +24,7 @@ class IndependentMultitaskVariationalStrategy(_VariationalStrategy):
     dimensions corresponds to the multiple tasks.
 
     :param ~gpytorch.variational.VariationalStrategy base_variational_strategy: Base variational strategy
-    :param int num_tasks: Number of tasks. Should correspond to the batch size of :attr:`task_dim`.
+    :param int num_tasks: Number of tasks. Should correspond to the batch size of task_dim.
     :param int task_dim: (Default: -1) Which batch dimension is the task dimension
     """
 
@@ -102,7 +102,7 @@ class MultitaskVariationalStrategy(IndependentMultitaskVariationalStrategy):
     dimensions corresponds to the multiple tasks.
 
     :param ~gpytorch.variational.VariationalStrategy base_variational_strategy: Base variational strategy
-    :param int num_tasks: Number of tasks. Should correspond to the batch size of :attr:`task_dim`.
+    :param int num_tasks: Number of tasks. Should correspond to the batch size of task_dim.
     :param int task_dim: (Default: -1) Which batch dimension is the task dimension
     """
 

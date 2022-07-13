@@ -1,8 +1,7 @@
 # GPyTorch
 
 ---
-![GPyTorch Unit Tests](https://github.com/cornellius-gp/gpytorch/workflows/GPyTorch%20Unit%20Tests/badge.svg)
-![GPyTorch Examples](https://github.com/cornellius-gp/gpytorch/workflows/GPyTorch%20Examples/badge.svg)
+[![Test Suite](https://github.com/cornellius-gp/gpytorch/actions/workflows/run_test_suite.yml/badge.svg)](https://github.com/cornellius-gp/gpytorch/actions/workflows/run_test_suite.yml)
 [![Documentation Status](https://readthedocs.org/projects/gpytorch/badge/?version=latest)](https://gpytorch.readthedocs.io/en/latest/?badge=latest)
 
 GPyTorch is a Gaussian process library implemented using PyTorch. GPyTorch is designed for creating scalable, flexible, and modular Gaussian process models with ease.
@@ -18,8 +17,8 @@ See our numerous [**examples and tutorials**](https://gpytorch.readthedocs.io/en
 ## Installation
 
 **Requirements**:
-- Python >= 3.6
-- PyTorch >= 1.9
+- Python >= 3.7
+- PyTorch >= 1.10
 
 Install GPyTorch using pip or conda:
 
@@ -96,4 +95,9 @@ GPyTorch is primarily maintained by:
 We would like to thank our other contributors including (but not limited to)  David Arbour, Eytan Bakshy, David Eriksson, Jared Frank, Sam Stanton, Bram Wallace, Ke Alexander Wang, Ruihan Wu.
 
 ## Acknowledgements
-Development of GPyTorch is supported by funding from the [Bill and Melinda Gates Foundation](https://www.gatesfoundation.org/), the [National Science Foundation](https://www.nsf.gov/), and [SAP](https://www.sap.com/index.html).
+Development of GPyTorch is supported by funding from
+the [Bill and Melinda Gates Foundation](https://www.gatesfoundation.org/),
+the [National Science Foundation](https://www.nsf.gov/),
+[SAP](https://www.sap.com/index.html),
+the [Simons Foundation](https://www.simonsfoundation.org),
+and the [Gatsby Charitable Trust](https://www.gatsby.org.uk).

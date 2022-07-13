@@ -10,11 +10,11 @@ def _symmetrized_kl(dist1, dist2, eps=1e-8):
     the first half of the distribution tensors are the mean, and the second half
     are the log variances.
     Args:
-        :attr:`dist1` (torch.Tensor) has shapes batch x n x dimensions. The first half
+        dist1 (torch.Tensor) has shapes batch x n x dimensions. The first half
             of the last dimensions are the means, while the second half are the log-variances.
-        :attr:`dist2` (torch.Tensor) has shapes batch x n x dimensions. The first half
+        dist2 (torch.Tensor) has shapes batch x n x dimensions. The first half
             of the last dimensions are the means, while the second half are the log-variances.
-        :attr:`eps` (float) jitter term for the noise variance
+        eps (float) jitter term for the noise variance
     """
 
     num_dims = int(dist1.shape[-1] / 2)
