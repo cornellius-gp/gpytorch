@@ -115,6 +115,18 @@ class BlockDiagLazyTensor(BlockLazyTensor):
             logdet_res = logdet_res.view(*logdet_res.shape).sum(-1)
         return inv_quad_res, logdet_res
 
+    def matmul(self, other):
+        from .diag_lazy_tensor import DiagLazyTensor
+
+        # this is trivial if we multiply two BlockDiagLazyTensors
+        if isinstance(other, BlockDiagLazyTensor):
+            return BlockDiagLazyTensor(self.base_lazy_tensor @ other.base_lazy_tensor)
+        # special case if we have a DiagLazyTensor
+        if isinstance(other, DiagLazyTensor):
+            diag_reshape = other._diag.view(*self.base_lazy_tensor.shape[:-2], 1, -1)
+            return BlockDiagLazyTensor(self.base_lazy_tensor * diag_reshape)
+        return super().matmul(other)
+
     @cached(name="svd")
     def _svd(self) -> Tuple["LazyTensor", Tensor, "LazyTensor"]:
         U, S, V = self.base_lazy_tensor.svd()

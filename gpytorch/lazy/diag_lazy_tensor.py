@@ -8,6 +8,7 @@ from torch import Tensor
 from .. import settings
 from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.memoize import cached
+from .block_diag_lazy_tensor import BlockDiagLazyTensor
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import NonLazyTensor
 from .triangular_lazy_tensor import TriangularLazyTensor
@@ -154,15 +155,17 @@ class DiagLazyTensor(TriangularLazyTensor):
         return self.__class__(self._diag.log())
 
     def matmul(self, other):
-        from .triangular_lazy_tensor import TriangularLazyTensor
-
         # this is trivial if we multiply two DiagLazyTensors
         if isinstance(other, DiagLazyTensor):
             return DiagLazyTensor(self._diag * other._diag)
         # special case if we have a NonLazyTensor
         if isinstance(other, NonLazyTensor):
             return NonLazyTensor(self._diag.unsqueeze(-1) * other.tensor)
-        # and if we have a triangular one
+        # special case if we have a BlockDiagLazyTensor
+        if isinstance(other, BlockDiagLazyTensor):
+            diag_reshape = self._diag.view(*other.base_lazy_tensor.shape[:-1], 1)
+            return BlockDiagLazyTensor(diag_reshape * other.base_lazy_tensor)
+        # special case if we have a TriangularLazyTensor
         if isinstance(other, TriangularLazyTensor):
             return TriangularLazyTensor(self._diag.unsqueeze(-1) * other._tensor, upper=other.upper)
         return super().matmul(other)
