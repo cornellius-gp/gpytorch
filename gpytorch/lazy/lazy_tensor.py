@@ -213,11 +213,11 @@ class LazyTensor(ABC):
               handled by the `_getindices` method
 
         Args:
-            :attr:`row_index` (slice, Tensor):
+            row_index (slice, Tensor):
                 Index for the row of the LazyTensor
-            :attr:`col_index` (slice, Tensor):
+            col_index (slice, Tensor):
                 Index for the col of the LazyTensor
-            :attr:`batch_indices` (tuple of slice, int, Tensor):
+            batch_indices (tuple of slice, int, Tensor):
                 Indices for the batch dimensions
 
         Returns:
@@ -1178,9 +1178,9 @@ class LazyTensor(ABC):
                 A^{-1} R,
             \end{equation}
 
-        where :math:`R` is :attr:`right_tensor` and :math:`A` is the LazyTensor.
+        where :math:`R` is right_tensor and :math:`A` is the LazyTensor.
 
-        If :attr:`left_tensor` is supplied, computes
+        If left_tensor is supplied, computes
 
         ... math::
 
@@ -1188,7 +1188,7 @@ class LazyTensor(ABC):
                 L A^{-1} R,
             \end{equation}
 
-        where :math:`L` is :attr:`left_tensor`. Supplying this can reduce the number of
+        where :math:`L` is left_tensor. Supplying this can reduce the number of
         CG calls required.
 
         Args:
@@ -1523,7 +1523,7 @@ class LazyTensor(ABC):
 
         :param int rank: The size of the partial pivoted Cholesky factor.
         :param error_tol: Defines an optional stopping criterion.
-            If the residual of the factorization is less than :attr:`error_tol`, then the
+            If the residual of the factorization is less than error_tol, then the
             factorization will exit early. This will result in a :math:`\leq \text{ rank}` factor.
         :type error_tol: float, optional
         :param bool return_pivots: (default: False) Whether or not to return the pivots alongside
@@ -1553,7 +1553,7 @@ class LazyTensor(ABC):
                 Returns a `b/k x n x m` LazyTensor.
 
         Args:
-            :attr:`mul_batch_size` (int or None):
+            mul_batch_size (int or None):
                 Controls the number of groups that are multiplied over (default: None).
 
         Returns:
@@ -1903,7 +1903,7 @@ class LazyTensor(ABC):
         If set to None, then sums all dimensions
 
         Args:
-            :attr:`dim` (int):
+            dim (int):
                 Which dimension is being summed over (default=None)
 
         Returns:
@@ -1949,12 +1949,8 @@ class LazyTensor(ABC):
         Does NOT sort the sigular values.
 
         Returns:
-            :obj:`~gpytorch.lazy.LazyTensor`:
-                The left singular vectors (`U`).
-            :obj:`torch.Tensor`:
-                The singular values (`S`).
-            :obj:`~gpytorch.lazy.LazyTensor`:
-                The right singular vectors (`V`).
+            Tuple containing the left singular vectors (`U`), the singular values (`S`),
+            and the right singular vectors (`V`).
         """
         return self._svd()
 
@@ -1966,13 +1962,11 @@ class LazyTensor(ABC):
         structure. Does NOT sort the eigenvalues.
 
         Args:
-            :attr:`eigenvectors` (bool): If True, compute the eigenvectors in addition to the eigenvalues.
+            eigenvectors (bool): If True, compute the eigenvectors in addition to the eigenvalues.
         Returns:
-            :obj:`torch.Tensor`:
-                The eigenvalues.
-            :obj:`~gpytorch.lazy.LazyTensor`:
-                The eigenvectors. If `eigenvectors=False`, this is None. Otherwise, this LazyTensor
-                contains the orthonormal eigenvectors of the matrix.
+            Tuple containing the eigenvalues and eigenvectors. If `eigenvectors=False`,
+            this is None. Otherwise, this LazyTensor contains the orthonormal eigenvectors
+            of the matrix.
         """
         try:
             evals, evecs = pop_from_cache(self, "symeig", eigenvectors=True)
@@ -2099,7 +2093,7 @@ class LazyTensor(ABC):
         Self should be symmetric, either (batch_size x num_dim x num_dim) or (num_dim x num_dim)
 
         Args:
-            :attr:`num_samples` (int):
+            num_samples (int):
                 Number of samples to draw.
 
         Returns:
@@ -2150,7 +2144,7 @@ class LazyTensor(ABC):
         or lazy tensor.
 
         Args:
-            :attr:`other` (:obj:`torch.tensor` or :obj:`gpytorch.lazy.LazyTensor`):
+            other (:obj:`torch.tensor` or :obj:`gpytorch.lazy.LazyTensor`):
                 Matrix to add to this one.
 
         Returns:
@@ -2187,7 +2181,7 @@ class LazyTensor(ABC):
         the elementwise reciprocal of another matrix or lazy tensor.
 
         Args:
-            :attr:`other` (:obj:`torch.tensor` or :obj:`gpytorch.lazy.LazyTensor`):
+            other (:obj:`torch.tensor` or :obj:`gpytorch.lazy.LazyTensor`):
                 Matrix to divide this one by.
 
         Returns:

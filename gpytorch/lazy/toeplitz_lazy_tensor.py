@@ -10,7 +10,7 @@ class ToeplitzLazyTensor(LazyTensor):
     def __init__(self, column):
         """
         Args:
-            :attr: `column` (Tensor)
+            column (Tensor)
                 If `column` is a 1D Tensor of length `n`, this represents a
                 Toeplitz matrix with `column` as its first column.
                 If `column` is `b_1 x b_2 x ... x b_k x n`, then this represents a batch
