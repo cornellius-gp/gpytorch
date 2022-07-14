@@ -181,7 +181,10 @@ class CatLazyTensor(LazyTensor):
         if len(res_list) == 1:
             return res_list[0].view(target_shape).to(self.device)
         else:
-            return torch.cat(res_list).view(target_shape).to(self.device)
+            # Explicitly move tensors to one device as torch.cat no longer moves tensors:
+            # https://github.com/pytorch/pytorch/issues/35045
+            res_list = [lazy_tensor.to(self.device) for lazy_tensor in res_list]
+            return torch.cat(res_list).view(target_shape)
 
     def _getitem(self, row_index, col_index, *batch_indices):
         indices = [*batch_indices, row_index, col_index]
