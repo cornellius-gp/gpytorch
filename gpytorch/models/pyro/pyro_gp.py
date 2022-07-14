@@ -18,16 +18,16 @@ class PyroGP(GP, _PyroMixin):
     See `the Pyro examples <examples/09_Pyro_Integration/index.html>`_ for detailed examples.
 
     Args:
-        :attr:`variational_strategy` (:obj:`~gpytorch.variational.VariationalStrategy`):
+        variational_strategy (:obj:`~gpytorch.variational.VariationalStrategy`):
             The variational strategy that defines the variational distribution and
             the marginalization strategy.
-        :attr:`likelihood` (:obj:`~gpytorch.likelihoods.Likelihood`):
+        likelihood (:obj:`~gpytorch.likelihoods.Likelihood`):
             The likelihood for the model
-        :attr:`num_data` (int):
+        num_data (int):
             The total number of training data points (necessary for SGD)
-        :attr:`name_prefix` (str, optional):
+        name_prefix (str, optional):
             A prefix to put in front of pyro sample/plate sites
-        :attr:`beta` (float - default 1.):
+        beta (float - default 1.):
             A multiplicative factor for the KL divergence term.
             Setting it to 1 (default) recovers true variational inference
             (as derived in `Scalable Variational Gaussian Process Classification`_).

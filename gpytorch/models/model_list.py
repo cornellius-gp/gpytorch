@@ -56,13 +56,12 @@ class IndependentModelList(AbstractModelList):
         and returns the same class of fantasy models.
 
         Args:
-            - :attr:`inputs`: List of locations of fantasy observations, one for each model.
-            - :attr:`targets` List of labels of fantasy observations, one for each model.
+            inputs: List of locations of fantasy observations, one for each model.
+            targets List of labels of fantasy observations, one for each model.
 
         Returns:
-            - :class:`IndependentModelList`
-                An `IndependentModelList` model, where each sub-model is the fantasy model of the respective
-                sub-model in the original model at the corresponding input locations / labels.
+            An `IndependentModelList` model, where each sub-model is the fantasy model of the respective
+            sub-model in the original model at the corresponding input locations / labels.
         """
 
         if "noise" in kwargs:

@@ -52,7 +52,7 @@ class LeaveOneOutPseudoLikelihood(ExactMarginalLogLikelihood):
         :param ~gpytorch.distributions.MultivariateNormal output: the outputs of the latent function
             (the :obj:`~gpytorch.models.GP`)
         :param torch.Tensor target: :math:`\mathbf y` The target values
-        :param dict kwargs: Additional arguments to pass to the likelihood's :attr:`forward` function.
+        :param dict kwargs: Additional arguments to pass to the likelihood's forward function.
         """
         output = self.likelihood(function_dist, *params)
         m, L = output.mean, output.lazy_covariance_matrix.cholesky(upper=False)

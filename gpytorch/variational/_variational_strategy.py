@@ -105,7 +105,7 @@ class _VariationalStrategy(Module, ABC):
             (or the mean of the distribution :math:`q(\mathbf u)` if q is a Gaussian.
         :param ~gpytorch.lazy.LazyTensor variational_inducing_covar: If the distribuiton :math:`q(\mathbf u)`
             is Gaussian, then this variable is the covariance matrix of that Gaussian. Otherwise, it will be
-            :attr:`None`.
+            None.
 
         :rtype: :obj:`~gpytorch.distributions.MultivariateNormal`
         :return: The distribution :math:`q( \mathbf f(\mathbf X))`

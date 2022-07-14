@@ -9,6 +9,8 @@ from unittest.mock import MagicMock, patch
 import torch
 
 import gpytorch
+from gpytorch.lazy.diag_lazy_tensor import DiagLazyTensor
+from gpytorch.lazy.lazy_tensor import delazify
 from gpytorch.settings import linalg_dtypes
 from gpytorch.utils.errors import CachingError
 from gpytorch.utils.memoize import get_from_cache
@@ -43,13 +45,15 @@ class RectangularLazyTensorTestCase(BaseTestCase):
         lazy_tensor = self.create_lazy_tensor().detach().requires_grad_(True)
         lazy_tensor_copy = lazy_tensor.clone().detach().requires_grad_(True)
         evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
+        rhs_evaluated = delazify(rhs)
 
         res = lazy_tensor.matmul(rhs)
-        actual = evaluated.matmul(rhs)
-        self.assertAllClose(res, actual)
+        actual = evaluated.matmul(rhs_evaluated)
+        res_evaluated = delazify(res)
+        self.assertAllClose(res_evaluated, actual)
 
-        grad = torch.randn_like(res)
-        res.backward(gradient=grad)
+        grad = torch.randn_like(res_evaluated)
+        res_evaluated.backward(gradient=grad)
         actual.backward(gradient=grad)
         for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
             if arg_copy.requires_grad and arg_copy.is_leaf and arg_copy.grad is not None:
@@ -117,6 +121,12 @@ class RectangularLazyTensorTestCase(BaseTestCase):
         lazy_tensor = self.create_lazy_tensor()
         lhs = torch.randn(*lazy_tensor.batch_shape, 4, lazy_tensor.size(-2))
         return self._test_rmatmul(lhs)
+
+    def test_matmul_diag_matrix(self):
+        lazy_tensor = self.create_lazy_tensor()
+        diag = torch.rand(*lazy_tensor.batch_shape, lazy_tensor.size(-1))
+        rhs = DiagLazyTensor(diag)
+        return self._test_matmul(rhs)
 
     def test_matmul_matrix_broadcast(self):
         lazy_tensor = self.create_lazy_tensor()

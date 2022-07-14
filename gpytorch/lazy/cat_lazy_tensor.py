@@ -35,14 +35,14 @@ class CatLazyTensor(LazyTensor):
     dimension.
 
     Args:
-        - :attr:`lazy_tensors` (list of LazyTensors):
+        lazy_tensors (list of LazyTensors):
             A list of LazyTensors whose sizes are the same except in
-            concatenating dimension :attr:`dim`
-        - :attr:`dim` (int):
+            concatenating dimension dim
+        dim (int):
             The concatenating dimension which can be a batch dimension.
-        - :attr:`output_device` (torch.device):
-            The CatLazyTensor will appear to appear on :attr:`output_device`
-            and place any output `torch.Tensors` on :attr:`output_device`
+        output_device (torch.device):
+            The CatLazyTensor will appear to appear on output_device
+            and place any output `torch.Tensors` on output_device
     """
 
     def _check_args(self, *lazy_tensors, dim=0, output_device=None):
