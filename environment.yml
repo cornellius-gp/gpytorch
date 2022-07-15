@@ -4,5 +4,5 @@ channels:
 dependencies:
   - pytorch
   - numpy
-  - scikit-learn<=1.0.2  # newer versions require py3.8
+  - scikit-learn
   - scipy
