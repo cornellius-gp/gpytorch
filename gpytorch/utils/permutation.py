@@ -76,7 +76,8 @@ def apply_permutation(
         right_permutation = torch.arange(matrix.size(-1), device=matrix.device)
 
     # Apply permutations
-    return delazify(matrix.__getitem__((*batch_idx, left_permutation.unsqueeze(-1), right_permutation.unsqueeze(-2))))
+    res = delazify(matrix.__getitem__((*batch_idx, left_permutation.unsqueeze(-1), right_permutation.unsqueeze(-2))))
+    return res.to(device=matrix.device)
 
 
 def inverse_permutation(permutation):
