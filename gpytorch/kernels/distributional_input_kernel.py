@@ -20,7 +20,7 @@ class DistributionalInputKernel(Kernel):
     where :math:`a` is the lengthscale.
 
     Args:
-        :attr:`distance_function` (function) distance function between distributional inputs.
+        distance_function (function) distance function between distributional inputs.
     """
     has_lengthscale = True
 

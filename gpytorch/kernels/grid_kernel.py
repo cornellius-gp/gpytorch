@@ -25,14 +25,14 @@ class GridKernel(Kernel):
         Periodic, Spectral Mixture, etc.)
 
     Args:
-        :attr:`base_kernel` (Kernel):
+        base_kernel (Kernel):
             The kernel to speed up with grid methods.
-        :attr:`grid` (Tensor):
+        grid (Tensor):
             A g x d tensor where column i consists of the projections of the
             grid in dimension i.
-        :attr:`active_dims` (tuple of ints, optional):
+        active_dims (tuple of ints, optional):
             Passed down to the `base_kernel`.
-        :attr:`interpolation_mode` (bool):
+        interpolation_mode (bool):
             Used for GridInterpolationKernel where we want the covariance
             between points in the projections of the grid of each dimension.
             We do this by treating `grid` as d batches of g x 1 tensors by

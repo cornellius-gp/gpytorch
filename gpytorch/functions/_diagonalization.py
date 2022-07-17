@@ -14,7 +14,7 @@ class Diagonalization(Function):
         :param list matrix_args: The arguments representing the symmetric matrix A (or batch of PSD matrices A)
 
         :rtype: (torch.Tensor, torch.Tensor)
-        :return: :attr:`Q`, :attr: `S` such that :math:`Q S Q^T \approx A`
+        :return: Q, S such that :math:`Q S Q^T \approx A`
         """
 
         ctx.representation_tree = representation_tree

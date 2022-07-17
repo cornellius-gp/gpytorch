@@ -3,5 +3,6 @@ channels:
   - pytorch
 dependencies:
   - pytorch
+  - numpy
   - scikit-learn
   - scipy

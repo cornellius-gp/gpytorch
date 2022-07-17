@@ -8,6 +8,7 @@ from torch import Tensor
 from .. import settings
 from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.memoize import cached
+from .block_diag_lazy_tensor import BlockDiagLazyTensor
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import NonLazyTensor
 from .triangular_lazy_tensor import TriangularLazyTensor
@@ -19,7 +20,7 @@ class DiagLazyTensor(TriangularLazyTensor):
         Diagonal lazy tensor. Supports arbitrary batch sizes.
 
         Args:
-            :attr:`diag` (Tensor):
+            diag (Tensor):
                 A `b1 x ... x bk x n` Tensor, representing a `b1 x ... x bk`-sized batch
                 of `n x n` diagonal matrices
         """
@@ -154,15 +155,17 @@ class DiagLazyTensor(TriangularLazyTensor):
         return self.__class__(self._diag.log())
 
     def matmul(self, other):
-        from .triangular_lazy_tensor import TriangularLazyTensor
-
         # this is trivial if we multiply two DiagLazyTensors
         if isinstance(other, DiagLazyTensor):
             return DiagLazyTensor(self._diag * other._diag)
         # special case if we have a NonLazyTensor
         if isinstance(other, NonLazyTensor):
             return NonLazyTensor(self._diag.unsqueeze(-1) * other.tensor)
-        # and if we have a triangular one
+        # special case if we have a BlockDiagLazyTensor
+        if isinstance(other, BlockDiagLazyTensor):
+            diag_reshape = self._diag.view(*other.base_lazy_tensor.shape[:-1], 1)
+            return BlockDiagLazyTensor(diag_reshape * other.base_lazy_tensor)
+        # special case if we have a TriangularLazyTensor
         if isinstance(other, TriangularLazyTensor):
             return TriangularLazyTensor(self._diag.unsqueeze(-1) * other._tensor, upper=other.upper)
         return super().matmul(other)
@@ -208,10 +211,10 @@ class ConstantDiagLazyTensor(DiagLazyTensor):
         Used e.g. for adding jitter to matrices.
 
         Args:
-            :attr:`diag_values` (Tensor):
+            diag_values (Tensor):
                 A `b1 x ... x bk x 1` Tensor, representing a `b1 x ... x bk`-sized batch
                 of `diag_shape x diag_shape` diagonal matrices
-            :attr:`diag_shape` (int):
+            diag_shape (int):
                 The (non-batch) dimension of the (square) matrix
         """
         if settings.debug.on():

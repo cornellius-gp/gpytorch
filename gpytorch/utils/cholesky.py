@@ -50,16 +50,16 @@ def _psd_safe_cholesky(A, out=None, jitter=None, max_tries=None):
 def psd_safe_cholesky(A, upper=False, out=None, jitter=None, max_tries=None):
     """Compute the Cholesky decomposition of A. If A is only p.s.d, add a small jitter to the diagonal.
     Args:
-        :attr:`A` (Tensor):
+        A (Tensor):
             The tensor to compute the Cholesky decomposition of
-        :attr:`upper` (bool, optional):
+        upper (bool, optional):
             See torch.cholesky
-        :attr:`out` (Tensor, optional):
+        out (Tensor, optional):
             See torch.cholesky
-        :attr:`jitter` (float, optional):
+        jitter (float, optional):
             The jitter to add to the diagonal of A in case A is only p.s.d. If omitted,
             uses settings.cholesky_jitter.value()
-        :attr:`max_tries` (int, optional):
+        max_tries (int, optional):
             Number of attempts (with successively increasing jitter) to make before raising an error.
     """
     L = _psd_safe_cholesky(A, out=out, jitter=jitter, max_tries=max_tries)

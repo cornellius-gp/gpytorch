@@ -35,14 +35,14 @@ class CatLazyTensor(LazyTensor):
     dimension.
 
     Args:
-        - :attr:`lazy_tensors` (list of LazyTensors):
+        lazy_tensors (list of LazyTensors):
             A list of LazyTensors whose sizes are the same except in
-            concatenating dimension :attr:`dim`
-        - :attr:`dim` (int):
+            concatenating dimension dim
+        dim (int):
             The concatenating dimension which can be a batch dimension.
-        - :attr:`output_device` (torch.device):
-            The CatLazyTensor will appear to appear on :attr:`output_device`
-            and place any output `torch.Tensors` on :attr:`output_device`
+        output_device (torch.device):
+            The CatLazyTensor will appear to appear on output_device
+            and place any output `torch.Tensors` on output_device
     """
 
     def _check_args(self, *lazy_tensors, dim=0, output_device=None):
@@ -181,7 +181,10 @@ class CatLazyTensor(LazyTensor):
         if len(res_list) == 1:
             return res_list[0].view(target_shape).to(self.device)
         else:
-            return torch.cat(res_list).view(target_shape).to(self.device)
+            # Explicitly move tensors to one device as torch.cat no longer moves tensors:
+            # https://github.com/pytorch/pytorch/issues/35045
+            res_list = [lazy_tensor.to(self.device) for lazy_tensor in res_list]
+            return torch.cat(res_list).view(target_shape)
 
     def _getitem(self, row_index, col_index, *batch_indices):
         indices = [*batch_indices, row_index, col_index]

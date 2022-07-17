@@ -18,7 +18,9 @@ class ConstantMean(Mean):
         return m.constant
 
     def _constant_closure(self, m, value):
-        return m.constant.data.fill_(value)
+        if not torch.is_tensor(value):
+            value = torch.as_tensor(value).to(self.constant)
+        m.initialize(constant=value.reshape(self.constant.shape))
 
     def forward(self, input):
         if input.shape[:-2] == self.batch_shape:

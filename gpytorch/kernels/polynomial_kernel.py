@@ -22,14 +22,14 @@ class PolynomialKernel(Kernel):
 
     where
 
-    * :math:`c` is an :attr:`offset` parameter.
+    * :math:`c` is an offset parameter.
 
     Args:
-        :attr:`offset_prior` (:class:`gpytorch.priors.Prior`):
+        offset_prior (:class:`gpytorch.priors.Prior`):
             Prior over the offset parameter (default `None`).
-        :attr:`offset_constraint` (Constraint, optional):
+        offset_constraint (Constraint, optional):
             Constraint to place on offset parameter. Default: `Positive`.
-        :attr:`active_dims` (list):
+        active_dims (list):
             List of data dimensions to operate on.
             `len(active_dims)` should equal `num_dimensions`.
     """
