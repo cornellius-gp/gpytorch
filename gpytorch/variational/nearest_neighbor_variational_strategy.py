@@ -2,19 +2,16 @@
 
 
 import torch
+
+from .. import settings
+from ..distributions import MultivariateNormal
+from ..lazy import DiagLazyTensor, TriangularLazyTensor, delazify
+from ..utils.cholesky import psd_safe_cholesky
+from ..utils.errors import CachingError
+from ..utils.memoize import add_to_cache, cached, clear_cache_hook, pop_from_cache
+from ..utils.nearest_neighbors import NNUtil
 from .mean_field_variational_distribution import MeanFieldVariationalDistribution
 from .unwhitened_variational_strategy import UnwhitenedVariationalStrategy
-from ..distributions import MultivariateNormal
-from ..lazy import (
-    DiagLazyTensor,
-    delazify,
-    TriangularLazyTensor
-)
-from ..utils.memoize import add_to_cache, pop_from_cache, cached, clear_cache_hook
-from ..utils.errors import CachingError
-from ..utils.cholesky import psd_safe_cholesky
-from ..utils.nearest_neighbors import NNUtil
-from .. import settings
 
 
 class NNVariationalStrategy(UnwhitenedVariationalStrategy):
@@ -42,15 +39,13 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
 
     .. note::
 
-        Current implementation only supports :obj:`~gpytorch.variational._VariationalDistribution`.
+        The current implementation only supports :obj:`~gpytorch.variational.MeanFieldVariationalDistribution`.
 
-        It is recommended that this strategy is used with `faiss`_ (requiring separate package installment)
-        as the backend for nearest neighbor search, which will greatly speed up on large-scale datasets
-        over the default backend `scikit-learn`.
+        We recommend installing the `faiss`_ library (requiring separate package installment)
+        for nearest neighbor search, which is significantly faster than the `scikit-learn` nearest neighbor search.
+        GPyTorch will automatically use `faiss` if it is installed, but will revert to `scikit-learn` otherwise.
 
-        Different ording of inducing points will result in different nearest neighbor approximation.
-        We recommend randomizing the ordering of inducing points (i.e. the training data) before feeding them
-        into the strategy if there is no other prior knowledge.
+        Different inducing point orderings will produce in different nearest neighbor approximations.
 
 
     :param ~gpytorch.models.ApproximateGP model: Model this strategy is applied to.
@@ -74,9 +69,9 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
     """
 
     def __init__(self, model, inducing_points, variational_distribution, k, training_batch_size):
-        
-        assert isinstance(variational_distribution, MeanFieldVariationalDistribution), \
-            "Currently, NNVariationalStrategy only supports MeanFieldVariationalDistribution."
+        assert isinstance(
+            variational_distribution, MeanFieldVariationalDistribution
+        ), "Currently, NNVariationalStrategy only supports MeanFieldVariationalDistribution."
 
         super().__init__(model, inducing_points, variational_distribution, learn_inducing_locations=False)
         # Make sure we don't try to initialize variational parameters - because of minibatching
@@ -89,9 +84,10 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
         self.M = inducing_points.shape[-2]
         self.D = inducing_points.shape[-1]
         self.k = k
-        assert self.k <= self.M, \
-            f"Number of nearest neighbors k must be smaller than or equal to number of inducing points, " \
+        assert self.k <= self.M, (
+            f"Number of nearest neighbors k must be smaller than or equal to number of inducing points, "
             f"but got k = {k}, M = {self.M}."
+        )
 
         self._inducing_batch_shape = inducing_points.shape[:-2]
         self._model_batch_shape = self._variational_distribution.variational_mean.shape[:-1]
@@ -110,7 +106,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
     @cached(name="prior_distribution_memo")
     def prior_distribution(self):
         out = self.model.forward(self.inducing_points)
-        jitter_val = settings.nn_jitter.value(self.inducing_points.dtype)
+        jitter_val = settings.cholesky_jitter.value(self.inducing_points.dtype)
         res = MultivariateNormal(out.mean, out.lazy_covariance_matrix.add_jitter(jitter_val))
         return res
 
@@ -130,10 +126,11 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
             return self.model.forward(x, **kwargs)
 
         if x is not None:
-            assert self.inducing_points.shape[:-2] == x.shape[:-2], \
-                f"x batch shape must matches inducing points batch shape, " \
-                f"but got train data batch shape = {x.shape[:-2]}, " \
+            assert self.inducing_points.shape[:-2] == x.shape[:-2], (
+                f"x batch shape must matches inducing points batch shape, "
+                f"but got train data batch shape = {x.shape[:-2]}, "
                 f"inducing points batch shape = {self.inducing_points.shape[:-2]}."
+            )
 
         # Delete previously cached items from the training distribution
         if self.training:
@@ -163,9 +160,11 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
 
                 expanded_x_indices = x_indices.expand(*self._batch_shape, x_indices.shape[-1])
                 expanded_variational_mean = self._variational_distribution.variational_mean.expand(
-                    *self._batch_shape, self.M)
-                expanded_variational_var = self._variational_distribution._variational_stddev.expand(
-                    *self._batch_shape, self.M)**2
+                    *self._batch_shape, self.M
+                )
+                expanded_variational_var = (
+                    self._variational_distribution._variational_stddev.expand(*self._batch_shape, self.M) ** 2
+                )
 
                 predictive_mean = expanded_variational_mean.gather(-1, expanded_x_indices)
                 predictive_var = expanded_variational_var.gather(-1, expanded_x_indices)
@@ -201,7 +200,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
             variational_stddev = self._variational_distribution._variational_stddev
             assert variational_stddev.shape == (*self._model_batch_shape, self.M)
             expanded_variational_stddev = variational_stddev.unsqueeze(-1).expand(*batch_shape, self.M, self.k)
-            variational_inducing_covar = expanded_variational_stddev.gather(-2, expanded_nn_indices)**2
+            variational_inducing_covar = expanded_variational_stddev.gather(-2, expanded_nn_indices) ** 2
             assert variational_inducing_covar.shape == (*batch_shape, x_bsz, self.k)
             variational_inducing_covar = DiagLazyTensor(variational_inducing_covar)
             assert variational_inducing_covar.shape == (*batch_shape, x_bsz, self.k, self.k)
@@ -212,7 +211,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
 
             # Compute forward mode in the standard way
             dist = super().forward(x, inducing_points, inducing_values, variational_inducing_covar, **kwargs)
-            predictive_mean = dist.mean # (*batch_shape, x_bsz, 1)
+            predictive_mean = dist.mean  # (*batch_shape, x_bsz, 1)
             predictive_covar = dist.covariance_matrix  # (*batch_shape, x_bsz, 1, 1)
 
             # Undo batch mode
@@ -239,17 +238,17 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
 
     def firstk_kl_helper(self):
         # Compute the KL divergence for first k inducing points
-        train_x_firstk = self.inducing_points[..., :self.k, :]
+        train_x_firstk = self.inducing_points[..., : self.k, :]
         full_output = self.model.forward(train_x_firstk)
 
         induc_mean, induc_induc_covar = full_output.mean, full_output.lazy_covariance_matrix
 
-        jitter_val = settings.nn_jitter.value(self.inducing_points.dtype)
+        jitter_val = settings.cholesky_jitter.value(self.inducing_points.dtype)
         induc_induc_covar = induc_induc_covar.add_jitter(jitter_val)
         prior_dist = MultivariateNormal(induc_mean, induc_induc_covar)
 
-        inducing_values = self._variational_distribution.variational_mean[..., :self.k]
-        variational_covar_fisrtk = self._variational_distribution._variational_stddev[...,:self.k] ** 2
+        inducing_values = self._variational_distribution.variational_mean[..., : self.k]
+        variational_covar_fisrtk = self._variational_distribution._variational_stddev[..., : self.k] ** 2
         variational_inducing_covar = DiagLazyTensor(variational_covar_fisrtk)
 
         variational_distribution = MultivariateNormal(inducing_values, variational_inducing_covar)
@@ -259,7 +258,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
     def stochastic_kl_helper(self, kl_indices):
         # Compute the KL divergence for a mini batch of the rest M-1 inducing points
         # See paper appendix for kl breakdown
-        jitter_val = settings.nn_jitter.value(self.inducing_points.dtype)
+        jitter_val = settings.cholesky_jitter.value(self.inducing_points.dtype)
         kl_bs = len(kl_indices)
         variational_mean = self._variational_distribution.variational_mean
         variational_stddev = self._variational_distribution._variational_stddev
@@ -272,16 +271,19 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
         inducing_points = self.inducing_points[..., kl_indices, :]
         nearest_neighbor_indices = self.nn_xinduce_idx[..., kl_indices - self.k, :].to(inducing_points.device)
         expanded_inducing_points_all = self.inducing_points.unsqueeze(-2).expand(
-            *self._inducing_batch_shape, self.M, self.k, self.D)
+            *self._inducing_batch_shape, self.M, self.k, self.D
+        )
         expanded_nearest_neighbor_indices = nearest_neighbor_indices.unsqueeze(-1).expand(
-            *self._inducing_batch_shape, kl_bs, self.k, self.D)
+            *self._inducing_batch_shape, kl_bs, self.k, self.D
+        )
         nearest_neighbors = expanded_inducing_points_all.gather(-3, expanded_nearest_neighbor_indices)
 
         # compute interp_term
         cov = self.model.covar_module.forward(nearest_neighbors, nearest_neighbors)
         cross_cov = self.model.covar_module.forward(nearest_neighbors, inducing_points.unsqueeze(-2))
         interp_term = torch.linalg.solve(
-            cov+jitter_val*torch.eye(self.k, device=self.inducing_points.device), cross_cov).squeeze(-1)
+            cov + jitter_val * torch.eye(self.k, device=self.inducing_points.device), cross_cov
+        ).squeeze(-1)
 
         # compte logdet_p
         invquad_term_for_F = torch.sum(interp_term * cross_cov.squeeze(-1), dim=-1)
@@ -294,19 +296,20 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
         expanded_variational_stddev = variational_stddev.unsqueeze(-1).expand(*self._batch_shape, self.M, self.k)
         expanded_variational_mean = variational_mean.unsqueeze(-1).expand(*self._batch_shape, self.M, self.k)
         expanded_nearest_neighbor_indices = nearest_neighbor_indices.expand(*self._batch_shape, kl_bs, self.k)
-        nearest_neighbor_variational_covar = expanded_variational_stddev.gather(
-            -2, expanded_nearest_neighbor_indices)**2
+        nearest_neighbor_variational_covar = (
+            expanded_variational_stddev.gather(-2, expanded_nearest_neighbor_indices) ** 2
+        )
         bjsquared_s = torch.sum(interp_term**2 * nearest_neighbor_variational_covar, dim=-1)
         inducing_point_covar = variational_stddev[..., kl_indices] ** 2
-        trace_term = (1./F * (bjsquared_s + inducing_point_covar)).sum(dim=-1)
+        trace_term = (1.0 / F * (bjsquared_s + inducing_point_covar)).sum(dim=-1)
 
         # compute invquad_term
         nearest_neighbor_variational_mean = expanded_variational_mean.gather(-2, expanded_nearest_neighbor_indices)
         Bj_m = torch.sum(interp_term * nearest_neighbor_variational_mean, dim=-1)
         inducing_point_variational_mean = variational_mean[..., kl_indices] ** 2
-        invquad_term = torch.sum((inducing_point_variational_mean - Bj_m)**2 / F, dim=-1)
+        invquad_term = torch.sum((inducing_point_variational_mean - Bj_m) ** 2 / F, dim=-1)
 
-        kl = 1./2 * (logdet_p - logdet_q - kl_bs + trace_term + invquad_term)
+        kl = 1.0 / 2 * (logdet_p - logdet_q - kl_bs + trace_term + invquad_term)
         assert kl.shape == self._batch_shape, kl.shape
         kl = kl.mean()
 
@@ -322,9 +325,10 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
         else:
             assert kl_indices is not None
             if (self._training_indices_iter == 1) or (self.M == self.k):
-                assert len(kl_indices) == self.k, \
-                    f"kl_indices sould be the first batch data of length k, " \
+                assert len(kl_indices) == self.k, (
+                    f"kl_indices sould be the first batch data of length k, "
                     f"but got len(kl_indices) = {len(kl_indices)} and k = {self.k}."
+                )
                 kl = self.firstk_kl_helper() * self.M / self.k
             else:
                 kl = self.stochastic_kl_helper(kl_indices) * self.M / len(kl_indices)
@@ -342,4 +346,3 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
             self.nn_util.set_nn_idx(inducing_points_fl)
             self.nn_xinduce_idx = self.nn_util.build_sequential_nn_idx(inducing_points_fl)
         return self
-
