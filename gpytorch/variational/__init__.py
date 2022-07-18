@@ -6,7 +6,6 @@ from .additive_grid_interpolation_variational_strategy import AdditiveGridInterp
 from .batch_decoupled_variational_strategy import BatchDecoupledVariationalStrategy
 from .cholesky_variational_distribution import CholeskyVariationalDistribution
 from .ciq_variational_strategy import CiqVariationalStrategy
-from .nearest_neighbor_variational_strategy import NNVariationalStrategy
 from .delta_variational_distribution import DeltaVariationalDistribution
 from .grid_interpolation_variational_strategy import GridInterpolationVariationalStrategy
 from .independent_multitask_variational_strategy import (
@@ -16,6 +15,7 @@ from .independent_multitask_variational_strategy import (
 from .lmc_variational_strategy import LMCVariationalStrategy
 from .mean_field_variational_distribution import MeanFieldVariationalDistribution
 from .natural_variational_distribution import NaturalVariationalDistribution, _NaturalVariationalDistribution
+from .nearest_neighbor_variational_strategy import NNVariationalStrategy
 from .orthogonally_decoupled_variational_strategy import OrthogonallyDecoupledVariationalStrategy
 from .tril_natural_variational_distribution import TrilNaturalVariationalDistribution
 from .unwhitened_variational_strategy import UnwhitenedVariationalStrategy
@@ -40,5 +40,5 @@ __all__ = [
     "_NaturalVariationalDistribution",
     "NaturalVariationalDistribution",
     "TrilNaturalVariationalDistribution",
-    "NNVariationalStrategy"
+    "NNVariationalStrategy",
 ]

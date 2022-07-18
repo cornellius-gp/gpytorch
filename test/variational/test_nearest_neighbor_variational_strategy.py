@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import unittest
-from unittest.mock import MagicMock, patch
 
 import torch
 
@@ -10,7 +9,6 @@ from gpytorch.test.base_test_case import BaseTestCase
 
 
 class TestVNNGP(BaseTestCase, unittest.TestCase):
-
     @property
     def batch_shape(self):
         return torch.Size([])
@@ -61,7 +59,8 @@ class TestVNNGP(BaseTestCase, unittest.TestCase):
                     inducing_points = inducing_points.cuda()
 
                 self.variational_strategy = strategy_cls(
-                    self, inducing_points, variational_distribution, k=k, training_batch_size=training_batch_size)
+                    self, inducing_points, variational_distribution, k=k, training_batch_size=training_batch_size
+                )
 
                 if constant_mean:
                     self.mean_module = gpytorch.means.ConstantMean()

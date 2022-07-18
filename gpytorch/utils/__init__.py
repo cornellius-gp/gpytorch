@@ -5,10 +5,10 @@ from .contour_integral_quad import contour_integral_quad
 from .linear_cg import linear_cg
 from .memoize import cached
 from .minres import minres
+from .nearest_neighbors import NNUtil
 from .pinverse import stable_pinverse
 from .qr import stable_qr
 from .stochastic_lq import StochasticLQ
-from .nearest_neighbors import NNUtil
 
 
 def prod(items):
@@ -41,5 +41,5 @@ __all__ = [
     "stable_pinverse",
     "stable_qr",
     "warnings",
-    "NNUtil"
+    "NNUtil",
 ]
