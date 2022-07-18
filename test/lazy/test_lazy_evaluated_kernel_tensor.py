@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 import torch
 
 import gpytorch
+from gpytorch.lazy.lazy_tensor import delazify
 from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase, _ensure_symmetric_grad
 
 
@@ -27,13 +28,15 @@ class TestLazyEvaluatedKernelTensorBatch(LazyTensorTestCase, unittest.TestCase):
         lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
         lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
         evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
+        rhs_evaluated = delazify(rhs)
 
         res = lazy_tensor.matmul(rhs)
-        actual = evaluated.matmul(rhs)
-        self.assertAllClose(res, actual)
+        actual = evaluated.matmul(rhs_evaluated)
+        res_evaluated = delazify(res)
+        self.assertAllClose(res_evaluated, actual)
 
-        grad = torch.randn_like(res)
-        res.backward(gradient=grad)
+        grad = torch.randn_like(res_evaluated)
+        res_evaluated.backward(gradient=grad)
         actual.backward(gradient=grad)
         for param, param_copy in zip(lazy_tensor.kernel.parameters(), lazy_tensor_copy.kernel.parameters()):
             self.assertAllClose(param.grad, param_copy.grad, rtol=1e-3)

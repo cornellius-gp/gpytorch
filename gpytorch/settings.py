@@ -311,7 +311,7 @@ class fast_computations:
     functions used in GP inference.
     The functions that can be controlled are:
 
-    * :attr:`covar_root_decomposition`
+    * covar_root_decomposition
         This feature flag controls how matrix root decompositions
         (:math:`K = L L^\top`) are computed (e.g. for sampling, computing caches, etc.).
 
@@ -323,7 +323,7 @@ class fast_computations:
         * If set to False,
             covariance matrices :math:`K` are decomposed using the Cholesky decomposition.
 
-    * :attr:`log_prob`
+    * log_prob
         This feature flag controls how GPyTorch computes the marginal log likelihood for exact GPs
         and `log_prob` for multivariate normal distributions
 
@@ -336,7 +336,7 @@ class fast_computations:
         * If set to False,
             `log_prob` is computed using the Cholesky decomposition.
 
-    * :attr:`fast_solves`
+    * fast_solves
         This feature flag controls how GPyTorch computes the solves of positive-definite matrices.
 
         * If set to True,

@@ -26,11 +26,11 @@ class AdditiveStructureKernel(Kernel):
     of the additive terms in batch, making it very fast.
 
     Args:
-        :attr:`base_kernel` (Kernel):
+        base_kernel (Kernel):
             The kernel to approximate with KISS-GP
-        :attr:`num_dims` (int):
+        num_dims (int):
             The dimension of the input data.
-        :attr:`active_dims` (tuple of ints, optional):
+        active_dims (tuple of ints, optional):
             Passed down to the `base_kernel`.
     """
 

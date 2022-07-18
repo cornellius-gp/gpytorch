@@ -37,12 +37,12 @@ class GridInterpolationKernel(GridKernel):
     * :math:`\mathbf{w_{x_1}}` and :math:`\mathbf{w_{x_2}}` are sparse vectors based on
       :math:`\mathbf{x_1}` and :math:`\mathbf{x_2}` that apply cubic interpolation.
 
-    The user should supply the size of the grid (using the :attr:`grid_size` attribute).
+    The user should supply the size of the grid (using the grid_size attribute).
     To choose a reasonable grid value, we highly recommend using the
     :func:`gpytorch.utils.grid.choose_grid_size` helper function.
     The bounds of the grid will automatically be determined by data.
 
-    (Alternatively, you can hard-code bounds using the :attr:`grid_bounds`, which
+    (Alternatively, you can hard-code bounds using the grid_bounds, which
     will speed up this kernel's computations.)
 
     .. note::
@@ -51,18 +51,18 @@ class GridInterpolationKernel(GridKernel):
         Periodic, Spectral Mixture, etc.)
 
     Args:
-        - :attr:`base_kernel` (Kernel):
+        base_kernel (Kernel):
             The kernel to approximate with KISS-GP
-        - :attr:`grid_size` (Union[int, List[int]]):
+        grid_size (Union[int, List[int]]):
             The size of the grid in each dimension.
             If a single int is provided, then every dimension will have the same grid size.
-        - :attr:`num_dims` (int):
+        num_dims (int):
             The dimension of the input data. Required if `grid_bounds=None`
-        - :attr:`grid_bounds` (tuple(float, float), optional):
+        grid_bounds (tuple(float, float), optional):
             The bounds of the grid, if known (high performance mode).
             The length of the tuple must match the number of dimensions.
             The entries represent the min/max values for each dimension.
-        - :attr:`active_dims` (tuple of ints, optional):
+        active_dims (tuple of ints, optional):
             Passed down to the `base_kernel`.
 
     .. _Kernel Interpolation for Scalable Structured Gaussian Processes:

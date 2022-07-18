@@ -20,12 +20,12 @@ def apply_permutation(
         \end{equation}
 
     where the permutation matrices :math:`\boldsymbol{\Pi}_\text{left}` and :math:`\boldsymbol{\Pi}_\text{right}^\top`
-    are represented by vectors :attr:`left_permutation` and :attr:`right_permutation`.
+    are represented by vectors left_permutation and right_permutation.
 
     The permutation matrices may be partial permutations (only selecting a subset of rows/columns)
     or full permutations (permuting all rows/columns).
 
-    Importantly, if :math:`\mathbf K` is a batch of matrices, :attr:`left_permutation` and :attr:`right_permutation`
+    Importantly, if :math:`\mathbf K` is a batch of matrices, left_permutation and right_permutation
     can be a batch of permutation vectors, and this function will apply the appropriate permutation to each batch entry.
     Broadcasting rules apply.
 
@@ -76,7 +76,8 @@ def apply_permutation(
         right_permutation = torch.arange(matrix.size(-1), device=matrix.device)
 
     # Apply permutations
-    return delazify(matrix.__getitem__((*batch_idx, left_permutation.unsqueeze(-1), right_permutation.unsqueeze(-2))))
+    res = delazify(matrix.__getitem__((*batch_idx, left_permutation.unsqueeze(-1), right_permutation.unsqueeze(-2))))
+    return res.to(device=matrix.device)
 
 
 def inverse_permutation(permutation):
