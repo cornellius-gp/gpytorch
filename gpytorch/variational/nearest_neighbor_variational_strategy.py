@@ -8,7 +8,7 @@ from ..distributions import MultivariateNormal
 from ..lazy import DiagLazyTensor, TriangularLazyTensor, delazify
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.errors import CachingError
-from ..utils.memoize import add_to_cache, cached, clear_cache_hook, pop_from_cache
+from ..utils.memoize import add_to_cache, cached, pop_from_cache
 from ..utils.nearest_neighbors import NNUtil
 from .mean_field_variational_distribution import MeanFieldVariationalDistribution
 from .unwhitened_variational_strategy import UnwhitenedVariationalStrategy
@@ -94,13 +94,10 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
         self._batch_shape = torch.broadcast_shapes(self._inducing_batch_shape, self._model_batch_shape)
 
         self.nn_util = NNUtil(k, dim=self.D, batch_shape=self._inducing_batch_shape, device=inducing_points.device)
-        self.compute_nn()
+        self._compute_nn()
 
         self.training_batch_size = training_batch_size
-        self.set_training_iterator()
-
-    def _clear_cache(self):
-        clear_cache_hook(self)
+        self._set_training_iterator()
 
     @property
     @cached(name="prior_distribution_memo")
@@ -109,11 +106,6 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
         jitter_val = settings.cholesky_jitter.value(self.inducing_points.dtype)
         res = MultivariateNormal(out.mean, out.lazy_covariance_matrix.add_jitter(jitter_val))
         return res
-
-    @property
-    @cached(name="variational_distribution_memo")
-    def variational_distribution(self):
-        return self._variational_distribution()
 
     def _cholesky_factor(self, induc_induc_covar):
         # Uncached version
@@ -223,7 +215,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
             # Return the distribution
             return MultivariateNormal(predictive_mean, DiagLazyTensor(predictive_var))
 
-    def set_training_iterator(self):
+    def _set_training_iterator(self):
         self._training_indices_iter = 0
         training_indices = torch.randperm(self.M - self.k, device=self.inducing_points.device) + self.k
         self._training_indices_iterator = (torch.arange(self.k),) + training_indices.split(self.training_batch_size)
@@ -233,10 +225,10 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
         self.current_training_indices = self._training_indices_iterator[self._training_indices_iter]
         self._training_indices_iter += 1
         if self._training_indices_iter == self._total_training_batches:
-            self.set_training_iterator()
+            self._set_training_iterator()
         return self.current_training_indices
 
-    def firstk_kl_helper(self):
+    def _firstk_kl_helper(self):
         # Compute the KL divergence for first k inducing points
         train_x_firstk = self.inducing_points[..., : self.k, :]
         full_output = self.model.forward(train_x_firstk)
@@ -255,7 +247,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
         kl = torch.distributions.kl.kl_divergence(variational_distribution, prior_dist)  # model_batch_shape
         return kl
 
-    def stochastic_kl_helper(self, kl_indices):
+    def _stochastic_kl_helper(self, kl_indices):
         # Compute the KL divergence for a mini batch of the rest M-1 inducing points
         # See paper appendix for kl breakdown
         jitter_val = settings.cholesky_jitter.value(self.inducing_points.dtype)
@@ -319,9 +311,9 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
         if compute_full:
             if batch_size is None:
                 batch_size = self.training_batch_size
-            kl = self.firstk_kl_helper()
+            kl = self._firstk_kl_helper()
             for kl_indices in torch.split(torch.arange(self.k, self.M), batch_size):
-                kl += self.stochastic_kl_helper(kl_indices)
+                kl += self._stochastic_kl_helper(kl_indices)
         else:
             assert kl_indices is not None
             if (self._training_indices_iter == 1) or (self.M == self.k):
@@ -329,9 +321,9 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
                     f"kl_indices sould be the first batch data of length k, "
                     f"but got len(kl_indices) = {len(kl_indices)} and k = {self.k}."
                 )
-                kl = self.firstk_kl_helper() * self.M / self.k
+                kl = self._firstk_kl_helper() * self.M / self.k
             else:
-                kl = self.stochastic_kl_helper(kl_indices) * self.M / len(kl_indices)
+                kl = self._stochastic_kl_helper(kl_indices) * self.M / len(kl_indices)
         return kl
 
     def kl_divergence(self):
@@ -340,7 +332,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
         except CachingError:
             raise RuntimeError("KL Divergence of variational strategy was called before nearest neighbors were set.")
 
-    def compute_nn(self):
+    def _compute_nn(self):
         with torch.no_grad():
             inducing_points_fl = self.inducing_points.data.float()
             self.nn_util.set_nn_idx(inducing_points_fl)
