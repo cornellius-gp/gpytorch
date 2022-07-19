@@ -5,10 +5,10 @@ import unittest
 import torch
 
 import gpytorch
-from gpytorch.test.base_test_case import BaseTestCase
+from gpytorch.test.variational_test_case import VariationalTestCase
 
 
-class TestVNNGP(BaseTestCase, unittest.TestCase):
+class TestVNNGP(VariationalTestCase, unittest.TestCase):
     @property
     def batch_shape(self):
         return torch.Size([])
@@ -30,10 +30,6 @@ class TestVNNGP(BaseTestCase, unittest.TestCase):
         return gpytorch.likelihoods.GaussianLikelihood
 
     @property
-    def cuda(self):
-        return False
-
-    @property
     def event_shape(self):
         return torch.Size([32])
 
@@ -42,21 +38,15 @@ class TestVNNGP(BaseTestCase, unittest.TestCase):
         num_inducing=32,
         batch_shape=torch.Size([]),
         inducing_batch_shape=torch.Size([]),
+        strategy_cls=gpytorch.variational.NNVariationalStrategy,
+        distribution_cls=gpytorch.variational.MeanFieldVariationalDistribution,
         constant_mean=True,
     ):
-
-        distribution_cls = self.distribution_cls
-        strategy_cls = self.strategy_cls
-        cuda = self.cuda
-
         class _VNNGPRegressionModel(gpytorch.models.GP):
             def __init__(self, inducing_points, k, training_batch_size):
                 super(_VNNGPRegressionModel, self).__init__()
 
                 variational_distribution = distribution_cls(num_inducing, batch_shape=batch_shape)
-
-                if cuda:
-                    inducing_points = inducing_points.cuda()
 
                 self.variational_strategy = strategy_cls(
                     self, inducing_points, variational_distribution, k=k, training_batch_size=training_batch_size
@@ -91,9 +81,13 @@ class TestVNNGP(BaseTestCase, unittest.TestCase):
         self,
         model,
         likelihood,
+        batch_shape=torch.Size([]),
         mll_cls=gpytorch.mlls.VariationalELBO,
         cuda=False,
     ):
+        # We cannot inheret the superclass method
+        # Because it sets the training data to be the inducing points
+
         train_x = model.variational_strategy.inducing_points
         train_y = torch.randn(train_x.shape[:-1])
         mll = mll_cls(likelihood, model, num_data=train_x.size(-2))
@@ -136,13 +130,18 @@ class TestVNNGP(BaseTestCase, unittest.TestCase):
 
     def test_training_iteration(
         self,
+        data_batch_shape=None,
         inducing_batch_shape=None,
         model_batch_shape=None,
         expected_batch_shape=None,
         constant_mean=True,
     ):
+        # We cannot inheret the superclass method
+        # Because it expects `variational_params_intialized` to be set to 0
+
         # Batch shapes
         model_batch_shape = model_batch_shape if model_batch_shape is not None else self.batch_shape
+        data_batch_shape = data_batch_shape if data_batch_shape is not None else self.batch_shape
         inducing_batch_shape = inducing_batch_shape if inducing_batch_shape is not None else self.batch_shape
         expected_batch_shape = expected_batch_shape if expected_batch_shape is not None else self.batch_shape
 
@@ -150,6 +149,8 @@ class TestVNNGP(BaseTestCase, unittest.TestCase):
         model, likelihood = self._make_model_and_likelihood(
             batch_shape=model_batch_shape,
             inducing_batch_shape=inducing_batch_shape,
+            distribution_cls=self.distribution_cls,
+            strategy_cls=self.strategy_cls,
             constant_mean=constant_mean,
         )
 
@@ -158,6 +159,7 @@ class TestVNNGP(BaseTestCase, unittest.TestCase):
         self._training_iter(
             model,
             likelihood,
+            data_batch_shape,
             mll_cls=self.mll_cls,
             cuda=self.cuda,
         )
@@ -165,6 +167,7 @@ class TestVNNGP(BaseTestCase, unittest.TestCase):
         output, loss = self._training_iter(
             model,
             likelihood,
+            data_batch_shape,
             mll_cls=self.mll_cls,
             cuda=self.cuda,
         )
@@ -173,6 +176,7 @@ class TestVNNGP(BaseTestCase, unittest.TestCase):
         self.assertEqual(loss.shape, expected_batch_shape)
 
     def test_training_iteration_batch_inducing(self):
+        # We need different batch sizes than the superclass
         return self.test_training_iteration(
             model_batch_shape=(torch.Size([3]) + self.batch_shape),
             inducing_batch_shape=(torch.Size([3]) + self.batch_shape),
@@ -180,6 +184,7 @@ class TestVNNGP(BaseTestCase, unittest.TestCase):
         )
 
     def test_training_iteration_batch_data(self):
+        # We need different batch sizes than the superclass
         return self.test_training_iteration(
             model_batch_shape=self.batch_shape,
             inducing_batch_shape=self.batch_shape,
@@ -187,6 +192,7 @@ class TestVNNGP(BaseTestCase, unittest.TestCase):
         )
 
     def test_training_iteration_batch_model(self):
+        # We need different batch sizes than the superclass
         return self.test_training_iteration(
             model_batch_shape=(torch.Size([3]) + self.batch_shape),
             inducing_batch_shape=self.batch_shape,
@@ -194,6 +200,7 @@ class TestVNNGP(BaseTestCase, unittest.TestCase):
         )
 
     def test_training_all_batch_zero_mean(self):
+        # We need different batch sizes than the superclass
         return self.test_training_iteration(
             model_batch_shape=(torch.Size([3, 4]) + self.batch_shape),
             inducing_batch_shape=(torch.Size([3, 1]) + self.batch_shape),
@@ -229,6 +236,7 @@ class TestVNNGP(BaseTestCase, unittest.TestCase):
         self.assertEqual(output.event_shape, self.event_shape)
 
     def test_eval_smaller_pred_batch(self):
+        # We need different batch sizes than the superclass
         return self.test_eval_iteration(
             model_batch_shape=(torch.Size([3, 4]) + self.batch_shape),
             inducing_batch_shape=(torch.Size([3, 1]) + self.batch_shape),
@@ -236,11 +244,16 @@ class TestVNNGP(BaseTestCase, unittest.TestCase):
         )
 
     def test_eval_larger_pred_batch(self):
+        # We need different batch sizes than the superclass
         return self.test_eval_iteration(
             model_batch_shape=(torch.Size([4]) + self.batch_shape),
             inducing_batch_shape=(self.batch_shape),
             expected_batch_shape=(torch.Size([4]) + self.batch_shape),
         )
+
+    def test_fantasy_call(self, *args, **kwargs):
+        with self.assertRaises(AttributeError):
+            super().test_fantasy_call(*args, **kwargs)
 
 
 if __name__ == "__main__":
