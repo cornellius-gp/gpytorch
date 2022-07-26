@@ -61,7 +61,7 @@ setup(
         "dev": ["black", "twine", "pre-commit"],
         "docs": ["ipython", "ipykernel", "sphinx<3.0.0", "sphinx_rtd_theme", "nbsphinx", "m2r"],
         "examples": ["ipython", "jupyter", "matplotlib", "scipy", "torchvision", "tqdm"],
-        "pyro": ["pyro-ppl==1.8"],
+        "pyro": ["pyro-ppl>=1.8"],
         "keops": ["pykeops>=1.1.1"],
         "test": ["flake8==4.0.1", "flake8-print==4.0.0", "pytest", "nbval"],
     },

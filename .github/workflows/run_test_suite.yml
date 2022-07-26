@@ -52,7 +52,7 @@ jobs:
           pip install torch==1.10+cpu -f https://download.pytorch.org/whl/torch_stable.html;
         fi
         if [[ ${{ matrix.pyro }} == "with-pyro" ]]; then
-          pip install "pyro-ppl<=1.8";
+          pip install "pyro-ppl>=1.8";
         fi
         pip install -r requirements.txt
     - name: Run unit tests
@@ -72,7 +72,7 @@ jobs:
         pip install pytest nbval jupyter tqdm matplotlib torchvision scipy
         pip install -r requirements.txt
         python setup.py build develop
-        pip install "pyro-ppl<=1.8";
+        pip install "pyro-ppl>=1.8";
     - name: Run example notebooks
       run: |
         grep -l smoke_test examples/**/*.ipynb | xargs grep -L 'smoke_test = False' | CI=true xargs pytest --nbval-lax --current-env
