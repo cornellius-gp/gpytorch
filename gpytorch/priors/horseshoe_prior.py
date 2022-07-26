@@ -21,7 +21,7 @@ class HorseshoePrior(Prior):
 
     with `K = 1 / sqrt(2 pi^3)`. Here, we simply use
 
-        pdf(x) ~ (lb(x) + ub(x)) / 2
+        pdf(x) \sim (lb(x) + ub(x)) / 2
 
     Reference: C. M. Carvalho, N. G. Polson, and J. G. Scott.
         The horseshoe estimator for sparse signals. Biometrika, 2010.
