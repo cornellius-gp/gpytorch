@@ -2,18 +2,19 @@
 
 import unittest
 
-import gpytorch
 import torch
 from gpytorch.constraints.constraints import GreaterThan
+from gpytorch.distributions.multivariate_normal import MultivariateNormal
 from gpytorch.kernels.matern_kernel import MaternKernel
 from gpytorch.kernels.scale_kernel import ScaleKernel
 from gpytorch.likelihoods.gaussian_likelihood import GaussianLikelihood
 from gpytorch.means.constant_mean import ConstantMean
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
+from gpytorch.models.exact_gp import ExactGP
 from gpytorch.priors.torch_priors import GammaPrior
 
 
-class ExactGPModel(gpytorch.models.ExactGP):
+class ExactGPModel(ExactGP):
     def __init__(self, train_x, train_y):
         batch_shape = train_x.shape[:-2]
         noise_prior = GammaPrior(1.1, 0.05)
@@ -28,7 +29,7 @@ class ExactGPModel(gpytorch.models.ExactGP):
             ),
         )
         super().__init__(train_x, train_y, likelihood)
-        self.mean_module = gpytorch.means.ConstantMean(batch_shape=batch_shape)
+        self.mean_module = ConstantMean(batch_shape=batch_shape)
         self.covar_module = ScaleKernel(
             MaternKernel(
                 nu=2.5,
@@ -43,7 +44,7 @@ class ExactGPModel(gpytorch.models.ExactGP):
     def forward(self, x):
         mean_x = self.mean_module(x)
         covar_x = self.covar_module(x)
-        return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
+        return MultivariateNormal(mean_x, covar_x)
 
 
 class TestExactMarginalLogLikelihood(unittest.TestCase):
