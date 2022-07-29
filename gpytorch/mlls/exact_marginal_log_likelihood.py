@@ -42,9 +42,7 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
         res_ndim = res.ndim
         for name, module, prior, closure, _ in self.named_priors():
             prior_term = prior.log_prob(closure(module))
-            while prior_term.ndim > res_ndim:
-                prior_term = prior_term.sum(dim=-1)
-            res.add_(prior_term)
+            res.add_(prior_term.view(*prior_term.shape[:res_ndim], -1).sum(dim=-1))
 
         return res
 
