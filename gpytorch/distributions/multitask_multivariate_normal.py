@@ -208,7 +208,7 @@ class MultitaskMultivariateNormal(MultivariateNormal):
             # flip shape of last two dimensions
             new_shape = value.shape[:-2] + value.shape[:-3:-1]
             value = value.view(new_shape).transpose(-1, -2).contiguous()
-        return super().log_prob(value.view(*value.shape[:-2], -1))
+        return super().log_prob(value.reshape(*value.shape[:-2], -1))
 
     @property
     def mean(self):

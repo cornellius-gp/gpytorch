@@ -16,7 +16,7 @@ class LKJCholeskyFactorPrior(Prior, LKJCholesky):
     .. math:
 
         \begin{equation*}
-            pdf(\Sigma) ~ |\Sigma| ^ (\eta  - 1)
+            pdf(\Sigma) \sim |\Sigma| ^ (\eta  - 1)
         \end{equation*}
 
     where :math:`\eta > 0` is a shape parameter and n is the dimension of the
@@ -44,7 +44,7 @@ class LKJPrior(LKJCholeskyFactorPrior):
     .. math:
 
         \begin{equation*}
-            pdf(\Sigma) ~ |\Sigma| ^ (\eta  - 1)
+            pdf(\Sigma) \sim |\Sigma| ^ (\eta  - 1)
         \end{equation*}
 
     where :math:`\eta > 0` is a shape parameter.
