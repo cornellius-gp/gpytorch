@@ -3,14 +3,14 @@
 import unittest
 
 import torch
+
 from gpytorch.constraints.constraints import GreaterThan
 from gpytorch.distributions.multivariate_normal import MultivariateNormal
 from gpytorch.kernels.matern_kernel import MaternKernel
 from gpytorch.kernels.scale_kernel import ScaleKernel
 from gpytorch.likelihoods.gaussian_likelihood import GaussianLikelihood
 from gpytorch.means.constant_mean import ConstantMean
-from gpytorch.mlls.exact_marginal_log_likelihood import \
-    ExactMarginalLogLikelihood
+from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.models.exact_gp import ExactGP
 from gpytorch.priors.torch_priors import GammaPrior
 
