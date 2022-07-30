@@ -15,6 +15,11 @@ class TestZeroLazyTensor(unittest.TestCase):
         res = lv.evaluate()
         self.assertLess(torch.norm(res - actual), 1e-4)
 
+    def test_representation(self):
+        lv = ZeroLazyTensor(5, 4, 3)
+        representation = lv.representation()
+        self.assertIsInstance(representation, torch.Tensor)
+
     def test_getitem(self):
         lv = ZeroLazyTensor(5, 4, 3)
 

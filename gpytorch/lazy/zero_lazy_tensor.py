@@ -14,7 +14,14 @@ class ZeroLazyTensor(LazyTensor):
     """
 
     def __init__(self, *sizes, dtype=None, device=None):
-        super(ZeroLazyTensor, self).__init__(*sizes)
+        if len(sizes) == 1 and (
+                torch.is_tensor(sizes[0])
+                or isinstance(sizes[0], torch.Size)
+        ):
+            sizes = sizes[0]
+        else:
+            sizes = torch.tensor(sizes)
+        super(ZeroLazyTensor, self).__init__(sizes)
         self.sizes = list(sizes)
 
         self._dtype = dtype or torch.get_default_dtype()
