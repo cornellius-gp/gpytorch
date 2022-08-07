@@ -1651,7 +1651,8 @@ class LazyTensor(ABC):
                     arg.requires_grad_(val)
         for arg in self._kwargs.values():
             if hasattr(arg, "requires_grad"):
-                arg.requires_grad_(val)
+                if arg.dtype in (torch.float, torch.double, torch.half):
+                    arg.requires_grad_(val)
 
     @requires_grad.setter
     def requires_grad(self, val):
