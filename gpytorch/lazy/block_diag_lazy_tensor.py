@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from abc import ABCMeta
 from typing import Optional, Tuple
 
 import torch
@@ -9,8 +10,26 @@ from ..utils.memoize import cached
 from .block_lazy_tensor import BlockLazyTensor
 from .lazy_tensor import LazyTensor
 
+# metaclass of BlockDiagLazyTensor, overwrites behavior of constructor call
+# BlockDiagLazyTensor(base_lazy_tensor, block_dim=-3) to return a DiagLazyTensor
+# if base_lazy_tensor is a DiagLazyTensor itself
+class _MetaBlockDiagLazyTensor(ABCMeta):
+    def __call__(cls, base_lazy_tensor, block_dim=-3):
+        from .diag_lazy_tensor import DiagLazyTensor
+        if cls is BlockDiagLazyTensor and isinstance(base_lazy_tensor, DiagLazyTensor):
+            if not block_dim == -3:
+                raise NotImplementedError(
+                    f"Passing a base_lazy_tensor of type DiagLazyTensor to the constructor"
+                    "of BlockDiagLazyTensor with block_dim = {block_dim} != -3 is not supported."
+                    )
+            else:
+                diag = base_lazy_tensor.diag().flatten(-2, -1) # flatten last two dimensions of diag
+                return DiagLazyTensor(diag)
+        else:
+            return type.__call__(cls, base_lazy_tensor, block_dim)
 
-class BlockDiagLazyTensor(BlockLazyTensor):
+
+class BlockDiagLazyTensor(BlockLazyTensor, metaclass = _MetaBlockDiagLazyTensor):
     """
     Represents a lazy tensor that is the block diagonal of square matrices.
     The block_dim attribute specifies which dimension of the base LazyTensor
@@ -117,15 +136,18 @@ class BlockDiagLazyTensor(BlockLazyTensor):
 
     def matmul(self, other):
         from .diag_lazy_tensor import DiagLazyTensor
-
         # this is trivial if we multiply two BlockDiagLazyTensors
         if isinstance(other, BlockDiagLazyTensor):
             return BlockDiagLazyTensor(self.base_lazy_tensor @ other.base_lazy_tensor)
         # special case if we have a DiagLazyTensor
-        if isinstance(other, DiagLazyTensor):
+        # NOTE: this works only if base array isn't itself a DiagLazyTensor,
+        # which is why we prohibit such a construction and instead return a
+        # DiagLazyTensor in this case via _MetaBlockDiagLazyTensor
+        elif isinstance(other, DiagLazyTensor):
             diag_reshape = other._diag.view(*self.base_lazy_tensor.shape[:-2], 1, -1)
             return BlockDiagLazyTensor(self.base_lazy_tensor * diag_reshape)
-        return super().matmul(other)
+        else:
+            return super().matmul(other)
 
     @cached(name="svd")
     def _svd(self) -> Tuple["LazyTensor", Tensor, "LazyTensor"]:

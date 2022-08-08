@@ -4,7 +4,7 @@ import unittest
 
 import torch
 
-from gpytorch.lazy import BlockDiagLazyTensor, NonLazyTensor
+from gpytorch.lazy import BlockDiagLazyTensor, DiagLazyTensor, NonLazyTensor, delazify
 from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
 
 
@@ -67,6 +67,31 @@ class TestBlockDiagLazyTensorMultiBatch(LazyTensorTestCase, unittest.TestCase):
                     actual[i, k, j * 4 : (j + 1) * 4, j * 4 : (j + 1) * 4] = blocks[i, k, j]
         return actual
 
+class TestBlockDiagLazyTensorMetaClass(unittest.TestCase):
+    def test_metaclass_constructor(self):
+        k, n = 3, 5 # number of blocks, block size
+        base_tensor = torch.randn(k, n)
+        base_diag = DiagLazyTensor(base_tensor)
+        lazy_tensor = BlockDiagLazyTensor(base_diag)
+
+        # checks that metaclass constructor returns a diagonal tensor
+        # if a DiagLazyTensor is passed to BlockDiagLazyTensor
+        self.assertEqual(type(lazy_tensor), DiagLazyTensor)
+
+        # matrix-vector-multiplication test
+        x = torch.randn(k*n)
+        self.assertTrue(torch.equal(base_tensor.flatten() * x, lazy_tensor @ x))
+
+        # checks that the representation is numerically accurate
+        dense_tensor = delazify(lazy_tensor)
+        truth_tensor = torch.diag(base_tensor.flatten())
+        self.assertTrue(torch.equal(dense_tensor, truth_tensor))
+
+        with self.assertRaises(NotImplementedError):
+            # beside the dimensions not working out here, this should never
+            # be allowed as long as there is no special case for it, because
+            # matmuls with the resulting object will fail
+            BlockDiagLazyTensor(base_diag, block_dim=-2)
 
 if __name__ == "__main__":
     unittest.main()
