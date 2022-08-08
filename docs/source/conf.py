@@ -85,7 +85,7 @@ extensions = [
     "sphinx.ext.githubpages",
     "sphinx.ext.autodoc",
     "nbsphinx",
-    "m2r",
+    "m2r2",
 ]
 
 # Disable docstring inheritance
@@ -107,7 +107,7 @@ master_doc = "index"
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = "en"
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -208,11 +208,3 @@ texinfo_documents = [
         "Miscellaneous",
     )
 ]
-
-
-# Taken from https://github.com/pyro-ppl/pyro/blob/dev/docs/source/conf.py#L213
-# @jpchen's hack to get rtd builder to install latest pytorch
-# See similar line in the install section of .travis.yml
-if "READTHEDOCS" in os.environ:
-    os.system("pip install torch==1.10.0+cpu -f https://download.pytorch.org/whl/torch_stable.html")
-    os.system("pip install pyro-ppl")
