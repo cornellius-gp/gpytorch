@@ -55,4 +55,4 @@ def __getattr__(name: str) -> Any:
             DeprecationWarning,
         )
         return getattr(linear_operator.functions, name)
-    raise AttributeError(f"module gpytorch.functions has no attribute {name}")
+    raise AttributeError(f"module gpytorch.functions has no attribute {name}.")

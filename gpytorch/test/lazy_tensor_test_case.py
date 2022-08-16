@@ -10,7 +10,7 @@ import linear_operator
 import torch
 
 import gpytorch
-from gpytorch.lazy.diag_lazy_tensor import DiagLazyTensor
+from gpytorch.lazy import DiagLazyTensor
 from gpytorch.lazy.lazy_tensor import delazify
 from gpytorch.settings import linalg_dtypes
 from gpytorch.utils.errors import CachingError

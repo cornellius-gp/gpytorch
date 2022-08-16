@@ -17,9 +17,7 @@ requirements:
 
   run:
     - pytorch>=1.11
-    - numpy
     - scikit-learn
-    - scipy
     - linear_operator>=0.1.0
 
 test:

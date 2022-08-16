@@ -1,5 +1,3 @@
 linear_operator>=0.1.0
-numpy
 scikit-learn
-scipy
 torch>=1.11
