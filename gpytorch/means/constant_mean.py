@@ -104,12 +104,8 @@ class ConstantMean(Mean):
         if hasattr(m, "raw_constant_constraint"):
             m.initialize(raw_constant=m.raw_constant_constraint.inverse_transform(value))
         else:
-<<<<<<< HEAD
             m.initialize(raw_constant=value)
 
     def forward(self, input):
         constant = self.constant.unsqueeze(-1)  # *batch_shape x 1
         return constant.expand(torch.broadcast_shapes(constant.shape, input.shape[:-1]))
-=======
-            return self.constant.expand(torch.broadcast_shapes(input.shape[:-1], self.constant.shape))
->>>>>>> [WIP] remove unused utilities
