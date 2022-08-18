@@ -7,7 +7,7 @@ on:
   push:
     branches: [ master ]
   pull_request:
-    branches: [ master ]
+    branches: [ master, linear_operator ]
   workflow_call:
 
 jobs:
