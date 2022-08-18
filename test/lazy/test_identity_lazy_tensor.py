@@ -4,8 +4,7 @@ import unittest
 
 import torch
 
-from gpytorch.lazy.identity_lazy_tensor import IdentityLazyTensor
-from gpytorch.lazy.lazy_tensor import delazify
+from gpytorch.lazy import IdentityLazyTensor, delazify
 from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
 
 
