@@ -28,7 +28,7 @@ version = find_version("gpytorch", "__init__.py")
 torch_min = "1.11"
 install_requires = [
     "scikit-learn",
-    "linear_operator>=0.1.0",
+    "linear_operator>=0.1.1",
 ]
 # if recent dev version of PyTorch is installed, no need to install stable
 try:
