@@ -4,6 +4,8 @@ from typing import Optional, Tuple, Union
 
 import linear_operator
 import torch
+from linear_operator import LinearOperator
+from torch import Tensor
 
 from . import (
     beta_features,
@@ -26,10 +28,10 @@ from .lazy import cat, delazify, lazify
 from .mlls import ExactMarginalLogLikelihood
 from .module import Module
 
-Anysor = Union[linear_operator.LinearOperator, torch.Tensor]
+Anysor = Union[LinearOperator, Tensor]
 
 
-def add_diagonal(input: Anysor, diag: torch.Tensor) -> linear_operator.LinearOperator:
+def add_diagonal(input: Anysor, diag: Tensor) -> LinearOperator:
     r"""
     Adds an element to the diagonal of the matrix :math:`\mathbf A`.
 
@@ -56,7 +58,7 @@ def add_jitter(input: Anysor, jitter_val: float = 1e-3) -> Anysor:
     return linear_operator.add_jitter(input=input, jitter_val=jitter_val)
 
 
-def diagonalization(input: Anysor, method: Optional[str] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+def diagonalization(input: Anysor, method: Optional[str] = None) -> Tuple[Tensor, Tensor]:
     r"""
     Returns a (usually partial) diagonalization of a symmetric positive definite matrix (or batch of matrices).
     :math:`\mathbf A`.
@@ -73,8 +75,8 @@ def diagonalization(input: Anysor, method: Optional[str] = None) -> Tuple[torch.
 
 def dsmm(
     sparse_mat: Union[torch.sparse.HalfTensor, torch.sparse.FloatTensor, torch.sparse.DoubleTensor],
-    dense_mat: torch.Tensor,
-) -> torch.Tensor:
+    dense_mat: Tensor,
+) -> Tensor:
     r"""
     Performs the (batch) matrix multiplication :math:`\mathbf{SD}`
     where :math:`\mathbf S` is a sparse matrix and :math:`\mathbf D` is a dense matrix.
@@ -86,7 +88,7 @@ def dsmm(
     return linear_operator.dsmm(sparse_mat=sparse_mat, dense_mat=dense_mat)
 
 
-def inv_quad(input: Anysor, inv_quad_rhs: torch.Tensor, reduce_inv_quad: bool = True) -> torch.Tensor:
+def inv_quad(input: Anysor, inv_quad_rhs: Tensor, reduce_inv_quad: bool = True) -> Tensor:
     r"""
     Computes an inverse quadratic form (w.r.t self) with several right hand sides, i.e:
 
@@ -114,8 +116,8 @@ def inv_quad(input: Anysor, inv_quad_rhs: torch.Tensor, reduce_inv_quad: bool = 
 
 
 def inv_quad_logdet(
-    input: Anysor, inv_quad_rhs: Optional[torch.Tensor] = None, logdet: bool = False, reduce_inv_quad: bool = True
-) -> Tuple[torch.Tensor, torch.Tensor]:
+    input: Anysor, inv_quad_rhs: Optional[Tensor] = None, logdet: bool = False, reduce_inv_quad: bool = True
+) -> Tuple[Tensor, Tensor]:
     r"""
     Calls both :func:`inv_quad_logdet` and :func:`logdet` on a positive definite matrix (or batch) :math:`\mathbf A`.
     However, calling this method is far more efficient and stable than calling each method independently.
@@ -137,7 +139,7 @@ def inv_quad_logdet(
 
 def pivoted_cholesky(
     input: Anysor, rank: int, error_tol: Optional[float] = None, return_pivots: bool = False
-) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+) -> Union[Tensor, Tuple[Tensor, Tensor]]:
     r"""
     Performs a partial pivoted Cholesky factorization of a positive definite matrix (or batch of matrices).
     :math:`\mathbf L \mathbf L^\top = \mathbf A`.
@@ -162,7 +164,7 @@ def pivoted_cholesky(
     return linear_operator.pivoted_cholesky(input=input, rank=rank, return_pivots=return_pivots)
 
 
-def root_decomposition(input: Anysor, method: Optional[str] = None) -> linear_operator.LinearOperator:
+def root_decomposition(input: Anysor, method: Optional[str] = None) -> LinearOperator:
     r"""
     Returns a (usually low-rank) root decomposition linear operator of the
     positive definite matrix (or batch of matrices) :math:`\mathbf A`.
@@ -179,10 +181,10 @@ def root_decomposition(input: Anysor, method: Optional[str] = None) -> linear_op
 
 def root_inv_decomposition(
     input: Anysor,
-    initial_vectors: Optional[torch.Tensor] = None,
-    test_vectors: Optional[torch.Tensor] = None,
+    initial_vectors: Optional[Tensor] = None,
+    test_vectors: Optional[Tensor] = None,
     method: Optional[str] = None,
-) -> linear_operator.LinearOperator:
+) -> LinearOperator:
     r"""
     Returns a (usually low-rank) inverse root decomposition linear operator
     of the PSD LinearOperator :math:`\mathbf A`.
@@ -203,7 +205,7 @@ def root_inv_decomposition(
     )
 
 
-def solve(input: Anysor, rhs: torch.Tensor, lhs: Optional[torch.Tensor] = None) -> torch.Tensor:
+def solve(input: Anysor, rhs: Tensor, lhs: Optional[Tensor] = None) -> Tensor:
     r"""
     Given a positive definite matrix (or batch of matrices) :math:`\mathbf A`,
     computes a linear solve with right hand side :math:`\mathbf R`:
@@ -235,7 +237,7 @@ def solve(input: Anysor, rhs: torch.Tensor, lhs: Optional[torch.Tensor] = None) 
     return linear_operator.solve(input=input, rhs=rhs, lhs=lhs)
 
 
-def sqrt_inv_matmul(input: Anysor, rhs: torch.Tensor, lhs: Optional[torch.Tensor] = None) -> torch.Tensor:
+def sqrt_inv_matmul(input: Anysor, rhs: Tensor, lhs: Optional[Tensor] = None) -> Tensor:
     r"""
     Given a positive definite matrix (or batch of matrices) :math:`\mathbf A`
     and a right hand size :math:`\mathbf R`,
