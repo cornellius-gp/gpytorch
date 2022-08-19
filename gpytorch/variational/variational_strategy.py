@@ -152,7 +152,7 @@ class VariationalStrategy(_VariationalStrategy):
         except NotPSDError:
             from linear_operator.operators import DiagLinearOperator
 
-            evals, evecs = inducing_covar.symeig(eigenvectors=True)
+            evals, evecs = torch.linalg.eigh(inducing_covar)
             pseudo_target_covar = (
                 evecs.matmul(DiagLinearOperator(evals + 1e-4)).matmul(evecs.transpose(-1, -2)).to_dense()
             )
