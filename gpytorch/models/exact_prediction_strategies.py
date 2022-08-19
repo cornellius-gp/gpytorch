@@ -730,9 +730,9 @@ class SGPRPredictionStrategy(DefaultPredictionStrategy):
         chol_factor = to_linear_operator(root.transpose(-1, -2) @ (inv_diag @ root)).add_diagonal(
             ones
         )  # (I + \sigma^{-2} R^T R)^{-1}
-        woodbury_term = inv_diag @ torch.triangular_solve(
-            root.transpose(-1, -2), chol_factor.cholesky().to_dense(), upper=False
-        )[0].transpose(-1, -2)
+        woodbury_term = inv_diag @ torch.linalg.solve_triangular(
+            chol_factor.cholesky().to_dense(), root.transpose(-1, -2), upper=False
+        ).transpose(-1, -2)
         # woodbury_term @ woodbury_term^T = \sigma^{-2} R (I + \sigma^{-2} R^T R)^{-1} R^T \sigma^{-2}
 
         inverse = AddedDiagLinearOperator(

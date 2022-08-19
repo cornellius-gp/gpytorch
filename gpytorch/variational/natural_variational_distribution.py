@@ -73,7 +73,7 @@ class NaturalVariationalDistribution(_NaturalVariationalDistribution):
 
 def _triangular_inverse(A, upper=False):
     eye = torch.eye(A.size(-1), dtype=A.dtype, device=A.device)
-    return eye.triangular_solve(A, upper=upper).solution
+    return torch.linalg.solve_triangular(A, eye, upper=upper)
 
 
 def _phi_for_cholesky_(A):
