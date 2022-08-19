@@ -37,7 +37,7 @@ def make_data(cuda=False):
 class GPRegressionModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood):
         super(GPRegressionModel, self).__init__(train_x, train_y, likelihood)
-        self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1e-5, 1e-5))
+        self.mean_module = ConstantMean(constant_prior=SmoothedBoxPrior(-1e-5, 1e-5))
         self.covar_module = ScaleKernel(RFFKernel(num_samples=10))
 
     def forward(self, x):

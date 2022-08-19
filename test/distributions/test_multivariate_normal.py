@@ -62,8 +62,8 @@ class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
             )
             self.assertTrue(torch.is_tensor(mvn.covariance_matrix))
             self.assertIsInstance(mvn.lazy_covariance_matrix, LinearOperator)
-            self.assertAllClose(mvn.variance, covmat.diag().repeat(2, 1))
-            self.assertAllClose(mvn.scale_tril, torch.diag(covmat.diag().sqrt()).repeat(2, 1, 1))
+            self.assertAllClose(mvn.variance, covmat.diagonal(dim1=-1, dim2=-2).repeat(2, 1))
+            self.assertAllClose(mvn.scale_tril, torch.diag(covmat.diagonal(dim1=-1, dim2=-2).sqrt()).repeat(2, 1, 1))
             mvn_plus1 = mvn + 1
             self.assertAllClose(mvn_plus1.mean, mvn.mean + 1)
             self.assertAllClose(mvn_plus1.covariance_matrix, mvn.covariance_matrix)
@@ -313,7 +313,7 @@ class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
 
         # check that the proper event shape of base samples is okay for
         # a non root lt
-        nonlazy_square_a = to_linear_operator(lazy_square_a.evaluate())
+        nonlazy_square_a = to_linear_operator(lazy_square_a.to_dense())
         dist = MultivariateNormal(torch.zeros(5), nonlazy_square_a)
 
         samples = dist.rsample(torch.Size((16,)), base_samples=torch.randn(16, 5))

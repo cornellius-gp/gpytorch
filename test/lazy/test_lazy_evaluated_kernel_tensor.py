@@ -84,10 +84,10 @@ class TestLazyEvaluatedKernelTensorBatch(LinearOperatorTestCase, unittest.TestCa
             with gpytorch.settings.max_cholesky_size(math.inf if cholesky else 0), gpytorch.settings.cg_tolerance(1e-4):
                 # Perform the inv_matmul
                 if lhs is not None:
-                    res = lazy_tensor.inv_matmul(rhs, lhs)
+                    res = lazy_tensor.solve(rhs, lhs)
                     actual = lhs_copy @ evaluated.inverse() @ rhs_copy
                 else:
-                    res = lazy_tensor.inv_matmul(rhs)
+                    res = lazy_tensor.solve(rhs)
                     actual = evaluated.inverse().matmul(rhs_copy)
                 self.assertAllClose(res, actual, rtol=0.02, atol=1e-5)
 
@@ -121,7 +121,7 @@ class TestLazyEvaluatedKernelTensorBatch(LinearOperatorTestCase, unittest.TestCa
         test_vector = torch.randn(2, 5, 6)
         test_vector_copy = test_vector.clone()
         with gpytorch.beta_features.checkpoint_kernel(2):
-            res = lazy_tensor.inv_matmul(test_vector)
+            res = lazy_tensor.solve(test_vector)
             actual = evaluated.inverse().matmul(test_vector_copy)
             self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 3e-1)
 

@@ -46,7 +46,7 @@ class TestMultiTaskMultivariateNormal(BaseTestCase, unittest.TestCase):
             variance = torch.tensor([[1, 2], [3, 4], [5, 6]], dtype=dtype, device=device)
 
             # interleaved
-            covmat = variance.view(-1).diag()
+            covmat = variance.view(-1).diag_embed()
             mtmvn = MultitaskMultivariateNormal(mean=mean, covariance_matrix=covmat)
             self.assertTrue(torch.equal(mtmvn.mean, mean))
             self.assertTrue(torch.allclose(mtmvn.variance, variance))
@@ -77,7 +77,7 @@ class TestMultiTaskMultivariateNormal(BaseTestCase, unittest.TestCase):
             self.assertTrue(mtmvn.sample(torch.Size([3, 4])).shape == torch.Size([3, 4, 3, 2]))
 
             # non-interleaved
-            covmat = variance.transpose(-1, -2).reshape(-1).diag()
+            covmat = variance.transpose(-1, -2).reshape(-1).diag_embed()
             mtmvn = MultitaskMultivariateNormal(mean=mean, covariance_matrix=covmat, interleaved=False)
             self.assertTrue(torch.equal(mtmvn.mean, mean))
             self.assertTrue(torch.allclose(mtmvn.variance, variance))
@@ -146,7 +146,7 @@ class TestMultiTaskMultivariateNormal(BaseTestCase, unittest.TestCase):
         for dtype in (torch.float, torch.double):
             mean = torch.tensor([[0, 1], [2, 3], [4, 5]], dtype=dtype, device=device)
             variance = torch.tensor([[1, 2], [3, 4], [5, 6]], dtype=dtype, device=device)
-            covmat = variance.view(-1).diag()
+            covmat = variance.view(-1).diag_embed()
             mtmvn = MultitaskMultivariateNormal(mean=mean, covariance_matrix=covmat)
             base_samples = mtmvn.get_base_samples(torch.Size([3, 4]))
             self.assertTrue(mtmvn.sample(base_samples=base_samples).shape == torch.Size([3, 4, 3, 2]))

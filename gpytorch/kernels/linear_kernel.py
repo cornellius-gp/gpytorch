@@ -105,6 +105,6 @@ class LinearKernel(Kernel):
             prod = MatmulLinearOperator(x1_, x2_.transpose(-2, -1))
 
         if diag:
-            return prod.diag()
+            return prod.diagonal(dim1=-1, dim2=-2)
         else:
             return prod

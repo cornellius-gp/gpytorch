@@ -51,7 +51,7 @@ class MultitaskKernel(Kernel):
             covar_i = covar_i.repeat(*x1.shape[:-2], 1, 1)
         covar_x = to_linear_operator(self.data_covar_module.forward(x1, x2, **params))
         res = KroneckerProductLinearOperator(covar_x, covar_i)
-        return res.diag() if diag else res
+        return res.diagonal(dim1=-1, dim2=-2) if diag else res
 
     def num_outputs_per_input(self, x1, x2):
         """

@@ -131,6 +131,6 @@ class SpectralDeltaKernel(Kernel):
             prod = MatmulLinearOperator(x1z1, x2z2.transpose(-2, -1))
 
         if diag:
-            return prod.diag()
+            return prod.diagonal(dim1=-1, dim2=-2)
         else:
             return prod

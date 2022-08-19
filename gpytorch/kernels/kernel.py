@@ -125,7 +125,7 @@ class Kernel(Module):
         >>> covar_module = gpytorch.kernels.LinearKernel()
         >>> x1 = torch.randn(50, 3)
         >>> lazy_covar_matrix = covar_module(x1) # Returns a RootLinearOperator
-        >>> tensor_covar_matrix = lazy_covar_matrix.evaluate() # Gets the actual tensor for this kernel matrix
+        >>> tensor_covar_matrix = lazy_covar_matrix.to_dense() # Gets the actual tensor for this kernel matrix
     """
 
     has_lengthscale = False
@@ -397,7 +397,7 @@ class Kernel(Module):
             # If it does not return a LazyEvaluatedKernelTensor, we can call diag on the output
             if not isinstance(res, LazyEvaluatedKernelTensor):
                 if res.dim() == x1_.dim() and res.shape[-2:] == torch.Size((x1_.size(-2), x2_.size(-2))):
-                    res = res.diag()
+                    res = res.diagonal(dim1=-1, dim2=-2)
             return res
 
         else:

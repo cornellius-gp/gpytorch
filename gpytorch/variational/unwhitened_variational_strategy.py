@@ -88,28 +88,28 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
         # D_a = (S^{-1} - K^{-1})^{-1} = S + S R^{-1} S
         # note that in the whitened case R = I - S, unwhitened R = K - S
         # we compute (R R^{T})^{-1} R^T S for stability reasons as R is probably not PSD.
-        eval_lhs = var_cov.evaluate()
+        eval_lhs = var_cov.to_dense()
         eval_rhs = cov_diff.transpose(-1, -2).matmul(eval_lhs)
         inner_term = cov_diff.matmul(cov_diff.transpose(-1, -2))
         # TODO: flag the jitter here
-        inner_solve = inner_term.add_jitter(1e-3).inv_matmul(eval_rhs, eval_lhs.transpose(-1, -2))
+        inner_solve = inner_term.add_jitter(1e-3).solve(eval_rhs, eval_lhs.transpose(-1, -2))
         inducing_covar = var_cov + inner_solve
 
         # mean term: D_a S^{-1} m
         # unwhitened: (S - S R^{-1} S) S^{-1} m = (I - S R^{-1}) m
         rhs = cov_diff.transpose(-1, -2).matmul(var_mean)
-        inner_rhs_mean_solve = inner_term.add_jitter(1e-3).inv_matmul(rhs)
+        inner_rhs_mean_solve = inner_term.add_jitter(1e-3).solve(rhs)
         pseudo_target_mean = var_mean + var_cov.matmul(inner_rhs_mean_solve)
 
         # ensure inducing covar is psd
         try:
-            pseudo_target_covar = CholLinearOperator(inducing_covar.add_jitter(1e-3).cholesky()).evaluate()
+            pseudo_target_covar = CholLinearOperator(inducing_covar.add_jitter(1e-3).cholesky()).to_dense()
         except NotPSDError:
             from linear_operator.operators import DiagLinearOperator
 
             evals, evecs = inducing_covar.symeig(eigenvectors=True)
             pseudo_target_covar = (
-                evecs.matmul(DiagLinearOperator(evals + 1e-4)).matmul(evecs.transpose(-1, -2)).evaluate()
+                evecs.matmul(DiagLinearOperator(evals + 1e-4)).matmul(evecs.transpose(-1, -2)).to_dense()
             )
 
         return pseudo_target_covar, pseudo_target_mean
@@ -135,7 +135,7 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
 
         # Covariance terms
         induc_induc_covar = full_covar[..., :num_induc, :num_induc].add_jitter()
-        induc_data_covar = full_covar[..., :num_induc, num_induc:].evaluate()
+        induc_data_covar = full_covar[..., :num_induc, num_induc:].to_dense()
         data_data_covar = full_covar[..., num_induc:, num_induc:]
 
         # Compute Cholesky factorization of inducing covariance matrix
@@ -144,7 +144,7 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
 
         # If we are making predictions and don't need variances, we can do things very quickly.
         if not self.training and settings.skip_posterior_variances.on():
-            self._mean_cache = induc_induc_covar.inv_matmul(mean_diff).detach()
+            self._mean_cache = induc_induc_covar.solve(mean_diff).detach()
             predictive_mean = torch.add(
                 test_mean, induc_data_covar.transpose(-2, -1).matmul(self._mean_cache).squeeze(-1)
             )
@@ -154,7 +154,7 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
         # Expand everything to the right size
         shapes = [mean_diff.shape[:-1], induc_data_covar.shape[:-1], induc_induc_covar.shape[:-1]]
         if variational_inducing_covar is not None:
-            root_variational_covar = variational_inducing_covar.root_decomposition().root.evaluate()
+            root_variational_covar = variational_inducing_covar.root_decomposition().root.to_dense()
             shapes.append(root_variational_covar.shape[:-1])
         shape = torch.broadcast_shapes(*shapes)
         mean_diff = mean_diff.expand(*shape, mean_diff.size(-1))
@@ -173,7 +173,7 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
             left_tensors = mean_diff
         else:
             left_tensors = torch.cat([mean_diff, root_variational_covar], -1)
-        inv_products = induc_induc_covar.inv_matmul(induc_data_covar, left_tensors.transpose(-1, -2))
+        inv_products = induc_induc_covar.solve(induc_data_covar, left_tensors.transpose(-1, -2))
         predictive_mean = torch.add(test_mean, inv_products[..., 0, :])
 
         # Compute covariance
@@ -181,10 +181,12 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
             interp_data_data_var, _ = induc_induc_covar.inv_quad_logdet(
                 induc_data_covar, logdet=False, reduce_inv_quad=False
             )
-            data_covariance = DiagLinearOperator((data_data_covar.diag() - interp_data_data_var).clamp(0, math.inf))
+            data_covariance = DiagLinearOperator(
+                (data_data_covar.diagonal(dim1=-1, dim2=-2) - interp_data_data_var).clamp(0, math.inf)
+            )
         else:
             neg_induc_data_data_covar = torch.matmul(
-                induc_data_covar.transpose(-1, -2).mul(-1), induc_induc_covar.inv_matmul(induc_data_covar)
+                induc_data_covar.transpose(-1, -2).mul(-1), induc_induc_covar.solve(induc_data_covar)
             )
             data_covariance = data_data_covar + neg_induc_data_data_covar
         predictive_covar = PsdSumLinearOperator(

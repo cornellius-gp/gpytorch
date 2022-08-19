@@ -38,7 +38,7 @@ class TestRBFKernelGrad(unittest.TestCase, BaseKernelTestCase):
             actual = actual.cuda()
             kernel = kernel.cuda()
 
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
 
         self.assertLess(torch.norm(res - actual), 1e-5)
 
@@ -51,12 +51,12 @@ class TestRBFKernelGrad(unittest.TestCase, BaseKernelTestCase):
         b = torch.tensor([[[1, 3, 1]], [[2, -1, 0]]], dtype=torch.float).repeat(1, 2, 1)
 
         kernel = RBFKernelGrad()
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
 
         # Compute each batch separately
         actual = torch.zeros(2, 8, 8)
-        actual[0, :, :] = kernel(a[0, :, :].squeeze(), b[0, :, :].squeeze()).evaluate()
-        actual[1, :, :] = kernel(a[1, :, :].squeeze(), b[1, :, :].squeeze()).evaluate()
+        actual[0, :, :] = kernel(a[0, :, :].squeeze(), b[0, :, :].squeeze()).to_dense()
+        actual[1, :, :] = kernel(a[1, :, :].squeeze(), b[1, :, :].squeeze()).to_dense()
 
         self.assertLess(torch.norm(res - actual), 1e-5)
 

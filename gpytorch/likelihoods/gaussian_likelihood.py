@@ -38,7 +38,7 @@ class _GaussianLikelihoodBase(Likelihood):
         mean, variance = input.mean, input.variance
         num_event_dim = len(input.event_shape)
 
-        noise = self._shaped_noise_covar(mean.shape, *params, **kwargs).diag()
+        noise = self._shaped_noise_covar(mean.shape, *params, **kwargs).diagonal(dim1=-1, dim2=-2)
         # Potentially reshape the noise to deal with the multitask case
         noise = noise.view(*noise.shape[:-1], *input.event_shape)
 
@@ -49,7 +49,7 @@ class _GaussianLikelihoodBase(Likelihood):
         return res
 
     def forward(self, function_samples: Tensor, *params: Any, **kwargs: Any) -> base_distributions.Normal:
-        noise = self._shaped_noise_covar(function_samples.shape, *params, **kwargs).diag()
+        noise = self._shaped_noise_covar(function_samples.shape, *params, **kwargs).diagonal(dim1=-1, dim2=-2)
         return base_distributions.Normal(function_samples, noise.sqrt())
 
     def log_marginal(

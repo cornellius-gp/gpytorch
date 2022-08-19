@@ -108,7 +108,7 @@ class LazyEvaluatedKernelTensor(LinearOperator):
                 )
 
         if isinstance(res, LinearOperator):
-            res = res.evaluate()
+            res = res.to_dense()
         return res.view(self.shape[:-1]).contiguous()
 
     def _expand_batch(self, batch_shape):
@@ -380,7 +380,7 @@ class LazyEvaluatedKernelTensor(LinearOperator):
 
     @cached
     def to_dense(self):
-        return self.evaluate_kernel().evaluate()
+        return self.evaluate_kernel().to_dense()
 
     def __getitem__(self, index):
         """

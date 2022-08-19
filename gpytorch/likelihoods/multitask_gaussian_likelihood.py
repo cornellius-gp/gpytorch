@@ -145,7 +145,7 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
         return covar_kron_lt
 
     def forward(self, function_samples: Tensor, *params: Any, **kwargs: Any) -> base_distributions.Normal:
-        noise = self._shaped_noise_covar(function_samples.shape, *params, **kwargs).diag()
+        noise = self._shaped_noise_covar(function_samples.shape, *params, **kwargs).diagonal(dim1=-1, dim2=-2)
         noise = noise.reshape(*noise.shape[:-1], *function_samples.shape[-2:])
         return base_distributions.Independent(base_distributions.Normal(function_samples, noise.sqrt()), 1)
 

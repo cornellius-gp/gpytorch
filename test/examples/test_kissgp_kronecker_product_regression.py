@@ -42,7 +42,7 @@ test_y = test_y + torch.randn_like(test_y).mul_(0.01)
 class GPRegressionModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood):
         super(GPRegressionModel, self).__init__(train_x, train_y, likelihood)
-        self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1, 1))
+        self.mean_module = ConstantMean(constant_prior=SmoothedBoxPrior(-1, 1))
         self.base_covar_module = RBFKernel(ard_num_dims=2)
         self.covar_module = GridInterpolationKernel(self.base_covar_module, grid_size=16, num_dims=2)
 

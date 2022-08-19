@@ -109,7 +109,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
     @lazy_property
     def covariance_matrix(self):
         if self.islazy:
-            return self._covar.evaluate()
+            return self._covar.to_dense()
         else:
             return super().covariance_matrix
 
@@ -246,7 +246,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
     def variance(self):
         if self.islazy:
             # overwrite this since torch MVN uses unbroadcasted_scale_tril for this
-            diag = self.lazy_covariance_matrix.diag()
+            diag = self.lazy_covariance_matrix.diagonal(dim1=-1, dim2=-2)
             diag = diag.view(diag.shape[:-1] + self._event_shape)
             variance = diag.expand(self._batch_shape + self._event_shape)
         else:
@@ -306,7 +306,9 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             # In this case we know last_idx corresponds to the last dimension
             # of mean and the last two dimensions of lazy_covariance_matrix
             if isinstance(last_idx, int):
-                new_cov = DiagLinearOperator(self.lazy_covariance_matrix.diag()[(*rest_idx, last_idx)])
+                new_cov = DiagLinearOperator(
+                    self.lazy_covariance_matrix.diagonal(dim1=-1, dim2=-2)[(*rest_idx, last_idx)]
+                )
             elif isinstance(last_idx, slice):
                 new_cov = self.lazy_covariance_matrix[(*rest_idx, last_idx, last_idx)]
             elif last_idx is (...):
@@ -329,13 +331,13 @@ def kl_mvn_mvn(p_dist, q_dist):
 
     p_mean = p_dist.loc
     p_covar = p_dist.lazy_covariance_matrix
-    root_p_covar = p_covar.root_decomposition().root.evaluate()
+    root_p_covar = p_covar.root_decomposition().root.to_dense()
 
     mean_diffs = p_mean - q_mean
     if isinstance(root_p_covar, LinearOperator):
         # right now this just catches if root_p_covar is a DiagLinearOperator,
         # but we may want to be smarter about this in the future
-        root_p_covar = root_p_covar.evaluate()
+        root_p_covar = root_p_covar.to_dense()
     inv_quad_rhs = torch.cat([mean_diffs.unsqueeze(-1), root_p_covar], -1)
     logdet_p_covar = p_covar.logdet()
     trace_plus_inv_quad_form, logdet_q_covar = q_covar.inv_quad_logdet(inv_quad_rhs=inv_quad_rhs, logdet=True)

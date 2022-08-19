@@ -144,7 +144,7 @@ def _is_valid_correlation_matrix(Sigma, tol=1e-6):
     evals = torch.linalg.eigvalsh(Sigma)
     if not torch.all(evals >= -tol):
         return False
-    return all(torch.all(torch.abs(S.diag() - 1) < tol) for S in Sigma.view(-1, *Sigma.shape[-2:]))
+    return all(torch.all(torch.abs(S.diagonal(dim1=-1, dim2=-2) - 1) < tol) for S in Sigma.view(-1, *Sigma.shape[-2:]))
 
 
 def _is_valid_correlation_matrix_cholesky_factor(L, tol=1e-6):

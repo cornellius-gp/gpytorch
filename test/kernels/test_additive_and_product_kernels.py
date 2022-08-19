@@ -54,7 +54,7 @@ class TestAdditiveAndProductKernel(unittest.TestCase):
         actual = actual.mul_(-0.5).div_(lengthscale**2).exp() ** 2
 
         kernel.eval()
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 2e-5)
 
     def test_computes_product_of_radial_basis_function_batch(self):
@@ -71,7 +71,7 @@ class TestAdditiveAndProductKernel(unittest.TestCase):
         actual = actual.repeat(4, 1, 1)
 
         kernel.eval()
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 2e-5)
 
     def test_computes_sum_of_radial_basis_function(self):
@@ -87,7 +87,7 @@ class TestAdditiveAndProductKernel(unittest.TestCase):
         actual = actual.mul_(-0.5).div_(lengthscale**2).exp() * 2
 
         kernel.eval()
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 2e-5)
 
     def test_computes_sum_of_radial_basis_function_diag(self):
@@ -176,7 +176,7 @@ class TestAdditiveAndProductKernel(unittest.TestCase):
         actual = actual.mul_(-0.5).div_(lengthscale**2).exp() ** 3
 
         kernel.eval()
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 2e-5)
 
         kernel_1 = RBFKernel().initialize(lengthscale=lengthscale)
@@ -188,7 +188,7 @@ class TestAdditiveAndProductKernel(unittest.TestCase):
             self.assertIsInstance(sub_kernel, RBFKernel)
 
         kernel.eval()
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 2e-5)
 
     def test_computes_product_of_four_radial_basis_function(self):
@@ -209,7 +209,7 @@ class TestAdditiveAndProductKernel(unittest.TestCase):
         actual = actual.mul_(-0.5).div_(lengthscale**2).exp() ** 4
 
         kernel.eval()
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 2e-5)
 
     def test_computes_sum_of_four_radial_basis_function(self):
@@ -231,7 +231,7 @@ class TestAdditiveAndProductKernel(unittest.TestCase):
         )
 
         kernel.eval()
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 2e-5)
 
     def test_computes_sum_of_three_radial_basis_function(self):
@@ -252,7 +252,7 @@ class TestAdditiveAndProductKernel(unittest.TestCase):
         )
 
         kernel.eval()
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 2e-5)
 
         kernel_1 = RBFKernel().initialize(lengthscale=lengthscale)
@@ -264,7 +264,7 @@ class TestAdditiveAndProductKernel(unittest.TestCase):
             self.assertIsInstance(sub_kernel, RBFKernel)
 
         kernel.eval()
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 2e-5)
 
     def test_computes_sum_radial_basis_function_gradient(self):
@@ -285,7 +285,7 @@ class TestAdditiveAndProductKernel(unittest.TestCase):
         kernel = kernel_1 + kernel_2
         kernel.eval()
 
-        output = kernel(a, b).evaluate()
+        output = kernel(a, b).to_dense()
         output.backward(gradient=torch.eye(3))
         res = kernel.kernels[0].raw_lengthscale.grad + kernel.kernels[1].raw_lengthscale.grad
         self.assertLess(torch.norm(res - actual_param_grad), 2e-5)
@@ -309,7 +309,7 @@ class TestAdditiveAndProductKernel(unittest.TestCase):
         kernel = kernel_1 + kernel_2 + kernel_3
         kernel.eval()
 
-        output = kernel(a, b).evaluate()
+        output = kernel(a, b).to_dense()
         output.backward(gradient=torch.eye(3))
         res = (
             kernel.kernels[0].raw_lengthscale.grad

@@ -18,13 +18,13 @@ class TestGridInterpolationKernel(unittest.TestCase):
         self.assertIsInstance(interp_covar, InterpolatedLinearOperator)
 
         xs = torch.randn(5, 2).clamp(-1, 1)
-        grid_eval = kernel(xs, xs).evaluate()
-        actual_eval = base_kernel(xs, xs).evaluate()
+        grid_eval = kernel(xs, xs).to_dense()
+        actual_eval = base_kernel(xs, xs).to_dense()
         self.assertLess(torch.norm(grid_eval - actual_eval), 2e-5)
 
         xs = torch.randn(3, 5, 2).clamp(-1, 1)
-        grid_eval = kernel(xs, xs).evaluate()
-        actual_eval = base_kernel(xs, xs).evaluate()
+        grid_eval = kernel(xs, xs).to_dense()
+        actual_eval = base_kernel(xs, xs).to_dense()
         self.assertLess(torch.norm(grid_eval - actual_eval), 2e-5)
 
     def test_batch_base_kernel(self):
@@ -32,18 +32,18 @@ class TestGridInterpolationKernel(unittest.TestCase):
         kernel = GridInterpolationKernel(base_kernel, num_dims=2, grid_size=128, grid_bounds=[(-1.2, 1.2)] * 2)
 
         xs = torch.randn(5, 2).clamp(-1, 1)
-        grid_eval = kernel(xs, xs).evaluate()
-        actual_eval = base_kernel(xs, xs).evaluate()
+        grid_eval = kernel(xs, xs).to_dense()
+        actual_eval = base_kernel(xs, xs).to_dense()
         self.assertLess(torch.norm(grid_eval - actual_eval), 2e-5)
 
         xs = torch.randn(3, 5, 2).clamp(-1, 1)
-        grid_eval = kernel(xs, xs).evaluate()
-        actual_eval = base_kernel(xs, xs).evaluate()
+        grid_eval = kernel(xs, xs).to_dense()
+        actual_eval = base_kernel(xs, xs).to_dense()
         self.assertLess(torch.norm(grid_eval - actual_eval), 2e-5)
 
         xs = torch.randn(4, 3, 5, 2).clamp(-1, 1)
-        grid_eval = kernel(xs, xs).evaluate()
-        actual_eval = base_kernel(xs, xs).evaluate()
+        grid_eval = kernel(xs, xs).to_dense()
+        actual_eval = base_kernel(xs, xs).to_dense()
         self.assertLess(torch.norm(grid_eval - actual_eval), 2e-5)
 
 

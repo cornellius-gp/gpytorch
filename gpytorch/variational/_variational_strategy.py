@@ -171,7 +171,7 @@ class _VariationalStrategy(Module, ABC):
             # do the mean cache because the mean cache doesn't solve against lik_train_train_covar
             train_mean = inducing_exact_model.mean_module(*inducing_exact_model.train_inputs)
             train_labels_offset = (inducing_exact_model.prediction_strategy.train_labels - train_mean).unsqueeze(-1)
-            mean_cache = updated_lik_train_train_covar.inv_matmul(train_labels_offset).squeeze(-1)
+            mean_cache = updated_lik_train_train_covar.solve(train_labels_offset).squeeze(-1)
             mean_cache = _add_cache_hook(mean_cache, inducing_exact_model.prediction_strategy)
             add_to_cache(pred_strat, "mean_cache", mean_cache)
             # TODO: check to see if we need to do the covar_cache?

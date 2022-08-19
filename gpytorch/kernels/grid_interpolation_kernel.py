@@ -205,7 +205,7 @@ class GridInterpolationKernel(GridKernel):
         )
 
         if diag:
-            return res.diag()
+            return res.diagonal(dim1=-1, dim2=-2)
         else:
             return res
 

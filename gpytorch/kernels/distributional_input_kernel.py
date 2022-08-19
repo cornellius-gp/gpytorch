@@ -45,4 +45,4 @@ class DistributionalInputKernel(Kernel):
             if torch.is_tensor(res):
                 return res.diagonal(dim1=-1, dim2=-2)
             else:
-                return res.diag()  # For LinearOperator
+                return res.diagonal(dim1=-1, dim2=-2)  # For LinearOperator

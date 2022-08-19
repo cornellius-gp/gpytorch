@@ -194,8 +194,8 @@ class DefaultPredictionStrategy(object):
 
         # now update the root and root inverse
         new_lt = self.lik_train_train_covar.cat_rows(fant_train_covar, fant_fant_covar)
-        new_root = new_lt.root_decomposition().root.evaluate()
-        new_covar_cache = new_lt.root_inv_decomposition().root.evaluate()
+        new_root = new_lt.root_decomposition().root.to_dense()
+        new_covar_cache = new_lt.root_inv_decomposition().root.to_dense()
 
         # Expand inputs accordingly if necessary (for fantasies at the same points)
         if full_inputs[0].dim() <= full_targets.dim():
@@ -235,7 +235,7 @@ class DefaultPredictionStrategy(object):
         train_mean, train_train_covar = mvn.loc, mvn.lazy_covariance_matrix
 
         train_labels_offset = (self.train_labels - train_mean).unsqueeze(-1)
-        mean_cache = train_train_covar.evaluate_kernel().inv_matmul(train_labels_offset).squeeze(-1)
+        mean_cache = train_train_covar.evaluate_kernel().solve(train_labels_offset).squeeze(-1)
 
         if settings.detach_test_caches.on():
             mean_cache = mean_cache.detach()
@@ -260,7 +260,7 @@ class DefaultPredictionStrategy(object):
         test_mean = joint_mean[..., self.num_train :]
         # For efficiency - we can make things more efficient
         if joint_covar.size(-1) <= settings.max_eager_kernel_size.value():
-            test_covar = joint_covar[..., self.num_train :, :].evaluate()
+            test_covar = joint_covar[..., self.num_train :, :].to_dense()
             test_test_covar = test_covar[..., self.num_train :]
             test_train_covar = test_covar[..., : self.num_train]
         else:
@@ -317,7 +317,7 @@ class DefaultPredictionStrategy(object):
 
             test_train_covar = to_dense(test_train_covar)
             train_test_covar = test_train_covar.transpose(-1, -2)
-            covar_correction_rhs = train_train_covar.inv_matmul(train_test_covar)
+            covar_correction_rhs = train_train_covar.solve(train_test_covar)
             # For efficiency
             if torch.is_tensor(test_test_covar):
                 # We can use addmm in the 2d case
@@ -398,9 +398,9 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         fant_noise = fant_likelihood.noise_covar(fant_wmat.transpose(-1, -2) if len(fant_wmat.shape) > 2 else fant_wmat)
         fant_root_vector = fant_noise.sqrt_inv_matmul(fant_wmat.transpose(-1, -2)).transpose(-1, -2)
 
-        new_wmat = self.interp_inner_prod.add_low_rank(fant_root_vector.evaluate())
+        new_wmat = self.interp_inner_prod.add_low_rank(fant_root_vector.to_dense())
         mean_diff = (targets - fant_mean).unsqueeze(-1)
-        new_interp_response_cache = self.interp_response_cache + fant_wmat.matmul(fant_noise.inv_matmul(mean_diff))
+        new_interp_response_cache = self.interp_response_cache + fant_wmat.matmul(fant_noise.solve(mean_diff))
 
         # Create new DefaultPredictionStrategy object
         fant_strat = self.__class__(
@@ -427,7 +427,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         # the W'W cache
         wmat = self.prepare_dense_wmat()
         noise_term = self.likelihood.noise_covar(wmat.transpose(-1, -2) if len(wmat.shape) > 2 else wmat)
-        interp_inner_prod = wmat.matmul(noise_term.inv_matmul(wmat.transpose(-1, -2)))
+        interp_inner_prod = wmat.matmul(noise_term.solve(wmat.transpose(-1, -2)))
         return interp_inner_prod
 
     @property
@@ -436,7 +436,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         wmat = self.prepare_dense_wmat()
         noise_term = self.likelihood.noise_covar(wmat.transpose(-1, -2) if len(wmat.shape) > 2 else wmat)
         demeaned_train_targets = self.train_labels - self.train_prior_dist.mean
-        dinv_y = noise_term.inv_matmul(demeaned_train_targets.unsqueeze(-1))
+        dinv_y = noise_term.solve(demeaned_train_targets.unsqueeze(-1))
         return wmat.matmul(dinv_y)
 
     @property
@@ -450,7 +450,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         train_mean, train_train_covar_with_noise = mvn.mean, mvn.lazy_covariance_matrix
 
         mean_diff = (self.train_labels - train_mean).unsqueeze(-1)
-        train_train_covar_inv_labels = train_train_covar_with_noise.inv_matmul(mean_diff)
+        train_train_covar_inv_labels = train_train_covar_with_noise.solve(mean_diff)
 
         # New root factor
         base_size = train_train_covar.base_lazy_tensor.size(-1)
@@ -485,7 +485,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         # L' m
         root_space_projection = interp_inner_prod_root.transpose(-1, -2).matmul(inducing_covar_response)
         # Q^{-1} (L' m)
-        qmat_solve = current_qmatrix.inv_matmul(root_space_projection)
+        qmat_solve = current_qmatrix.solve(root_space_projection)
 
         mean_cache = inducing_covar_response - inducing_compression_matrix @ qmat_solve
 
@@ -511,10 +511,10 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
             qmat_inv_root = current_qmatrix.root_inv_decomposition()
             # to to_linear_operator you have to evaluate the inverse root which is slow
             # otherwise, you can't backprop your way through it
-            inner_cache = RootLinearOperator(inducing_compression_matrix.matmul(qmat_inv_root.root.evaluate()))
+            inner_cache = RootLinearOperator(inducing_compression_matrix.matmul(qmat_inv_root.root.to_dense()))
         else:
             inner_cache = inducing_compression_matrix.matmul(
-                current_qmatrix.inv_matmul(inducing_compression_matrix.transpose(-1, -2))
+                current_qmatrix.solve(inducing_compression_matrix.transpose(-1, -2))
             )
 
         # Precomputed factor
@@ -563,14 +563,14 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
             train_interp_values.expand(*batch_shape, *train_interp_values.shape[-2:]),
             probe_interp_indices.expand(*batch_shape, *probe_interp_indices.shape[-2:]),
             probe_interp_values.expand(*batch_shape, *probe_interp_values.shape[-2:]),
-        ).evaluate()
+        ).to_dense()
         test_vectors = InterpolatedLinearOperator(
             train_train_covar.base_lazy_tensor,
             train_interp_indices.expand(*batch_shape, *train_interp_indices.shape[-2:]),
             train_interp_values.expand(*batch_shape, *train_interp_values.shape[-2:]),
             probe_test_interp_indices.expand(*batch_shape, *probe_test_interp_indices.shape[-2:]),
             probe_interp_values.expand(*batch_shape, *probe_interp_values.shape[-2:]),
-        ).evaluate()
+        ).to_dense()
 
         # Put data through the likelihood
         dist = self.train_prior_dist.__class__(
@@ -582,7 +582,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         train_train_covar_inv_root = train_train_covar_plus_noise.root_inv_decomposition(
             initial_vectors=probe_vectors, test_vectors=test_vectors
         ).root
-        train_train_covar_inv_root = train_train_covar_inv_root.evaluate()
+        train_train_covar_inv_root = train_train_covar_inv_root.to_dense()
 
         # New root factor
         root = self._exact_predictive_covar_inv_quad_form_cache(train_train_covar_inv_root, self._last_test_train_covar)
@@ -590,7 +590,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         # Precomputed factor
         if settings.fast_pred_samples.on():
             inside = train_train_covar.base_lazy_tensor + RootLinearOperator(root).mul(-1)
-            inside_root = inside.root_decomposition().root.evaluate()
+            inside_root = inside.root_decomposition().root.to_dense()
             # Prevent backprop through this variable
             if settings.detach_test_caches.on():
                 inside_root = inside_root.detach()
@@ -633,10 +633,10 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
             precomputed_cache = self.fantasy_covar_cache
             fps = settings.fast_pred_samples.on()
             if fps:
-                root = left_interp(test_interp_indices, test_interp_values, precomputed_cache[0].evaluate())
+                root = left_interp(test_interp_indices, test_interp_values, precomputed_cache[0].to_dense())
                 res = RootLinearOperator(root)
             else:
-                root = left_interp(test_interp_indices, test_interp_values, precomputed_cache[1].evaluate())
+                root = left_interp(test_interp_indices, test_interp_values, precomputed_cache[1].to_dense())
                 res = test_test_covar + RootLinearOperator(root).mul(-1)
             return res
         else:
@@ -676,11 +676,11 @@ class RFFPredictionStrategy(DefaultPredictionStrategy):
         else:
             constant = torch.tensor(1.0, dtype=lt.dtype, device=lt.device)
 
-        train_factor = lt.root.evaluate()
+        train_factor = lt.root.to_dense()
         train_train_covar = self.lik_train_train_covar
         inner_term = (
             torch.eye(train_factor.size(-1), dtype=train_factor.dtype, device=train_factor.device)
-            - (train_factor.transpose(-1, -2) @ train_train_covar.inv_matmul(train_factor)) * constant
+            - (train_factor.transpose(-1, -2) @ train_train_covar.solve(train_factor)) * constant
         )
         return psd_safe_cholesky(inner_term)
 
@@ -706,7 +706,7 @@ class RFFPredictionStrategy(DefaultPredictionStrategy):
             constant = torch.tensor(1.0, dtype=test_test_covar.dtype, device=test_test_covar.device)
 
         covar_cache = self.covar_cache
-        factor = test_test_covar.root.evaluate() * constant.sqrt()
+        factor = test_test_covar.root.to_dense() * constant.sqrt()
         res = RootLinearOperator(factor @ covar_cache)
         return res
 
@@ -722,16 +722,16 @@ class SGPRPredictionStrategy(DefaultPredictionStrategy):
         train_train_covar = self.lik_train_train_covar.evaluate_kernel()
 
         # Get terms needed for woodbury
-        root = train_train_covar._lazy_tensor.root_decomposition().root.evaluate()  # R
+        root = train_train_covar._lazy_tensor.root_decomposition().root.to_dense()  # R
         inv_diag = train_train_covar._diag_tensor.inverse()  # \sigma^{-2}
 
         # Form LT using woodbury
         ones = torch.tensor(1.0, dtype=root.dtype, device=root.device)
-        chol_factor = to_linear_operator(root.transpose(-1, -2) @ (inv_diag @ root)).add_diag(
+        chol_factor = to_linear_operator(root.transpose(-1, -2) @ (inv_diag @ root)).add_diagonal(
             ones
         )  # (I + \sigma^{-2} R^T R)^{-1}
         woodbury_term = inv_diag @ torch.triangular_solve(
-            root.transpose(-1, -2), chol_factor.cholesky().evaluate(), upper=False
+            root.transpose(-1, -2), chol_factor.cholesky().to_dense(), upper=False
         )[0].transpose(-1, -2)
         # woodbury_term @ woodbury_term^T = \sigma^{-2} R (I + \sigma^{-2} R^T R)^{-1} R^T \sigma^{-2}
 
@@ -780,10 +780,10 @@ class SGPRPredictionStrategy(DefaultPredictionStrategy):
         # Decompose test_train_covar = l, r
         # Main case: test_x and train_x are different - test_train_covar is a MatmulLinearOperator
         if isinstance(test_train_covar, MatmulLinearOperator):
-            L = test_train_covar.left_lazy_tensor.evaluate()
+            L = test_train_covar.left_lazy_tensor.to_dense()
         # Edge case: test_x and train_x are the same - test_train_covar is a LowRankRootAddedDiagLinearOperator
         elif isinstance(test_train_covar, LowRankRootAddedDiagLinearOperator):
-            L = test_train_covar._lazy_tensor.root.evaluate()
+            L = test_train_covar._lazy_tensor.root.to_dense()
         else:
             # We should not hit this point of the code - this is to catch potential bugs in GPyTorch
             raise ValueError(

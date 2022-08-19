@@ -27,12 +27,12 @@ class TestSpectralMixtureKernel(unittest.TestCase):
         kernel.initialize_from_data(x, y)
         kernel.initialize_from_data_empspect(x, y)
 
-        covar_mat = kernel(x).evaluate_kernel().evaluate()
+        covar_mat = kernel(x).evaluate_kernel().to_dense()
         kernel_basic = self.create_kernel(num_dims=4)
         kernel_basic.raw_mixture_weights.data = kernel.raw_mixture_weights
         kernel_basic.raw_mixture_means.data = kernel.raw_mixture_means
         kernel_basic.raw_mixture_scales.data = kernel.raw_mixture_scales
-        covar_mat_actual = kernel_basic(x[:, [0, 2, 4, 6]]).evaluate_kernel().evaluate()
+        covar_mat_actual = kernel_basic(x[:, [0, 2, 4, 6]]).evaluate_kernel().to_dense()
 
         self.assertLess(torch.norm(covar_mat - covar_mat_actual) / covar_mat_actual.norm(), 1e-4)
 
@@ -44,12 +44,12 @@ class TestSpectralMixtureKernel(unittest.TestCase):
         kernel.initialize_from_data(x, y)
         kernel.initialize_from_data_empspect(x, y)
 
-        covar_mat = kernel(x).evaluate_kernel().evaluate()
+        covar_mat = kernel(x).evaluate_kernel().to_dense()
         kernel_basic = self.create_kernel(num_dims=6)
         kernel_basic.raw_mixture_weights.data = kernel.raw_mixture_weights
         kernel_basic.raw_mixture_means.data = kernel.raw_mixture_means
         kernel_basic.raw_mixture_scales.data = kernel.raw_mixture_scales
-        covar_mat_actual = kernel_basic(x[:, active_dims]).evaluate_kernel().evaluate()
+        covar_mat_actual = kernel_basic(x[:, active_dims]).evaluate_kernel().to_dense()
 
         self.assertLess(torch.norm(covar_mat - covar_mat_actual) / covar_mat_actual.norm(), 1e-4)
 
@@ -59,10 +59,10 @@ class TestSpectralMixtureKernel(unittest.TestCase):
         y = torch.randn_like(x[..., 0])
         kernel.initialize_from_data(x, y)
         kernel.initialize_from_data_empspect(x, y)
-        batch_covar_mat = kernel(x).evaluate_kernel().evaluate()
+        batch_covar_mat = kernel(x).evaluate_kernel().to_dense()
 
-        actual_mat_1 = kernel(x[0]).evaluate_kernel().evaluate()
-        actual_mat_2 = kernel(x[1]).evaluate_kernel().evaluate()
+        actual_mat_1 = kernel(x[0]).evaluate_kernel().to_dense()
+        actual_mat_2 = kernel(x[1]).evaluate_kernel().to_dense()
         actual_covar_mat = torch.cat([actual_mat_1.unsqueeze(0), actual_mat_2.unsqueeze(0)])
 
         self.assertLess(torch.norm(batch_covar_mat - actual_covar_mat) / actual_covar_mat.norm(), 1e-4)
@@ -78,10 +78,10 @@ class TestSpectralMixtureKernel(unittest.TestCase):
         y = torch.randn_like(x[..., 0])
         kernel.initialize_from_data(x, y)
         kernel.initialize_from_data_empspect(x, y)
-        batch_covar_mat = kernel(x).evaluate_kernel().evaluate()
+        batch_covar_mat = kernel(x).evaluate_kernel().to_dense()
 
-        actual_mat_1 = kernel(x[0]).evaluate_kernel().evaluate()
-        actual_mat_2 = kernel(x[1]).evaluate_kernel().evaluate()
+        actual_mat_1 = kernel(x[0]).evaluate_kernel().to_dense()
+        actual_mat_2 = kernel(x[1]).evaluate_kernel().to_dense()
         actual_covar_mat = torch.cat([actual_mat_1.unsqueeze(0), actual_mat_2.unsqueeze(0)])
 
         self.assertLess(torch.norm(batch_covar_mat - actual_covar_mat) / actual_covar_mat.norm(), 1e-4)
@@ -98,7 +98,7 @@ class TestSpectralMixtureKernel(unittest.TestCase):
         kernel.initialize_from_data(x, y)
         kernel.initialize_from_data_empspect(x, y)
 
-        batch_covar_mat = kernel(x).evaluate_kernel().evaluate()
+        batch_covar_mat = kernel(x).evaluate_kernel().to_dense()
         kernel_diag = kernel(x, diag=True)
         return batch_covar_mat, kernel_diag
 
@@ -106,10 +106,10 @@ class TestSpectralMixtureKernel(unittest.TestCase):
         x = self.create_data_single_batch()
         kernel = self.create_kernel(num_dims=x.size(-1), batch_shape=torch.Size([2]))
 
-        res1 = kernel(x).evaluate()[0]  # Result of first kernel on first batch of data
+        res1 = kernel(x).to_dense()[0]  # Result of first kernel on first batch of data
 
         new_kernel = kernel[0]
-        res2 = new_kernel(x[0]).evaluate()  # Should also be result of first kernel on first batch of data.
+        res2 = new_kernel(x[0]).to_dense()  # Should also be result of first kernel on first batch of data.
 
         self.assertLess(torch.norm(res1 - res2) / res1.norm(), 1e-4)
 
@@ -122,10 +122,10 @@ class TestSpectralMixtureKernel(unittest.TestCase):
         x = self.create_data_double_batch()
         kernel = self.create_kernel(num_dims=x.size(-1), batch_shape=torch.Size([3, 2]))
 
-        res1 = kernel(x).evaluate()[0, 1]  # Result of first kernel on first batch of data
+        res1 = kernel(x).to_dense()[0, 1]  # Result of first kernel on first batch of data
 
         new_kernel = kernel[0, 1]
-        res2 = new_kernel(x[0, 1]).evaluate()  # Should also be result of first kernel on first batch of data.
+        res2 = new_kernel(x[0, 1]).to_dense()  # Should also be result of first kernel on first batch of data.
 
         self.assertLess(torch.norm(res1 - res2) / res1.norm(), 1e-4)
 

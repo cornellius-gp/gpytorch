@@ -203,7 +203,7 @@ class CiqVariationalStrategy(_VariationalStrategy):
         num_induc = inducing_points.size(-2)
         test_mean = full_output.mean[..., num_induc:]
         induc_induc_covar = full_covar[..., :num_induc, :num_induc].evaluate_kernel().add_jitter(1e-2)
-        induc_data_covar = full_covar[..., :num_induc, num_induc:].evaluate()
+        induc_data_covar = full_covar[..., :num_induc, num_induc:].to_dense()
         data_data_covar = full_covar[..., num_induc:, num_induc:].add_jitter(1e-4)
 
         # Compute interpolation terms
@@ -222,7 +222,7 @@ class CiqVariationalStrategy(_VariationalStrategy):
             )
 
             # Compute the covariance of q(f)
-            predictive_var = data_data_covar.diag() - interp_term.pow(2).sum(dim=-2) + interp_var
+            predictive_var = data_data_covar.diagonal(dim1=-1, dim2=-2) - interp_term.pow(2).sum(dim=-2) + interp_var
             predictive_var = torch.clamp_min(predictive_var, settings.min_variance.value(predictive_var.dtype))
             predictive_covar = DiagLinearOperator(predictive_var)
 

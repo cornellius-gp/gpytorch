@@ -84,7 +84,7 @@ class RFFKernel(Kernel):
         >>> # This will infer `num_dims` automatically
         >>> kernel= gpytorch.kernels.RFFKernel(num_samples=5)
         >>> x = torch.randn(10, 3)
-        >>> kxx = kernel(x, x).evaluate()
+        >>> kxx = kernel(x, x).to_dense()
         >>> print(kxx.randn_weights.size())
         torch.Size([3, 5])
 

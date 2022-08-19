@@ -90,7 +90,7 @@ class RBFKernelGrad(RBFKernel):
                 torch.eye(d, d, device=x1.device, dtype=x1.dtype).repeat(*batch_shape, 1, 1) / self.lengthscale.pow(2),
                 torch.ones(n1, n2, device=x1.device, dtype=x1.dtype).repeat(*batch_shape, 1, 1),
             )
-            chain_rule = kp.evaluate() - outer3
+            chain_rule = kp.to_dense() - outer3
             K[..., n1:, n2:] = chain_rule * K_11.repeat([*([1] * n_batch_dims), d, d])
 
             # Symmetrize for stability

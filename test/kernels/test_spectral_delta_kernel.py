@@ -28,10 +28,10 @@ class TestSpectralDeltaKernel(unittest.TestCase, BaseKernelTestCase):
         """
         kernel = self.create_kernel_no_ard(num_dims=4, active_dims=[0, 2, 4, 6])
         x = self.create_data_no_batch(num_dims=10)
-        covar_mat = kernel(x).evaluate_kernel().evaluate()
+        covar_mat = kernel(x).evaluate_kernel().to_dense()
         kernel_basic = self.create_kernel_no_ard(num_dims=4)
         kernel_basic.Z = kernel.Z
-        covar_mat_actual = kernel_basic(x[:, [0, 2, 4, 6]]).evaluate_kernel().evaluate()
+        covar_mat_actual = kernel_basic(x[:, [0, 2, 4, 6]]).evaluate_kernel().to_dense()
 
         self.assertLess(torch.norm(covar_mat - covar_mat_actual) / covar_mat_actual.norm(), 1e-4)
 
@@ -42,9 +42,9 @@ class TestSpectralDeltaKernel(unittest.TestCase, BaseKernelTestCase):
         active_dims = list(range(3, 9))
         kernel = self.create_kernel_no_ard(num_dims=len(active_dims), active_dims=active_dims)
         x = self.create_data_no_batch(num_dims=10)
-        covar_mat = kernel(x).evaluate_kernel().evaluate()
+        covar_mat = kernel(x).evaluate_kernel().to_dense()
         kernel_basic = self.create_kernel_no_ard(num_dims=len(active_dims))
         kernel_basic.Z = kernel.Z
-        covar_mat_actual = kernel_basic(x[:, active_dims]).evaluate_kernel().evaluate()
+        covar_mat_actual = kernel_basic(x[:, active_dims]).evaluate_kernel().to_dense()
 
         self.assertLess(torch.norm(covar_mat - covar_mat_actual) / covar_mat_actual.norm(), 1e-4)

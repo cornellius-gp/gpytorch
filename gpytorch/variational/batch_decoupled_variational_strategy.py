@@ -178,7 +178,7 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
         num_induc = inducing_points.size(-2)
         test_mean = full_output.mean[..., num_induc:]
         induc_induc_covar = full_covar[..., :num_induc, :num_induc].add_jitter()
-        induc_data_covar = full_covar[..., :num_induc, num_induc:].evaluate()
+        induc_data_covar = full_covar[..., :num_induc, num_induc:].to_dense()
         data_data_covar = full_covar[..., num_induc:, num_induc:]
 
         # Compute interpolation terms
@@ -193,7 +193,7 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
             except CachingError:
                 pass
             L = self._cholesky_factor(induc_induc_covar)
-        interp_term = L.inv_matmul(induc_data_covar.double()).to(full_inputs.dtype)
+        interp_term = L.solve(induc_data_covar.double()).to(full_inputs.dtype)
         mean_interp_term = interp_term.select(mean_var_batch_dim - 2, 0)
         var_interp_term = interp_term.select(mean_var_batch_dim - 2, 1)
 
@@ -211,7 +211,7 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
         if variational_inducing_covar is not None:
             middle_term = SumLinearOperator(variational_inducing_covar, middle_term)
         predictive_covar = SumLinearOperator(
-            data_data_covar.add_jitter(1e-4).evaluate().select(mean_var_batch_dim - 2, 1),
+            data_data_covar.add_jitter(1e-4).to_dense().select(mean_var_batch_dim - 2, 1),
             MatmulLinearOperator(var_interp_term.transpose(-1, -2), middle_term @ var_interp_term),
         )
 

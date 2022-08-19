@@ -78,7 +78,7 @@ class InducingPointKernel(Kernel):
 
             # Diagonal correction for predictive posterior
             if not self.training and settings.sgpr_diagonal_correction.on():
-                correction = (self.base_kernel(x1, x2, diag=True) - covar.diag()).clamp(0, math.inf)
+                correction = (self.base_kernel(x1, x2, diag=True) - covar.diagonal(dim1=-1, dim2=-2)).clamp(0, math.inf)
                 covar = LowRankRootAddedDiagLinearOperator(covar, DiagLinearOperator(correction))
         else:
             k_ux2 = to_dense(self.base_kernel(x2, self.inducing_points))
@@ -111,7 +111,7 @@ class InducingPointKernel(Kernel):
             self.update_added_loss_term("inducing_point_loss_term", new_added_loss_term)
 
         if diag:
-            return covar.diag()
+            return covar.diagonal(dim1=-1, dim2=-2)
         else:
             return covar
 
