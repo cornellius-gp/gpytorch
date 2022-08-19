@@ -57,6 +57,10 @@ class TestOrthogonallyDecoupledVariationalGP(VariationalTestCase, unittest.TestC
         self.assertFalse(ciq_mock.called)
         self.assertEqual(cholesky_mock.call_count, 1)  # One to compute cache, that's it!
 
+    def test_fantasy_call(self, *args, **kwargs):
+        with self.assertRaises(AttributeError):
+            super().test_fantasy_call(*args, **kwargs)
+
 
 class TestOrthogonallyDecoupledPredictiveGP(TestOrthogonallyDecoupledVariationalGP):
     @property

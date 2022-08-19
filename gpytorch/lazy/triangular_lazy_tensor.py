@@ -15,16 +15,22 @@ from .non_lazy_tensor import NonLazyTensor
 Allsor = Union[Tensor, LazyTensor]
 
 
-class TriangularLazyTensor(LazyTensor):
+class _TriangularLazyTensorBase:
+    """Base class that all triangular lazy tensors are derived from."""
+
+    pass
+
+
+class TriangularLazyTensor(LazyTensor, _TriangularLazyTensorBase):
     def __init__(self, tensor: Allsor, upper: bool = False) -> None:
         """
         Triangular lazy tensor. Supports arbitrary batch sizes.
 
         Args:
-            :attr:`tensor` (Tensor or LazyTensor):
+            tensor (Tensor or LazyTensor):
                 A `b1 x ... x bk x n x n` Tensor, representing a `b1 x ... x bk`-sized batch
                 of `n x n` triangular matrices.
-            :attr:`upper` (bool):
+            upper (bool):
                 If True, the tensor is considered to be upper-triangular, otherwise lower-triangular.
         """
         if isinstance(tensor, TriangularLazyTensor):

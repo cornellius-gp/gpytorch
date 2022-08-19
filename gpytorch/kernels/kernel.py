@@ -97,30 +97,30 @@ class Kernel(Module):
 
     .. note::
 
-        The :attr:`lengthscale` parameter is parameterized on a log scale to constrain it to be positive.
-        You can set a prior on this parameter using the :attr:`lengthscale_prior` argument.
+        The lengthscale parameter is parameterized on a log scale to constrain it to be positive.
+        You can set a prior on this parameter using the lengthscale_prior argument.
 
-    Base Args:
-        :attr:`ard_num_dims` (int, optional):
+    Args:
+        ard_num_dims (int, optional):
             Set this if you want a separate lengthscale for each input
-            dimension. It should be `d` if :attr:`x1` is a `n x d` matrix.  Default: `None`
-        :attr:`batch_shape` (torch.Size, optional):
+            dimension. It should be `d` if x1 is a `n x d` matrix.  Default: `None`
+        batch_shape (torch.Size, optional):
             Set this if you want a separate lengthscale for each batch of input
-            data. It should be `b1 x ... x bk` if :attr:`x1` is a `b1 x ... x bk x n x d` tensor.
-        :attr:`active_dims` (tuple of ints, optional):
+            data. It should be `b1 x ... x bk` if x1 is a `b1 x ... x bk x n x d` tensor.
+        active_dims (tuple of ints, optional):
             Set this if you want to compute the covariance of only a few input dimensions. The ints
             corresponds to the indices of the dimensions. Default: `None`.
-        :attr:`lengthscale_prior` (Prior, optional):
+        lengthscale_prior (Prior, optional):
             Set this if you want to apply a prior to the lengthscale parameter.  Default: `None`
-        :attr:`lengthscale_constraint` (Constraint, optional):
+        lengthscale_constraint (Constraint, optional):
             Set this if you want to apply a constraint to the lengthscale parameter. Default: `Positive`.
-        :attr:`eps` (float):
+        eps (float):
             The minimum value that the lengthscale can take (prevents divide by zero errors). Default: `1e-6`.
 
-    Base Attributes:
-        :attr:`lengthscale` (Tensor):
+    Attributes:
+        lengthscale (Tensor):
             The lengthscale parameter. Size/shape of parameter depends on the
-            :attr:`ard_num_dims` and :attr:`batch_shape` arguments.
+            ard_num_dims and batch_shape arguments.
 
     Example:
         >>> covar_module = gpytorch.kernels.LinearKernel()
@@ -188,13 +188,13 @@ class Kernel(Module):
         This method should be imlemented by all Kernel subclasses.
 
         Args:
-            :attr:`x1` (Tensor `n x d` or `b x n x d`):
+            x1 (Tensor `n x d` or `b x n x d`):
                 First set of data
-            :attr:`x2` (Tensor `m x d` or `b x m x d`):
+            x2 (Tensor `m x d` or `b x m x d`):
                 Second set of data
-            :attr:`diag` (bool):
+            diag (bool):
                 Should the Kernel compute the whole kernel, or just the diag?
-            :attr:`last_dim_is_batch` (tuple, optional):
+            last_dim_is_batch (tuple, optional):
                 If this is true, it treats the last dimension of the data as another batch dimension.
                 (Useful for additive structure over the dimensions). Default: False
 
@@ -284,15 +284,15 @@ class Kernel(Module):
         all pairs of points in x1 and x2.
 
         Args:
-            :attr:`x1` (Tensor `n x d` or `b1 x ... x bk x n x d`):
+            x1 (Tensor `n x d` or `b1 x ... x bk x n x d`):
                 First set of data.
-            :attr:`x2` (Tensor `m x d` or `b1 x ... x bk x m x d`):
+            x2 (Tensor `m x d` or `b1 x ... x bk x m x d`):
                 Second set of data.
-            :attr:`diag` (bool):
+            diag (bool):
                 Should we return the whole distance matrix, or just the diagonal? If True, we must have `x1 == x2`.
-            :attr:`last_dim_is_batch` (tuple, optional):
+            last_dim_is_batch (tuple, optional):
                 Is the last dimension of the data a batch dimension or not?
-            :attr:`square_dist` (bool):
+            square_dist (bool):
                 Should we square the distance matrix before returning?
 
         Returns:

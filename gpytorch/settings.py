@@ -311,7 +311,7 @@ class fast_computations:
     functions used in GP inference.
     The functions that can be controlled are:
 
-    * :attr:`covar_root_decomposition`
+    * covar_root_decomposition
         This feature flag controls how matrix root decompositions
         (:math:`K = L L^\top`) are computed (e.g. for sampling, computing caches, etc.).
 
@@ -323,7 +323,7 @@ class fast_computations:
         * If set to False,
             covariance matrices :math:`K` are decomposed using the Cholesky decomposition.
 
-    * :attr:`log_prob`
+    * log_prob
         This feature flag controls how GPyTorch computes the marginal log likelihood for exact GPs
         and `log_prob` for multivariate normal distributions
 
@@ -336,7 +336,7 @@ class fast_computations:
         * If set to False,
             `log_prob` is computed using the Cholesky decomposition.
 
-    * :attr:`fast_solves`
+    * fast_solves
         This feature flag controls how GPyTorch computes the solves of positive-definite matrices.
 
         * If set to True,
@@ -418,6 +418,21 @@ class max_cg_iterations(_value_context):
     """
 
     _global_value = 1000
+
+
+class min_fixed_noise(_dtype_value_context):
+    """
+    The minimum noise value that can be used in :obj:`~gpytorch.likelihoods.FixedNoiseGaussianLikelihood`.
+    If the supplied noise values are smaller than this, they are rounded up and a warning is raised.
+
+    - Default for `float`: 1e-4
+    - Default for `double`: 1e-6
+    - Default for `half`: 1e-3
+    """
+
+    _global_float_value = 1e-4
+    _global_double_value = 1e-6
+    _global_half_value = 1e-3
 
 
 class min_variance(_dtype_value_context):

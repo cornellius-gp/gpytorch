@@ -60,6 +60,10 @@ class TestMultitaskVariationalGP(VariationalTestCase, unittest.TestCase):
         expected_batch_shape = expected_batch_shape[:-1]
         super().test_eval_iteration(*args, expected_batch_shape=expected_batch_shape, **kwargs)
 
+    def test_fantasy_call(self, *args, **kwargs):
+        with self.assertRaises(AttributeError):
+            super().test_fantasy_call(*args, **kwargs)
+
 
 class TestMultitaskPredictiveGP(TestMultitaskVariationalGP):
     @property

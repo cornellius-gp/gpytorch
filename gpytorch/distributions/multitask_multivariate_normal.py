@@ -119,7 +119,7 @@ class MultitaskMultivariateNormal(MultivariateNormal):
     def from_independent_mvns(cls, mvns):
         """
         Convert an iterable of MVNs into a :obj:`~gpytorch.distributions.MultitaskMultivariateNormal`.
-        The resulting distribution will have :attr:`len(mvns)` tasks, and the tasks will be independent.
+        The resulting distribution will have ``len(mvns)`` tasks, and the tasks will be independent.
 
         :param ~gpytorch.distributions.MultitaskNormal mvn: The base MVN distributions.
         :returns: the independent multitask distribution
@@ -208,7 +208,7 @@ class MultitaskMultivariateNormal(MultivariateNormal):
             # flip shape of last two dimensions
             new_shape = value.shape[:-2] + value.shape[:-3:-1]
             value = value.view(new_shape).transpose(-1, -2).contiguous()
-        return super().log_prob(value.view(*value.shape[:-2], -1))
+        return super().log_prob(value.reshape(*value.shape[:-2], -1))
 
     @property
     def mean(self):
@@ -247,7 +247,7 @@ class MultitaskMultivariateNormal(MultivariateNormal):
         """
         Convert a multitask MVN into a batched (non-multitask) MVNs
         The result retains the intertask covariances, but gets rid of the inter-data covariances.
-        The resulting distribution will have :attr:`len(mvns)` tasks, and the tasks will be independent.
+        The resulting distribution will have ``len(mvns)`` tasks, and the tasks will be independent.
 
         :returns: the bached data-independent MVN
         :rtype: gpytorch.distributions.MultivariateNormal

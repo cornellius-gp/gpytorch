@@ -75,6 +75,33 @@ class ApproximateGP(GP, _PyroMixin):
         """
         return super().pyro_model(input, beta=beta, name_prefix=name_prefix)
 
+    def get_fantasy_model(self, inputs, targets, **kwargs):
+        r"""
+        Returns a new GP model that incorporates the specified inputs and targets as new training data using
+        online variational conditioning (OVC).
+
+        This function first casts the inducing points and variational parameters into pseudo-points before
+        returning an equivalent ExactGP model with a specialized likelihood.
+
+        .. note::
+            If `targets` is a batch (e.g. `b x m`), then the GP returned from this method will be a batch mode GP.
+            If `inputs` is of the same (or lesser) dimension as `targets`, then it is assumed that the fantasy points
+            are the same for each target batch.
+
+        :param torch.Tensor inputs: (`b1 x ... x bk x m x d` or `f x b1 x ... x bk x m x d`) Locations of fantasy
+            observations.
+        :param torch.Tensor targets: (`b1 x ... x bk x m` or `f x b1 x ... x bk x m`) Labels of fantasy observations.
+        :return: An `ExactGP` model with `n + m` training examples, where the `m` fantasy examples have been added
+            and all test-time caches have been updated.
+        :rtype: ~gpytorch.models.ExactGP
+
+        Reference: "Conditioning Sparse Variational Gaussian Processes for Online Decision-Making,"
+            Maddox, Stanton, Wilson, NeurIPS, '21
+            https://papers.nips.cc/paper/2021/hash/325eaeac5bef34937cfdc1bd73034d17-Abstract.html
+
+        """
+        return self.variational_strategy.get_fantasy_model(inputs=inputs, targets=targets, **kwargs)
+
     def __call__(self, inputs, prior=False, **kwargs):
         if inputs.dim() == 1:
             inputs = inputs.unsqueeze(-1)

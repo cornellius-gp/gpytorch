@@ -13,15 +13,15 @@ from .lazy_tensor import LazyTensor
 class BlockDiagLazyTensor(BlockLazyTensor):
     """
     Represents a lazy tensor that is the block diagonal of square matrices.
-    The :attr:`block_dim` attribute specifies which dimension of the base LazyTensor
+    The block_dim attribute specifies which dimension of the base LazyTensor
     specifies the blocks.
     For example, (with `block_dim=-3` a `k x n x n` tensor represents `k` `n x n` blocks (a `kn x kn` matrix).
     A `b x k x n x n` tensor represents `k` `b x n x n` blocks (a `b x kn x kn` batch matrix).
 
     Args:
-        :attr:`base_lazy_tensor` (LazyTensor or Tensor):
+        base_lazy_tensor (LazyTensor or Tensor):
             Must be at least 3 dimensional.
-        :attr:`block_dim` (int):
+        block_dim (int):
             The dimension that specifies the blocks.
     """
 
@@ -114,6 +114,18 @@ class BlockDiagLazyTensor(BlockLazyTensor):
         if logdet_res is not None and logdet_res.numel():
             logdet_res = logdet_res.view(*logdet_res.shape).sum(-1)
         return inv_quad_res, logdet_res
+
+    def matmul(self, other):
+        from .diag_lazy_tensor import DiagLazyTensor
+
+        # this is trivial if we multiply two BlockDiagLazyTensors
+        if isinstance(other, BlockDiagLazyTensor):
+            return BlockDiagLazyTensor(self.base_lazy_tensor @ other.base_lazy_tensor)
+        # special case if we have a DiagLazyTensor
+        if isinstance(other, DiagLazyTensor):
+            diag_reshape = other._diag.view(*self.base_lazy_tensor.shape[:-2], 1, -1)
+            return BlockDiagLazyTensor(self.base_lazy_tensor * diag_reshape)
+        return super().matmul(other)
 
     @cached(name="svd")
     def _svd(self) -> Tuple["LazyTensor", Tensor, "LazyTensor"]:

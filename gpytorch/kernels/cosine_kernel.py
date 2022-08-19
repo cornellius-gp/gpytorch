@@ -25,22 +25,22 @@ class CosineKernel(Kernel):
     where :math:`p` is the period length parameter.
 
     Args:
-        :attr:`batch_shape` (torch.Size, optional):
+        batch_shape (torch.Size, optional):
             Set this if you want a separate lengthscale for each
-            batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `torch.Size([])`
-        :attr:`active_dims` (tuple of ints, optional):
+            batch of input data. It should be `b` if x1 is a `b x n x d` tensor. Default: `torch.Size([])`
+        active_dims (tuple of ints, optional):
             Set this if you want to compute the covariance of only a few input dimensions. The ints
             corresponds to the indices of the dimensions. Default: `None`.
-        :attr:`period_length_prior` (Prior, optional):
+        period_length_prior (Prior, optional):
             Set this if you want to apply a prior to the period length parameter.  Default: `None`
-        :attr:`period_length_constraint` (Constraint, optional):
+        period_length_constraint (Constraint, optional):
             Set this if you want to apply a constraint to the period length parameter. Default: `Positive`.
-        :attr:`eps` (float):
+        eps (float):
             The minimum value that the lengthscale/period length can take
             (prevents divide by zero errors). Default: `1e-6`.
 
     Attributes:
-        :attr:`period_length` (Tensor):
+        period_length (Tensor):
             The period length parameter. Size = `*batch_shape x 1 x 1`.
 
     Example:

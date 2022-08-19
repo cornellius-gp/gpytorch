@@ -98,7 +98,11 @@ class PivotedCholesky(Function):
 
         with torch.enable_grad():
             # Create a new set of matrix args that we can backpropagate through
-            matrix_args = [matrix_arg.detach().requires_grad_(True) for matrix_arg in _matrix_args]
+            matrix_args = []
+            for matrix_arg in _matrix_args:
+                if matrix_arg.dtype in (torch.float, torch.double, torch.half):
+                    matrix_arg = matrix_arg.detach().requires_grad_(True)
+                matrix_args.append(matrix_arg)
 
             # Create new linear operator using new matrix args
             matrix = ctx.representation_tree(*matrix_args)

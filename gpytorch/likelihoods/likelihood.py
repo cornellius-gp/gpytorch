@@ -83,7 +83,7 @@ try:
         distribution, as :math:`y(\mathbf x)` is equal to :math:`f(\mathbf x)` plus Gaussian noise:
 
         .. math::
-            y(\mathbf x) = f(\mathbf x) + \epsilon, \:\:\:\: \epsilon ~ N(0,\sigma^{2}_{n} \mathbf I)
+            y(\mathbf x) = f(\mathbf x) + \epsilon, \:\:\:\: \epsilon \sim N(0,\sigma^{2}_{n} \mathbf I)
 
         In the case of classification, this might be a Bernoulli distribution,
         where the probability that :math:`y=1` is given by the latent function
@@ -96,7 +96,7 @@ try:
             \end{cases}
 
         In either case, to implement a likelihood function, GPyTorch only
-        requires a :attr:`forward` method that computes the conditional distribution
+        requires a forward method that computes the conditional distribution
         :math:`p(y \mid f(\mathbf x))`.
 
         Calling this object does one of two things:
@@ -191,7 +191,7 @@ try:
             :type data: dict {str: torch.Tensor}, optional - Pyro integration only
             :param args: Additional args
             :param kwargs: Additional kwargs
-            :rtype: :obj:`Distribution` (with same shape as :attr:`function_samples` )
+            :rtype: :obj:`Distribution` (with same shape as function_samples )
             """
             raise NotImplementedError
 
@@ -228,7 +228,7 @@ try:
 
             With both exact inference and variational inference, the form of
             :math:`p(\mathbf f|\mathcal D, \mathbf x)` or :math:`p(\mathbf f|
-            \mathbf x)` should usually be Gaussian. As a result, :attr:`function_dist`
+            \mathbf x)` should usually be Gaussian. As a result, function_dist
             should usually be a :obj:`~gpytorch.distributions.MultivariateNormal` specified by the mean and
             (co)variance of :math:`p(\mathbf f|...)`.
 

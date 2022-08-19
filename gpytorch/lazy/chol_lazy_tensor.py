@@ -1,14 +1,29 @@
 #!/usr/bin/env python3
 
 import typing  # noqa F401
+import warnings
+
+import torch
 
 from ..utils.memoize import cached
 from .root_lazy_tensor import RootLazyTensor
-from .triangular_lazy_tensor import TriangularLazyTensor
+from .triangular_lazy_tensor import TriangularLazyTensor, _TriangularLazyTensorBase
 
 
 class CholLazyTensor(RootLazyTensor):
-    def __init__(self, chol: TriangularLazyTensor, upper: bool = False):
+    def __init__(self, chol: _TriangularLazyTensorBase, upper: bool = False):
+        if not isinstance(chol, _TriangularLazyTensorBase):
+            warnings.warn(
+                "chol argument to CholLazyTensor should be a TriangularLazyTensor. "
+                "Passing a dense tensor will cause errors in future versions.",
+                DeprecationWarning,
+            )
+            if torch.all(torch.tril(chol) == chol):
+                chol = TriangularLazyTensor(chol, upper=False)
+            elif torch.all(torch.triu(chol) == chol):
+                chol = TriangularLazyTensor(chol, upper=True)
+            else:
+                raise ValueError("chol must be either lower or upper triangular")
         super().__init__(chol)
         self.upper = upper
 
