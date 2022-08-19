@@ -114,7 +114,7 @@ def create_data_from_grid(grid: List[torch.Tensor]) -> torch.Tensor:
         grid = convert_legacy_grid(grid)
     ndims = len(grid)
     assert all(axis.dim() == 1 for axis in grid)
-    projections = torch.meshgrid(*grid)
+    projections = torch.meshgrid(*grid, indexing="ij")
     grid_tensor = torch.stack(projections, axis=-1)
     # Note that if we did
     #     grid_data = grid_tensor.reshape(-1, ndims)
