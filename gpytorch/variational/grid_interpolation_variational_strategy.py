@@ -2,9 +2,10 @@
 
 import torch
 from linear_operator.operators import InterpolatedLinearOperator
+from linear_operator.utils.interpolation import left_interp
 
 from ..distributions import MultivariateNormal
-from ..utils.interpolation import Interpolation, left_interp
+from ..utils.interpolation import Interpolation
 from ..utils.memoize import cached
 from ._variational_strategy import _VariationalStrategy
 

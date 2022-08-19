@@ -104,7 +104,7 @@ class IndexKernel(Kernel):
         batch_shape = torch.broadcast_shapes(i1.shape[:-2], i2.shape[:-2], self.batch_shape)
 
         res = InterpolatedLinearOperator(
-            base_lazy_tensor=covar_matrix,
+            base_linear_op=covar_matrix,
             left_interp_indices=i1.expand(batch_shape + i1.shape[-2:]),
             right_interp_indices=i2.expand(batch_shape + i2.shape[-2:]),
         )

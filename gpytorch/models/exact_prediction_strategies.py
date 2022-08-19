@@ -17,11 +17,11 @@ from linear_operator.operators import (
     RootLinearOperator,
     ZeroLinearOperator,
 )
+from linear_operator.utils.interpolation import left_interp, left_t_interp
 
 from .. import settings
 from ..lazy import LazyEvaluatedKernelTensor
 from ..utils.cholesky import psd_safe_cholesky
-from ..utils.interpolation import left_interp, left_t_interp
 from ..utils.memoize import add_to_cache, cached, clear_cache_hook, pop_from_cache
 
 
@@ -362,9 +362,9 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
     def _exact_predictive_covar_inv_quad_form_cache(self, train_train_covar_inv_root, test_train_covar):
         train_interp_indices = test_train_covar.right_interp_indices
         train_interp_values = test_train_covar.right_interp_values
-        base_lazy_tensor = test_train_covar.base_lazy_tensor
-        base_size = base_lazy_tensor.size(-1)
-        res = base_lazy_tensor.matmul(
+        base_linear_op = test_train_covar.base_linear_op
+        base_size = base_linear_op.size(-1)
+        res = base_linear_op.matmul(
             left_t_interp(train_interp_indices, train_interp_values, train_train_covar_inv_root, base_size)
         )
         return res
@@ -453,8 +453,8 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         train_train_covar_inv_labels = train_train_covar_with_noise.solve(mean_diff)
 
         # New root factor
-        base_size = train_train_covar.base_lazy_tensor.size(-1)
-        mean_cache = train_train_covar.base_lazy_tensor.matmul(
+        base_size = train_train_covar.base_linear_op.size(-1)
+        mean_cache = train_train_covar.base_linear_op.matmul(
             left_t_interp(train_interp_indices, train_interp_values, train_train_covar_inv_labels, base_size)
         )
 
@@ -469,7 +469,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
     def fantasy_mean_cache(self):
         # first construct K_UU
         train_train_covar = self.train_prior_dist.lazy_covariance_matrix
-        inducing_covar = train_train_covar.base_lazy_tensor
+        inducing_covar = train_train_covar.base_linear_op
 
         # now get L such that LL' \approx WD^{-1}W'
         interp_inner_prod_root = self.interp_inner_prod.root_decomposition(method="cholesky").root
@@ -499,7 +499,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
     @cached(name="fantasy_covar_cache")
     def fantasy_covar_cache(self):
         train_train_covar = self.train_prior_dist.lazy_covariance_matrix
-        inducing_covar = train_train_covar.base_lazy_tensor
+        inducing_covar = train_train_covar.base_linear_op
 
         # we need to enforce a cholesky here for numerical stability
         interp_inner_prod_root = self.interp_inner_prod.root_decomposition(method="cholesky").root
@@ -545,7 +545,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
 
         # Get probe vectors for inverse root
         num_probe_vectors = settings.fast_pred_var.num_probe_vectors()
-        num_inducing = train_train_covar.base_lazy_tensor.size(-1)
+        num_inducing = train_train_covar.base_linear_op.size(-1)
         vector_indices = torch.randperm(num_inducing).type_as(train_interp_indices)
         probe_vector_indices = vector_indices[:num_probe_vectors]
         test_vector_indices = vector_indices[num_probe_vectors : 2 * num_probe_vectors]
@@ -556,16 +556,16 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         device = train_train_covar.device
         probe_interp_values = torch.ones(num_probe_vectors, 1, dtype=dtype, device=device)
 
-        batch_shape = train_train_covar.base_lazy_tensor.batch_shape
+        batch_shape = train_train_covar.base_linear_op.batch_shape
         probe_vectors = InterpolatedLinearOperator(
-            train_train_covar.base_lazy_tensor,
+            train_train_covar.base_linear_op,
             train_interp_indices.expand(*batch_shape, *train_interp_indices.shape[-2:]),
             train_interp_values.expand(*batch_shape, *train_interp_values.shape[-2:]),
             probe_interp_indices.expand(*batch_shape, *probe_interp_indices.shape[-2:]),
             probe_interp_values.expand(*batch_shape, *probe_interp_values.shape[-2:]),
         ).to_dense()
         test_vectors = InterpolatedLinearOperator(
-            train_train_covar.base_lazy_tensor,
+            train_train_covar.base_linear_op,
             train_interp_indices.expand(*batch_shape, *train_interp_indices.shape[-2:]),
             train_interp_values.expand(*batch_shape, *train_interp_values.shape[-2:]),
             probe_test_interp_indices.expand(*batch_shape, *probe_test_interp_indices.shape[-2:]),
@@ -589,7 +589,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
 
         # Precomputed factor
         if settings.fast_pred_samples.on():
-            inside = train_train_covar.base_lazy_tensor + RootLinearOperator(root).mul(-1)
+            inside = train_train_covar.base_linear_op + RootLinearOperator(root).mul(-1)
             inside_root = inside.root_decomposition().root.to_dense()
             # Prevent backprop through this variable
             if settings.detach_test_caches.on():
@@ -672,7 +672,7 @@ class RFFPredictionStrategy(DefaultPredictionStrategy):
         lt = self.train_prior_dist.lazy_covariance_matrix
         if isinstance(lt, ConstantMulLinearOperator):
             constant = lt.expanded_constant
-            lt = lt.base_lazy_tensor
+            lt = lt.base_linear_op
         else:
             constant = torch.tensor(1.0, dtype=lt.dtype, device=lt.device)
 
@@ -701,7 +701,7 @@ class RFFPredictionStrategy(DefaultPredictionStrategy):
 
         if isinstance(test_test_covar, ConstantMulLinearOperator):
             constant = test_test_covar.expanded_constant
-            test_test_covar = test_test_covar.base_lazy_tensor
+            test_test_covar = test_test_covar.base_linear_op
         else:
             constant = torch.tensor(1.0, dtype=test_test_covar.dtype, device=test_test_covar.device)
 
@@ -722,7 +722,7 @@ class SGPRPredictionStrategy(DefaultPredictionStrategy):
         train_train_covar = self.lik_train_train_covar.evaluate_kernel()
 
         # Get terms needed for woodbury
-        root = train_train_covar._lazy_tensor.root_decomposition().root.to_dense()  # R
+        root = train_train_covar._linear_op.root_decomposition().root.to_dense()  # R
         inv_diag = train_train_covar._diag_tensor.inverse()  # \sigma^{-2}
 
         # Form LT using woodbury
@@ -780,10 +780,10 @@ class SGPRPredictionStrategy(DefaultPredictionStrategy):
         # Decompose test_train_covar = l, r
         # Main case: test_x and train_x are different - test_train_covar is a MatmulLinearOperator
         if isinstance(test_train_covar, MatmulLinearOperator):
-            L = test_train_covar.left_lazy_tensor.to_dense()
+            L = test_train_covar.left_linear_op.to_dense()
         # Edge case: test_x and train_x are the same - test_train_covar is a LowRankRootAddedDiagLinearOperator
         elif isinstance(test_train_covar, LowRankRootAddedDiagLinearOperator):
-            L = test_train_covar._lazy_tensor.root.to_dense()
+            L = test_train_covar._linear_op.root.to_dense()
         else:
             # We should not hit this point of the code - this is to catch potential bugs in GPyTorch
             raise ValueError(

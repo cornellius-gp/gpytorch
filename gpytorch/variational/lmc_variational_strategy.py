@@ -2,11 +2,11 @@
 
 import torch
 from linear_operator.operators import KroneckerProductLinearOperator, RootLinearOperator
+from linear_operator.utils.interpolation import left_interp
 
 from .. import settings
 from ..distributions import MultitaskMultivariateNormal, MultivariateNormal
 from ..module import Module
-from ..utils.interpolation import left_interp
 from ._variational_strategy import _VariationalStrategy
 
 
