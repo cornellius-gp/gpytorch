@@ -102,9 +102,10 @@ class _VariationalStrategy(Module, ABC):
         :param torch.Tensor inducing_points: Locations :math:`\mathbf Z` of the inducing points
         :param torch.Tensor inducing_values: Samples of the inducing function values :math:`\mathbf u`
             (or the mean of the distribution :math:`q(\mathbf u)` if q is a Gaussian.
-        :param ~gpytorch.lazy.LazyTensor variational_inducing_covar: If the distribuiton :math:`q(\mathbf u)`
-            is Gaussian, then this variable is the covariance matrix of that Gaussian. Otherwise, it will be
-            None.
+        :param ~linear_operator.operators.LinearOperator variational_inducing_covar: If
+            the distribuiton :math:`q(\mathbf u)` is
+            Gaussian, then this variable is the covariance matrix of that Gaussian.
+            Otherwise, it will be None.
 
         :rtype: :obj:`~gpytorch.distributions.MultivariateNormal`
         :return: The distribution :math:`q( \mathbf f(\mathbf X))`

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 import torch
+from linear_operator.operators import InterpolatedLinearOperator
 
 from ..distributions import MultivariateNormal
-from ..lazy import InterpolatedLazyTensor
 from ..utils.interpolation import Interpolation, left_interp
 from ..utils.memoize import cached
 from ._variational_strategy import _VariationalStrategy
@@ -93,7 +93,7 @@ class GridInterpolationVariationalStrategy(_VariationalStrategy):
         predictive_mean = predictive_mean.squeeze(-1)
 
         # Compute test covar
-        predictive_covar = InterpolatedLazyTensor(
+        predictive_covar = InterpolatedLinearOperator(
             variational_distribution.lazy_covariance_matrix,
             interp_indices,
             interp_values,

@@ -6,10 +6,10 @@ from unittest.mock import MagicMock, patch
 
 import linear_operator
 import torch
+from linear_operator import to_dense
 from linear_operator.test.linear_operator_test_case import LinearOperatorTestCase
 
 import gpytorch
-from gpytorch.lazy.lazy_tensor import delazify
 
 
 class TestLazyEvaluatedKernelTensorBatch(LinearOperatorTestCase, unittest.TestCase):
@@ -23,17 +23,17 @@ class TestLazyEvaluatedKernelTensorBatch(LinearOperatorTestCase, unittest.TestCa
 
     def evaluate_linear_op(self, lazy_tensor):
         with gpytorch.settings.lazily_evaluate_kernels(False):
-            return gpytorch.lazy.delazify(lazy_tensor.kernel(lazy_tensor.x1, lazy_tensor.x2))
+            return to_dense(lazy_tensor.kernel(lazy_tensor.x1, lazy_tensor.x2))
 
     def _test_matmul(self, rhs):
         lazy_tensor = self.create_linear_op().requires_grad_(True)
         lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
         evaluated = self.evaluate_linear_op(lazy_tensor_copy)
-        rhs_evaluated = delazify(rhs)
+        rhs_evaluated = to_dense(rhs)
 
         res = lazy_tensor.matmul(rhs)
         actual = evaluated.matmul(rhs_evaluated)
-        res_evaluated = delazify(res)
+        res_evaluated = to_dense(res)
         self.assertAllClose(res_evaluated, actual)
 
         grad = torch.randn_like(res_evaluated)
@@ -191,7 +191,7 @@ class TestLazyEvaluatedKernelTensorAdditive(TestLazyEvaluatedKernelTensorBatch):
         return kern(mat1, mat2)
 
     def evaluate_linear_op(self, lazy_tensor):
-        res = gpytorch.lazy.delazify(
+        res = to_dense(
             gpytorch.Module.__call__(
                 lazy_tensor.kernel.base_kernel,
                 lazy_tensor.x1.transpose(-1, -2).unsqueeze(-1),

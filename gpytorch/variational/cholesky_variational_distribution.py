@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 import torch
+from linear_operator.operators import CholLinearOperator, TriangularLinearOperator
 
 from ..distributions import MultivariateNormal
-from ..lazy import CholLazyTensor, TriangularLazyTensor
 from ._variational_distribution import _VariationalDistribution
 
 
@@ -41,10 +41,10 @@ class CholeskyVariationalDistribution(_VariationalDistribution):
 
         # First make the cholesky factor is upper triangular
         lower_mask = torch.ones(self.chol_variational_covar.shape[-2:], dtype=dtype, device=device).tril(0)
-        chol_variational_covar = TriangularLazyTensor(chol_variational_covar.mul(lower_mask))
+        chol_variational_covar = TriangularLinearOperator(chol_variational_covar.mul(lower_mask))
 
         # Now construct the actual matrix
-        variational_covar = CholLazyTensor(chol_variational_covar)
+        variational_covar = CholLinearOperator(chol_variational_covar)
         return MultivariateNormal(self.variational_mean, variational_covar)
 
     def initialize_variational_distribution(self, prior_dist):

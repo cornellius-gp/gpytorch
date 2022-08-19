@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 import torch
+from linear_operator.operators import MatmulLinearOperator, SumLinearOperator
 from torch.distributions.kl import kl_divergence
 
 from ..distributions import Delta, MultivariateNormal
-from ..lazy import MatmulLazyTensor, SumLazyTensor
 from ..utils.errors import CachingError
 from ..utils.memoize import pop_from_cache_ignore_args
 from .delta_variational_distribution import DeltaVariationalDistribution
@@ -209,10 +209,10 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
         # K_XX + k_XZ K_ZZ^{-1/2} (S - I) K_ZZ^{-1/2} k_ZX
         middle_term = self.prior_distribution.lazy_covariance_matrix.mul(-1)
         if variational_inducing_covar is not None:
-            middle_term = SumLazyTensor(variational_inducing_covar, middle_term)
-        predictive_covar = SumLazyTensor(
+            middle_term = SumLinearOperator(variational_inducing_covar, middle_term)
+        predictive_covar = SumLinearOperator(
             data_data_covar.add_jitter(1e-4).evaluate().select(mean_var_batch_dim - 2, 1),
-            MatmulLazyTensor(var_interp_term.transpose(-1, -2), middle_term @ var_interp_term),
+            MatmulLinearOperator(var_interp_term.transpose(-1, -2), middle_term @ var_interp_term),
         )
 
         return MultivariateNormal(predictive_mean, predictive_covar)

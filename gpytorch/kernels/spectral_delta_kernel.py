@@ -2,9 +2,9 @@ import math
 from typing import Optional
 
 import torch
+from linear_operator.operators import MatmulLinearOperator, RootLinearOperator
 
 from ..constraints import Interval, Positive
-from ..lazy import MatmulLazyTensor, RootLazyTensor
 from .kernel import Kernel
 
 
@@ -126,9 +126,9 @@ class SpectralDeltaKernel(Kernel):
         x2z2 = torch.cat([x2z2.cos(), x2z2.sin()], dim=-1) / math.sqrt(x2z2.size(-1))
 
         if x1.size() == x2.size() and torch.equal(x1, x2):
-            prod = RootLazyTensor(x1z1)
+            prod = RootLinearOperator(x1z1)
         else:
-            prod = MatmulLazyTensor(x1z1, x2z2.transpose(-2, -1))
+            prod = MatmulLinearOperator(x1z1, x2z2.transpose(-2, -1))
 
         if diag:
             return prod.diag()

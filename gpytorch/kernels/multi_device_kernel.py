@@ -3,10 +3,11 @@
 from typing import List, Optional
 
 import torch
+from linear_operator import to_linear_operator
+from linear_operator.operators import CatLinearOperator
 from torch.nn.parallel import DataParallel
 
 from .. import settings
-from ..lazy import CatLazyTensor, lazify
 from .kernel import Kernel
 
 
@@ -86,7 +87,9 @@ class MultiDeviceKernel(DataParallel, Kernel):
         return self.gather(outputs, self.output_device)
 
     def gather(self, outputs, output_device):
-        return CatLazyTensor(*[lazify(o) for o in outputs], dim=self.dim, output_device=self.output_device)
+        return CatLinearOperator(
+            *[to_linear_operator(o) for o in outputs], dim=self.dim, output_device=self.output_device
+        )
 
     def num_outputs_per_input(self, x1, x2):
         return self.base_kernel.num_outputs_per_input(x1, x2)

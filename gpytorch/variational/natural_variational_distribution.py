@@ -3,9 +3,9 @@
 import abc
 
 import torch
+from linear_operator.operators import CholLinearOperator, TriangularLinearOperator
 
 from ..distributions import MultivariateNormal
-from ..lazy import CholLazyTensor, TriangularLazyTensor
 from ..utils.cholesky import psd_safe_cholesky
 from ._variational_distribution import _VariationalDistribution
 
@@ -59,7 +59,7 @@ class NaturalVariationalDistribution(_NaturalVariationalDistribution):
 
     def forward(self):
         mean, chol_covar = _NaturalToMuVarSqrt.apply(self.natural_vec, self.natural_mat)
-        res = MultivariateNormal(mean, CholLazyTensor(TriangularLazyTensor(chol_covar)))
+        res = MultivariateNormal(mean, CholLinearOperator(TriangularLinearOperator(chol_covar)))
         return res
 
     def initialize_variational_distribution(self, prior_dist):
@@ -110,7 +110,7 @@ class _NaturalToMuVarSqrt(torch.autograd.Function):
         S = L.transpose(-1, -2) @ L
         mu = (S @ nat_mean.unsqueeze(-1)).squeeze(-1)
         # Two choleskys are annoying, but we don't have good support for a
-        # LazyTensor of form L.T @ L
+        # LinearOperator of form L.T @ L
         return mu, psd_safe_cholesky(S, upper=False)
 
     @staticmethod

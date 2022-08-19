@@ -3,9 +3,9 @@
 import unittest
 
 import torch
+from linear_operator.operators import InterpolatedLinearOperator
 
 from gpytorch.kernels import GridInterpolationKernel, RBFKernel
-from gpytorch.lazy import InterpolatedLazyTensor
 
 
 class TestGridInterpolationKernel(unittest.TestCase):
@@ -15,7 +15,7 @@ class TestGridInterpolationKernel(unittest.TestCase):
 
         xs = torch.randn(5, 2).clamp(-1, 1)
         interp_covar = kernel(xs, xs).evaluate_kernel()
-        self.assertIsInstance(interp_covar, InterpolatedLazyTensor)
+        self.assertIsInstance(interp_covar, InterpolatedLinearOperator)
 
         xs = torch.randn(5, 2).clamp(-1, 1)
         grid_eval = kernel(xs, xs).evaluate()

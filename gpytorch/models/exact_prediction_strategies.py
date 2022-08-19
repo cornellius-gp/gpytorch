@@ -4,22 +4,22 @@ import functools
 import string
 
 import torch
+from linear_operator import to_dense, to_linear_operator
+from linear_operator.operators import (
+    AddedDiagLinearOperator,
+    BatchRepeatLinearOperator,
+    ConstantMulLinearOperator,
+    DenseLinearOperator,
+    InterpolatedLinearOperator,
+    LinearOperator,
+    LowRankRootAddedDiagLinearOperator,
+    MatmulLinearOperator,
+    RootLinearOperator,
+    ZeroLinearOperator,
+)
 
 from .. import settings
-from ..lazy import (
-    AddedDiagLazyTensor,
-    BatchRepeatLazyTensor,
-    ConstantMulLazyTensor,
-    InterpolatedLazyTensor,
-    LazyEvaluatedKernelTensor,
-    LowRankRootAddedDiagLazyTensor,
-    MatmulLazyTensor,
-    NonLazyTensor,
-    RootLazyTensor,
-    ZeroLazyTensor,
-    delazify,
-    lazify,
-)
+from ..lazy import LazyEvaluatedKernelTensor
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.interpolation import left_interp, left_t_interp
 from ..utils.memoize import add_to_cache, cached, clear_cache_hook, pop_from_cache
@@ -61,10 +61,10 @@ class DefaultPredictionStrategy(object):
         self.lik_train_train_covar = mvn.lazy_covariance_matrix
 
         if root is not None:
-            add_to_cache(self.lik_train_train_covar, "root_decomposition", RootLazyTensor(root))
+            add_to_cache(self.lik_train_train_covar, "root_decomposition", RootLinearOperator(root))
 
         if inv_root is not None:
-            add_to_cache(self.lik_train_train_covar, "root_inv_decomposition", RootLazyTensor(inv_root))
+            add_to_cache(self.lik_train_train_covar, "root_inv_decomposition", RootLinearOperator(inv_root))
 
     def __deepcopy__(self, memo):
         # deepcopying prediction strategies of a model evaluated on inputs that require gradients fails
@@ -106,7 +106,7 @@ class DefaultPredictionStrategy(object):
             test_train_covar (:obj:`torch.tensor`): The observed noise (from the likelihood)
 
         Returns
-            :obj:`~gpytorch.lazy.LazyTensor`: :math:`K_{X^{*}X} S`
+            :obj:`~linear_operator.operators.LinearOperator`: :math:`K_{X^{*}X} S`
         """
         # Here the precomputed cache represents S,
         # where S S^T = (K_XX + sigma^2 I)^-1
@@ -148,7 +148,7 @@ class DefaultPredictionStrategy(object):
         mvn_obs = fant_likelihood(mvn, inputs, **kwargs)
 
         fant_fant_covar = mvn_obs.covariance_matrix
-        fant_train_covar = delazify(full_covar[..., num_train:, :num_train])
+        fant_train_covar = to_dense(full_covar[..., num_train:, :num_train])
 
         self.fantasy_inputs = inputs
         self.fantasy_targets = targets
@@ -204,8 +204,8 @@ class DefaultPredictionStrategy(object):
             repeat_shape = fant_batch_shape + torch.Size([1] * n_batch)
             full_inputs = [fi.expand(fant_batch_shape + fi.shape) for fi in full_inputs]
             full_mean = full_mean.expand(fant_batch_shape + full_mean.shape)
-            full_covar = BatchRepeatLazyTensor(full_covar, repeat_shape)
-            new_root = BatchRepeatLazyTensor(NonLazyTensor(new_root), repeat_shape)
+            full_covar = BatchRepeatLinearOperator(full_covar, repeat_shape)
+            new_root = BatchRepeatLinearOperator(DenseLinearOperator(new_root), repeat_shape)
             # no need to repeat the covar cache, broadcasting will do the right thing
 
         # Create new DefaultPredictionStrategy object
@@ -225,7 +225,7 @@ class DefaultPredictionStrategy(object):
     @cached(name="covar_cache")
     def covar_cache(self):
         train_train_covar = self.lik_train_train_covar
-        train_train_covar_inv_root = delazify(train_train_covar.root_inv_decomposition().root)
+        train_train_covar_inv_root = to_dense(train_train_covar.root_inv_decomposition().root)
         return self._exact_predictive_covar_inv_quad_form_cache(train_train_covar_inv_root, self._last_test_train_covar)
 
     @property
@@ -272,42 +272,39 @@ class DefaultPredictionStrategy(object):
             self.exact_predictive_covar(test_test_covar, test_train_covar),
         )
 
-    def exact_predictive_mean(self, test_mean, test_train_covar):
+    def exact_predictive_mean(self, test_mean: torch.Tensor, test_train_covar: LinearOperator) -> torch.Tensor:
         """
         Computes the posterior predictive covariance of a GP
 
-        Args:
-            test_mean (:obj:`torch.tensor`): The test prior mean
-            test_train_covar (:obj:`gpytorch.lazy.LazyTensor`): Covariance matrix between test and train inputs
-
-        Returns:
-            :obj:`torch.tensor`: The predictive posterior mean of the test points
+        :param torch.Tensor test_mean: The test prior mean
+        :param ~linear_operator.operators.LinearOperator test_train_covar:
+            Covariance matrix between test and train inputs
+        :return: The predictive posterior mean of the test points
         """
         # NOTE TO FUTURE SELF:
         # You **cannot* use addmv here, because test_train_covar may not actually be a non lazy tensor even for an exact
-        # GP, and using addmv requires you to delazify test_train_covar, which is obviously a huge no-no!
+        # GP, and using addmv requires you to to_dense test_train_covar, which is obviously a huge no-no!
         res = (test_train_covar @ self.mean_cache.unsqueeze(-1)).squeeze(-1)
         res = res + test_mean
 
         return res
 
-    def exact_predictive_covar(self, test_test_covar, test_train_covar):
+    def exact_predictive_covar(
+        self, test_test_covar: LinearOperator, test_train_covar: LinearOperator
+    ) -> LinearOperator:
         """
         Computes the posterior predictive covariance of a GP
 
-        Args:
-            test_train_covar (:obj:`gpytorch.lazy.LazyTensor`): Covariance matrix between test and train inputs
-            test_test_covar (:obj:`gpytorch.lazy.LazyTensor`): Covariance matrix between test inputs
-
-        Returns:
-            :obj:`gpytorch.lazy.LazyTensor`: A LazyTensor representing the predictive posterior covariance of the
-                                               test points
+        :param ~linear_operator.operators.LinearOperator test_train_covar:
+            Covariance matrix between test and train inputs
+        :param ~linear_operator.operators.LinearOperator test_test_covar: Covariance matrix between test inputs
+        :return: A LinearOperator representing the predictive posterior covariance of the test points
         """
         if settings.fast_pred_var.on():
             self._last_test_train_covar = test_train_covar
 
         if settings.skip_posterior_variances.on():
-            return ZeroLazyTensor(*test_test_covar.size())
+            return ZeroLinearOperator(*test_test_covar.size())
 
         if settings.fast_pred_var.off():
             dist = self.train_prior_dist.__class__(
@@ -318,32 +315,32 @@ class DefaultPredictionStrategy(object):
             else:
                 train_train_covar = self.likelihood(dist, self.train_inputs).lazy_covariance_matrix
 
-            test_train_covar = delazify(test_train_covar)
+            test_train_covar = to_dense(test_train_covar)
             train_test_covar = test_train_covar.transpose(-1, -2)
             covar_correction_rhs = train_train_covar.inv_matmul(train_test_covar)
             # For efficiency
             if torch.is_tensor(test_test_covar):
                 # We can use addmm in the 2d case
                 if test_test_covar.dim() == 2:
-                    return lazify(
+                    return to_linear_operator(
                         torch.addmm(test_test_covar, test_train_covar, covar_correction_rhs, beta=1, alpha=-1)
                     )
                 else:
-                    return lazify(test_test_covar + test_train_covar @ covar_correction_rhs.mul(-1))
+                    return to_linear_operator(test_test_covar + test_train_covar @ covar_correction_rhs.mul(-1))
             # In other cases - we'll use the standard infrastructure
             else:
-                return test_test_covar + MatmulLazyTensor(test_train_covar, covar_correction_rhs.mul(-1))
+                return test_test_covar + MatmulLinearOperator(test_train_covar, covar_correction_rhs.mul(-1))
 
         precomputed_cache = self.covar_cache
         covar_inv_quad_form_root = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache, test_train_covar)
         if torch.is_tensor(test_test_covar):
-            return lazify(
+            return to_linear_operator(
                 torch.add(
                     test_test_covar, covar_inv_quad_form_root @ covar_inv_quad_form_root.transpose(-1, -2), alpha=-1
                 )
             )
         else:
-            return test_test_covar + MatmulLazyTensor(
+            return test_test_covar + MatmulLinearOperator(
                 covar_inv_quad_form_root, covar_inv_quad_form_root.transpose(-1, -2).mul(-1)
             )
 
@@ -422,7 +419,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         if covar is None:
             covar = self.train_prior_dist.lazy_covariance_matrix
         wmat = covar._sparse_left_interp_t(covar.left_interp_indices, covar.left_interp_values).to_dense()
-        return lazify(wmat)
+        return to_linear_operator(wmat)
 
     @property
     @cached(name="interp_inner_prod")
@@ -512,9 +509,9 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
 
         if settings.fast_pred_var.on():
             qmat_inv_root = current_qmatrix.root_inv_decomposition()
-            # to lazify you have to evaluate the inverse root which is slow
+            # to to_linear_operator you have to evaluate the inverse root which is slow
             # otherwise, you can't backprop your way through it
-            inner_cache = RootLazyTensor(inducing_compression_matrix.matmul(qmat_inv_root.root.evaluate()))
+            inner_cache = RootLinearOperator(inducing_compression_matrix.matmul(qmat_inv_root.root.evaluate()))
         else:
             inner_cache = inducing_compression_matrix.matmul(
                 current_qmatrix.inv_matmul(inducing_compression_matrix.transpose(-1, -2))
@@ -560,14 +557,14 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         probe_interp_values = torch.ones(num_probe_vectors, 1, dtype=dtype, device=device)
 
         batch_shape = train_train_covar.base_lazy_tensor.batch_shape
-        probe_vectors = InterpolatedLazyTensor(
+        probe_vectors = InterpolatedLinearOperator(
             train_train_covar.base_lazy_tensor,
             train_interp_indices.expand(*batch_shape, *train_interp_indices.shape[-2:]),
             train_interp_values.expand(*batch_shape, *train_interp_values.shape[-2:]),
             probe_interp_indices.expand(*batch_shape, *probe_interp_indices.shape[-2:]),
             probe_interp_values.expand(*batch_shape, *probe_interp_values.shape[-2:]),
         ).evaluate()
-        test_vectors = InterpolatedLazyTensor(
+        test_vectors = InterpolatedLinearOperator(
             train_train_covar.base_lazy_tensor,
             train_interp_indices.expand(*batch_shape, *train_interp_indices.shape[-2:]),
             train_interp_values.expand(*batch_shape, *train_interp_values.shape[-2:]),
@@ -592,7 +589,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
 
         # Precomputed factor
         if settings.fast_pred_samples.on():
-            inside = train_train_covar.base_lazy_tensor + RootLazyTensor(root).mul(-1)
+            inside = train_train_covar.base_lazy_tensor + RootLinearOperator(root).mul(-1)
             inside_root = inside.root_decomposition().root.evaluate()
             # Prevent backprop through this variable
             if settings.detach_test_caches.on():
@@ -637,10 +634,10 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
             fps = settings.fast_pred_samples.on()
             if fps:
                 root = left_interp(test_interp_indices, test_interp_values, precomputed_cache[0].evaluate())
-                res = RootLazyTensor(root)
+                res = RootLinearOperator(root)
             else:
                 root = left_interp(test_interp_indices, test_interp_values, precomputed_cache[1].evaluate())
-                res = test_test_covar + RootLazyTensor(root).mul(-1)
+                res = test_test_covar + RootLinearOperator(root).mul(-1)
             return res
         else:
             precomputed_cache = self.covar_cache
@@ -652,10 +649,10 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
             # Compute the exact predictive posterior
             if settings.fast_pred_samples.on():
                 res = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache[0], test_train_covar)
-                res = RootLazyTensor(res)
+                res = RootLinearOperator(res)
             else:
                 root = left_interp(test_interp_indices, test_interp_values, precomputed_cache[1])
-                res = test_test_covar + RootLazyTensor(root).mul(-1)
+                res = test_test_covar + RootLinearOperator(root).mul(-1)
             return res
 
 
@@ -673,7 +670,7 @@ class RFFPredictionStrategy(DefaultPredictionStrategy):
     @cached(name="covar_cache")
     def covar_cache(self):
         lt = self.train_prior_dist.lazy_covariance_matrix
-        if isinstance(lt, ConstantMulLazyTensor):
+        if isinstance(lt, ConstantMulLinearOperator):
             constant = lt.expanded_constant
             lt = lt.base_lazy_tensor
         else:
@@ -700,9 +697,9 @@ class RFFPredictionStrategy(DefaultPredictionStrategy):
 
     def exact_predictive_covar(self, test_test_covar, test_train_covar):
         if settings.skip_posterior_variances.on():
-            return ZeroLazyTensor(*test_test_covar.size())
+            return ZeroLinearOperator(*test_test_covar.size())
 
-        if isinstance(test_test_covar, ConstantMulLazyTensor):
+        if isinstance(test_test_covar, ConstantMulLinearOperator):
             constant = test_test_covar.expanded_constant
             test_test_covar = test_test_covar.base_lazy_tensor
         else:
@@ -710,7 +707,7 @@ class RFFPredictionStrategy(DefaultPredictionStrategy):
 
         covar_cache = self.covar_cache
         factor = test_test_covar.root.evaluate() * constant.sqrt()
-        res = RootLazyTensor(factor @ covar_cache)
+        res = RootLinearOperator(factor @ covar_cache)
         return res
 
 
@@ -730,13 +727,17 @@ class SGPRPredictionStrategy(DefaultPredictionStrategy):
 
         # Form LT using woodbury
         ones = torch.tensor(1.0, dtype=root.dtype, device=root.device)
-        chol_factor = lazify(root.transpose(-1, -2) @ (inv_diag @ root)).add_diag(ones)  # (I + \sigma^{-2} R^T R)^{-1}
+        chol_factor = to_linear_operator(root.transpose(-1, -2) @ (inv_diag @ root)).add_diag(
+            ones
+        )  # (I + \sigma^{-2} R^T R)^{-1}
         woodbury_term = inv_diag @ torch.triangular_solve(
             root.transpose(-1, -2), chol_factor.cholesky().evaluate(), upper=False
         )[0].transpose(-1, -2)
         # woodbury_term @ woodbury_term^T = \sigma^{-2} R (I + \sigma^{-2} R^T R)^{-1} R^T \sigma^{-2}
 
-        inverse = AddedDiagLazyTensor(inv_diag, MatmulLazyTensor(-woodbury_term, woodbury_term.transpose(-1, -2)))
+        inverse = AddedDiagLinearOperator(
+            inv_diag, MatmulLinearOperator(-woodbury_term, woodbury_term.transpose(-1, -2))
+        )
         # \sigma^{-2} ( I - \sigma^{-2} R (I + \sigma^{-2} R^T R)^{-1} R^T  )
 
         return root.transpose(-1, -2) @ (inverse @ root)
@@ -777,16 +778,16 @@ class SGPRPredictionStrategy(DefaultPredictionStrategy):
         # covar_cache = K_{UU}^{-1/2} K_{UX}( K_{XX} + \sigma^2 I )^{-1} K_{XU} K_{UU}^{-1/2}
 
         # Decompose test_train_covar = l, r
-        # Main case: test_x and train_x are different - test_train_covar is a MatmulLazyTensor
-        if isinstance(test_train_covar, MatmulLazyTensor):
+        # Main case: test_x and train_x are different - test_train_covar is a MatmulLinearOperator
+        if isinstance(test_train_covar, MatmulLinearOperator):
             L = test_train_covar.left_lazy_tensor.evaluate()
-        # Edge case: test_x and train_x are the same - test_train_covar is a LowRankRootAddedDiagLazyTensor
-        elif isinstance(test_train_covar, LowRankRootAddedDiagLazyTensor):
+        # Edge case: test_x and train_x are the same - test_train_covar is a LowRankRootAddedDiagLinearOperator
+        elif isinstance(test_train_covar, LowRankRootAddedDiagLinearOperator):
             L = test_train_covar._lazy_tensor.root.evaluate()
         else:
             # We should not hit this point of the code - this is to catch potential bugs in GPyTorch
             raise ValueError(
-                "Expected SGPR output to be a MatmulLazyTensor or AddedDiagLazyTensor. "
+                "Expected SGPR output to be a MatmulLinearOperator or AddedDiagLinearOperator. "
                 f"Got {test_train_covar.__class__.__name__} instead. "
                 "This is likely a bug in GPyTorch."
             )

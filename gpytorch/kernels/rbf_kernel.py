@@ -57,14 +57,14 @@ class RBFKernel(Kernel):
         >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
         >>> # Non-batch: ARD (different lengthscale for each input dimension)
         >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel(ard_num_dims=5))
-        >>> covar = covar_module(x)  # Output: LazyTensor of size (10 x 10)
+        >>> covar = covar_module(x)  # Output: LinearOperator of size (10 x 10)
         >>>
         >>> batch_x = torch.randn(2, 10, 5)
         >>> # Batch: Simple option
         >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
         >>> # Batch: different lengthscale for each batch
         >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel(batch_shape=torch.Size([2])))
-        >>> covar = covar_module(x)  # Output: LazyTensor of size (2 x 10 x 10)
+        >>> covar = covar_module(x)  # Output: LinearOperator of size (2 x 10 x 10)
     """
 
     has_lengthscale = True

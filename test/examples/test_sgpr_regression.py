@@ -9,6 +9,7 @@ from math import exp, pi
 
 import gpytorch
 import torch
+import linear_operator
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.kernels import InducingPointKernel, RBFKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
@@ -97,9 +98,9 @@ class TestSGPRRegression(unittest.TestCase, BaseTestCase):
                 loss.backward()
                 optimizer.step()
 
-                # Check that we have the right LazyTensor type
+                # Check that we have the right LinearOperator type
                 kernel = likelihood(gp_model(train_x)).lazy_covariance_matrix.evaluate_kernel()
-                self.assertIsInstance(kernel, gpytorch.lazy.LowRankRootAddedDiagLazyTensor)
+                self.assertIsInstance(kernel, linear_operator.operators.LowRankRootAddedDiagLinearOperator)
 
             for param in gp_model.parameters():
                 self.assertTrue(param.grad is not None)

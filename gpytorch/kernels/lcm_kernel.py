@@ -17,7 +17,7 @@ class LCMKernel(Kernel):
     of them. The final kernel is the linear sum of the Kronecker product of all
     these base kernels with their respective `MultitaskKernel` objects.
 
-    The returned object is of type :obj:`gpytorch.lazy.KroneckerProductLazyTensor`.
+    The returned object is of type :obj:`~linear_operator.operators.KroneckerProductLinearOperator`.
     """
 
     def __init__(

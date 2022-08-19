@@ -3,9 +3,14 @@
 from typing import Optional
 
 import torch
+from linear_operator.operators import (
+    DiagLinearOperator,
+    InterpolatedLinearOperator,
+    PsdSumLinearOperator,
+    RootLinearOperator,
+)
 
 from ..constraints import Interval, Positive
-from ..lazy import DiagLazyTensor, InterpolatedLazyTensor, PsdSumLazyTensor, RootLazyTensor
 from ..priors import Prior
 from .kernel import Kernel
 
@@ -89,7 +94,7 @@ class IndexKernel(Kernel):
     @property
     def covar_matrix(self):
         var = self.var
-        res = PsdSumLazyTensor(RootLazyTensor(self.covar_factor), DiagLazyTensor(var))
+        res = PsdSumLinearOperator(RootLinearOperator(self.covar_factor), DiagLinearOperator(var))
         return res
 
     def forward(self, i1, i2, **params):
@@ -98,7 +103,7 @@ class IndexKernel(Kernel):
         covar_matrix = self._eval_covar_matrix()
         batch_shape = torch.broadcast_shapes(i1.shape[:-2], i2.shape[:-2], self.batch_shape)
 
-        res = InterpolatedLazyTensor(
+        res = InterpolatedLinearOperator(
             base_lazy_tensor=covar_matrix,
             left_interp_indices=i1.expand(batch_shape + i1.shape[-2:]),
             right_interp_indices=i2.expand(batch_shape + i2.shape[-2:]),

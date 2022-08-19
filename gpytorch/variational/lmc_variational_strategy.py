@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 import torch
+from linear_operator.operators import KroneckerProductLinearOperator, RootLinearOperator
 
 from .. import settings
 from ..distributions import MultitaskMultivariateNormal, MultivariateNormal
-from ..lazy import KroneckerProductLazyTensor, RootLazyTensor
 from ..module import Module
 from ..utils.interpolation import left_interp
 from ._variational_strategy import _VariationalStrategy
@@ -203,8 +203,8 @@ class LMCVariationalStrategy(_VariationalStrategy):
 
             # Covar: ... x (N x num_tasks) x (N x num_tasks)
             latent_covar = latent_dist.lazy_covariance_matrix
-            lmc_factor = RootLazyTensor(lmc_coefficients.unsqueeze(-1))
-            covar = KroneckerProductLazyTensor(latent_covar, lmc_factor).sum(latent_dim)
+            lmc_factor = RootLinearOperator(lmc_coefficients.unsqueeze(-1))
+            covar = KroneckerProductLinearOperator(latent_covar, lmc_factor).sum(latent_dim)
             # Add a bit of jitter to make the covar PD
             covar = covar.add_jitter(settings.cholesky_jitter.value(dtype=mean.dtype))
 
@@ -221,7 +221,7 @@ class LMCVariationalStrategy(_VariationalStrategy):
 
             # Covar: ... x N x N
             latent_covar = latent_dist.lazy_covariance_matrix
-            lmc_factor = RootLazyTensor(lmc_coefficients.unsqueeze(-1))
+            lmc_factor = RootLinearOperator(lmc_coefficients.unsqueeze(-1))
             covar = (latent_covar * lmc_factor).sum(latent_dim)
             # Add a bit of jitter to make the covar PD
             covar = covar.add_jitter(settings.cholesky_jitter.value(dtype=mean.dtype))

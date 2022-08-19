@@ -358,7 +358,7 @@ class skip_posterior_variances(_feature_flag):
     """
     Whether or not to skip the posterior covariance matrix when doing an ExactGP
     forward pass. If this is on, the returned gpytorch MultivariateNormal will have a
-    ZeroLazyTensor as its covariance matrix. This allows gpytorch to not compute
+    ZeroLinearOperator as its covariance matrix. This allows gpytorch to not compute
     the covariance matrix when it is not needed, speeding up computations.
 
     (Default: False)

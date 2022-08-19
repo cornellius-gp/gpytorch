@@ -3,6 +3,7 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
+import linear_operator
 import torch
 
 import gpytorch
@@ -91,12 +92,12 @@ class TestRFFKernel(unittest.TestCase, BaseKernelTestCase):
         # Make sure that the prior kernel is the correct type
         model.train()
         output = model(train_x).lazy_covariance_matrix.evaluate_kernel()
-        self.assertIsInstance(output, gpytorch.lazy.LowRankRootLazyTensor)
+        self.assertIsInstance(output, linear_operator.operators.LowRankRootLinearOperator)
 
         # Make sure that the prior predictive kernel is the correct type
         model.train()
         output = model.likelihood(model(train_x)).lazy_covariance_matrix.evaluate_kernel()
-        self.assertIsInstance(output, gpytorch.lazy.LowRankRootAddedDiagLazyTensor)
+        self.assertIsInstance(output, linear_operator.operators.LowRankRootAddedDiagLinearOperator)
 
         # Make sure we're calling the correct prediction strategy
         _wrapped_ps = MagicMock(wraps=gpytorch.models.exact_prediction_strategies.RFFPredictionStrategy)
@@ -115,14 +116,14 @@ class TestRFFKernel(unittest.TestCase, BaseKernelTestCase):
         # Make sure that the prior kernel is the correct type
         model.train()
         output = model(train_x).lazy_covariance_matrix.evaluate_kernel()
-        self.assertIsInstance(output, gpytorch.lazy.RootLazyTensor)
-        self.assertNotIsInstance(output, gpytorch.lazy.LowRankRootLazyTensor)
+        self.assertIsInstance(output, linear_operator.operators.RootLinearOperator)
+        self.assertNotIsInstance(output, linear_operator.operators.LowRankRootLinearOperator)
 
         # Make sure that the prior predictive kernel is the correct type
         model.train()
         output = model.likelihood(model(train_x)).lazy_covariance_matrix.evaluate_kernel()
-        self.assertIsInstance(output, gpytorch.lazy.AddedDiagLazyTensor)
-        self.assertNotIsInstance(output, gpytorch.lazy.LowRankRootAddedDiagLazyTensor)
+        self.assertIsInstance(output, linear_operator.operators.AddedDiagLinearOperator)
+        self.assertNotIsInstance(output, linear_operator.operators.LowRankRootAddedDiagLinearOperator)
 
         # Make sure we're calling the correct prediction strategy
         _wrapped_ps = MagicMock(wraps=gpytorch.models.exact_prediction_strategies.RFFPredictionStrategy)

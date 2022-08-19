@@ -6,10 +6,10 @@ from copy import deepcopy
 from typing import Any, Optional
 
 import torch
+from linear_operator.operators import ZeroLinearOperator
 from torch import Tensor
 
 from ..distributions import MultivariateNormal, base_distributions
-from ..lazy import ZeroLazyTensor
 from ..utils.warnings import GPInputWarning
 from .likelihood import Likelihood
 from .noise_models import FixedGaussianNoise, HomoskedasticNoise, Noise
@@ -266,7 +266,7 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
 
         if self.second_noise_covar is not None:
             res = res + self.second_noise_covar(*params, shape=shape, **kwargs)
-        elif isinstance(res, ZeroLazyTensor):
+        elif isinstance(res, ZeroLinearOperator):
             warnings.warn(
                 "You have passed data through a FixedNoiseGaussianLikelihood that did not match the size "
                 "of the fixed noise, *and* you did not specify noise. This is treated as a no-op.",

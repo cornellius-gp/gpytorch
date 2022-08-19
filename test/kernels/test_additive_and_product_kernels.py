@@ -3,6 +3,7 @@
 import math
 import unittest
 
+import linear_operator
 import torch
 
 import gpytorch
@@ -335,12 +336,12 @@ class TestAdditiveAndProductKernel(unittest.TestCase):
         # Make sure that the prior kernel is the correct type
         model.train()
         output = model(train_x).lazy_covariance_matrix.evaluate_kernel()
-        self.assertIsInstance(output, gpytorch.lazy.SumLazyTensor)
+        self.assertIsInstance(output, linear_operator.operators.SumLinearOperator)
 
         # Make sure that the prior predictive kernel is the correct type
         model.train()
         output = model.likelihood(model(train_x)).lazy_covariance_matrix.evaluate_kernel()
-        self.assertIsInstance(output, gpytorch.lazy.AddedDiagLazyTensor)
+        self.assertIsInstance(output, linear_operator.operators.AddedDiagLinearOperator)
 
     def test_kernel_output_no_structure(self):
         train_x = torch.randn(1000, 3)
@@ -350,12 +351,12 @@ class TestAdditiveAndProductKernel(unittest.TestCase):
         # Make sure that the prior kernel is the correct type
         model.train()
         output = model(train_x).lazy_covariance_matrix.evaluate_kernel()
-        self.assertIsInstance(output, gpytorch.lazy.ConstantMulLazyTensor)
+        self.assertIsInstance(output, linear_operator.operators.ConstantMulLinearOperator)
 
         # Make sure that the prior predictive kernel is the correct type
         model.train()
         output = model.likelihood(model(train_x)).lazy_covariance_matrix.evaluate_kernel()
-        self.assertIsInstance(output, gpytorch.lazy.AddedDiagLazyTensor)
+        self.assertIsInstance(output, linear_operator.operators.AddedDiagLinearOperator)
 
     def test_initialize(self):
         kernel_1 = RBFKernel().initialize(lengthscale=1)

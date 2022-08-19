@@ -3,11 +3,12 @@
 from typing import Optional, Tuple
 
 import torch
+from linear_operator import to_linear_operator
+from linear_operator.operators import DiagLinearOperator, MatmulLinearOperator, SumLinearOperator
 from linear_operator.utils import linear_cg
 
 from .. import settings
 from ..distributions import Delta, MultivariateNormal
-from ..lazy import DiagLazyTensor, MatmulLazyTensor, SumLazyTensor, lazify
 from ..module import Module
 from ..utils.memoize import cached
 from ._variational_strategy import _VariationalStrategy
@@ -172,7 +173,7 @@ class CiqVariationalStrategy(_VariationalStrategy):
             device=self._variational_distribution.device,
         )
         ones = torch.ones_like(zeros)
-        res = MultivariateNormal(zeros, DiagLazyTensor(ones))
+        res = MultivariateNormal(zeros, DiagLinearOperator(ones))
         return res
 
     @property
@@ -209,7 +210,7 @@ class CiqVariationalStrategy(_VariationalStrategy):
         # K_XZ K_ZZ^{-1} \mu_z
         # K_XZ K_ZZ^{-1/2} \mu_Z
         with settings.max_preconditioner_size(0):  # Turn off preconditioning for CIQ
-            interp_term = lazify(induc_induc_covar).sqrt_inv_matmul(induc_data_covar)
+            interp_term = to_linear_operator(induc_induc_covar).sqrt_inv_matmul(induc_data_covar)
 
         # Compute interpolated mean and variance terms
         # We have separate computation rules for NGD versus standard GD
@@ -223,7 +224,7 @@ class CiqVariationalStrategy(_VariationalStrategy):
             # Compute the covariance of q(f)
             predictive_var = data_data_covar.diag() - interp_term.pow(2).sum(dim=-2) + interp_var
             predictive_var = torch.clamp_min(predictive_var, settings.min_variance.value(predictive_var.dtype))
-            predictive_covar = DiagLazyTensor(predictive_var)
+            predictive_covar = DiagLinearOperator(predictive_var)
 
             # Also compute and cache the KL divergence
             if not hasattr(self, "_memoize_cache"):
@@ -239,10 +240,10 @@ class CiqVariationalStrategy(_VariationalStrategy):
             # Compute the covariance of q(f)
             middle_term = self.prior_distribution.lazy_covariance_matrix.mul(-1)
             if variational_inducing_covar is not None:
-                middle_term = SumLazyTensor(variational_inducing_covar, middle_term)
-            predictive_covar = SumLazyTensor(
+                middle_term = SumLinearOperator(variational_inducing_covar, middle_term)
+            predictive_covar = SumLinearOperator(
                 data_data_covar.add_jitter(1e-4),
-                MatmulLazyTensor(interp_term.transpose(-1, -2), middle_term @ interp_term),
+                MatmulLinearOperator(interp_term.transpose(-1, -2), middle_term @ interp_term),
             )
 
         # Compute the mean of q(f)

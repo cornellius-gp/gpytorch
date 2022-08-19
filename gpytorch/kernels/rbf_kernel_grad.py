@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-import torch
 
-from ..lazy import KroneckerProductLazyTensor
+import torch
+from linear_operator.operators import KroneckerProductLinearOperator
+
 from .rbf_kernel import RBFKernel, postprocess_rbf
 
 
@@ -41,14 +42,14 @@ class RBFKernelGrad(RBFKernel):
         >>> x = torch.randn(10, 5)
         >>> # Non-batch: Simple option
         >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernelGrad())
-        >>> covar = covar_module(x)  # Output: LazyTensor of size (60 x 60), where 60 = n * (d + 1)
+        >>> covar = covar_module(x)  # Output: LinearOperator of size (60 x 60), where 60 = n * (d + 1)
         >>>
         >>> batch_x = torch.randn(2, 10, 5)
         >>> # Batch: Simple option
         >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernelGrad())
         >>> # Batch: different lengthscale for each batch
         >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernelGrad(batch_shape=torch.Size([2])))
-        >>> covar = covar_module(x)  # Output: LazyTensor of size (2 x 60 x 60)
+        >>> covar = covar_module(x)  # Output: LinearOperator of size (2 x 60 x 60)
     """
 
     def forward(self, x1, x2, diag=False, **params):
@@ -85,7 +86,7 @@ class RBFKernelGrad(RBFKernel):
 
             # 4) Hessian block
             outer3 = outer1.repeat([*([1] * n_batch_dims), d, 1]) * outer2.repeat([*([1] * (n_batch_dims + 1)), d])
-            kp = KroneckerProductLazyTensor(
+            kp = KroneckerProductLinearOperator(
                 torch.eye(d, d, device=x1.device, dtype=x1.dtype).repeat(*batch_shape, 1, 1) / self.lengthscale.pow(2),
                 torch.ones(n1, n2, device=x1.device, dtype=x1.dtype).repeat(*batch_shape, 1, 1),
             )

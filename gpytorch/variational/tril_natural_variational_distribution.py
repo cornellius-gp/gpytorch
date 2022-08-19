@@ -1,7 +1,9 @@
+#!/usr/bin/env python3
+
 import torch
+from linear_operator.operators import CholLinearOperator, TriangularLinearOperator
 
 from ..distributions import MultivariateNormal
-from ..lazy import CholLazyTensor, TriangularLazyTensor
 from .natural_variational_distribution import (
     _NaturalToMuVarSqrt,
     _NaturalVariationalDistribution,
@@ -57,7 +59,7 @@ class TrilNaturalVariationalDistribution(_NaturalVariationalDistribution):
 
     def forward(self):
         mean, chol_covar = _TrilNaturalToMuVarSqrt.apply(self.natural_vec, self.natural_tril_mat)
-        return MultivariateNormal(mean, CholLazyTensor(TriangularLazyTensor(chol_covar)))
+        return MultivariateNormal(mean, CholLinearOperator(TriangularLinearOperator(chol_covar)))
 
     def initialize_variational_distribution(self, prior_dist):
         prior_cov = prior_dist.lazy_covariance_matrix

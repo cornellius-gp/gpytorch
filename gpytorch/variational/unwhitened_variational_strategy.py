@@ -3,24 +3,23 @@
 import math
 
 import torch
-
-from gpytorch.variational.cholesky_variational_distribution import CholeskyVariationalDistribution
+from linear_operator import to_dense
+from linear_operator.operators import (
+    CholLinearOperator,
+    DiagLinearOperator,
+    PsdSumLinearOperator,
+    RootLinearOperator,
+    TriangularLinearOperator,
+    ZeroLinearOperator,
+)
 
 from .. import settings
 from ..distributions import MultivariateNormal
-from ..lazy import (
-    CholLazyTensor,
-    DiagLazyTensor,
-    PsdSumLazyTensor,
-    RootLazyTensor,
-    TriangularLazyTensor,
-    ZeroLazyTensor,
-    delazify,
-)
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.errors import NotPSDError
 from ..utils.memoize import add_to_cache, cached
 from ._variational_strategy import _VariationalStrategy
+from .cholesky_variational_distribution import CholeskyVariationalDistribution
 
 
 class UnwhitenedVariationalStrategy(_VariationalStrategy):
@@ -51,8 +50,8 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
     @cached(name="cholesky_factor", ignore_args=True)
     def _cholesky_factor(self, induc_induc_covar):
         # Maybe used - if we're not using CG
-        L = psd_safe_cholesky(delazify(induc_induc_covar))
-        return TriangularLazyTensor(L)
+        L = psd_safe_cholesky(to_dense(induc_induc_covar))
+        return TriangularLinearOperator(L)
 
     @property
     @cached(name="prior_distribution_memo")
@@ -74,8 +73,8 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
             )
 
         # retrieve the variational mean, m and covariance matrix, S.
-        var_cov_root = TriangularLazyTensor(self._variational_distribution.chol_variational_covar)
-        var_cov = CholLazyTensor(var_cov_root)
+        var_cov_root = TriangularLinearOperator(self._variational_distribution.chol_variational_covar)
+        var_cov = CholLinearOperator(var_cov_root)
         var_mean = self.variational_distribution.mean  # .unsqueeze(-1)
         if var_mean.shape[-1] != 1:
             var_mean = var_mean.unsqueeze(-1)
@@ -104,12 +103,14 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
 
         # ensure inducing covar is psd
         try:
-            pseudo_target_covar = CholLazyTensor(inducing_covar.add_jitter(1e-3).cholesky()).evaluate()
+            pseudo_target_covar = CholLinearOperator(inducing_covar.add_jitter(1e-3).cholesky()).evaluate()
         except NotPSDError:
-            from gpytorch.lazy import DiagLazyTensor
+            from linear_operator.operators import DiagLinearOperator
 
             evals, evecs = inducing_covar.symeig(eigenvectors=True)
-            pseudo_target_covar = evecs.matmul(DiagLazyTensor(evals + 1e-4)).matmul(evecs.transpose(-1, -2)).evaluate()
+            pseudo_target_covar = (
+                evecs.matmul(DiagLinearOperator(evals + 1e-4)).matmul(evecs.transpose(-1, -2)).evaluate()
+            )
 
         return pseudo_target_covar, pseudo_target_mean
 
@@ -139,7 +140,7 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
 
         # Compute Cholesky factorization of inducing covariance matrix
         if settings.fast_computations.log_prob.off() or (num_induc <= settings.max_cholesky_size.value()):
-            induc_induc_covar = CholLazyTensor(self._cholesky_factor(induc_induc_covar))
+            induc_induc_covar = CholLinearOperator(self._cholesky_factor(induc_induc_covar))
 
         # If we are making predictions and don't need variances, we can do things very quickly.
         if not self.training and settings.skip_posterior_variances.on():
@@ -147,7 +148,7 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
             predictive_mean = torch.add(
                 test_mean, induc_data_covar.transpose(-2, -1).matmul(self._mean_cache).squeeze(-1)
             )
-            predictive_covar = ZeroLazyTensor(test_mean.size(-1), test_mean.size(-1))
+            predictive_covar = ZeroLinearOperator(test_mean.size(-1), test_mean.size(-1))
             return MultivariateNormal(predictive_mean, predictive_covar)
 
         # Expand everything to the right size
@@ -180,13 +181,15 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
             interp_data_data_var, _ = induc_induc_covar.inv_quad_logdet(
                 induc_data_covar, logdet=False, reduce_inv_quad=False
             )
-            data_covariance = DiagLazyTensor((data_data_covar.diag() - interp_data_data_var).clamp(0, math.inf))
+            data_covariance = DiagLinearOperator((data_data_covar.diag() - interp_data_data_var).clamp(0, math.inf))
         else:
             neg_induc_data_data_covar = torch.matmul(
                 induc_data_covar.transpose(-1, -2).mul(-1), induc_induc_covar.inv_matmul(induc_data_covar)
             )
             data_covariance = data_data_covar + neg_induc_data_data_covar
-        predictive_covar = PsdSumLazyTensor(RootLazyTensor(inv_products[..., 1:, :].transpose(-1, -2)), data_covariance)
+        predictive_covar = PsdSumLinearOperator(
+            RootLinearOperator(inv_products[..., 1:, :].transpose(-1, -2)), data_covariance
+        )
 
         # Done!
         return MultivariateNormal(predictive_mean, predictive_covar)
