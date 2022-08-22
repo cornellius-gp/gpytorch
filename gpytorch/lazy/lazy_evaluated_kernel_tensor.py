@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 
 import torch
+from linear_operator import LinearOperator, to_linear_operator
 from linear_operator.utils.getitem import _noop_index
 
 from .. import beta_features, settings
 from ..utils import deprecation
 from ..utils.memoize import cached
-from .lazy_tensor import LazyTensor
-from .non_lazy_tensor import lazify
 
 
-class LazyEvaluatedKernelTensor(LazyTensor):
+class LazyEvaluatedKernelTensor(LinearOperator):
     _check_size = False
 
     def _check_args(self, x1, x2, kernel, last_dim_is_batch=False, **params):
@@ -43,7 +42,7 @@ class LazyEvaluatedKernelTensor(LazyTensor):
 
     def _set_requires_grad(self, val):
         super()._set_requires_grad(val)
-        # The behavior that differs from the base LazyTensor setter
+        # The behavior that differs from the base LinearOperator setter
         for param in self.kernel.parameters():
             param.requires_grad_(val)
 
@@ -68,7 +67,7 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         for sub_x1, sub_left_vecs in zip(sub_x1s, sub_left_vecss):
             sub_x1.requires_grad_(True)
             with torch.enable_grad(), settings.lazily_evaluate_kernels(False):
-                sub_kernel_matrix = lazify(
+                sub_kernel_matrix = to_linear_operator(
                     self.kernel(
                         sub_x1,
                         x2,
@@ -108,8 +107,8 @@ class LazyEvaluatedKernelTensor(LazyTensor):
                     "Got size {}".format(self.kernel.__class__.__name__, expected_shape, res.shape)
                 )
 
-        if isinstance(res, LazyTensor):
-            res = res.evaluate()
+        if isinstance(res, LinearOperator):
+            res = res.to_dense()
         return res.view(self.shape[:-1]).contiguous()
 
     def _expand_batch(self, batch_shape):
@@ -235,7 +234,7 @@ class LazyEvaluatedKernelTensor(LazyTensor):
             sub_x1s = torch.split(x1, split_size, dim=-2)
             res = []
             for sub_x1 in sub_x1s:
-                sub_kernel_matrix = lazify(
+                sub_kernel_matrix = to_linear_operator(
                     self.kernel(
                         sub_x1,
                         x2,
@@ -318,8 +317,8 @@ class LazyEvaluatedKernelTensor(LazyTensor):
     @cached(name="kernel_eval")
     def evaluate_kernel(self):
         """
-        NB: This is a meta LazyTensor, in the sense that evaluate can return
-        a LazyTensor if the kernel being evaluated does so.
+        NB: This is a meta LinearOperator, in the sense that evaluate can return
+        a LinearOperator if the kernel being evaluated does so.
         """
         x1 = self.x1
         x2 = self.x2
@@ -344,7 +343,7 @@ class LazyEvaluatedKernelTensor(LazyTensor):
                     "This is likely a bug in GPyTorch."
                 )
 
-        return lazify(res)
+        return to_linear_operator(res)
 
     def repeat(self, *repeats):
         if len(repeats) == 1 and hasattr(repeats[0], "__iter__"):
@@ -365,7 +364,7 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         # If we're checkpointing the kernel, we'll use chunked _matmuls defined in LazyEvaluatedKernelTensor
         if beta_features.checkpoint_kernel.value():
             return super().representation()
-        # Otherwise, we'll evaluate the kernel (or at least its LazyTensor representation) and use its
+        # Otherwise, we'll evaluate the kernel (or at least its LinearOperator representation) and use its
         # representation
         else:
             return self.evaluate_kernel().representation()
@@ -374,19 +373,19 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         # If we're checkpointing the kernel, we'll use chunked _matmuls defined in LazyEvaluatedKernelTensor
         if beta_features.checkpoint_kernel.value():
             return super().representation_tree()
-        # Otherwise, we'll evaluate the kernel (or at least its LazyTensor representation) and use its
+        # Otherwise, we'll evaluate the kernel (or at least its LinearOperator representation) and use its
         # representation
         else:
             return self.evaluate_kernel().representation_tree()
 
     @cached
     def to_dense(self):
-        return self.evaluate_kernel().evaluate()
+        return self.evaluate_kernel().to_dense()
 
     def __getitem__(self, index):
         """
-        Supports subindexing of the matrix this LazyTensor represents. This may return either another
-        :obj:`gpytorch.lazy.LazyTensor` or a :obj:`torch.tensor` depending on the exact implementation.
+        Supports subindexing of the matrix this LinearOperator represents. This may return either another
+        :obj:`~linear_operator.operators.LinearOperator` or a :obj:`torch.tensor` depending on the exact implementation.
         """
         # Process the index
         index = index if isinstance(index, tuple) else (index,)

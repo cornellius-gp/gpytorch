@@ -26,13 +26,13 @@ class TestNewtonGirardAdditiveKernel(TestCase, BaseKernelTestCase):
         self.assertEqual(AddK.outputscale.numel(), 1)
 
         testvals = torch.tensor([[1, 2, 3], [7, 5, 2]], dtype=torch.float)
-        add_k_val = AddK(testvals, testvals).evaluate()
+        add_k_val = AddK(testvals, testvals).to_dense()
 
         manual_k = ScaleKernel(
             AdditiveKernel(RBFKernel(active_dims=0), RBFKernel(active_dims=1), RBFKernel(active_dims=2))
         )
         manual_k.initialize(outputscale=1.0)
-        manual_add_k_val = manual_k(testvals, testvals).evaluate()
+        manual_add_k_val = manual_k(testvals, testvals).to_dense()
 
         # np.testing.assert_allclose(add_k_val.detach().numpy(), manual_add_k_val.detach().numpy(), atol=1e-5)
         self.assertTrue(torch.allclose(add_k_val, manual_add_k_val, atol=1e-5))
@@ -43,7 +43,7 @@ class TestNewtonGirardAdditiveKernel(TestCase, BaseKernelTestCase):
         self.assertEqual(AddK.outputscale.numel(), 2)
 
         testvals = torch.tensor([[1, 2, 3], [7, 5, 2]], dtype=torch.float)
-        add_k_val = AddK(testvals, testvals).evaluate()
+        add_k_val = AddK(testvals, testvals).to_dense()
 
         manual_k1 = ScaleKernel(
             AdditiveKernel(RBFKernel(active_dims=0), RBFKernel(active_dims=1), RBFKernel(active_dims=2))
@@ -54,7 +54,7 @@ class TestNewtonGirardAdditiveKernel(TestCase, BaseKernelTestCase):
         )
         manual_k2.initialize(outputscale=1 / 2)
         manual_k = AdditiveKernel(manual_k1, manual_k2)
-        manual_add_k_val = manual_k(testvals, testvals).evaluate()
+        manual_add_k_val = manual_k(testvals, testvals).to_dense()
 
         # np.testing.assert_allclose(add_k_val.detach().numpy(), manual_add_k_val.detach().numpy(), atol=1e-5)
         self.assertTrue(torch.allclose(add_k_val, manual_add_k_val, atol=1e-5))
@@ -66,7 +66,7 @@ class TestNewtonGirardAdditiveKernel(TestCase, BaseKernelTestCase):
         self.assertEqual(AddK.outputscale.numel(), 3)
 
         testvals = torch.tensor([[1, 2, 3], [7, 5, 2]], dtype=torch.float)
-        add_k_val = AddK(testvals, testvals).evaluate()
+        add_k_val = AddK(testvals, testvals).to_dense()
 
         manual_k1 = ScaleKernel(
             AdditiveKernel(RBFKernel(active_dims=0), RBFKernel(active_dims=1), RBFKernel(active_dims=2))
@@ -80,7 +80,7 @@ class TestNewtonGirardAdditiveKernel(TestCase, BaseKernelTestCase):
         manual_k3 = ScaleKernel(AdditiveKernel(RBFKernel()))
         manual_k3.initialize(outputscale=1 / 3)
         manual_k = AdditiveKernel(manual_k1, manual_k2, manual_k3)
-        manual_add_k_val = manual_k(testvals, testvals).evaluate()
+        manual_add_k_val = manual_k(testvals, testvals).to_dense()
         # np.testing.assert_allclose(add_k_val.detach().numpy(), manual_add_k_val.detach().numpy(), atol=1e-5)
         self.assertTrue(torch.allclose(add_k_val, manual_add_k_val, atol=1e-5))
 
@@ -121,7 +121,7 @@ class TestNewtonGirardAdditiveKernel(TestCase, BaseKernelTestCase):
         AddK = NewtonGirardAdditiveKernel(base_k, 3, max_degree=1)
 
         testvals = torch.tensor([[1, 2, 3], [7, 5, 2]], dtype=torch.float)
-        add_k_val = AddK(testvals, testvals).evaluate()
+        add_k_val = AddK(testvals, testvals).to_dense()
 
         ks = []
         for i in range(3):
@@ -130,7 +130,7 @@ class TestNewtonGirardAdditiveKernel(TestCase, BaseKernelTestCase):
             ks.append(k)
         manual_k = ScaleKernel(AdditiveKernel(*ks))
         manual_k.initialize(outputscale=1.0)
-        manual_add_k_val = manual_k(testvals, testvals).evaluate()
+        manual_add_k_val = manual_k(testvals, testvals).to_dense()
 
         # np.testing.assert_allclose(add_k_val.detach().numpy(), manual_add_k_val.detach().numpy(), atol=1e-5)
         self.assertTrue(torch.allclose(add_k_val, manual_add_k_val, atol=1e-5))
@@ -141,7 +141,7 @@ class TestNewtonGirardAdditiveKernel(TestCase, BaseKernelTestCase):
         self.assertEqual(AddK.outputscale.numel(), 2)
 
         testvals = torch.tensor([[1, 2, 3], [7, 5, 2]], dtype=torch.float)
-        add_k_val = AddK(testvals, testvals).diag()
+        add_k_val = AddK(testvals, testvals).diagonal(dim1=-1, dim2=-2)
 
         manual_k1 = ScaleKernel(
             AdditiveKernel(RBFKernel(active_dims=0), RBFKernel(active_dims=1), RBFKernel(active_dims=2))
@@ -152,7 +152,7 @@ class TestNewtonGirardAdditiveKernel(TestCase, BaseKernelTestCase):
         )
         manual_k2.initialize(outputscale=1 / 2)
         manual_k = AdditiveKernel(manual_k1, manual_k2)
-        manual_add_k_val = manual_k(testvals, testvals).diag()
+        manual_add_k_val = manual_k(testvals, testvals).diagonal(dim1=-1, dim2=-2)
 
         # np.testing.assert_allclose(add_k_val.detach().numpy(), manual_add_k_val.detach().numpy(), atol=1e-5)
         self.assertTrue(torch.allclose(add_k_val, manual_add_k_val, atol=1e-5))

@@ -31,7 +31,7 @@ class TestPeriodicKernel(unittest.TestCase, BaseKernelTestCase):
                 val = 2 * torch.pow(torch.sin(math.pi * (a[i] - b[j]) / 3), 2) / lengthscale
                 actual[i, j] = torch.exp(-val).item()
 
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
     def test_is_pd(self):
@@ -39,7 +39,7 @@ class TestPeriodicKernel(unittest.TestCase, BaseKernelTestCase):
         x = torch.randn(100).reshape(-1, 1)
         kernel = PeriodicKernel()
         with torch.no_grad():
-            K = kernel(x, x).evaluate() + 1e-4 * torch.eye(len(x))
+            K = kernel(x, x).to_dense() + 1e-4 * torch.eye(len(x))
             eig = torch.linalg.eigvalsh(K)
             self.assertTrue((eig > 0.0).all().item())
 
@@ -49,7 +49,7 @@ class TestPeriodicKernel(unittest.TestCase, BaseKernelTestCase):
         x = torch.randn(1000, 2)
         kernel = PeriodicKernel()
         with torch.no_grad():
-            K = kernel(x, x).evaluate() + 1e-4 * torch.eye(len(x))
+            K = kernel(x, x).to_dense() + 1e-4 * torch.eye(len(x))
             eig = torch.linalg.eigvalsh(K)
             self.assertTrue((eig > 0.0).all().item())
 
@@ -63,9 +63,9 @@ class TestPeriodicKernel(unittest.TestCase, BaseKernelTestCase):
 
         actual = torch.zeros(2, 3, 2)
         for k in range(2):
-            actual[k] = kernel(a[k], b[k]).evaluate()
+            actual[k] = kernel(a[k], b[k]).to_dense()
 
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
     def test_batch_separate(self):
@@ -82,7 +82,7 @@ class TestPeriodicKernel(unittest.TestCase, BaseKernelTestCase):
             diff = diff * math.pi / period[k].unsqueeze(-1)
             actual[k] = diff.sin().pow(2).sum(dim=-1).div(lengthscale[k]).mul(-2.0).exp_()
 
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
     def create_kernel_with_prior(self, period_length_prior):

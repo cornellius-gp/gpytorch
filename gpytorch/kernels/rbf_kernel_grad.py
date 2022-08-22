@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-import torch
 
-from ..lazy import KroneckerProductLazyTensor
+import torch
+from linear_operator.operators import KroneckerProductLinearOperator
+
 from .rbf_kernel import RBFKernel, postprocess_rbf
 
 
@@ -18,37 +19,36 @@ class RBFKernelGrad(RBFKernel):
         This kernel does not have an `outputscale` parameter. To add a scaling parameter,
         decorate this kernel with a :class:`gpytorch.kernels.ScaleKernel`.
 
-    Args:
-        batch_shape (torch.Size, optional):
-            Set this if you want a separate lengthscale for each
-             batch of input data. It should be `b` if x1 is a `b x n x d` tensor. Default: `torch.Size([])`.
-        active_dims (tuple of ints, optional):
-            Set this if you want to compute the covariance of only a few input dimensions. The ints
-            corresponds to the indices of the dimensions. Default: `None`.
-        lengthscale_prior (Prior, optional):
-            Set this if you want to apply a prior to the lengthscale parameter.  Default: `None`.
-        lengthscale_constraint (Constraint, optional):
-            Set this if you want to apply a constraint to the lengthscale parameter. Default: `Positive`.
-        eps (float):
-            The minimum value that the lengthscale can take (prevents divide by zero errors). Default: `1e-6`.
+    :param ard_num_dims: Set this if you want a separate lengthscale for each input
+        dimension. It should be `d` if x1 is a `n x d` matrix. (Default: `None`.)
+    :param batch_shape: Set this if you want a separate lengthscale for each batch of input
+        data. It should be :math:`B_1 \times \ldots \times B_k` if :math:`\mathbf x1` is
+        a :math:`B_1 \times \ldots \times B_k \times N \times D` tensor.
+    :param active_dims: Set this if you want to compute the covariance of only
+        a few input dimensions. The ints corresponds to the indices of the
+        dimensions. (Default: `None`.)
+    :param lengthscale_prior: Set this if you want to apply a prior to the
+        lengthscale parameter. (Default: `None`)
+    :param lengthscale_constraint: Set this if you want to apply a constraint
+        to the lengthscale parameter. (Default: `Positive`.)
+    :param eps: The minimum value that the lengthscale can take (prevents
+        divide by zero errors). (Default: `1e-6`.)
 
-    Attributes:
-        lengthscale (Tensor):
-            The lengthscale parameter. Size/shape of parameter depends on the
-            ard_num_dims and batch_shape arguments.
+    :ivar torch.Tensor lengthscale: The lengthscale parameter. Size/shape of parameter depends on the
+        ard_num_dims and batch_shape arguments.
 
     Example:
         >>> x = torch.randn(10, 5)
         >>> # Non-batch: Simple option
         >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernelGrad())
-        >>> covar = covar_module(x)  # Output: LazyTensor of size (60 x 60), where 60 = n * (d + 1)
+        >>> covar = covar_module(x)  # Output: LinearOperator of size (60 x 60), where 60 = n * (d + 1)
         >>>
         >>> batch_x = torch.randn(2, 10, 5)
         >>> # Batch: Simple option
         >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernelGrad())
         >>> # Batch: different lengthscale for each batch
         >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernelGrad(batch_shape=torch.Size([2])))
-        >>> covar = covar_module(x)  # Output: LazyTensor of size (2 x 60 x 60)
+        >>> covar = covar_module(x)  # Output: LinearOperator of size (2 x 60 x 60)
     """
 
     def forward(self, x1, x2, diag=False, **params):
@@ -85,11 +85,11 @@ class RBFKernelGrad(RBFKernel):
 
             # 4) Hessian block
             outer3 = outer1.repeat([*([1] * n_batch_dims), d, 1]) * outer2.repeat([*([1] * (n_batch_dims + 1)), d])
-            kp = KroneckerProductLazyTensor(
+            kp = KroneckerProductLinearOperator(
                 torch.eye(d, d, device=x1.device, dtype=x1.dtype).repeat(*batch_shape, 1, 1) / self.lengthscale.pow(2),
                 torch.ones(n1, n2, device=x1.device, dtype=x1.dtype).repeat(*batch_shape, 1, 1),
             )
-            chain_rule = kp.evaluate() - outer3
+            chain_rule = kp.to_dense() - outer3
             K[..., n1:, n2:] = chain_rule * K_11.repeat([*([1] * n_batch_dims), d, d])
 
             # Symmetrize for stability

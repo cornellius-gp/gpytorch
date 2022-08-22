@@ -29,7 +29,7 @@ class GPClassificationModel(gpytorch.models.ApproximateGP):
             self, grid_size=grid_size, grid_bounds=grid_bounds, variational_distribution=variational_distribution
         )
         super(GPClassificationModel, self).__init__(variational_strategy)
-        self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-5, 5))
+        self.mean_module = ConstantMean(constant_prior=SmoothedBoxPrior(-5, 5))
         self.covar_module = ScaleKernel(
             RBFKernel(lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1)),
             outputscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1),

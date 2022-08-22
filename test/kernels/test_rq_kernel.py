@@ -30,22 +30,22 @@ class TestRQKernel(unittest.TestCase, BaseKernelTestCase):
         scaled_b = b.div(lengthscales)
         dist = (scaled_a.unsqueeze(-2) - scaled_b.unsqueeze(-3)).pow(2).sum(dim=-1)
         actual = dist.div_(2 * kernel.alpha).add_(1.0).pow(-kernel.alpha)
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # Diag
-        res = kernel(a, b).diag()
-        actual = actual.diag()
+        res = kernel(a, b).diagonal(dim1=-1, dim2=-2)
+        actual = actual.diagonal(dim1=-1, dim2=-2)
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # batch_dims
         diff = scaled_a.transpose(-1, -2).unsqueeze(-1) - scaled_b.transpose(-1, -2).unsqueeze(-2)
         actual = diff.pow(2).div_(2 * kernel.alpha).add_(1.0).pow(-kernel.alpha)
-        res = kernel(a, b, last_dim_is_batch=True).evaluate()
+        res = kernel(a, b, last_dim_is_batch=True).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # batch_dims and diag
-        res = kernel(a, b, last_dim_is_batch=True).diag()
+        res = kernel(a, b, last_dim_is_batch=True).diagonal(dim1=-1, dim2=-2)
         actual = actual.diagonal(dim1=-1, dim2=-2)
         self.assertLess(torch.norm(res - actual), 1e-5)
 
@@ -63,11 +63,11 @@ class TestRQKernel(unittest.TestCase, BaseKernelTestCase):
         scaled_b = b.div(lengthscales)
         dist = (scaled_a.unsqueeze(-2) - scaled_b.unsqueeze(-3)).pow(2).sum(dim=-1)
         actual = dist.div_(2 * kernel.alpha).add_(1.0).pow(-kernel.alpha)
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # diag
-        res = kernel(a, b).diag()
+        res = kernel(a, b).diagonal(dim1=-1, dim2=-2)
         actual = actual.diagonal(dim1=-1, dim2=-2)
         self.assertLess(torch.norm(res - actual), 1e-5)
 
@@ -77,11 +77,11 @@ class TestRQKernel(unittest.TestCase, BaseKernelTestCase):
         actual = double_batch_a - double_batch_b
         alpha = kernel.alpha.view(2, 1, 1, 1)
         actual = actual.pow_(2).div_(2 * alpha).add_(1.0).pow(-alpha)
-        res = kernel(a, b, last_dim_is_batch=True).evaluate()
+        res = kernel(a, b, last_dim_is_batch=True).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # batch_dims and diag
-        res = kernel(a, b, last_dim_is_batch=True).diag()
+        res = kernel(a, b, last_dim_is_batch=True).diagonal(dim1=-1, dim2=-2)
         actual = actual.diagonal(dim1=-2, dim2=-1)
         self.assertLess(torch.norm(res - actual), 1e-5)
 
@@ -99,11 +99,11 @@ class TestRQKernel(unittest.TestCase, BaseKernelTestCase):
         scaled_b = b.div(lengthscales)
         dist = (scaled_a.unsqueeze(-2) - scaled_b.unsqueeze(-3)).pow(2).sum(dim=-1)
         actual = dist.div_(2 * kernel.alpha).add_(1.0).pow(-kernel.alpha)
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # diag
-        res = kernel(a, b).diag()
+        res = kernel(a, b).diagonal(dim1=-1, dim2=-2)
         actual = actual.diagonal(dim1=-1, dim2=-2)
         self.assertLess(torch.norm(res - actual), 1e-5)
 
@@ -117,12 +117,12 @@ class TestRQKernel(unittest.TestCase, BaseKernelTestCase):
 
         dist = torch.tensor([[16, 4, 0], [4, 0, 4], [64, 36, 16]], dtype=torch.float).div(lengthscale**2)
         actual = dist.div_(2 * kernel.alpha).add_(1.0).pow(-kernel.alpha)
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # diag
-        res = kernel(a, b).diag()
-        actual = actual.diag()
+        res = kernel(a, b).diagonal(dim1=-1, dim2=-2)
+        actual = actual.diagonal(dim1=-1, dim2=-2)
         self.assertLess(torch.norm(res - actual), 1e-5)
 
     def test_computes_rational_quadratic_gradient(self):
@@ -144,7 +144,7 @@ class TestRQKernel(unittest.TestCase, BaseKernelTestCase):
         actual_output = dist.div(2 * alpha).add(1).pow(-alpha)
         actual_output.backward(gradient=torch.eye(3))
 
-        output = kernel(a, b).evaluate()
+        output = kernel(a, b).to_dense()
         output.backward(gradient=torch.eye(3))
 
         res = kernel.raw_lengthscale.grad
@@ -166,12 +166,12 @@ class TestRQKernel(unittest.TestCase, BaseKernelTestCase):
 
         actual = torch.tensor([[16, 4, 0], [4, 0, 4], [64, 36, 16]], dtype=torch.float)
         actual.div_(lengthscale**2).div_(2 * kernel.alpha).add_(1).pow_(-kernel.alpha)
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # diag
-        res = kernel(a, b).diag()
-        actual = actual.diag()
+        res = kernel(a, b).diagonal(dim1=-1, dim2=-2)
+        actual = actual.diagonal(dim1=-1, dim2=-2)
         self.assertLess(torch.norm(res - actual), 1e-5)
 
     def test_subset_active_computes_rational_quadratic_gradient(self):
@@ -195,7 +195,7 @@ class TestRQKernel(unittest.TestCase, BaseKernelTestCase):
         actual_output = dist.div(2 * alpha).add(1).pow(-alpha)
         actual_output.backward(gradient=torch.eye(3))
 
-        output = kernel(a, b).evaluate()
+        output = kernel(a, b).to_dense()
         output.backward(gradient=torch.eye(3))
 
         res = kernel.raw_lengthscale.grad

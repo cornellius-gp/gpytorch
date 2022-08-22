@@ -1,9 +1,9 @@
 from typing import Optional, Tuple
 
 import torch
+from linear_operator import to_dense
 
 from ..constraints import Positive
-from ..lazy import delazify
 from .kernel import Kernel
 
 
@@ -64,7 +64,7 @@ class NewtonGirardAdditiveKernel(Kernel):
         # NOTE: comments about shape are only correct for the single-batch cases.
         # kern_values is just the order-1 terms
         # kern_values = D x n x n unless diag=True
-        kern_values = delazify(self.base_kernel(x1, x2, diag=diag, last_dim_is_batch=True, **params))
+        kern_values = to_dense(self.base_kernel(x1, x2, diag=diag, last_dim_is_batch=True, **params))
         # last dim is batch, which gets moved up to pos. 1
 
         kernel_dim = -3 if not diag else -2

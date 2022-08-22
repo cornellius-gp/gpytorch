@@ -29,27 +29,23 @@ class RBFKernel(Kernel):
         This kernel does not have an `outputscale` parameter. To add a scaling parameter,
         decorate this kernel with a :class:`gpytorch.kernels.ScaleKernel`.
 
-    Args:
-        ard_num_dims (int, optional):
-            Set this if you want a separate lengthscale for each
-            input dimension. It should be `d` if x1 is a `n x d` matrix. Default: `None`
-        batch_shape (torch.Size, optional):
-            Set this if you want a separate lengthscale for each
-            batch of input data. It should be `b` if x1 is a `b x n x d` tensor. Default: `torch.Size([])`.
-        active_dims (tuple of ints, optional):
-            Set this if you want to compute the covariance of only a few input dimensions. The ints
-            corresponds to the indices of the dimensions. Default: `None`.
-        lengthscale_prior (Prior, optional):
-            Set this if you want to apply a prior to the lengthscale parameter.  Default: `None`.
-        lengthscale_constraint (Constraint, optional):
-            Set this if you want to apply a constraint to the lengthscale parameter. Default: `Positive`.
-        eps (float):
-            The minimum value that the lengthscale can take (prevents divide by zero errors). Default: `1e-6`.
+    :param ard_num_dims: Set this if you want a separate lengthscale for each input
+        dimension. It should be `d` if x1 is a `n x d` matrix. (Default: `None`.)
+    :param batch_shape: Set this if you want a separate lengthscale for each batch of input
+        data. It should be :math:`B_1 \times \ldots \times B_k` if :math:`\mathbf x1` is
+        a :math:`B_1 \times \ldots \times B_k \times N \times D` tensor.
+    :param active_dims: Set this if you want to compute the covariance of only
+        a few input dimensions. The ints corresponds to the indices of the
+        dimensions. (Default: `None`.)
+    :param lengthscale_prior: Set this if you want to apply a prior to the
+        lengthscale parameter. (Default: `None`)
+    :param lengthscale_constraint: Set this if you want to apply a constraint
+        to the lengthscale parameter. (Default: `Positive`.)
+    :param eps: The minimum value that the lengthscale can take (prevents
+        divide by zero errors). (Default: `1e-6`.)
 
-    Attributes:
-        lengthscale (Tensor):
-            The lengthscale parameter. Size/shape of parameter depends on the
-            ard_num_dims and batch_shape arguments.
+    :ivar torch.Tensor lengthscale: The lengthscale parameter. Size/shape of parameter depends on the
+        ard_num_dims and batch_shape arguments.
 
     Example:
         >>> x = torch.randn(10, 5)
@@ -57,14 +53,14 @@ class RBFKernel(Kernel):
         >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
         >>> # Non-batch: ARD (different lengthscale for each input dimension)
         >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel(ard_num_dims=5))
-        >>> covar = covar_module(x)  # Output: LazyTensor of size (10 x 10)
+        >>> covar = covar_module(x)  # Output: LinearOperator of size (10 x 10)
         >>>
         >>> batch_x = torch.randn(2, 10, 5)
         >>> # Batch: Simple option
         >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
         >>> # Batch: different lengthscale for each batch
         >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel(batch_shape=torch.Size([2])))
-        >>> covar = covar_module(x)  # Output: LazyTensor of size (2 x 10 x 10)
+        >>> covar = covar_module(x)  # Output: LinearOperator of size (2 x 10 x 10)
     """
 
     has_lengthscale = True

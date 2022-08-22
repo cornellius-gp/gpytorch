@@ -21,7 +21,7 @@ from torch import optim
 class ExactGPModel(gpytorch.models.ExactGP):
     def __init__(self, train_inputs, train_targets, likelihood):
         super(ExactGPModel, self).__init__(train_inputs, train_targets, likelihood)
-        self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1, 1))
+        self.mean_module = ConstantMean(constant_prior=SmoothedBoxPrior(-1, 1))
         self.rbf_covar_module = RBFKernel(lengthscale_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1))
         self.covar_module = ScaleKernel(self.rbf_covar_module)
 

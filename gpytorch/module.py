@@ -7,11 +7,11 @@ import operator
 from collections import OrderedDict
 
 import torch
+from linear_operator.operators import LinearOperator
 from torch import nn
 from torch.distributions import Distribution
 
 from .constraints import Interval
-from .lazy import LazyTensor
 
 
 class Module(nn.Module):
@@ -438,21 +438,21 @@ class Module(nn.Module):
 def _validate_module_outputs(outputs):
     if isinstance(outputs, tuple):
         if not all(
-            torch.is_tensor(output) or isinstance(output, Distribution) or isinstance(output, LazyTensor)
+            torch.is_tensor(output) or isinstance(output, Distribution) or isinstance(output, LinearOperator)
             for output in outputs
         ):
             raise RuntimeError(
-                "All outputs must be a Distribution, torch.Tensor, or LazyTensor. "
+                "All outputs must be a Distribution, torch.Tensor, or LinearOperator. "
                 "Got {}".format([output.__class__.__name__ for output in outputs])
             )
         if len(outputs) == 1:
             outputs = outputs[0]
         return outputs
-    elif torch.is_tensor(outputs) or isinstance(outputs, Distribution) or isinstance(outputs, LazyTensor):
+    elif torch.is_tensor(outputs) or isinstance(outputs, Distribution) or isinstance(outputs, LinearOperator):
         return outputs
     else:
         raise RuntimeError(
-            "Output must be a Distribution, torch.Tensor, or LazyTensor. Got {}".format(outputs.__class__.__name__)
+            "Output must be a Distribution, torch.Tensor, or LinearOperator. Got {}".format(outputs.__class__.__name__)
         )
 
 

@@ -10,8 +10,11 @@ from linear_operator import LinearOperator, operators
 from linear_operator.operators.cat_linear_operator import cat as _cat
 
 from .lazy_evaluated_kernel_tensor import LazyEvaluatedKernelTensor
-from .lazy_tensor import LazyTensor, delazify, deprecated_lazy_tensor
-from .non_lazy_tensor import NonLazyTensor, lazify
+from .lazy_tensor import delazify, deprecated_lazy_tensor
+from .non_lazy_tensor import lazify
+
+# We will dynamically import LazyTensor/NonLazyTensor to trigger DeprecationWarnings
+
 
 _deprecated_lazy_tensors = {
     "AddedDiagLazyTensor": deprecated_lazy_tensor(operators.AddedDiagLinearOperator),
@@ -31,12 +34,10 @@ _deprecated_lazy_tensors = {
     "KroneckerProductDiagLazyTensor": deprecated_lazy_tensor(operators.KroneckerProductDiagLinearOperator),
     "KroneckerProductLazyTensor": deprecated_lazy_tensor(operators.KroneckerProductLinearOperator),
     "KroneckerProductTriangularLazyTensor": deprecated_lazy_tensor(operators.KroneckerProductTriangularLinearOperator),
-    "LazyTensor": deprecated_lazy_tensor(operators.LinearOperator),
     "LowRankRootAddedDiagLazyTensor": deprecated_lazy_tensor(operators.LowRankRootAddedDiagLinearOperator),
     "LowRankRootLazyTensor": deprecated_lazy_tensor(operators.LowRankRootLinearOperator),
     "MatmulLazyTensor": deprecated_lazy_tensor(operators.MatmulLinearOperator),
     "MulLazyTensor": deprecated_lazy_tensor(operators.MulLinearOperator),
-    "NonLazyTensor": NonLazyTensor,
     "PsdSumLazyTensor": deprecated_lazy_tensor(operators.PsdSumLinearOperator),
     "RootLazyTensor": deprecated_lazy_tensor(operators.RootLinearOperator),
     "SumBatchLazyTensor": deprecated_lazy_tensor(operators.SumBatchLinearOperator),
@@ -70,6 +71,14 @@ def __getattr__(name: str) -> Any:
         "Replace all references to gpytorch.lazy.*LazyTensor with linear_operator.operators.*LinearOperator.",
         DeprecationWarning,
     )
-    if name in _deprecated_lazy_tensors:
+    if name == "LazyTensor":
+        from .lazy_tensor import LazyTensor
+
+        return deprecated_lazy_tensor(LazyTensor)
+    elif name == "NonLazyTensor":
+        from .non_lazy_tensor import NonLazyTensor
+
+        return deprecated_lazy_tensor(NonLazyTensor)
+    elif name in _deprecated_lazy_tensors:
         return _deprecated_lazy_tensors[name]
     raise AttributeError(f"module gpytorch.lazy has no attribute {name}")

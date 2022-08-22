@@ -102,9 +102,10 @@ class _VariationalStrategy(Module, ABC):
         :param torch.Tensor inducing_points: Locations :math:`\mathbf Z` of the inducing points
         :param torch.Tensor inducing_values: Samples of the inducing function values :math:`\mathbf u`
             (or the mean of the distribution :math:`q(\mathbf u)` if q is a Gaussian.
-        :param ~gpytorch.lazy.LazyTensor variational_inducing_covar: If the distribuiton :math:`q(\mathbf u)`
-            is Gaussian, then this variable is the covariance matrix of that Gaussian. Otherwise, it will be
-            None.
+        :param ~linear_operator.operators.LinearOperator variational_inducing_covar: If
+            the distribuiton :math:`q(\mathbf u)` is
+            Gaussian, then this variable is the covariance matrix of that Gaussian.
+            Otherwise, it will be None.
 
         :rtype: :obj:`~gpytorch.distributions.MultivariateNormal`
         :return: The distribution :math:`q( \mathbf f(\mathbf X))`
@@ -170,7 +171,7 @@ class _VariationalStrategy(Module, ABC):
             # do the mean cache because the mean cache doesn't solve against lik_train_train_covar
             train_mean = inducing_exact_model.mean_module(*inducing_exact_model.train_inputs)
             train_labels_offset = (inducing_exact_model.prediction_strategy.train_labels - train_mean).unsqueeze(-1)
-            mean_cache = updated_lik_train_train_covar.inv_matmul(train_labels_offset).squeeze(-1)
+            mean_cache = updated_lik_train_train_covar.solve(train_labels_offset).squeeze(-1)
             mean_cache = _add_cache_hook(mean_cache, inducing_exact_model.prediction_strategy)
             add_to_cache(pred_strat, "mean_cache", mean_cache)
             # TODO: check to see if we need to do the covar_cache?

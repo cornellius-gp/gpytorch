@@ -26,7 +26,7 @@ class TestGaussianSymmetrizedKLKernel(unittest.TestCase, BaseKernelTestCase):
         base_dist = Normal(torch.zeros(1, 10), torch.ones(1, 10))
 
         result = -(kl_divergence(value_dist, base_dist) + kl_divergence(base_dist, value_dist)).sum(-1)
-        self.assertLessEqual((kernel_output.evaluate() - result.exp().transpose(-2, -1)).norm(), 1e-5)
+        self.assertLessEqual((kernel_output.to_dense() - result.exp().transpose(-2, -1)).norm(), 1e-5)
 
     def create_kernel_no_ard(self, **kwargs):
         return GaussianSymmetrizedKLKernel(**kwargs)

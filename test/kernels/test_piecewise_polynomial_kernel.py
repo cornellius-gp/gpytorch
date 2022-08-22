@@ -43,25 +43,25 @@ class TestPiecewisePolynomialKernel(unittest.TestCase, BaseKernelTestCase):
         j = torch.floor(a / 2.0).shape[-1] + kernel.q + 1
         r = test_r(a, b)
         actual = test_fmax(r, j, kernel.q) * test_get_cov(r, j, kernel.q)
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # diag
-        actual = actual.diag()
-        res = kernel(a, b).diag()
+        actual = actual.diagonal(dim1=-1, dim2=-2)
+        res = kernel(a, b).diagonal(dim1=-1, dim2=-2)
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # batch_dims
         actual = torch.zeros(2, 3, 3)
         for i in range(2):
-            actual[i] = kernel(a[:, i].unsqueeze(-1), b[:, i].unsqueeze(-1)).evaluate()
+            actual[i] = kernel(a[:, i].unsqueeze(-1), b[:, i].unsqueeze(-1)).to_dense()
 
-        res = kernel(a, b, last_dim_is_batch=True).evaluate()
+        res = kernel(a, b, last_dim_is_batch=True).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # batch_dims + diag
-        res = kernel(a, b, last_dim_is_batch=True).diag()
-        actual = torch.cat([actual[i].diag().unsqueeze(0) for i in range(actual.size(0))])
+        res = kernel(a, b, last_dim_is_batch=True).diagonal(dim1=-1, dim2=-2)
+        actual = torch.cat([actual[i].diagonal(dim1=-1, dim2=-2).unsqueeze(0) for i in range(actual.size(0))])
         self.assertLess(torch.norm(res - actual), 1e-5)
 
     def test_piecewise_polynomial_kernel_batch(self):
@@ -95,7 +95,7 @@ class TestPiecewisePolynomialKernel(unittest.TestCase, BaseKernelTestCase):
         j = torch.floor(a / 2.0).shape[-1] + kernel.q + 1
         r = test_r(a, b)
         actual = test_fmax(r, j, kernel.q) * test_get_cov(r, j, kernel.q)
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
 

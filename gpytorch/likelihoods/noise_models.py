@@ -4,13 +4,13 @@ import warnings
 from typing import Any, Optional
 
 import torch
+from linear_operator.operators import ConstantDiagLinearOperator, DiagLinearOperator, ZeroLinearOperator
 from torch import Tensor
 from torch.nn import Parameter
 
 from .. import settings
 from ..constraints import GreaterThan
 from ..distributions import MultivariateNormal
-from ..lazy import ConstantDiagLazyTensor, DiagLazyTensor, ZeroLazyTensor
 from ..module import Module
 from ..utils.warnings import NumericalWarning
 
@@ -50,7 +50,7 @@ class _HomoskedasticNoiseBase(Noise):
             value = torch.as_tensor(value).to(self.raw_noise)
         self.initialize(raw_noise=self.raw_noise_constraint.inverse_transform(value))
 
-    def forward(self, *params: Any, shape: Optional[torch.Size] = None, **kwargs: Any) -> DiagLazyTensor:
+    def forward(self, *params: Any, shape: Optional[torch.Size] = None, **kwargs: Any) -> DiagLinearOperator:
         """In the homoskedastic case, the parameters are only used to infer the required shape.
         Here are the possible scenarios:
         - non-batched noise, non-batched input, non-MT -> noise_diag shape is `n`
@@ -70,7 +70,7 @@ class _HomoskedasticNoiseBase(Noise):
         If a "noise" kwarg (a Tensor) is provided, this noise is used directly.
         """
         if "noise" in kwargs:
-            return DiagLazyTensor(kwargs.get("noise"))
+            return DiagLinearOperator(kwargs.get("noise"))
         if shape is None:
             p = params[0] if torch.is_tensor(params[0]) else params[0][0]
             shape = p.shape if len(p.shape) == 1 else p.shape[:-1]
@@ -85,7 +85,7 @@ class _HomoskedasticNoiseBase(Noise):
             noise_diag = noise_diag.view(*batch_shape, 1)
         if noise_diag.shape[-1] != 1:
             noise_diag = noise_diag.unsqueeze(-1)
-        return ConstantDiagLazyTensor(noise_diag, diag_shape=n)
+        return ConstantDiagLinearOperator(noise_diag, diag_shape=n)
 
 
 class HomoskedasticNoise(_HomoskedasticNoiseBase):
@@ -117,9 +117,9 @@ class HeteroskedasticNoise(Noise):
         batch_shape: Optional[torch.Size] = None,
         shape: Optional[torch.Size] = None,
         noise: Optional[Tensor] = None,
-    ) -> DiagLazyTensor:
+    ) -> DiagLinearOperator:
         if noise is not None:
-            return DiagLazyTensor(noise)
+            return DiagLinearOperator(noise)
         training = self.noise_model.training  # keep track of mode
         self.noise_model.eval()  # we want the posterior prediction of the noise model
         with settings.detach_test_caches(False), settings.debug(False):
@@ -131,9 +131,9 @@ class HeteroskedasticNoise(Noise):
         if not isinstance(output, MultivariateNormal):
             raise NotImplementedError("Currently only noise models that return a MultivariateNormal are supported")
         # note: this also works with MultitaskMultivariateNormal, where this
-        # will return a batched DiagLazyTensors of size n x num_tasks x num_tasks
+        # will return a batched DiagLinearOperators of size n x num_tasks x num_tasks
         noise_diag = output.mean if self._noise_indices is None else output.mean[..., self._noise_indices]
-        return DiagLazyTensor(self._noise_constraint.transform(noise_diag))
+        return DiagLinearOperator(self._noise_constraint.transform(noise_diag))
 
 
 class FixedGaussianNoise(Module):
@@ -152,17 +152,17 @@ class FixedGaussianNoise(Module):
 
     def forward(
         self, *params: Any, shape: Optional[torch.Size] = None, noise: Optional[Tensor] = None, **kwargs: Any
-    ) -> DiagLazyTensor:
+    ) -> DiagLinearOperator:
         if shape is None:
             p = params[0] if torch.is_tensor(params[0]) else params[0][0]
             shape = p.shape if len(p.shape) == 1 else p.shape[:-1]
 
         if noise is not None:
-            return DiagLazyTensor(noise)
+            return DiagLinearOperator(noise)
         elif shape[-1] == self.noise.shape[-1]:
-            return DiagLazyTensor(self.noise)
+            return DiagLinearOperator(self.noise)
         else:
-            return ZeroLazyTensor()
+            return ZeroLinearOperator()
 
     def _apply(self, fn):
         self.noise = fn(self.noise)
