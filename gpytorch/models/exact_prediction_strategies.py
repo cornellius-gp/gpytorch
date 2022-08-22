@@ -18,6 +18,7 @@ from linear_operator.operators import (
     ZeroLinearOperator,
 )
 from linear_operator.utils.interpolation import left_interp, left_t_interp
+from torch import Tensor
 
 from .. import settings
 from ..lazy import LazyEvaluatedKernelTensor
@@ -272,11 +273,11 @@ class DefaultPredictionStrategy(object):
             self.exact_predictive_covar(test_test_covar, test_train_covar),
         )
 
-    def exact_predictive_mean(self, test_mean: torch.Tensor, test_train_covar: LinearOperator) -> torch.Tensor:
+    def exact_predictive_mean(self, test_mean: Tensor, test_train_covar: LinearOperator) -> Tensor:
         """
         Computes the posterior predictive covariance of a GP
 
-        :param torch.Tensor test_mean: The test prior mean
+        :param Tensor test_mean: The test prior mean
         :param ~linear_operator.operators.LinearOperator test_train_covar:
             Covariance matrix between test and train inputs
         :return: The predictive posterior mean of the test points
