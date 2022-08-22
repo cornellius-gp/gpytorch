@@ -42,7 +42,7 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
         noise_covar: Module,
         rank: Optional[int] = 0,
         task_correlation_prior: Optional[Prior] = None,
-        batch_shape: Optional[torch.Size] = torch.Size(),
+        batch_shape: torch.Size = torch.Size(),
     ):
         super().__init__(noise_covar=noise_covar)
         if rank != 0:
