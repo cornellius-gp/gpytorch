@@ -1,10 +1,12 @@
+#!/usr/bin/env python3
+
 import unittest
 
 import torch
+from linear_operator.operators import CholLinearOperator, TriangularLinearOperator
 
 import gpytorch
 from gpytorch.distributions import MultivariateNormal
-from gpytorch.lazy import CholLazyTensor, TriangularLazyTensor
 from gpytorch.variational import NaturalVariationalDistribution, TrilNaturalVariationalDistribution
 
 
@@ -21,7 +23,7 @@ class TestNatVariational(Float64Test):
     def test_invertible_init(self, D=5):
         mu = torch.randn(D)
         cov = torch.randn(D, D).tril_()
-        dist = MultivariateNormal(mu, CholLazyTensor(TriangularLazyTensor(cov)))
+        dist = MultivariateNormal(mu, CholLinearOperator(TriangularLinearOperator(cov)))
 
         v_dist = NaturalVariationalDistribution(D, mean_init_std=0.0)
         v_dist.initialize_variational_distribution(dist)
@@ -34,7 +36,7 @@ class TestNatVariational(Float64Test):
     def test_natgrad(self, D=5):
         mu = torch.randn(D)
         cov = torch.randn(D, D).tril_()
-        dist = MultivariateNormal(mu, CholLazyTensor(TriangularLazyTensor(cov)))
+        dist = MultivariateNormal(mu, CholLinearOperator(TriangularLinearOperator(cov)))
         sample = dist.sample()
 
         v_dist = NaturalVariationalDistribution(D)
@@ -46,7 +48,7 @@ class TestNatVariational(Float64Test):
         eta1 = mu.clone().requires_grad_(True)
         eta2 = (mu[:, None] * mu + cov @ cov.t()).requires_grad_(True)
         L = torch.linalg.cholesky(eta2 - eta1[:, None] * eta1)
-        dist2 = MultivariateNormal(eta1, CholLazyTensor(TriangularLazyTensor(L)))
+        dist2 = MultivariateNormal(eta1, CholLinearOperator(TriangularLinearOperator(L)))
         dist2.log_prob(sample).squeeze().backward()
 
         assert torch.allclose(v_dist.natural_vec.grad, eta1.grad)
@@ -98,7 +100,7 @@ class TestTrilNatVariational(Float64Test):
     def test_invertible_init(self, D=5):
         mu = torch.randn(D)
         cov = torch.randn(D, D).tril_()
-        dist = MultivariateNormal(mu, CholLazyTensor(TriangularLazyTensor(cov)))
+        dist = MultivariateNormal(mu, CholLinearOperator(TriangularLinearOperator(cov)))
 
         v_dist = TrilNaturalVariationalDistribution(D, mean_init_std=0.0)
         v_dist.initialize_variational_distribution(dist)
@@ -112,7 +114,7 @@ class TestTrilNatVariational(Float64Test):
         mu = torch.randn(D)
         cov = torch.randn(D, D)
         cov = cov @ cov.t()
-        dist = MultivariateNormal(mu, CholLazyTensor(TriangularLazyTensor(torch.linalg.cholesky(cov))))
+        dist = MultivariateNormal(mu, CholLinearOperator(TriangularLinearOperator(torch.linalg.cholesky(cov))))
         sample = dist.sample()
 
         v_dist = TrilNaturalVariationalDistribution(D, mean_init_std=0.0)

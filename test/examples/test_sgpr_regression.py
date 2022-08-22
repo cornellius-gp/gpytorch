@@ -9,6 +9,7 @@ from math import exp, pi
 
 import gpytorch
 import torch
+import linear_operator
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.kernels import InducingPointKernel, RBFKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
@@ -41,7 +42,7 @@ def make_data(cuda=False):
 class GPRegressionModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood):
         super(GPRegressionModel, self).__init__(train_x, train_y, likelihood)
-        self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1e-5, 1e-5))
+        self.mean_module = ConstantMean(constant_prior=SmoothedBoxPrior(-1e-5, 1e-5))
         self.base_covar_module = ScaleKernel(RBFKernel(lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1)))
         self.covar_module = InducingPointKernel(
             self.base_covar_module, inducing_points=torch.linspace(0, 1, 32), likelihood=likelihood
@@ -97,9 +98,9 @@ class TestSGPRRegression(unittest.TestCase, BaseTestCase):
                 loss.backward()
                 optimizer.step()
 
-                # Check that we have the right LazyTensor type
+                # Check that we have the right LinearOperator type
                 kernel = likelihood(gp_model(train_x)).lazy_covariance_matrix.evaluate_kernel()
-                self.assertIsInstance(kernel, gpytorch.lazy.LowRankRootAddedDiagLazyTensor)
+                self.assertIsInstance(kernel, linear_operator.operators.LowRankRootAddedDiagLinearOperator)
 
             for param in gp_model.parameters():
                 self.assertTrue(param.grad is not None)

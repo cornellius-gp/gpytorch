@@ -1,12 +1,13 @@
+#!/usr/bin/env python3
+
 import warnings
 
 import torch
+from linear_operator.operators import BlockDiagLinearOperator
 
-from gpytorch import settings
-from gpytorch.distributions import MultitaskMultivariateNormal
-from gpytorch.lazy import BlockDiagLazyTensor
-from gpytorch.likelihoods import Likelihood
-
+from ... import settings
+from ...distributions import MultitaskMultivariateNormal
+from ...likelihoods import Likelihood
 from ..approximate_gp import ApproximateGP
 from ..gp import GP
 
@@ -99,7 +100,7 @@ class DeepGPLayer(ApproximateGP):
         output = ApproximateGP.__call__(self, inputs)
         if self.output_dims is not None:
             mean = output.loc.transpose(-1, -2)
-            covar = BlockDiagLazyTensor(output.lazy_covariance_matrix, block_dim=-3)
+            covar = BlockDiagLinearOperator(output.lazy_covariance_matrix, block_dim=-3)
             output = MultitaskMultivariateNormal(mean, covar, interleaved=False)
 
         # Maybe expand inputs?

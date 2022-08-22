@@ -47,7 +47,7 @@ class TestMaternKernel(unittest.TestCase, BaseKernelTestCase):
         kernel.eval()
 
         actual = torch.tensor([[4, 2], [2, 0], [8, 6]], dtype=torch.float).div_(-lengthscale).exp()
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-3)
 
     def test_forward_nu_3_over_2(self):
@@ -60,7 +60,7 @@ class TestMaternKernel(unittest.TestCase, BaseKernelTestCase):
 
         dist = torch.tensor([[4, 2], [2, 0], [8, 6]], dtype=torch.float).mul_(math.sqrt(3) / lengthscale)
         actual = (dist + 1).mul(torch.exp(-dist))
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-3)
 
     def test_forward_nu_5_over_2(self):
@@ -73,7 +73,7 @@ class TestMaternKernel(unittest.TestCase, BaseKernelTestCase):
 
         dist = torch.tensor([[4, 2], [2, 0], [8, 6]], dtype=torch.float).mul_(math.sqrt(5) / lengthscale)
         actual = (dist**2 / 3 + dist + 1).mul(torch.exp(-dist))
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-3)
 
     def test_ard(self):
@@ -88,24 +88,24 @@ class TestMaternKernel(unittest.TestCase, BaseKernelTestCase):
         dist = torch.tensor([[1, 1], [2, 2]], dtype=torch.float)
         dist.mul_(math.sqrt(5))
         actual = (dist**2 / 3 + dist + 1).mul(torch.exp(-dist))
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-3)
 
         # diag
-        res = kernel(a, b).diag()
-        actual = actual.diag()
+        res = kernel(a, b).diagonal(dim1=-1, dim2=-2)
+        actual = actual.diagonal(dim1=-1, dim2=-2)
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # batch_dims
         dist = torch.tensor([[[0, 0], [2, 2]], [[1, 1], [0, 0]]], dtype=torch.float)
         dist.mul_(math.sqrt(5))
         actual = (dist**2 / 3 + dist + 1).mul(torch.exp(-dist))
-        res = kernel(a, b, last_dim_is_batch=True).evaluate()
+        res = kernel(a, b, last_dim_is_batch=True).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # batch_dims + diag
-        res = kernel(a, b, last_dim_is_batch=True).diag()
-        actual = torch.cat([actual[i].diag().unsqueeze(0) for i in range(actual.size(0))])
+        res = kernel(a, b, last_dim_is_batch=True).diagonal(dim1=-1, dim2=-2)
+        actual = torch.cat([actual[i].diagonal(dim1=-1, dim2=-2).unsqueeze(0) for i in range(actual.size(0))])
         self.assertLess(torch.norm(res - actual), 1e-5)
 
     def test_ard_batch(self):
@@ -119,7 +119,7 @@ class TestMaternKernel(unittest.TestCase, BaseKernelTestCase):
 
         dist = torch.tensor([[[1], [1]], [[2], [0]]], dtype=torch.float).mul_(math.sqrt(5))
         actual = (dist**2 / 3 + dist + 1).mul(torch.exp(-dist))
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-3)
 
     def test_ard_separate_batch(self):
@@ -133,12 +133,12 @@ class TestMaternKernel(unittest.TestCase, BaseKernelTestCase):
 
         dist = torch.tensor([[[1, 1], [1, 1]], [[4, 4], [0, 0]]], dtype=torch.float).mul_(math.sqrt(5))
         actual = (dist**2 / 3 + dist + 1).mul(torch.exp(-dist))
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-3)
 
         # diag
-        res = kernel(a, b).diag()
-        actual = torch.cat([actual[i].diag().unsqueeze(0) for i in range(actual.size(0))])
+        res = kernel(a, b).diagonal(dim1=-1, dim2=-2)
+        actual = torch.cat([actual[i].diagonal(dim1=-1, dim2=-2).unsqueeze(0) for i in range(actual.size(0))])
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # batch_dims
@@ -153,11 +153,11 @@ class TestMaternKernel(unittest.TestCase, BaseKernelTestCase):
         dist.mul_(math.sqrt(5))
         dist = dist.view(3, 2, 2, 2).transpose(0, 1)
         actual = (dist**2 / 3 + dist + 1).mul(torch.exp(-dist))
-        res = kernel(a, b, last_dim_is_batch=True).evaluate()
+        res = kernel(a, b, last_dim_is_batch=True).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # batch_dims + diag
-        res = kernel(a, b, last_dim_is_batch=True).diag()
+        res = kernel(a, b, last_dim_is_batch=True).diagonal(dim1=-1, dim2=-2)
         actual = actual.diagonal(dim1=-2, dim2=-1)
         self.assertLess(torch.norm(res - actual), 1e-5)
 

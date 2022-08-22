@@ -3,10 +3,11 @@
 from typing import Optional
 
 import torch
+from linear_operator import to_dense
+from linear_operator.operators import KroneckerProductLinearOperator, ToeplitzLinearOperator
 from torch import Tensor
 
 from .. import settings
-from ..lazy import KroneckerProductLazyTensor, ToeplitzLazyTensor, delazify
 from ..utils.grid import convert_legacy_grid, create_data_from_grid
 from .kernel import Kernel
 
@@ -37,7 +38,7 @@ class GridKernel(Kernel):
             between points in the projections of the grid of each dimension.
             We do this by treating `grid` as d batches of g x 1 tensors by
             calling base_kernel(grid, grid) with last_dim_is_batch to get a d x g x g Tensor
-            which we Kronecker product to get a g x g KroneckerProductLazyTensor.
+            which we Kronecker product to get a g x g KroneckerProductLinearOperator.
 
     .. _Fast kernel learning for multidimensional pattern extrapolation:
         http://www.cs.cmu.edu/~andrewgw/manet.pdf
@@ -138,29 +139,29 @@ class GridKernel(Kernel):
                 # Use padded grid for batch mode
                 first_grid_point = torch.stack([proj[0].unsqueeze(0) for proj in grid], dim=-1)
                 full_grid = torch.stack(padded_grid, dim=-1)
-                covars = delazify(self.base_kernel(first_grid_point, full_grid, last_dim_is_batch=True, **params))
+                covars = to_dense(self.base_kernel(first_grid_point, full_grid, last_dim_is_batch=True, **params))
 
                 if last_dim_is_batch:
                     # Toeplitz expects batches of columns so we concatenate the
                     # 1 x grid_size[i] tensors together
                     # Note that this requires all the dimensions to have the same number of grid points
-                    covar = ToeplitzLazyTensor(covars.squeeze(-2))
+                    covar = ToeplitzLinearOperator(covars.squeeze(-2))
                 else:
-                    # Non-batched ToeplitzLazyTensor expects a 1D tensor, so we squeeze out the row dimension
+                    # Non-batched ToeplitzLinearOperator expects a 1D tensor, so we squeeze out the row dimension
                     covars = covars.squeeze(-2)  # Get rid of the dimension corresponding to the first point
                     # Un-pad the grid
-                    covars = [ToeplitzLazyTensor(covars[..., i, : proj.size(-1)]) for i, proj in enumerate(grid)]
-                    # Due to legacy reasons, KroneckerProductLazyTensor(A, B, C) is actually (C Kron B Kron A)
-                    covar = KroneckerProductLazyTensor(*covars[::-1])
+                    covars = [ToeplitzLinearOperator(covars[..., i, : proj.size(-1)]) for i, proj in enumerate(grid)]
+                    # Due to legacy reasons, KroneckerProductLinearOperator(A, B, C) is actually (C Kron B Kron A)
+                    covar = KroneckerProductLinearOperator(*covars[::-1])
             else:
                 full_grid = torch.stack(padded_grid, dim=-1)
-                covars = delazify(self.base_kernel(full_grid, full_grid, last_dim_is_batch=True, **params))
+                covars = to_dense(self.base_kernel(full_grid, full_grid, last_dim_is_batch=True, **params))
                 if last_dim_is_batch:
                     # Note that this requires all the dimensions to have the same number of grid points
                     covar = covars
                 else:
                     covars = [covars[..., i, : proj.size(-1), : proj.size(-1)] for i, proj in enumerate(self.grid)]
-                    covar = KroneckerProductLazyTensor(*covars[::-1])
+                    covar = KroneckerProductLinearOperator(*covars[::-1])
 
             if not self.training:
                 self._cached_kernel_mat = covar

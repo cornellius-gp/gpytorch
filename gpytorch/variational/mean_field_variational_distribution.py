@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 import torch
+from linear_operator.operators import DiagLinearOperator
 
 from ..distributions import MultivariateNormal
-from ..lazy import DiagLazyTensor
 from ._variational_distribution import _VariationalDistribution
 
 
@@ -44,7 +44,7 @@ class MeanFieldVariationalDistribution(_VariationalDistribution):
         # not sure where this bug is occuring (in Pyro or PyTorch)
         # throwing this in as a hotfix for now - we should investigate later
         mask = torch.ones_like(self._variational_stddev)
-        variational_covar = DiagLazyTensor(self._variational_stddev.mul(mask).pow(2))
+        variational_covar = DiagLinearOperator(self._variational_stddev.mul(mask).pow(2))
         return MultivariateNormal(self.variational_mean, variational_covar)
 
     def initialize_variational_distribution(self, prior_dist):

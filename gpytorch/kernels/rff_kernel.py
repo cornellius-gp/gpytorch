@@ -4,9 +4,9 @@ import math
 from typing import Optional
 
 import torch
+from linear_operator.operators import LowRankRootLinearOperator, MatmulLinearOperator, RootLinearOperator
 from torch import Tensor
 
-from ..lazy import LowRankRootLazyTensor, MatmulLazyTensor, RootLazyTensor
 from ..models import exact_prediction_strategies
 from .kernel import Kernel
 
@@ -84,7 +84,7 @@ class RFFKernel(Kernel):
         >>> # This will infer `num_dims` automatically
         >>> kernel= gpytorch.kernels.RFFKernel(num_samples=5)
         >>> x = torch.randn(10, 3)
-        >>> kxx = kernel(x, x).evaluate()
+        >>> kxx = kernel(x, x).to_dense()
         >>> print(kxx.randn_weights.size())
         torch.Size([3, 5])
 
@@ -130,11 +130,11 @@ class RFFKernel(Kernel):
         if x1_eq_x2:
             # Exploit low rank structure, if there are fewer features than data points
             if z1.size(-1) < z2.size(-2):
-                return LowRankRootLazyTensor(z1 / math.sqrt(D))
+                return LowRankRootLinearOperator(z1 / math.sqrt(D))
             else:
-                return RootLazyTensor(z1 / math.sqrt(D))
+                return RootLinearOperator(z1 / math.sqrt(D))
         else:
-            return MatmulLazyTensor(z1 / D, z2.transpose(-1, -2))
+            return MatmulLinearOperator(z1 / D, z2.transpose(-1, -2))
 
     def _featurize(self, x: Tensor, normalize: bool = False) -> Tensor:
         # Recompute division each time to allow backprop through lengthscale

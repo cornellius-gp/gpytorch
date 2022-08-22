@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
 import warnings
-from typing import Optional
+from typing import Optional, Union
 
 import torch
+from linear_operator.operators import LinearOperator, MatmulLinearOperator, RootLinearOperator
+from torch import Tensor
 
 from ..constraints import Interval, Positive
-from ..lazy import MatmulLazyTensor, RootLazyTensor
 from ..priors import Prior
 from .kernel import Kernel
 
@@ -29,21 +30,19 @@ class LinearKernel(Kernel):
 
     .. note::
 
-        To implement this efficiently, we use a :obj:`gpytorch.lazy.RootLazyTensor` during training and a
-        :class:`gpytorch.lazy.MatmulLazyTensor` during test. These lazy tensors represent matrices of the form
-        :math:`K = XX^{\top}` and :math:`K = XZ^{\top}`. This makes inference
-        efficient because a matrix-vector product :math:`Kv` can be computed as
-        :math:`Kv=X(X^{\top}v)`, where the base multiply :math:`Xv` takes only
-        :math:`O(nd)` time and space.
+        To implement this efficiently, we use a
+        :obj:`~linear_operator.operators.RootLinearOperator` during training
+        and a :class:`~linear_operator.operators.MatmulLinearOperator` during
+        test. These lazy tensors represent matrices of the form :math:`\mathbf
+        K = \mathbf X \mathbf X^{\prime \top}`. This makes inference efficient
+        because a matrix-vector product :math:`\mathbf K \mathbf v` can be
+        computed as :math:`\mathbf K \mathbf v = \mathbf X( \mathbf X^{\prime
+        \top} \mathbf v)`, where the base multiply :math:`\mathbf X \mathbf v`
+        takes only :math:`\mathcal O(ND)` time and space.
 
-    Args:
-        variance_prior (:class:`gpytorch.priors.Prior`):
-            Prior over the variance parameter (default `None`).
-        variance_constraint (Constraint, optional):
-            Constraint to place on variance parameter. Default: `Positive`.
-        active_dims (list):
-            List of data dimensions to operate on.
-            `len(active_dims)` should equal `num_dimensions`.
+    :param variance_prior: Prior over the variance parameter. (Default `None`.)
+    :param variance_constraint: Constraint to place on variance parameter. (Default: `Positive`.)
+    :param active_dims: List of data dimensions to operate on. `len(active_dims)` should equal `num_dimensions`.
     """
 
     def __init__(
@@ -74,36 +73,38 @@ class LinearKernel(Kernel):
         self.register_constraint("raw_variance", variance_constraint)
 
     @property
-    def variance(self):
+    def variance(self) -> Tensor:
         return self.raw_variance_constraint.transform(self.raw_variance)
 
     @variance.setter
-    def variance(self, value):
+    def variance(self, value: Union[float, Tensor]):
         self._set_variance(value)
 
-    def _set_variance(self, value):
+    def _set_variance(self, value: Union[float, Tensor]):
         if not torch.is_tensor(value):
             value = torch.as_tensor(value).to(self.raw_variance)
         self.initialize(raw_variance=self.raw_variance_constraint.inverse_transform(value))
 
-    def forward(self, x1, x2, diag=False, last_dim_is_batch=False, **params):
+    def forward(
+        self, x1: Tensor, x2: Tensor, diag: Optional[bool] = False, last_dim_is_batch: Optional[bool] = False, **params
+    ) -> LinearOperator:
         x1_ = x1 * self.variance.sqrt()
         if last_dim_is_batch:
             x1_ = x1_.transpose(-1, -2).unsqueeze(-1)
 
         if x1.size() == x2.size() and torch.equal(x1, x2):
-            # Use RootLazyTensor when x1 == x2 for efficiency when composing
+            # Use RootLinearOperator when x1 == x2 for efficiency when composing
             # with other kernels
-            prod = RootLazyTensor(x1_)
+            prod = RootLinearOperator(x1_)
 
         else:
             x2_ = x2 * self.variance.sqrt()
             if last_dim_is_batch:
                 x2_ = x2_.transpose(-1, -2).unsqueeze(-1)
 
-            prod = MatmulLazyTensor(x1_, x2_.transpose(-2, -1))
+            prod = MatmulLinearOperator(x1_, x2_.transpose(-2, -1))
 
         if diag:
-            return prod.diag()
+            return prod.diagonal(dim1=-1, dim2=-2)
         else:
             return prod

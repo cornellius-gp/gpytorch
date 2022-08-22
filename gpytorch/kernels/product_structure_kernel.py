@@ -2,7 +2,8 @@
 
 from typing import Optional, Tuple
 
-from ..lazy import lazify
+from linear_operator.operators import to_linear_operator
+
 from .kernel import Kernel
 
 
@@ -75,11 +76,11 @@ class ProductStructureKernel(Kernel):
 
         Because we slice in to the kernel during prediction to get the test x train
         covar before calling evaluate_kernel, the order of operations would mean we
-        would get a MulLazyTensor representing a rectangular matrix, which we
+        would get a MulLinearOperator representing a rectangular matrix, which we
         cannot matmul with because we cannot root decompose it. Thus, SKIP actually
         *requires* that we work with the full (train + test) x (train + test)
         kernel matrix.
         """
         res = super().__call__(x1_, x2_, diag=diag, last_dim_is_batch=last_dim_is_batch, **params)
-        res = lazify(res).evaluate_kernel()
+        res = to_linear_operator(res).evaluate_kernel()
         return res

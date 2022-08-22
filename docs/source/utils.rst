@@ -5,42 +5,31 @@ gpytorch.utils
 ===================================
 
 .. currentmodule:: gpytorch.utils
-
-
-Utilities
-----------------
-
 .. automodule:: gpytorch.utils
    :members:
 
-Lanczos Utilities
-~~~~~~~~~~~~~~~~~
+Grid Utilities
+----------------------
 
-.. automodule:: gpytorch.utils.lanczos
+.. automodule:: gpytorch.utils.grid
    :members:
 
-Permutation Utilities
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+Interpolation Utilities
+---------------------------------
 
-.. automodule:: gpytorch.utils.permutation
+.. automodule:: gpytorch.utils.interpolation
    :members:
 
 Quadrature Utilities
-~~~~~~~~~~~~~~~~~~~~
+----------------------------
 
 .. automodule:: gpytorch.utils.quadrature
    :members:
 
-Sparse Utilities
-~~~~~~~~~~~~~~~~~
+Transform Utilities
+--------------------------
 
-.. automodule:: gpytorch.utils.sparse
-   :members:
-
-Grid Utilities
-~~~~~~~~~~~~~~~~~
-
-.. automodule:: gpytorch.utils.grid
+.. automodule:: gpytorch.utils.transforms
    :members:
 
 Nearest Neighbors Utilities

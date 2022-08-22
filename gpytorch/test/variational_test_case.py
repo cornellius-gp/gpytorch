@@ -3,6 +3,7 @@
 from abc import abstractproperty
 from unittest.mock import MagicMock, patch
 
+import linear_operator
 import torch
 
 import gpytorch
@@ -162,11 +163,11 @@ class VariationalTestCase(BaseTestCase):
 
         # Mocks
         _wrapped_cholesky = MagicMock(wraps=torch.linalg.cholesky_ex)
-        _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
-        _wrapped_ciq = MagicMock(wraps=gpytorch.utils.contour_integral_quad)
+        _wrapped_cg = MagicMock(wraps=linear_operator.utils.linear_cg)
+        _wrapped_ciq = MagicMock(wraps=linear_operator.utils.contour_integral_quad)
         _cholesky_mock = patch("torch.linalg.cholesky_ex", new=_wrapped_cholesky)
-        _cg_mock = patch("gpytorch.utils.linear_cg", new=_wrapped_cg)
-        _ciq_mock = patch("gpytorch.utils.contour_integral_quad", new=_wrapped_ciq)
+        _cg_mock = patch("linear_operator.utils.linear_cg", new=_wrapped_cg)
+        _ciq_mock = patch("linear_operator.utils.contour_integral_quad", new=_wrapped_ciq)
 
         # Make model and likelihood
         model, likelihood = self._make_model_and_likelihood(
@@ -222,11 +223,11 @@ class VariationalTestCase(BaseTestCase):
 
         # Mocks
         _wrapped_cholesky = MagicMock(wraps=torch.linalg.cholesky_ex)
-        _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
-        _wrapped_ciq = MagicMock(wraps=gpytorch.utils.contour_integral_quad)
+        _wrapped_cg = MagicMock(wraps=linear_operator.utils.linear_cg)
+        _wrapped_ciq = MagicMock(wraps=linear_operator.utils.contour_integral_quad)
         _cholesky_mock = patch("torch.linalg.cholesky_ex", new=_wrapped_cholesky)
-        _cg_mock = patch("gpytorch.utils.linear_cg", new=_wrapped_cg)
-        _ciq_mock = patch("gpytorch.utils.contour_integral_quad", new=_wrapped_ciq)
+        _cg_mock = patch("linear_operator.utils.linear_cg", new=_wrapped_cg)
+        _ciq_mock = patch("linear_operator.utils.contour_integral_quad", new=_wrapped_ciq)
 
         # Make model and likelihood
         model, likelihood = self._make_model_and_likelihood(

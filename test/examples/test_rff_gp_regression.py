@@ -8,6 +8,7 @@ from math import pi
 
 import gpytorch
 import torch
+import linear_operator
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.kernels import RFFKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
@@ -36,7 +37,7 @@ def make_data(cuda=False):
 class GPRegressionModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood):
         super(GPRegressionModel, self).__init__(train_x, train_y, likelihood)
-        self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1e-5, 1e-5))
+        self.mean_module = ConstantMean(constant_prior=SmoothedBoxPrior(-1e-5, 1e-5))
         self.covar_module = ScaleKernel(RFFKernel(num_samples=10))
 
     def forward(self, x):
@@ -79,9 +80,9 @@ class TestRFFRegression(unittest.TestCase):
             loss.backward()
             optimizer.step()
 
-            # Check that we have the right LazyTensor type
+            # Check that we have the right LinearOperator type
             kernel = likelihood(gp_model(train_x)).lazy_covariance_matrix.evaluate_kernel()
-            self.assertIsInstance(kernel, gpytorch.lazy.LowRankRootAddedDiagLazyTensor)
+            self.assertIsInstance(kernel, linear_operator.operators.LowRankRootAddedDiagLinearOperator)
 
         for param in gp_model.parameters():
             self.assertTrue(param.grad is not None)

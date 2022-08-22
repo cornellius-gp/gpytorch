@@ -155,7 +155,7 @@ class TestLKJCovariancePrior(unittest.TestCase):
         S = torch.eye(2, device=device)
 
         corr_dist = LKJCholesky(2, torch.tensor(0.5, device=device))
-        dist_log_prob = corr_dist.log_prob(S) + sd_prior.log_prob(S.diag()).sum()
+        dist_log_prob = corr_dist.log_prob(S) + sd_prior.log_prob(S.diagonal(dim1=-1, dim2=-2)).sum()
         self.assertAlmostEqual(prior.log_prob(S), dist_log_prob, places=4)
 
         S = torch.stack([S, torch.tensor([[1.0, 0.5], [0.5, 1]], device=S.device)])
@@ -177,7 +177,7 @@ class TestLKJCovariancePrior(unittest.TestCase):
         corr_dist = LKJCholesky(2, torch.tensor(0.5, device=device))
 
         S = torch.eye(2, device=device)
-        dist_log_prob = corr_dist.log_prob(S) + sd_prior.log_prob(S.diag()).sum()
+        dist_log_prob = corr_dist.log_prob(S) + sd_prior.log_prob(S.diagonal(dim1=-1, dim2=-2)).sum()
         self.assertAlmostEqual(prior.log_prob(S), dist_log_prob, places=4)
 
         S = torch.stack([S, torch.tensor([[1.0, 0.5], [0.5, 1]], device=S.device)])
@@ -198,7 +198,7 @@ class TestLKJCovariancePrior(unittest.TestCase):
         corr_dist = LKJCholesky(2, torch.tensor([0.5, 1.5], device=device))
 
         S = torch.eye(2, device=device)
-        dist_log_prob = corr_dist.log_prob(S) + sd_prior.log_prob(S.diag())
+        dist_log_prob = corr_dist.log_prob(S) + sd_prior.log_prob(S.diagonal(dim1=-1, dim2=-2))
         self.assertLessEqual((prior.log_prob(S) - dist_log_prob).abs().sum(), 1e-4)
 
         S = torch.stack([S, torch.tensor([[1.0, 0.5], [0.5, 1]], device=S.device)])

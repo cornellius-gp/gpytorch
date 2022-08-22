@@ -1,9 +1,10 @@
+#!/usr/bin/env python3
+
 import torch
+from linear_operator.operators import BlockDiagLinearOperator
 
-from gpytorch import settings
-from gpytorch.distributions import MultitaskMultivariateNormal
-from gpytorch.lazy import BlockDiagLazyTensor
-
+from ... import settings
+from ...distributions import MultitaskMultivariateNormal
 from ..approximate_gp import ApproximateGP
 from .deep_gp import DeepGP, DeepGPLayer
 
@@ -84,7 +85,7 @@ class DSPPLayer(DeepGPLayer):
         if self.num_quad_sites > 0:
             if self.output_dims is not None and not isinstance(output, MultitaskMultivariateNormal):
                 mean = output.loc.transpose(-1, -2)
-                covar = BlockDiagLazyTensor(output.lazy_covariance_matrix, block_dim=-3)
+                covar = BlockDiagLinearOperator(output.lazy_covariance_matrix, block_dim=-3)
                 output = MultitaskMultivariateNormal(mean, covar, interleaved=False)
         else:
             output = output.loc.transpose(-1, -2)  # this layer provides noiseless kernel interpolation

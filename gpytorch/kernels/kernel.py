@@ -6,15 +6,16 @@ from copy import deepcopy
 from typing import Optional, Tuple
 
 import torch
+from linear_operator import to_dense, to_linear_operator
+from linear_operator.operators import ZeroLinearOperator
 from torch.nn import ModuleList
 
 from .. import settings
 from ..constraints import Interval, Positive
-from ..lazy import LazyEvaluatedKernelTensor, ZeroLazyTensor, delazify, lazify
+from ..lazy import LazyEvaluatedKernelTensor
 from ..models import exact_prediction_strategies
 from ..module import Module
 from ..priors import Prior
-from ..utils.broadcasting import _mul_broadcast_shape
 
 
 def default_postprocess_script(x):
@@ -61,8 +62,9 @@ class Distance(torch.nn.Module):
 class Kernel(Module):
     r"""
     Kernels in GPyTorch are implemented as a :class:`gpytorch.Module` that, when called on two :obj:`torch.tensor`
-    objects `x1` and `x2` returns either a :obj:`torch.tensor` or a :obj:`gpytorch.lazy.LazyTensor` that represents
-    the covariance matrix between `x1` and `x2`.
+    objects `x1` and `x2` returns either a :obj:`torch.tensor` or a
+    :obj:`~linear_operator.operators.LinearOperator` that represents the
+    covariance matrix between `x1` and `x2`.
 
     In the typical use case, to extend this class means to implement the :func:`~gpytorch.kernels.Kernel.forward`
     method.
@@ -70,12 +72,12 @@ class Kernel(Module):
     .. note::
         The :func:`~gpytorch.kernels.Kernel.__call__` does some additional internal work. In particular,
         all kernels are lazily evaluated so that, in some cases, we can index in to the kernel matrix before actually
-        computing it. Furthermore, many built in kernel modules return LazyTensors that allow for more efficient
+        computing it. Furthermore, many built in kernel modules return LinearOperators that allow for more efficient
         inference than if we explicitly computed the kernel matrix itself.
 
         As a result, if you want to use a :obj:`gpytorch.kernels.Kernel` object just to get an actual
         :obj:`torch.tensor` representing the covariance matrix, you may need to call the
-        :func:`gpytorch.lazy.LazyTensor.evaluate` method on the output.
+        :func:`~linear_operator.operators.LinearOperator.to_dense` method on the output.
 
     This base :class:`Kernel` class includes a lengthscale parameter
     :math:`\Theta`, which is used by many common kernel functions.
@@ -100,33 +102,30 @@ class Kernel(Module):
         The lengthscale parameter is parameterized on a log scale to constrain it to be positive.
         You can set a prior on this parameter using the lengthscale_prior argument.
 
-    Args:
-        ard_num_dims (int, optional):
-            Set this if you want a separate lengthscale for each input
-            dimension. It should be `d` if x1 is a `n x d` matrix.  Default: `None`
-        batch_shape (torch.Size, optional):
-            Set this if you want a separate lengthscale for each batch of input
-            data. It should be `b1 x ... x bk` if x1 is a `b1 x ... x bk x n x d` tensor.
-        active_dims (tuple of ints, optional):
-            Set this if you want to compute the covariance of only a few input dimensions. The ints
-            corresponds to the indices of the dimensions. Default: `None`.
-        lengthscale_prior (Prior, optional):
-            Set this if you want to apply a prior to the lengthscale parameter.  Default: `None`
-        lengthscale_constraint (Constraint, optional):
-            Set this if you want to apply a constraint to the lengthscale parameter. Default: `Positive`.
-        eps (float):
-            The minimum value that the lengthscale can take (prevents divide by zero errors). Default: `1e-6`.
+    :param ard_num_dims: Set this if you want a separate lengthscale for each input
+        dimension. It should be `d` if x1 is a `n x d` matrix. (Default: `None`.)
+    :param batch_shape: Set this if you want a separate lengthscale for each batch of input
+        data. It should be :math:`B_1 \times \ldots \times B_k` if :math:`\mathbf x1` is
+        a :math:`B_1 \times \ldots \times B_k \times N \times D` tensor.
+    :param active_dims: Set this if you want to compute the covariance of only
+        a few input dimensions. The ints corresponds to the indices of the
+        dimensions. (Default: `None`.)
+    :param lengthscale_prior: Set this if you want to apply a prior to the
+        lengthscale parameter. (Default: `None`)
+    :param lengthscale_constraint: Set this if you want to apply a constraint
+        to the lengthscale parameter. (Default: `Positive`.)
+    :param eps: The minimum value that the lengthscale can take (prevents
+        divide by zero errors). (Default: `1e-6`.)
 
-    Attributes:
-        lengthscale (Tensor):
-            The lengthscale parameter. Size/shape of parameter depends on the
-            ard_num_dims and batch_shape arguments.
+    :ivar torch.Tensor lengthscale:
+        The lengthscale parameter. Size/shape of parameter depends on the
+        `ard_num_dims` and `batch_shape` arguments.
 
     Example:
         >>> covar_module = gpytorch.kernels.LinearKernel()
         >>> x1 = torch.randn(50, 3)
-        >>> lazy_covar_matrix = covar_module(x1) # Returns a RootLazyTensor
-        >>> tensor_covar_matrix = lazy_covar_matrix.evaluate() # Gets the actual tensor for this kernel matrix
+        >>> lazy_covar_matrix = covar_module(x1) # Returns a RootLinearOperator
+        >>> tensor_covar_matrix = lazy_covar_matrix.to_dense() # Gets the actual tensor for this kernel matrix
     """
 
     has_lengthscale = False
@@ -199,7 +198,7 @@ class Kernel(Module):
                 (Useful for additive structure over the dimensions). Default: False
 
         Returns:
-            :class:`Tensor` or :class:`gpytorch.lazy.LazyTensor`.
+            :class:`Tensor` or :class:`~linear_operator.operators.LinearOperator`.
                 The exact size depends on the kernel's evaluation mode:
 
                 * `full_covar`: `n x m` or `b x n x m`
@@ -213,7 +212,7 @@ class Kernel(Module):
     def batch_shape(self):
         kernels = list(self.sub_kernels())
         if len(kernels):
-            return _mul_broadcast_shape(self._batch_shape, *[k.batch_shape for k in kernels])
+            return torch.broadcast_shapes(self._batch_shape, *[k.batch_shape for k in kernels])
         else:
             return self._batch_shape
 
@@ -398,14 +397,16 @@ class Kernel(Module):
             # If it does not return a LazyEvaluatedKernelTensor, we can call diag on the output
             if not isinstance(res, LazyEvaluatedKernelTensor):
                 if res.dim() == x1_.dim() and res.shape[-2:] == torch.Size((x1_.size(-2), x2_.size(-2))):
-                    res = res.diag()
+                    res = res.diagonal(dim1=-1, dim2=-2)
             return res
 
         else:
             if settings.lazily_evaluate_kernels.on():
                 res = LazyEvaluatedKernelTensor(x1_, x2_, kernel=self, last_dim_is_batch=last_dim_is_batch, **params)
             else:
-                res = lazify(super(Kernel, self).__call__(x1_, x2_, last_dim_is_batch=last_dim_is_batch, **params))
+                res = to_linear_operator(
+                    super(Kernel, self).__call__(x1_, x2_, last_dim_is_batch=last_dim_is_batch, **params)
+                )
             return res
 
     def __getstate__(self):
@@ -470,11 +471,11 @@ class AdditiveKernel(Kernel):
         self.kernels = ModuleList(kernels)
 
     def forward(self, x1, x2, diag=False, **params):
-        res = ZeroLazyTensor() if not diag else 0
+        res = ZeroLinearOperator() if not diag else 0
         for kern in self.kernels:
             next_term = kern(x1, x2, diag=diag, **params)
             if not diag:
-                res = res + lazify(next_term)
+                res = res + to_linear_operator(next_term)
             else:
                 res = res + next_term
 
@@ -516,22 +517,23 @@ class ProductKernel(Kernel):
         x1_eq_x2 = torch.equal(x1, x2)
 
         if not x1_eq_x2:
-            # If x1 != x2, then we can't make a MulLazyTensor because the kernel won't necessarily be square/symmetric
-            res = delazify(self.kernels[0](x1, x2, diag=diag, **params))
+            # If x1 != x2, then we can't make a MulLinearOperator because the kernel won't necessarily be
+            # square/symmetric
+            res = to_dense(self.kernels[0](x1, x2, diag=diag, **params))
         else:
             res = self.kernels[0](x1, x2, diag=diag, **params)
 
             if not diag:
-                res = lazify(res)
+                res = to_linear_operator(res)
 
         for kern in self.kernels[1:]:
             next_term = kern(x1, x2, diag=diag, **params)
             if not x1_eq_x2:
-                # Again delazify if x1 != x2
-                res = res * delazify(next_term)
+                # Again to_dense if x1 != x2
+                res = res * to_dense(next_term)
             else:
                 if not diag:
-                    res = res * lazify(next_term)
+                    res = res * to_linear_operator(next_term)
                 else:
                     res = res * next_term
 

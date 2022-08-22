@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 import torch
+from linear_operator import LinearOperator, to_linear_operator
+from linear_operator.operators import BlockDiagLinearOperator, BlockInterleavedLinearOperator, CatLinearOperator
 
-from ..lazy import BlockDiagLazyTensor, BlockInterleavedLazyTensor, CatLazyTensor, LazyTensor, lazify
-from ..utils.broadcasting import _mul_broadcast_shape
 from .multivariate_normal import MultivariateNormal
 
 
@@ -16,7 +16,7 @@ class MultitaskMultivariateNormal(MultivariateNormal):
     Passing a matrix mean corresponds to a batch of multivariate Normals
 
     :param torch.Tensor mean:  An `n x t` or batch `b x n x t` matrix of means for the MVN distribution.
-    :param ~gpytorch.lazy.LazyTensor covar: An `nt x nt` or batch `b x nt x nt`
+    :param ~linear_operator.operators.LinearOperator covar: An `... x NT x NT` (batch) matrix.
         covariance matrix of MVN distribution.
     :param bool validate_args: (default=False) If True, validate `mean` anad `covariance_matrix` arguments.
     :param bool interleaved: (default=True) If True, covariance matrix is interpreted as block-diagonal w.r.t.
@@ -25,18 +25,18 @@ class MultitaskMultivariateNormal(MultivariateNormal):
     """
 
     def __init__(self, mean, covariance_matrix, validate_args=False, interleaved=True):
-        if not torch.is_tensor(mean) and not isinstance(mean, LazyTensor):
-            raise RuntimeError("The mean of a MultitaskMultivariateNormal must be a Tensor or LazyTensor")
+        if not torch.is_tensor(mean) and not isinstance(mean, LinearOperator):
+            raise RuntimeError("The mean of a MultitaskMultivariateNormal must be a Tensor or LinearOperator")
 
-        if not torch.is_tensor(covariance_matrix) and not isinstance(covariance_matrix, LazyTensor):
-            raise RuntimeError("The covariance of a MultitaskMultivariateNormal must be a Tensor or LazyTensor")
+        if not torch.is_tensor(covariance_matrix) and not isinstance(covariance_matrix, LinearOperator):
+            raise RuntimeError("The covariance of a MultitaskMultivariateNormal must be a Tensor or LinearOperator")
 
         if mean.dim() < 2:
             raise RuntimeError("mean should be a matrix or a batch matrix (batch mode)")
 
         # Ensure that shapes are broadcasted appropriately across the mean and covariance
         # Means can have singleton dimensions for either the `n` or `t` dimensions
-        batch_shape = _mul_broadcast_shape(mean.shape[:-2], covariance_matrix.shape[:-2])
+        batch_shape = torch.broadcast_shapes(mean.shape[:-2], covariance_matrix.shape[:-2])
         if mean.shape[-2:].numel() != covariance_matrix.size(-1):
             if covariance_matrix.size(-1) % mean.shape[-2:].numel():
                 raise RuntimeError(
@@ -54,7 +54,8 @@ class MultitaskMultivariateNormal(MultivariateNormal):
             mean = mean.expand(*batch_shape, *mean.shape[-2:])
 
         self._output_shape = mean.shape
-        # TODO: Instead of transpose / view operations, use a PermutationLazyTensor (see #539) to handle interleaving
+        # TODO: Instead of transpose / view operations, use a PermutationLinearOperator (see #539)
+        # to handle interleaving
         self._interleaved = interleaved
         if self._interleaved:
             mean_mvn = mean.reshape(*mean.shape[:-2], -1)
@@ -111,7 +112,7 @@ class MultitaskMultivariateNormal(MultivariateNormal):
         num_dim = batch_mvn.mean.dim()
         res = cls(
             mean=batch_mvn.mean.permute(*range(0, task_dim), *range(task_dim + 1, num_dim), task_dim),
-            covariance_matrix=BlockInterleavedLazyTensor(batch_mvn.lazy_covariance_matrix, block_dim=task_dim),
+            covariance_matrix=BlockInterleavedLinearOperator(batch_mvn.lazy_covariance_matrix, block_dim=task_dim),
         )
         return res
 
@@ -153,13 +154,13 @@ class MultitaskMultivariateNormal(MultivariateNormal):
         mean = torch.stack([mvn.mean for mvn in mvns], -1)
         # TODO: To do the following efficiently, we don't want to evaluate the
         # covariance matrices. Instead, we want to use the lazies directly in the
-        # BlockDiagLazyTensor. This will require implementing a new BatchLazyTensor:
+        # BlockDiagLinearOperator. This will require implementing a new BatchLinearOperator:
 
         # https://github.com/cornellius-gp/gpytorch/issues/468
-        covar_blocks_lazy = CatLazyTensor(
+        covar_blocks_lazy = CatLinearOperator(
             *[mvn.lazy_covariance_matrix.unsqueeze(0) for mvn in mvns], dim=0, output_device=mean.device
         )
-        covar_lazy = BlockDiagLazyTensor(covar_blocks_lazy, block_dim=0)
+        covar_lazy = BlockDiagLinearOperator(covar_blocks_lazy, block_dim=0)
         return cls(mean=mean, covariance_matrix=covar_lazy, interleaved=False)
 
     @classmethod
@@ -260,7 +261,7 @@ class MultitaskMultivariateNormal(MultivariateNormal):
         task_covars = full_covar[
             ..., data_indices + task_indices.unsqueeze(-2), data_indices + task_indices.unsqueeze(-1)
         ]
-        return MultivariateNormal(self.mean, lazify(task_covars).add_jitter())
+        return MultivariateNormal(self.mean, to_linear_operator(task_covars).add_jitter())
 
     @property
     def variance(self):

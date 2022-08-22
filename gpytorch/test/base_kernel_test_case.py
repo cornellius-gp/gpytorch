@@ -28,9 +28,9 @@ class BaseKernelTestCase(BaseTestCase):
     def test_active_dims_list(self):
         kernel = self.create_kernel_no_ard(active_dims=[0, 2, 4, 6])
         x = self.create_data_no_batch()
-        covar_mat = kernel(x).evaluate_kernel().evaluate()
+        covar_mat = kernel(x).evaluate_kernel().to_dense()
         kernel_basic = self.create_kernel_no_ard()
-        covar_mat_actual = kernel_basic(x[:, [0, 2, 4, 6]]).evaluate_kernel().evaluate()
+        covar_mat_actual = kernel_basic(x[:, [0, 2, 4, 6]]).evaluate_kernel().to_dense()
 
         self.assertAllClose(covar_mat, covar_mat_actual, rtol=1e-3, atol=1e-5)
 
@@ -38,19 +38,19 @@ class BaseKernelTestCase(BaseTestCase):
         active_dims = list(range(3, 9))
         kernel = self.create_kernel_no_ard(active_dims=active_dims)
         x = self.create_data_no_batch()
-        covar_mat = kernel(x).evaluate_kernel().evaluate()
+        covar_mat = kernel(x).evaluate_kernel().to_dense()
         kernel_basic = self.create_kernel_no_ard()
-        covar_mat_actual = kernel_basic(x[:, active_dims]).evaluate_kernel().evaluate()
+        covar_mat_actual = kernel_basic(x[:, active_dims]).evaluate_kernel().to_dense()
 
         self.assertAllClose(covar_mat, covar_mat_actual, rtol=1e-3, atol=1e-5)
 
     def test_no_batch_kernel_single_batch_x_no_ard(self):
         kernel = self.create_kernel_no_ard()
         x = self.create_data_single_batch()
-        batch_covar_mat = kernel(x).evaluate_kernel().evaluate()
+        batch_covar_mat = kernel(x).evaluate_kernel().to_dense()
 
-        actual_mat_1 = kernel(x[0]).evaluate_kernel().evaluate()
-        actual_mat_2 = kernel(x[1]).evaluate_kernel().evaluate()
+        actual_mat_1 = kernel(x[0]).evaluate_kernel().to_dense()
+        actual_mat_2 = kernel(x[1]).evaluate_kernel().to_dense()
         actual_covar_mat = torch.cat([actual_mat_1.unsqueeze(0), actual_mat_2.unsqueeze(0)])
 
         self.assertAllClose(batch_covar_mat, actual_covar_mat, rtol=1e-3, atol=1e-5)
@@ -63,10 +63,10 @@ class BaseKernelTestCase(BaseTestCase):
     def test_single_batch_kernel_single_batch_x_no_ard(self):
         kernel = self.create_kernel_no_ard(batch_shape=torch.Size([]))
         x = self.create_data_single_batch()
-        batch_covar_mat = kernel(x).evaluate_kernel().evaluate()
+        batch_covar_mat = kernel(x).evaluate_kernel().to_dense()
 
-        actual_mat_1 = kernel(x[0]).evaluate_kernel().evaluate()
-        actual_mat_2 = kernel(x[1]).evaluate_kernel().evaluate()
+        actual_mat_1 = kernel(x[0]).evaluate_kernel().to_dense()
+        actual_mat_2 = kernel(x[1]).evaluate_kernel().to_dense()
         actual_covar_mat = torch.cat([actual_mat_1.unsqueeze(0), actual_mat_2.unsqueeze(0)])
 
         self.assertAllClose(batch_covar_mat, actual_covar_mat, rtol=1e-3, atol=1e-5)
@@ -79,13 +79,13 @@ class BaseKernelTestCase(BaseTestCase):
     def test_no_batch_kernel_double_batch_x_no_ard(self):
         kernel = self.create_kernel_no_ard(batch_shape=torch.Size([]))
         x = self.create_data_double_batch()
-        batch_covar_mat = kernel(x).evaluate_kernel().evaluate()
+        batch_covar_mat = kernel(x).evaluate_kernel().to_dense()
 
         ij_actual_covars = []
         for i in range(x.size(0)):
             i_actual_covars = []
             for j in range(x.size(1)):
-                i_actual_covars.append(kernel(x[i, j]).evaluate_kernel().evaluate())
+                i_actual_covars.append(kernel(x[i, j]).evaluate_kernel().to_dense())
             ij_actual_covars.append(torch.cat([ac.unsqueeze(0) for ac in i_actual_covars]))
 
         actual_covar_mat = torch.cat([ac.unsqueeze(0) for ac in ij_actual_covars])
@@ -104,13 +104,13 @@ class BaseKernelTestCase(BaseTestCase):
             return
 
         x = self.create_data_double_batch()
-        batch_covar_mat = kernel(x).evaluate_kernel().evaluate()
+        batch_covar_mat = kernel(x).evaluate_kernel().to_dense()
 
         ij_actual_covars = []
         for i in range(x.size(0)):
             i_actual_covars = []
             for j in range(x.size(1)):
-                i_actual_covars.append(kernel(x[i, j]).evaluate_kernel().evaluate())
+                i_actual_covars.append(kernel(x[i, j]).evaluate_kernel().to_dense())
             ij_actual_covars.append(torch.cat([ac.unsqueeze(0) for ac in i_actual_covars]))
 
         actual_covar_mat = torch.cat([ac.unsqueeze(0) for ac in ij_actual_covars])
@@ -125,7 +125,7 @@ class BaseKernelTestCase(BaseTestCase):
     def test_smoke_double_batch_kernel_double_batch_x_no_ard(self):
         kernel = self.create_kernel_no_ard(batch_shape=torch.Size([3, 2]))
         x = self.create_data_double_batch()
-        batch_covar_mat = kernel(x).evaluate_kernel().evaluate()
+        batch_covar_mat = kernel(x).evaluate_kernel().to_dense()
         kernel(x, diag=True)
         return batch_covar_mat
 
@@ -136,7 +136,7 @@ class BaseKernelTestCase(BaseTestCase):
             return
 
         x = self.create_data_double_batch()
-        batch_covar_mat = kernel(x).evaluate_kernel().evaluate()
+        batch_covar_mat = kernel(x).evaluate_kernel().to_dense()
         kernel(x, diag=True)
         return batch_covar_mat
 
@@ -144,10 +144,10 @@ class BaseKernelTestCase(BaseTestCase):
         kernel = self.create_kernel_no_ard(batch_shape=torch.Size([2]))
         x = self.create_data_single_batch()
 
-        res1 = kernel(x).evaluate()[0]  # Result of first kernel on first batch of data
+        res1 = kernel(x).to_dense()[0]  # Result of first kernel on first batch of data
 
         new_kernel = kernel[0]
-        res2 = new_kernel(x[0]).evaluate()  # Should also be result of first kernel on first batch of data.
+        res2 = new_kernel(x[0]).to_dense()  # Should also be result of first kernel on first batch of data.
 
         self.assertAllClose(res1, res2, rtol=1e-3, atol=1e-5)
 
@@ -155,10 +155,10 @@ class BaseKernelTestCase(BaseTestCase):
         kernel = self.create_kernel_no_ard(batch_shape=torch.Size([3, 2]))
         x = self.create_data_double_batch()
 
-        res1 = kernel(x).evaluate()[0, 1]  # Result of first kernel on first batch of data
+        res1 = kernel(x).to_dense()[0, 1]  # Result of first kernel on first batch of data
 
         new_kernel = kernel[0, 1]
-        res2 = new_kernel(x[0, 1]).evaluate()  # Should also be result of first kernel on first batch of data.
+        res2 = new_kernel(x[0, 1]).to_dense()  # Should also be result of first kernel on first batch of data.
 
         self.assertAllClose(res1, res2, rtol=1e-3, atol=1e-5)
 

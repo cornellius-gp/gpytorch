@@ -22,12 +22,12 @@ class TestCosineKernel(unittest.TestCase):
             for j in range(3):
                 actual[i, j] = torch.cos(math.pi * ((a[i] - b[j]) / period).norm(2, dim=-1))
 
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # diag
-        res = kernel(a, b).diag()
-        actual = actual.diag()
+        res = kernel(a, b).diagonal(dim1=-1, dim2=-2)
+        actual = actual.diagonal(dim1=-1, dim2=-2)
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # batch_dims
@@ -36,12 +36,12 @@ class TestCosineKernel(unittest.TestCase):
             for j in range(3):
                 for l in range(2):
                     actual[l, i, j] = torch.cos(math.pi * ((a[i, l] - b[j, l]) / period))
-        res = kernel(a, b, last_dim_is_batch=True).evaluate()
+        res = kernel(a, b, last_dim_is_batch=True).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # batch_dims + diag
-        res = kernel(a, b, last_dim_is_batch=True).diag()
-        actual = torch.cat([actual[i].diag().unsqueeze(0) for i in range(actual.size(0))])
+        res = kernel(a, b, last_dim_is_batch=True).diagonal(dim1=-1, dim2=-2)
+        actual = torch.cat([actual[i].diagonal(dim1=-1, dim2=-2).unsqueeze(0) for i in range(actual.size(0))])
         self.assertLess(torch.norm(res - actual), 1e-5)
 
     def test_batch(self):
@@ -57,7 +57,7 @@ class TestCosineKernel(unittest.TestCase):
                 for j in range(3):
                     actual[k, i, j] = torch.cos(math.pi * ((a[k, i] - b[k, j]) / period))
 
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
     def test_batch_separate(self):
@@ -73,12 +73,12 @@ class TestCosineKernel(unittest.TestCase):
                 for j in range(3):
                     actual[k, i, j] = torch.cos(math.pi * ((a[k, i] - b[k, j]) / period[k]).norm(2, dim=-1))
 
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # diag
-        res = kernel(a, b).diag()
-        actual = torch.cat([actual[i].diag().unsqueeze(0) for i in range(actual.size(0))])
+        res = kernel(a, b).diagonal(dim1=-1, dim2=-2)
+        actual = torch.cat([actual[i].diagonal(dim1=-1, dim2=-2).unsqueeze(0) for i in range(actual.size(0))])
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # batch_dims
@@ -88,11 +88,11 @@ class TestCosineKernel(unittest.TestCase):
                 for j in range(3):
                     for l in range(2):
                         actual[k, l, i, j] = torch.cos(math.pi * ((a[k, i, l] - b[k, j, l]) / period[k]))
-        res = kernel(a, b, last_dim_is_batch=True).evaluate()
+        res = kernel(a, b, last_dim_is_batch=True).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # batch_dims + diag
-        res = kernel(a, b, last_dim_is_batch=True).diag()
+        res = kernel(a, b, last_dim_is_batch=True).diagonal(dim1=-1, dim2=-2)
         actual = actual.diagonal(dim1=-2, dim2=-1)
         self.assertLess(torch.norm(res - actual), 1e-5)
 
