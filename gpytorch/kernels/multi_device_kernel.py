@@ -88,7 +88,7 @@ class MultiDeviceKernel(DataParallel, Kernel):
 
     def gather(self, outputs, output_device):
         return CatLinearOperator(
-            *[to_linear_operator(o) for o in outputs], dim=self.dim, output_device=self.output_device
+            *(to_linear_operator(o) for o in outputs), dim=self.dim, output_device=self.output_device
         )
 
     def num_outputs_per_input(self, x1, x2):
