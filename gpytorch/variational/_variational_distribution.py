@@ -56,6 +56,3 @@ class _VariationalDistribution(Module, ABC):
 
     def __call__(self):
         return self.forward()
-
-    def __getattr__(self, attr):
-        return super().__getattr__(attr)
