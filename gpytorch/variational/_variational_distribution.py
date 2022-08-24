@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import warnings
 from abc import ABC, abstractmethod
 
 import torch
