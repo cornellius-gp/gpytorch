@@ -56,25 +56,7 @@ class _VariationalDistribution(Module, ABC):
         raise NotImplementedError
 
     def __call__(self):
-        try:
-            return self.forward()
-        # Remove after 1.0
-        except NotImplementedError:
-            warnings.warn(
-                "_VariationalDistribution.variational_distribution is deprecated. "
-                "Please implement a `forward` method instead.",
-                DeprecationWarning,
-            )
-            return self.variational_distribution
+        return self.forward()
 
     def __getattr__(self, attr):
-        # Remove after 1.0
-        if attr == "variational_distribution":
-            warnings.warn(
-                "_VariationalDistribution.variational_distribution is deprecated. "
-                "To get q(u), call the _VariationalDistribution object instead.",
-                DeprecationWarning,
-            )
-            return self.forward()
-        else:
-            return super().__getattr__(attr)
+        return super().__getattr__(attr)
