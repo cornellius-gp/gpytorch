@@ -317,6 +317,13 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
                 new_cov = self.lazy_covariance_matrix[(*rest_idx, last_idx, slice(None, None, None))][..., last_idx]
         return self.__class__(mean=new_mean, covariance_matrix=new_cov)
 
+    def __repr__(self) -> str:
+        rep = f"{self.__class__.__name__}("
+        if self.batch_shape:
+            rep += f"batch_shape={tuple(self.batch_shape)}, "
+        rep += f"n={self.event_shape[0]})"
+        return rep
+
 
 @register_kl(MultivariateNormal, MultivariateNormal)
 def kl_mvn_mvn(p_dist, q_dist):
