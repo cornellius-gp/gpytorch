@@ -78,11 +78,11 @@ class LMCVariationalStrategy(_VariationalStrategy):
         >>>         )
         >>>         variational_strategy = gpytorch.variational.LMCVariationalStrategy(
         >>>             gpytorch.variational.VariationalStrategy(
-        >>>                 inducing_points, variational_distribution, learn_inducing_locations=True,
+        >>>                 self, inducing_points, variational_distribution, learn_inducing_locations=True,
         >>>             ),
         >>>             num_tasks=5,
         >>>             num_latents=3,
-        >>>             latent_dim=0,
+        >>>             latent_dim=-1,
         >>>         )
         >>>
         >>>         # Each latent function has its own mean/kernel function
