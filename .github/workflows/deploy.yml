@@ -45,6 +45,7 @@ jobs:
     - name: Install dependencies
       run: |
         conda install -y anaconda-client conda-build
+        conda install linear_operator -c gpytorch
         pip install setuptools_scm
     - name: Build and publish
       run: |
