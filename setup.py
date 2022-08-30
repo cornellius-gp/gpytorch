@@ -3,26 +3,38 @@
 import io
 import os
 import re
+import sys
 
 from setuptools import find_packages, setup
 
+REQUIRED_MAJOR = 3
+REQUIRED_MINOR = 8
+
+# Check for python version
+if sys.version_info < (REQUIRED_MAJOR, REQUIRED_MINOR):
+    error = (
+        "Your version of python ({major}.{minor}) is too old. You need python >= {required_major}.{required_minor}."
+    ).format(
+        major=sys.version_info.major,
+        minor=sys.version_info.minor,
+        required_minor=REQUIRED_MINOR,
+        required_major=REQUIRED_MAJOR,
+    )
+    sys.exit(error)
+
 
 # Get version
-def read(*names, **kwargs):
-    with io.open(os.path.join(os.path.dirname(__file__), *names), encoding=kwargs.get("encoding", "utf8")) as fp:
-        return fp.read()
-
-
 def find_version(*file_paths):
-    version_file = read(*file_paths)
-    version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]", version_file, re.M)
-    if version_match:
+    try:
+        with io.open(os.path.join(os.path.dirname(__file__), *file_paths), encoding="utf8") as fp:
+            version_file = fp.read()
+        version_match = re.search(r"^__version__ = version = ['\"]([^'\"]*)['\"]", version_file, re.M)
         return version_match.group(1)
-    raise RuntimeError("Unable to find version string.")
+    except Exception:
+        return None
 
 
 readme = open("README.md").read()
-version = find_version("gpytorch", "__init__.py")
 
 
 torch_min = "1.11"
@@ -43,7 +55,7 @@ except ImportError:
 # Run the setup
 setup(
     name="gpytorch",
-    version=version,
+    version=find_version("gpytorch", "version.py"),
     description="An implementation of Gaussian Processes in Pytorch",
     long_description=readme,
     long_description_content_type="text/markdown",

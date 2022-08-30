@@ -23,12 +23,13 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install setuptools wheel twine
+        pip install setuptools_scm setuptools wheel twine
     - name: Build and publish
       env:
         TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
         TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
       run: |
+        python -m setuptools_scm
         python setup.py sdist bdist_wheel
         twine upload dist/*
 
@@ -44,11 +45,13 @@ jobs:
     - name: Install dependencies
       run: |
         conda install -y anaconda-client conda-build
+        pip install setuptools_scm
     - name: Build and publish
       run: |
         conda config --set anaconda_upload yes
         conda config --append channels pytorch
         /usr/share/miniconda/bin/anaconda login --username ${{ secrets.CONDA_USERNAME }} --password ${{ secrets.CONDA_PASSWORD }}
+        python -m setuptools_scm
         cd .conda
         conda build .
         /usr/share/miniconda/bin/anaconda logout

@@ -28,11 +28,13 @@ def read(*names, **kwargs):
 
 
 def find_version(*file_paths):
-    version_file = read(*file_paths)
-    version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]", version_file, re.M)
-    if version_match:
+    try:
+        with io.open(os.path.join(os.path.dirname(__file__), *file_paths), encoding="utf8") as fp:
+            version_file = fp.read()
+        version_match = re.search(r"^__version__ = version = ['\"]([^'\"]*)['\"]", version_file, re.M)
         return version_match.group(1)
-    raise RuntimeError("Unable to find version string.")
+    except Exception as e:
+        raise RuntimeError("Unable to find version string:\n", e)
 
 
 sys.path.append(os.path.abspath(os.path.join(__file__, "..", "..", "..")))
@@ -63,7 +65,7 @@ copyright = "2020, Cornellius GP"
 author = "Cornellius GP"
 
 # The short X.Y version
-version = find_version("gpytorch", "__init__.py")
+version = find_version("..", "..", "gpytorch", "version.py")
 # The full version, including alpha/beta/rc tags
 release = version
 
