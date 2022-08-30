@@ -266,7 +266,12 @@ def sqrt_inv_matmul(input: Anysor, rhs: Tensor, lhs: Optional[Tensor] = None) ->
     return linear_operator.sqrt_inv_matmul(input=input, rhs=rhs, lhs=lhs)
 
 
-__version__ = "1.8.1"
+# Read version number as written by setuptools_scm
+try:
+    from gpytorch.version import version as __version__
+except Exception:  # pragma: no cover
+    __version__ = "Unknown"  # pragma: no cover
+
 
 __all__ = [
     # Submodules
