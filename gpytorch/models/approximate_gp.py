@@ -105,4 +105,5 @@ class ApproximateGP(GP, _PyroMixin):
     def __call__(self, inputs, prior=False, **kwargs):
         if inputs.dim() == 1:
             inputs = inputs.unsqueeze(-1)
+        inputs = self.apply_input_transforms(X=inputs, is_training_input=self.training)
         return self.variational_strategy(inputs, prior=prior, **kwargs)
