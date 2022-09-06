@@ -92,8 +92,7 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
 
         :param function_dist: Random variable whose covariance
             matrix is a :obj:`~linear_operator.operators.LinearOperator` we intend to augment.
-        Returns:
-            :obj:`gpytorch.distributions.MultitaskMultivariateNormal`:
+        :rtype: `gpytorch.distributions.MultitaskMultivariateNormal`:
         :return: A new random variable whose covariance matrix is a
             :obj:`~linear_operator.operators.LinearOperator` with
             :math:`\mathbf D_{t} \otimes \mathbf I_{n}` and :math:`\sigma^{2} \mathbf I_{nt}` added.
@@ -104,13 +103,15 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
         if isinstance(covar, LazyEvaluatedKernelTensor):
             covar = covar.evaluate_kernel()
 
-        covar_kron_lt = self._shaped_noise_covar(mean.shape, add_noise=self.has_global_noise)
+        covar_kron_lt = self._shaped_noise_covar(
+            mean.shape, add_noise=self.has_global_noise, interleaved=function_dist._interleaved
+        )
         covar = covar + covar_kron_lt
 
-        return function_dist.__class__(mean, covar)
+        return function_dist.__class__(mean, covar, interleaved=function_dist._interleaved)
 
     def _shaped_noise_covar(
-        self, shape: torch.Size, add_noise: Optional[bool] = True, *params, **kwargs
+        self, shape: torch.Size, add_noise: Optional[bool] = True, interleaved=True, *params, **kwargs
     ) -> LinearOperator:
         if not self.has_task_noise:
             noise = ConstantDiagLinearOperator(self.noise, diag_shape=shape[-2] * self.num_tasks)
@@ -140,7 +141,10 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
             noise = ConstantDiagLinearOperator(self.noise, diag_shape=task_var_lt.shape[-1])
             task_var_lt = task_var_lt + noise
 
-        covar_kron_lt = ckl_init(eye_lt, task_var_lt)
+        if interleaved:
+            covar_kron_lt = ckl_init(eye_lt, task_var_lt)
+        else:
+            covar_kron_lt = ckl_init(task_var_lt, eye_lt)
 
         return covar_kron_lt
 
