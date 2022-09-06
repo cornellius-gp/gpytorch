@@ -28,7 +28,7 @@ class NGD(torch.optim.Optimizer):
         super().__init__(params, defaults=dict(lr=lr))
 
     @torch.no_grad()
-    def step(self) -> None:
+    def step(self, closure) -> None:
         """Performs a single optimization step."""
         for group in self.param_groups:
             for p in group["params"]:
