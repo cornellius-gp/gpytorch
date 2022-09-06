@@ -31,7 +31,7 @@ class NGD(torch.optim.Optimizer):
     def step(self, closure: Optional[Callable] = None) -> None:
         """
         Performs a single optimization step.
-        
+
         (Note that the :attr:`closure` argument is not used by this optimizer; it is simply included to be
         compatible with the PyTorch optimizer API.)
         """
