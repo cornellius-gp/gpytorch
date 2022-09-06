@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Iterable, Union, Callable
+from typing import Callable, Iterable, Optional, Union
 
 import torch
 
