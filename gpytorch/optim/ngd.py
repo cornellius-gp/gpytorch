@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Iterable, Union
+from typing import Iterable, Union, Callable
 
 import torch
 
@@ -28,8 +28,13 @@ class NGD(torch.optim.Optimizer):
         super().__init__(params, defaults=dict(lr=lr))
 
     @torch.no_grad()
-    def step(self, closure) -> None:
-        """Performs a single optimization step."""
+    def step(self, closure: Optional[Callable] = None) -> None:
+        """
+        Performs a single optimization step.
+        
+        (Note that the :attr:`closure` argument is not used by this optimizer; it is simply included to be
+        compatible with the PyTorch optimizer API.)
+        """
         for group in self.param_groups:
             for p in group["params"]:
                 if p.grad is None:
