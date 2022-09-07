@@ -17,6 +17,7 @@ Kernel
 
 .. autoclass:: Kernel
    :members:
+   :special-members: __call__, __getitem__
 
 Standard Kernels
 -----------------------------

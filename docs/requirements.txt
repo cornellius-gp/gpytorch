@@ -4,6 +4,7 @@ ipython
 ipykernel
 sphinx
 sphinx_rtd_theme
+sphinx_autodoc_typehints
 nbsphinx
 m2r2
 pyro-ppl
