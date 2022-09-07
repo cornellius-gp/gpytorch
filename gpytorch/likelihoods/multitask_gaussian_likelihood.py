@@ -111,7 +111,7 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
         return function_dist.__class__(mean, covar, interleaved=function_dist._interleaved)
 
     def _shaped_noise_covar(
-        self, shape: torch.Size, add_noise: Optional[bool] = True, interleaved=True, *params, **kwargs
+        self, shape: torch.Size, add_noise: Optional[bool] = True, interleaved: bool = True, *params, **kwargs
     ) -> LinearOperator:
         if not self.has_task_noise:
             noise = ConstantDiagLinearOperator(self.noise, diag_shape=shape[-2] * self.num_tasks)
