@@ -12,11 +12,11 @@ from linear_operator.operators import (
     TriangularLinearOperator,
     ZeroLinearOperator,
 )
+from linear_operator.utils.cholesky import psd_safe_cholesky
+from linear_operator.utils.errors import NotPSDError
 
 from .. import settings
 from ..distributions import MultivariateNormal
-from ..utils.cholesky import psd_safe_cholesky
-from ..utils.errors import NotPSDError
 from ..utils.memoize import add_to_cache, cached
 from ._variational_strategy import _VariationalStrategy
 from .cholesky_variational_distribution import CholeskyVariationalDistribution

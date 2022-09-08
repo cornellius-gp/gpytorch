@@ -4,9 +4,9 @@ import abc
 
 import torch
 from linear_operator.operators import CholLinearOperator, TriangularLinearOperator
+from linear_operator.utils.cholesky import psd_safe_cholesky
 
 from ..distributions import MultivariateNormal
-from ..utils.cholesky import psd_safe_cholesky
 from ._variational_distribution import _VariationalDistribution
 
 

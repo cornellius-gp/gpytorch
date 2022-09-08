@@ -12,6 +12,7 @@ from linear_operator.operators import (
     LowRankRootLinearOperator,
     MatmulLinearOperator,
 )
+from linear_operator.utils.cholesky import psd_safe_cholesky
 from torch import Tensor
 
 from .. import settings
@@ -19,7 +20,6 @@ from ..distributions import MultivariateNormal
 from ..likelihoods import Likelihood
 from ..mlls import InducingPointKernelAddedLossTerm
 from ..models import exact_prediction_strategies
-from ..utils.cholesky import psd_safe_cholesky
 from .kernel import Kernel
 
 

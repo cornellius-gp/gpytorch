@@ -4,10 +4,10 @@
 import torch
 from linear_operator import to_dense
 from linear_operator.operators import DiagLinearOperator, TriangularLinearOperator
+from linear_operator.utils.cholesky import psd_safe_cholesky
 
 from .. import settings
 from ..distributions import MultivariateNormal
-from ..utils.cholesky import psd_safe_cholesky
 from ..utils.errors import CachingError
 from ..utils.memoize import add_to_cache, cached, pop_from_cache
 from ..utils.nearest_neighbors import NNUtil
