@@ -202,7 +202,7 @@ class TestGaussianLikelihoodwithMissingObs(BaseLikelihoodTestCase, unittest.Test
         likelihood.MISSING_VALUE_FILL = -999.0
         like_init_minus = likelihood.log_marginal(samples, mvn).sum().data
 
-        torch.testing.assert_allclose(like_init_plus, like_init_minus)
+        torch.testing.assert_close(like_init_plus, like_init_minus)
 
         # check that the correct noise sd is recovered
 

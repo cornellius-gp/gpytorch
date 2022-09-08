@@ -17,12 +17,12 @@ from linear_operator.operators import (
     RootLinearOperator,
     ZeroLinearOperator,
 )
+from linear_operator.utils.cholesky import psd_safe_cholesky
 from linear_operator.utils.interpolation import left_interp, left_t_interp
 from torch import Tensor
 
 from .. import settings
 from ..lazy import LazyEvaluatedKernelTensor
-from ..utils.cholesky import psd_safe_cholesky
 from ..utils.memoize import add_to_cache, cached, clear_cache_hook, pop_from_cache
 
 

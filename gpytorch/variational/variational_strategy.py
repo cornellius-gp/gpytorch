@@ -12,18 +12,17 @@ from linear_operator.operators import (
     SumLinearOperator,
     TriangularLinearOperator,
 )
+from linear_operator.utils.cholesky import psd_safe_cholesky
+from linear_operator.utils.errors import NotPSDError
 
 from gpytorch.variational._variational_strategy import _VariationalStrategy
 from gpytorch.variational.cholesky_variational_distribution import CholeskyVariationalDistribution
 
 from ..distributions import MultivariateNormal
 from ..settings import _linalg_dtype_cholesky, trace_mode
-from ..utils.cholesky import psd_safe_cholesky
-from ..utils.errors import CachingError, NotPSDError
+from ..utils.errors import CachingError
 from ..utils.memoize import cached, clear_cache_hook, pop_from_cache_ignore_args
 from ..utils.warnings import OldVersionWarning
-
-# from ._variational_strategy import _VariationalStrategy
 
 
 def _ensure_updated_strategy_flag_set(

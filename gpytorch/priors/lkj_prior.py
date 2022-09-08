@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
 import torch
+from linear_operator.utils.cholesky import psd_safe_cholesky
 from torch.distributions import LKJCholesky, constraints
 from torch.nn import Module as TModule
 
 from .. import settings
-from ..utils.cholesky import psd_safe_cholesky
 from .prior import Prior
 
 
