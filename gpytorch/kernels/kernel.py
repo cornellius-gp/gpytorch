@@ -1,18 +1,23 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import warnings
 from abc import abstractmethod
 from copy import deepcopy
-from typing import Optional, Tuple
+from typing import Callable, Dict, Iterable, Optional, Tuple, Union
 
 import torch
 from linear_operator import to_dense, to_linear_operator
-from linear_operator.operators import ZeroLinearOperator
+from linear_operator.operators import LinearOperator, ZeroLinearOperator
+from torch import Tensor
 from torch.nn import ModuleList
 
 from .. import settings
 from ..constraints import Interval, Positive
+from ..distributions import MultivariateNormal
 from ..lazy import LazyEvaluatedKernelTensor
+from ..likelihoods import GaussianLikelihood
 from ..models import exact_prediction_strategies
 from ..module import Module
 from ..priors import Prior
@@ -61,21 +66,22 @@ class Distance(torch.nn.Module):
 
 class Kernel(Module):
     r"""
-    Kernels in GPyTorch are implemented as a :class:`gpytorch.Module` that, when called on two :obj:`torch.tensor`
-    objects `x1` and `x2` returns either a :obj:`torch.tensor` or a
+    Kernels in GPyTorch are implemented as a :class:`gpytorch.Module` that, when called on two :class:`torch.Tensor`
+    objects :math:`\mathbf x_1` and :math:`\mathbf x_2` returns either a :obj:`torch.Tensor` or a
     :obj:`~linear_operator.operators.LinearOperator` that represents the
-    covariance matrix between `x1` and `x2`.
+    covariance matrix between :math:`\mathbf x_1` and :math:`\mathbf x_2`.
 
-    In the typical use case, to extend this class means to implement the :func:`~gpytorch.kernels.Kernel.forward`
-    method.
+    In the typical use case, extend this class simply requires implementing a
+    :py:meth:`~gpytorch.kernels.Kernel.forward` method.
 
     .. note::
-        The :func:`~gpytorch.kernels.Kernel.__call__` does some additional internal work. In particular,
-        all kernels are lazily evaluated so that, in some cases, we can index in to the kernel matrix before actually
-        computing it. Furthermore, many built in kernel modules return LinearOperators that allow for more efficient
+        The :py:meth:`~gpytorch.kernels.Kernel.__call__` method does some additional internal work. In particular,
+        all kernels are lazily evaluated so that we can index in to the kernel matrix before actually
+        computing it. Furthermore, many built-in kernel modules return
+        :class:`~linear_operator.LinearOperators` that allow for more efficient
         inference than if we explicitly computed the kernel matrix itself.
 
-        As a result, if you want to use a :obj:`gpytorch.kernels.Kernel` object just to get an actual
+        As a result, if you want to get an actual
         :obj:`torch.tensor` representing the covariance matrix, you may need to call the
         :func:`~linear_operator.operators.LinearOperator.to_dense` method on the output.
 
@@ -93,30 +99,39 @@ class Kernel(Module):
       (i.e. :math:`\Theta` is a non-constant diagonal matrix).
       This is controlled by the `ard_num_dims` keyword argument (as well as `has_lengthscale=True`).
 
-    In batch-mode (i.e. when :math:`x_1` and :math:`x_2` are batches of input matrices), each
+    In batch mode (i.e. when :math:`\mathbf x_1` and :math:`\mathbf x_2` are batches of input matrices), each
     batch of data can have its own lengthscale parameter by setting the `batch_shape`
     keyword argument to the appropriate number of batches.
 
     .. note::
 
-        The lengthscale parameter is parameterized on a log scale to constrain it to be positive.
-        You can set a prior on this parameter using the lengthscale_prior argument.
+        You can set a prior on the lengthscale parameter using the lengthscale_prior argument.
 
     :param ard_num_dims: Set this if you want a separate lengthscale for each input
-        dimension. It should be `d` if x1 is a `n x d` matrix. (Default: `None`.)
+        dimension. It should be `D` if :math:`\mathbf x` is a `... x N x D` matrix. (Default: `None`.)
     :param batch_shape: Set this if you want a separate lengthscale for each batch of input
-        data. It should be :math:`B_1 \times \ldots \times B_k` if :math:`\mathbf x1` is
+        data. It should be :math:`B_1 \times \ldots \times B_k` if :math:`\mathbf x_1` is
         a :math:`B_1 \times \ldots \times B_k \times N \times D` tensor.
     :param active_dims: Set this if you want to compute the covariance of only
         a few input dimensions. The ints corresponds to the indices of the
         dimensions. (Default: `None`.)
     :param lengthscale_prior: Set this if you want to apply a prior to the
-        lengthscale parameter. (Default: `None`)
+        lengthscale parameter. (Default: `None`.)
     :param lengthscale_constraint: Set this if you want to apply a constraint
-        to the lengthscale parameter. (Default: `Positive`.)
-    :param eps: The minimum value that the lengthscale can take (prevents
-        divide by zero errors). (Default: `1e-6`.)
+        to the lengthscale parameter. (Default: :class:`~gpytorch.constraints.Positive`.)
+    :param eps: A small positive value added to the lengthscale to prevent
+        divide by zero errors. (Default: `1e-6`.)
 
+    :ivar torch.Size batch_shape:
+        The (minimum) number of batch dimensions supported by this kernel.
+        Typically, this captures the batch shape of the lengthscale and other parameters,
+        and is usually set by the `batch_shape` argument in the constructor.
+    :ivar torch.dtype dtype:
+        The dtype supported by this kernel.
+        Typically, this depends on the dtype of the lengthscale and other parameters.
+    :ivar bool is_stationary:
+        Set to True if the Kernel represents a stationary function
+        (one that depends only on :math:`\mathbf x_1 - \mathbf x_2`).
     :ivar torch.Tensor lengthscale:
         The lengthscale parameter. Size/shape of parameter depends on the
         `ard_num_dims` and `batch_shape` arguments.
@@ -137,7 +152,7 @@ class Kernel(Module):
         active_dims: Optional[Tuple[int, ...]] = None,
         lengthscale_prior: Optional[Prior] = None,
         lengthscale_constraint: Optional[Interval] = None,
-        eps: Optional[float] = 1e-6,
+        eps: float = 1e-6,
         **kwargs,
     ):
         super(Kernel, self).__init__()
@@ -180,80 +195,16 @@ class Kernel(Module):
         # TODO: Remove this on next official PyTorch release.
         self.__pdist_supports_batch = True
 
-    @abstractmethod
-    def forward(self, x1, x2, diag=False, last_dim_is_batch=False, **params):
-        r"""
-        Computes the covariance between x1 and x2.
-        This method should be imlemented by all Kernel subclasses.
-
-        Args:
-            x1 (Tensor `n x d` or `b x n x d`):
-                First set of data
-            x2 (Tensor `m x d` or `b x m x d`):
-                Second set of data
-            diag (bool):
-                Should the Kernel compute the whole kernel, or just the diag?
-            last_dim_is_batch (tuple, optional):
-                If this is true, it treats the last dimension of the data as another batch dimension.
-                (Useful for additive structure over the dimensions). Default: False
-
-        Returns:
-            :class:`Tensor` or :class:`~linear_operator.operators.LinearOperator`.
-                The exact size depends on the kernel's evaluation mode:
-
-                * `full_covar`: `n x m` or `b x n x m`
-                * `full_covar` with `last_dim_is_batch=True`: `k x n x m` or `b x k x n x m`
-                * `diag`: `n` or `b x n`
-                * `diag` with `last_dim_is_batch=True`: `k x n` or `b x k x n`
-        """
-        raise NotImplementedError()
-
-    @property
-    def batch_shape(self):
-        kernels = list(self.sub_kernels())
-        if len(kernels):
-            return torch.broadcast_shapes(self._batch_shape, *[k.batch_shape for k in kernels])
-        else:
-            return self._batch_shape
-
-    @batch_shape.setter
-    def batch_shape(self, val):
-        self._batch_shape = val
-
-    @property
-    def dtype(self):
-        if self.has_lengthscale:
-            return self.lengthscale.dtype
-        else:
-            for param in self.parameters():
-                return param.dtype
-            return torch.get_default_dtype()
-
-    @property
-    def is_stationary(self) -> bool:
-        """
-        Property to indicate whether kernel is stationary or not.
-        """
-        return self.has_lengthscale
-
-    def _lengthscale_param(self, m):
+    def _lengthscale_param(self, m: Kernel) -> Tensor:
+        # Used by the lengthscale_prior
         return m.lengthscale
 
-    def _lengthscale_closure(self, m, v):
+    def _lengthscale_closure(self, m: Kernel, v: Tensor) -> Tensor:
+        # Used by the lengthscale_prior
         return m._set_lengthscale(v)
 
-    @property
-    def lengthscale(self):
-        if self.has_lengthscale:
-            return self.raw_lengthscale_constraint.transform(self.raw_lengthscale)
-        else:
-            return None
-
-    @lengthscale.setter
-    def lengthscale(self, value):
-        self._set_lengthscale(value)
-
-    def _set_lengthscale(self, value):
+    def _set_lengthscale(self, value: Tensor):
+        # Used by the lengthscale_prior
         if not self.has_lengthscale:
             raise RuntimeError("Kernel has no lengthscale.")
 
@@ -262,45 +213,107 @@ class Kernel(Module):
 
         self.initialize(raw_lengthscale=self.raw_lengthscale_constraint.inverse_transform(value))
 
-    def local_load_samples(self, samples_dict, memo, prefix):
+    @abstractmethod
+    def forward(
+        self, x1: Tensor, x2: Tensor, diag: bool = False, last_dim_is_batch: bool = False, **params
+    ) -> Union[Tensor, LinearOperator]:
+        r"""
+        Computes the covariance between :math:`\mathbf x_1` and :math:`\mathbf x_2`.
+        This method should be imlemented by all Kernel subclasses.
+
+        :param x1: First set of data (... x N x D).
+        :param x2: Second set of data (... x M x D).
+        :param diag: Should the Kernel compute the whole kernel, or just the diag?
+            If True, it must be the case that `x1 == x2`. (Default: False.)
+        :param last_dim_is_batch: If True, treat the last dimension
+            of `x1` and `x2` as another batch dimension.
+            (Useful for additive structure over the dimensions). (Default: False.)
+
+        :return: The kernel matrix or vector. The shape depends on the kernel's evaluation mode:
+
+            * `full_covar`: `... x N x M`
+            * `full_covar` with `last_dim_is_batch=True`: `... x K x N x M`
+            * `diag`: `... x N`
+            * `diag` with `last_dim_is_batch=True`: `... x K x N`
+        """
+        raise NotImplementedError()
+
+    @property
+    def batch_shape(self) -> torch.Size:
+        kernels = list(self.sub_kernels())
+        if len(kernels):
+            return torch.broadcast_shapes(self._batch_shape, *[k.batch_shape for k in kernels])
+        else:
+            return self._batch_shape
+
+    @batch_shape.setter
+    def batch_shape(self, val: torch.Size):
+        self._batch_shape = val
+
+    @property
+    def dtype(self) -> torch.dtype:
+        if self.has_lengthscale:
+            return self.lengthscale.dtype
+        else:
+            for param in self.parameters():
+                return param.dtype
+            return torch.get_default_dtype()
+
+    @property
+    def lengthscale(self) -> Tensor:
+        if self.has_lengthscale:
+            return self.raw_lengthscale_constraint.transform(self.raw_lengthscale)
+        else:
+            return None
+
+    @lengthscale.setter
+    def lengthscale(self, value: Tensor):
+        self._set_lengthscale(value)
+
+    @property
+    def is_stationary(self) -> bool:
+        return self.has_lengthscale
+
+    def local_load_samples(self, samples_dict: Dict[str, Tensor], memo: set, prefix: str):
         num_samples = next(iter(samples_dict.values())).size(0)
         self.batch_shape = torch.Size([num_samples]) + self.batch_shape
         super().local_load_samples(samples_dict, memo, prefix)
 
     def covar_dist(
         self,
-        x1,
-        x2,
-        diag=False,
-        last_dim_is_batch=False,
-        square_dist=False,
-        dist_postprocess_func=default_postprocess_script,
-        postprocess=True,
+        x1: Tensor,
+        x2: Tensor,
+        diag: bool = False,
+        last_dim_is_batch: bool = False,
+        square_dist: bool = False,
+        dist_postprocess_func: Callable = default_postprocess_script,
+        postprocess: bool = True,
         **params,
-    ):
+    ) -> Union[Tensor, LinearOperator]:
         r"""
         This is a helper method for computing the Euclidean distance between
-        all pairs of points in x1 and x2.
+        all pairs of points in :math:`\mathbf x_1` and :math:`\mathbf x_2`.
 
-        Args:
-            x1 (Tensor `n x d` or `b1 x ... x bk x n x d`):
-                First set of data.
-            x2 (Tensor `m x d` or `b1 x ... x bk x m x d`):
-                Second set of data.
-            diag (bool):
-                Should we return the whole distance matrix, or just the diagonal? If True, we must have `x1 == x2`.
-            last_dim_is_batch (tuple, optional):
-                Is the last dimension of the data a batch dimension or not?
-            square_dist (bool):
-                Should we square the distance matrix before returning?
+        :param x1: First set of data (... x N x D).
+        :param x2: Second set of data (... x M x D).
+        :param diag: Should the Kernel compute the whole kernel, or just the diag?
+            If True, it must be the case that `x1 == x2`. (Default: False.)
+        :param last_dim_is_batch: If True, treat the last dimension
+            of `x1` and `x2` as another batch dimension.
+            (Useful for additive structure over the dimensions). (Default: False.)
+        :param square_dist:
+            If True, returns the squared distance rather than the standard distance. (Default: False.)
+        :param postprocess: Whether or not to apply `dist_postprocess_func` to the resulting distance
+            matrix. (Default: True.)
+        :param dist_postprocess_func:
+            Postprocessing function to apply to the distance matrix.
 
-        Returns:
-            (:class:`Tensor`, :class:`Tensor) corresponding to the distance matrix between `x1` and `x2`.
-            The shape depends on the kernel's mode
-            * `diag=False`
-            * `diag=False` and `last_dim_is_batch=True`: (`b x d x n x n`)
-            * `diag=True`
-            * `diag=True` and `last_dim_is_batch=True`: (`b x d x n`)
+        :return: The kernel matrix or vector. The shape depends on the kernel's evaluation mode:
+
+            * `full_covar`: `... x N x M`
+            * `full_covar` with `last_dim_is_batch=True`: `... x K x N x M`
+            * `diag`: `... x N`
+            * `diag` with `last_dim_is_batch=True`: `... x K x N`
         """
         if last_dim_is_batch:
             x1 = x1.transpose(-1, -2).unsqueeze(-1)
@@ -339,30 +352,83 @@ class Kernel(Module):
 
         return res
 
-    def named_sub_kernels(self):
+    def named_sub_kernels(self) -> Iterable[Tuple[str, Kernel]]:
+        """
+        For compositional Kernel classes (e.g. :class:`~gpytorch.kernels.AdditiveKernel`
+        or :class:`~gpytorch.kernels.ProductKernel`).
+
+        :return: An iterator over the component kernel objects,
+            along with the name of each component kernel.
+        """
         for name, module in self.named_modules():
             if module is not self and isinstance(module, Kernel):
                 yield name, module
 
-    def num_outputs_per_input(self, x1, x2):
+    def num_outputs_per_input(self, x1: Tensor, x2: Tensor) -> int:
         """
-        How many outputs are produced per input (default 1)
-        if x1 is size `n x d` and x2 is size `m x d`, then the size of the kernel
-        will be `(n * num_outputs_per_input) x (m * num_outputs_per_input)`
-        Default: 1
+        For most kernels, `num_outputs_per_input = 1`.
+
+        However, some kernels (e.g. multitask kernels or interdomain kernels) return a
+        `num_outputs_per_input x num_outputs_per_input` matrix of covariance values for
+        every pair of data points.
+
+        I.e. if `x1` is size `... x N x D` and `x2` is size `... x M x D`, then the size of the kernel
+        will be `... x (N * num_outputs_per_input) x (M * num_outputs_per_input)`.
+
+        :return: `num_outputs_per_input` (usually 1).
         """
         return 1
 
-    def prediction_strategy(self, train_inputs, train_prior_dist, train_labels, likelihood):
+    def prediction_strategy(
+        self,
+        train_inputs: Tensor,
+        train_prior_dist: MultivariateNormal,
+        train_labels: Tensor,
+        likelihood: GaussianLikelihood,
+    ) -> exact_prediction_strategies.PredictionStrategy:
         return exact_prediction_strategies.DefaultPredictionStrategy(
             train_inputs, train_prior_dist, train_labels, likelihood
         )
 
-    def sub_kernels(self):
+    def sub_kernels(self) -> Iterable[Kernel]:
+        """
+        For compositional Kernel classes (e.g. :class:`~gpytorch.kernels.AdditiveKernel`
+        or :class:`~gpytorch.kernels.ProductKernel`).
+
+        :return: An iterator over the component kernel objects.
+        """
         for _, kernel in self.named_sub_kernels():
             yield kernel
 
-    def __call__(self, x1, x2=None, diag=False, last_dim_is_batch=False, **params):
+    def __call__(
+        self, x1: Tensor, x2: Optional[Tensor] = None, diag: bool = False, last_dim_is_batch: bool = False, **params
+    ) -> Union[LazyEvaluatedKernelTensor, LinearOperator, Tensor]:
+        r"""
+        Computes the covariance between :math:`\mathbf x_1` and :math:`\mathbf x_2`.
+
+        .. note::
+            Following PyTorch convention, all :class:`~gpytorch.models.GP` objects should use `__call__`
+            rather than :py:meth:`~gpytorch.kernels.Kernel.forward`.
+            The `__call__` method applies additional pre- and post-processing to the `forward` method,
+            and additionally employs a lazy evaluation scheme to reduce memory and computational costs.
+
+        :param x1: First set of data (... x N x D).
+        :param x2: Second set of data (... x M x D).
+            (If `None`, then `x2` is set to `x1`.)
+        :param diag: Should the Kernel compute the whole kernel, or just the diag?
+            If True, it must be the case that `x1 == x2`. (Default: False.)
+        :param last_dim_is_batch: If True, treat the last dimension
+            of `x1` and `x2` as another batch dimension.
+            (Useful for additive structure over the dimensions). (Default: False.)
+
+        :return: An object that will lazily evaluate to the kernel matrix or vector.
+            The shape depends on the kernel's evaluation mode:
+
+            * `full_covar`: `... x N x M`
+            * `full_covar` with `last_dim_is_batch=True`: `... x K x N x M`
+            * `diag`: `... x N`
+            * `diag` with `last_dim_is_batch=True`: `... x K x N`
+        """
         x1_, x2_ = x1, x2
 
         # Select the active dimensions
@@ -414,13 +480,13 @@ class Kernel(Module):
         self.distance_module = None
         return self.__dict__
 
-    def __add__(self, other):
+    def __add__(self, other: Kernel) -> Kernel:
         kernels = []
         kernels += self.kernels if isinstance(self, AdditiveKernel) else [self]
         kernels += other.kernels if isinstance(other, AdditiveKernel) else [other]
         return AdditiveKernel(*kernels)
 
-    def __mul__(self, other):
+    def __mul__(self, other: Kernel) -> Kernel:
         kernels = []
         kernels += self.kernels if isinstance(self, ProductKernel) else [self]
         kernels += other.kernels if isinstance(other, ProductKernel) else [other]
@@ -429,7 +495,14 @@ class Kernel(Module):
     def __setstate__(self, d):
         self.__dict__ = d
 
-    def __getitem__(self, index):
+    def __getitem__(self, index) -> Kernel:
+        r"""
+        Constructs a new kernel where the lengthscale (and other kernel parameters)
+        are modified by an indexing operation.
+
+        :param index: Index to apply to all parameters.
+        """
+
         if len(self.batch_shape) == 0:
             return self
 
@@ -457,20 +530,19 @@ class AdditiveKernel(Kernel):
         >>> covar_module = RBFKernel(active_dims=torch.tensor([1])) + RBFKernel(active_dims=torch.tensor([2]))
         >>> x1 = torch.randn(50, 2)
         >>> additive_kernel_matrix = covar_module(x1)
+
+    :param kernels: Kernels to add together.
     """
 
     @property
     def is_stationary(self) -> bool:
-        """
-        Kernel is stationary if all components are stationary.
-        """
         return all(k.is_stationary for k in self.kernels)
 
-    def __init__(self, *kernels):
+    def __init__(self, *kernels: Iterable[Kernel]):
         super(AdditiveKernel, self).__init__()
         self.kernels = ModuleList(kernels)
 
-    def forward(self, x1, x2, diag=False, **params):
+    def forward(self, x1: Tensor, x2: Tensor, diag: bool = False, **params) -> Union[Tensor, LinearOperator]:
         res = ZeroLinearOperator() if not diag else 0
         for kern in self.kernels:
             next_term = kern(x1, x2, diag=diag, **params)
@@ -484,7 +556,7 @@ class AdditiveKernel(Kernel):
     def num_outputs_per_input(self, x1, x2):
         return self.kernels[0].num_outputs_per_input(x1, x2)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index) -> Kernel:
         new_kernel = deepcopy(self)
         for i, kernel in enumerate(self.kernels):
             new_kernel.kernels[i] = self.kernels[i].__getitem__(index)
@@ -500,20 +572,19 @@ class ProductKernel(Kernel):
         >>> covar_module = RBFKernel(active_dims=torch.tensor([1])) * RBFKernel(active_dims=torch.tensor([2]))
         >>> x1 = torch.randn(50, 2)
         >>> kernel_matrix = covar_module(x1) # The RBF Kernel already decomposes multiplicatively, so this is foolish!
+
+    :param kernels: Kernels to multiply together.
     """
 
     @property
     def is_stationary(self) -> bool:
-        """
-        Kernel is stationary if all components are stationary.
-        """
         return all(k.is_stationary for k in self.kernels)
 
-    def __init__(self, *kernels):
+    def __init__(self, *kernels: Iterable[Kernel]):
         super(ProductKernel, self).__init__()
         self.kernels = ModuleList(kernels)
 
-    def forward(self, x1, x2, diag=False, **params):
+    def forward(self, x1: Tensor, x2: Tensor, diag: bool = False, **params) -> Union[Tensor, LinearOperator]:
         x1_eq_x2 = torch.equal(x1, x2)
 
         if not x1_eq_x2:
@@ -539,10 +610,10 @@ class ProductKernel(Kernel):
 
         return res
 
-    def num_outputs_per_input(self, x1, x2):
+    def num_outputs_per_input(self, x1: Tensor, x2: Tensor) -> int:
         return self.kernels[0].num_outputs_per_input(x1, x2)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index) -> Kernel:
         new_kernel = deepcopy(self)
         for i, kernel in enumerate(self.kernels):
             new_kernel.kernels[i] = self.kernels[i].__getitem__(index)

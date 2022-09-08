@@ -36,6 +36,7 @@ MultivariateNormal
 
 .. autoclass:: MultivariateNormal
    :members:
+   :special-members: __getitem__
 
 
 MultitaskMultivariateNormal
