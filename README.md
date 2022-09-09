@@ -34,6 +34,7 @@ conda install gpytorch -c gpytorch
 To upgrade to the latest (unstable) version, run
 
 ```bash
+pip install --upgrade git+https://github.com/cornellius-gp/linear_operator.git
 pip install --upgrade git+https://github.com/cornellius-gp/gpytorch.git
 ```
 
