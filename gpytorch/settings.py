@@ -56,13 +56,13 @@ class _dtype_value_context:
         if half_value is not None:
             cls._global_half_value = half_value
 
-    def __init__(self, float=None, double=None, half=None):
-        self._orig_float_value = self.__class__.value()
-        self._instance_float_value = float
-        self._orig_double_value = self.__class__.value()
-        self._instance_double_value = double
-        self._orig_half_value = self.__class__.value()
-        self._instance_half_value = half
+    def __init__(self, float_value=None, double_value=None, half_value=None):
+        self._orig_float_value = self.__class__.value(torch.float)
+        self._instance_float_value = float_value if float_value is not None else self._orig_float_value
+        self._orig_double_value = self.__class__.value(torch.double)
+        self._instance_double_value = double_value if double_value is not None else self._orig_double_value
+        self._orig_half_value = self.__class__.value(torch.half)
+        self._instance_half_value = half_value if half_value is not None else self._orig_half_value
 
     def __enter__(
         self,
