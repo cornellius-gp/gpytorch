@@ -20,8 +20,8 @@ class Float64Test(unittest.TestCase):
         torch.set_default_dtype(self.prev_type)
 
 
-class TestNatGradOneStepOptimial(Float64Test):
-    def test1(self):
+class TestNatVariational(Float64Test):
+    def test_one_step_optimal_high_precision(self):
         X = torch.linspace(-3, 3, 10)
         Y = torch.sin(X)
 
@@ -88,8 +88,6 @@ class TestNatGradOneStepOptimial(Float64Test):
         assert torch.allclose(prediction_exact.mean, prediction_ng.mean, rtol=1e-12, atol=1e-12)
         assert torch.allclose(prediction_exact.variance, prediction_ng.variance, rtol=1e-12, atol=1e-12)
 
-
-class TestNatVariational(Float64Test):
     def test_invertible_init(self, D=5):
         mu = torch.randn(D)
         cov = torch.randn(D, D).tril_()
