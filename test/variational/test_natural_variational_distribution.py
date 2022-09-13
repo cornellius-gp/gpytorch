@@ -8,6 +8,7 @@ from linear_operator.operators import CholLinearOperator, TriangularLinearOperat
 import gpytorch
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.variational import NaturalVariationalDistribution, TrilNaturalVariationalDistribution
+from gpytorch.constraints import GreaterThan
 
 
 class Float64Test(unittest.TestCase):
@@ -17,6 +18,75 @@ class Float64Test(unittest.TestCase):
 
     def tearDown(self):
         torch.set_default_dtype(self.prev_type)
+
+
+class TestNatGradOneStepOptimial(Float64Test):
+    def test1(self):
+        X = torch.linspace(-3, 3, 10)
+        Y = torch.sin(X)
+
+        class ExactGP(gpytorch.models.ExactGP):
+            def __init__(self, train_x, train_y, kern, likelihood):
+                super().__init__(train_x, train_y, likelihood)
+                self.mean_module = gpytorch.means.ZeroMean()
+                self.covar_module = kern
+
+            def forward(self, x):
+                mean = self.mean_module(x)
+                covar = self.covar_module(x)
+                return gpytorch.distributions.MultivariateNormal(mean, covar)
+
+
+        likelihood = gpytorch.likelihoods.GaussianLikelihood(
+            noise_constraint=GreaterThan(0, initial_value=0.1))
+
+        kern = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
+        kern.outputscale = 1
+
+        model_exact_gp = ExactGP(X, Y, kern, likelihood)
+        model_exact_gp.eval()
+        prediction_exact = model_exact_gp(X)
+
+        class NatGradsGP(gpytorch.models.ApproximateGP):
+            def __init__(self, kern, inducing_points):
+                variational_distribution = gpytorch.variational.NaturalVariationalDistribution(inducing_points.shape[0])
+                variational_strategy = gpytorch.variational.VariationalStrategy(
+                    self, inducing_points, variational_distribution,
+                    learn_inducing_locations=True,
+                    jitter_val=1e-24,
+                )
+                super().__init__(variational_strategy)
+                self.mean_module = gpytorch.means.ConstantMean()
+                self.covar_module = kern
+
+            def forward(self, x):
+                mean_x = self.mean_module(x)
+                covar_x = self.covar_module(x)
+                return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
+
+        model_ng = NatGradsGP(kern, X)
+
+        mll = gpytorch.mlls.VariationalELBO(likelihood, model_ng, num_data=X.shape[0])
+        from torch.utils.data import TensorDataset, DataLoader
+
+        data = DataLoader(TensorDataset(X, Y), batch_size=X.shape[0])
+
+        variational_ngd_optimizer = gpytorch.optim.NGD(model_ng.variational_parameters(),
+                                                       num_data=X.size(0),
+                                                       lr=1)
+        for _ in range(1):  # one step
+            for x, y in data:
+                variational_ngd_optimizer.zero_grad()
+
+                loss = -mll(model_ng(x), y)
+                # minibatch_iter.set_postfix(loss=loss.item())
+                loss.backward()
+                variational_ngd_optimizer.step()
+
+        prediction_ng = model_ng(X)
+
+        assert torch.allclose(prediction_exact.mean, prediction_ng.mean, rtol=1e-12, atol=1e-12)
+        assert torch.allclose(prediction_exact.variance, prediction_ng.variance, rtol=1e-12, atol=1e-12)
 
 
 class TestNatVariational(Float64Test):

@@ -75,6 +75,7 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
         distribution_cls=gpytorch.variational.CholeskyVariationalDistribution,
     ):
         train_x, train_y = train_data(cuda=cuda)
+
         likelihood = GaussianLikelihood()
         model = SVGPRegressionModel(torch.linspace(0, 1, 25), distribution_cls)
         mll = mll_cls(likelihood, model, num_data=len(train_y))
