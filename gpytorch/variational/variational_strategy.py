@@ -79,7 +79,10 @@ class VariationalStrategy(_VariationalStrategy):
         super().__init__(model, inducing_points, variational_distribution, learn_inducing_locations)
         self.register_buffer("updated_strategy", torch.tensor(True))
         self._register_load_state_dict_pre_hook(_ensure_updated_strategy_flag_set)
-        self.jitter_val = jitter_val
+        if jitter_val is None:
+            self.jitter_val = cholesky_jitter.value()
+        else:
+            self.jitter_val = jitter_val
         self.has_fantasy_strategy = True
 
     @cached(name="cholesky_factor", ignore_args=True)
