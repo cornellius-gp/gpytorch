@@ -74,7 +74,7 @@ class VariationalStrategy(_VariationalStrategy):
     """
 
     def __init__(
-        self, model, inducing_points, variational_distribution, learn_inducing_locations=True, jitter_val=1e-4
+        self, model, inducing_points, variational_distribution, learn_inducing_locations=True, jitter_val=None
     ):
         super().__init__(model, inducing_points, variational_distribution, learn_inducing_locations)
         self.register_buffer("updated_strategy", torch.tensor(True))
