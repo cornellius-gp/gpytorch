@@ -41,8 +41,15 @@ class _VariationalStrategy(Module, ABC):
 
     has_fantasy_strategy = False
 
-    def __init__(self, model, inducing_points, variational_distribution, learn_inducing_locations=True):
+    def __init__(
+        self, model, inducing_points, variational_distribution, learn_inducing_locations=True, jitter_val=None
+    ):
         super().__init__()
+
+        if jitter_val is None:
+            self.jitter_val = settings.cholesky_jitter.value()
+        else:
+            self.jitter_val = jitter_val
 
         # Model
         object.__setattr__(self, "model", model)

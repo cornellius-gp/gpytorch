@@ -108,6 +108,7 @@ class LMCVariationalStrategy(_VariationalStrategy):
         num_tasks,
         num_latents=1,
         latent_dim=-1,
+        jitter_val=None,
     ):
         Module.__init__(self)
         self.base_variational_strategy = base_variational_strategy
@@ -133,6 +134,11 @@ class LMCVariationalStrategy(_VariationalStrategy):
         # LCM coefficients
         lmc_coefficients = torch.randn(*batch_shape, self.num_tasks)
         self.register_parameter("lmc_coefficients", torch.nn.Parameter(lmc_coefficients))
+
+        if jitter_val is None:
+            self.jitter_val = settings.cholesky_jitter.value()
+        else:
+            self.jitter_val = jitter_val
 
     @property
     def prior_distribution(self):
@@ -206,7 +212,7 @@ class LMCVariationalStrategy(_VariationalStrategy):
             lmc_factor = RootLinearOperator(lmc_coefficients.unsqueeze(-1))
             covar = KroneckerProductLinearOperator(latent_covar, lmc_factor).sum(latent_dim)
             # Add a bit of jitter to make the covar PD
-            covar = covar.add_jitter(settings.cholesky_jitter.value(dtype=mean.dtype))
+            covar = covar.add_jitter(self.jitter_val)
 
             # Done!
             function_dist = MultitaskMultivariateNormal(mean, covar)
@@ -224,7 +230,7 @@ class LMCVariationalStrategy(_VariationalStrategy):
             lmc_factor = RootLinearOperator(lmc_coefficients.unsqueeze(-1))
             covar = (latent_covar * lmc_factor).sum(latent_dim)
             # Add a bit of jitter to make the covar PD
-            covar = covar.add_jitter(settings.cholesky_jitter.value(dtype=mean.dtype))
+            covar = covar.add_jitter(self.jitter_val)
 
             # Done!
             function_dist = MultivariateNormal(mean, covar)

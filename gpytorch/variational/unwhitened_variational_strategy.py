@@ -92,24 +92,24 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
         eval_rhs = cov_diff.transpose(-1, -2).matmul(eval_lhs)
         inner_term = cov_diff.matmul(cov_diff.transpose(-1, -2))
         # TODO: flag the jitter here
-        inner_solve = inner_term.add_jitter(1e-3).solve(eval_rhs, eval_lhs.transpose(-1, -2))
+        inner_solve = inner_term.add_jitter(self.jitter_val).solve(eval_rhs, eval_lhs.transpose(-1, -2))
         inducing_covar = var_cov + inner_solve
 
         # mean term: D_a S^{-1} m
         # unwhitened: (S - S R^{-1} S) S^{-1} m = (I - S R^{-1}) m
         rhs = cov_diff.transpose(-1, -2).matmul(var_mean)
-        inner_rhs_mean_solve = inner_term.add_jitter(1e-3).solve(rhs)
+        inner_rhs_mean_solve = inner_term.add_jitter(self.jitter_val).solve(rhs)
         pseudo_target_mean = var_mean + var_cov.matmul(inner_rhs_mean_solve)
 
         # ensure inducing covar is psd
         try:
-            pseudo_target_covar = CholLinearOperator(inducing_covar.add_jitter(1e-3).cholesky()).to_dense()
+            pseudo_target_covar = CholLinearOperator(inducing_covar.add_jitter(self.jitter_val).cholesky()).to_dense()
         except NotPSDError:
             from linear_operator.operators import DiagLinearOperator
 
             evals, evecs = torch.linalg.eigh(inducing_covar)
             pseudo_target_covar = (
-                evecs.matmul(DiagLinearOperator(evals + 1e-4)).matmul(evecs.transpose(-1, -2)).to_dense()
+                evecs.matmul(DiagLinearOperator(evals + self.jitter_val)).matmul(evecs.transpose(-1, -2)).to_dense()
             )
 
         return pseudo_target_covar, pseudo_target_mean
@@ -134,7 +134,7 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
         mean_diff = (inducing_values - induc_mean).unsqueeze(-1)
 
         # Covariance terms
-        induc_induc_covar = full_covar[..., :num_induc, :num_induc].add_jitter()
+        induc_induc_covar = full_covar[..., :num_induc, :num_induc].add_jitter(self.jitter_val)
         induc_data_covar = full_covar[..., :num_induc, num_induc:].to_dense()
         data_data_covar = full_covar[..., num_induc:, num_induc:]
 

@@ -202,9 +202,9 @@ class CiqVariationalStrategy(_VariationalStrategy):
         # Covariance terms
         num_induc = inducing_points.size(-2)
         test_mean = full_output.mean[..., num_induc:]
-        induc_induc_covar = full_covar[..., :num_induc, :num_induc].evaluate_kernel().add_jitter(1e-2)
+        induc_induc_covar = full_covar[..., :num_induc, :num_induc].evaluate_kernel().add_jitter(self.jitter_val)
         induc_data_covar = full_covar[..., :num_induc, num_induc:].to_dense()
-        data_data_covar = full_covar[..., num_induc:, num_induc:].add_jitter(1e-4)
+        data_data_covar = full_covar[..., num_induc:, num_induc:].add_jitter(self.jitter_val)
 
         # Compute interpolation terms
         # K_XZ K_ZZ^{-1} \mu_z
@@ -242,7 +242,7 @@ class CiqVariationalStrategy(_VariationalStrategy):
             if variational_inducing_covar is not None:
                 middle_term = SumLinearOperator(variational_inducing_covar, middle_term)
             predictive_covar = SumLinearOperator(
-                data_data_covar.add_jitter(1e-4),
+                data_data_covar.add_jitter(self.jitter_val),
                 MatmulLinearOperator(interp_term.transpose(-1, -2), middle_term @ interp_term),
             )
 
