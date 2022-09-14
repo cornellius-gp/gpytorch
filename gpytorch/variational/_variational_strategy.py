@@ -47,7 +47,7 @@ class _VariationalStrategy(Module, ABC):
         super().__init__()
 
         if jitter_val is None:
-            self.jitter_val = settings.cholesky_jitter.value()
+            self.jitter_val = settings.cholesky_jitter.value(inducing_points.dtype)
         else:
             self.jitter_val = jitter_val
 
