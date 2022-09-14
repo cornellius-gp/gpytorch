@@ -6,9 +6,9 @@ import torch
 from linear_operator.operators import CholLinearOperator, TriangularLinearOperator
 
 import gpytorch
+from gpytorch.constraints import GreaterThan
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.variational import NaturalVariationalDistribution, TrilNaturalVariationalDistribution
-from gpytorch.constraints import GreaterThan
 
 
 class Float64Test(unittest.TestCase):
@@ -36,9 +36,7 @@ class TestNatVariational(Float64Test):
                 covar = self.covar_module(x)
                 return gpytorch.distributions.MultivariateNormal(mean, covar)
 
-
-        likelihood = gpytorch.likelihoods.GaussianLikelihood(
-            noise_constraint=GreaterThan(0, initial_value=0.1))
+        likelihood = gpytorch.likelihoods.GaussianLikelihood(noise_constraint=GreaterThan(0, initial_value=0.1))
 
         kern = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
         kern.outputscale = 1
@@ -51,7 +49,9 @@ class TestNatVariational(Float64Test):
             def __init__(self, kern, inducing_points):
                 variational_distribution = gpytorch.variational.NaturalVariationalDistribution(inducing_points.shape[0])
                 variational_strategy = gpytorch.variational.VariationalStrategy(
-                    self, inducing_points, variational_distribution,
+                    self,
+                    inducing_points,
+                    variational_distribution,
                     learn_inducing_locations=True,
                     jitter_val=1e-24,
                 )
@@ -67,13 +67,11 @@ class TestNatVariational(Float64Test):
         model_ng = NatGradsGP(kern, X)
 
         mll = gpytorch.mlls.VariationalELBO(likelihood, model_ng, num_data=X.shape[0])
-        from torch.utils.data import TensorDataset, DataLoader
+        from torch.utils.data import DataLoader, TensorDataset
 
         data = DataLoader(TensorDataset(X, Y), batch_size=X.shape[0])
 
-        variational_ngd_optimizer = gpytorch.optim.NGD(model_ng.variational_parameters(),
-                                                       num_data=X.size(0),
-                                                       lr=1)
+        variational_ngd_optimizer = gpytorch.optim.NGD(model_ng.variational_parameters(), num_data=X.size(0), lr=1)
         for _ in range(1):  # one step
             for x, y in data:
                 variational_ngd_optimizer.zero_grad()
