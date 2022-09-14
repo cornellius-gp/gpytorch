@@ -12,18 +12,17 @@ from linear_operator.operators import (
     SumLinearOperator,
     TriangularLinearOperator,
 )
+from linear_operator.utils.cholesky import psd_safe_cholesky
+from linear_operator.utils.errors import NotPSDError
 
 from gpytorch.variational._variational_strategy import _VariationalStrategy
 from gpytorch.variational.cholesky_variational_distribution import CholeskyVariationalDistribution
 
 from ..distributions import MultivariateNormal
 from ..settings import _linalg_dtype_cholesky, trace_mode
-from ..utils.cholesky import psd_safe_cholesky
-from ..utils.errors import CachingError, NotPSDError
+from ..utils.errors import CachingError
 from ..utils.memoize import cached, clear_cache_hook, pop_from_cache_ignore_args
 from ..utils.warnings import OldVersionWarning
-
-# from ._variational_strategy import _VariationalStrategy
 
 
 def _ensure_updated_strategy_flag_set(
@@ -74,9 +73,9 @@ class VariationalStrategy(_VariationalStrategy):
         https://www.repository.cam.ac.uk/handle/1810/278022
     """
 
-    def __init__(self, model, inducing_points, variational_distribution,
-                 learn_inducing_locations=True,
-                 jitter_val=1e-4):
+    def __init__(
+        self, model, inducing_points, variational_distribution, learn_inducing_locations=True, jitter_val=1e-4
+    ):
         super().__init__(model, inducing_points, variational_distribution, learn_inducing_locations)
         self.register_buffer("updated_strategy", torch.tensor(True))
         self._register_load_state_dict_pre_hook(_ensure_updated_strategy_flag_set)
@@ -170,7 +169,7 @@ class VariationalStrategy(_VariationalStrategy):
         # Covariance terms
         num_induc = inducing_points.size(-2)
         test_mean = full_output.mean[..., num_induc:]
-        induc_induc_covar = full_covar[..., :num_induc, :num_induc].add_jitter(self.jitter_val) # 1as 1e-4
+        induc_induc_covar = full_covar[..., :num_induc, :num_induc].add_jitter(self.jitter_val)
         induc_data_covar = full_covar[..., :num_induc, num_induc:].to_dense()
         data_data_covar = full_covar[..., num_induc:, num_induc:]
 
