@@ -385,6 +385,22 @@ class trace_mode(_feature_flag):
     _default = False
 
 
+class variational_cholesky_jitter(_dtype_value_context):
+    """
+    The jitter value used for Cholesky factorizations in variational models.
+
+    - Default for `float`: 1e-4
+    - Default for `double`: 1e-6
+    """
+
+    _global_float_value = 1e-4
+    _global_double_value = 1e-6
+
+    @classmethod
+    def value(cls, dtype=None):
+        return super().value(dtype=dtype)
+
+
 __all__ = [
     "_linalg_dtype_symeig",
     "_linalg_dtype_cholesky",
@@ -424,5 +440,6 @@ __all__ = [
     "trace_mode",
     "tridiagonal_jitter",
     "use_toeplitz",
+    "variational_cholesky_jitter",
     "verbose_linalg",
 ]
