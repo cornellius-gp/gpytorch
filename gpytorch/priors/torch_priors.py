@@ -71,7 +71,7 @@ class HalfCauchyPrior(Prior, HalfCauchy):
         self._transform = transform
 
     def expand(self, batch_shape):
-        return HalfCauchy(self.loc.expand(batch_shape), self.scale.expand(batch_shape))
+        return HalfCauchyPrior(self.scale.expand(batch_shape))
 
 
 class GammaPrior(Prior, Gamma):
