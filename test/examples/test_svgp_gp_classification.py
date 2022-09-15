@@ -27,7 +27,7 @@ class SVGPClassificationModel(ApproximateGP):
     def __init__(self, inducing_points):
         variational_distribution = CholeskyVariationalDistribution(inducing_points.size(-1))
         variational_strategy = VariationalStrategy(
-            self, inducing_points, variational_distribution, learn_inducing_locations=True
+            self, inducing_points, variational_distribution, learn_inducing_locations=True, jitter_val=1e-4
         )
         super(SVGPClassificationModel, self).__init__(variational_strategy)
         self.mean_module = gpytorch.means.ConstantMean()

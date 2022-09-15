@@ -132,7 +132,13 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
     """
 
     def __init__(
-        self, model, inducing_points, variational_distribution, learn_inducing_locations=True, mean_var_batch_dim=None
+        self,
+        model,
+        inducing_points,
+        variational_distribution,
+        learn_inducing_locations=True,
+        mean_var_batch_dim=None,
+        jitter_val=None,
     ):
         if isinstance(variational_distribution, DeltaVariationalDistribution):
             raise NotImplementedError(
@@ -153,7 +159,9 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
             inducing_points = torch.stack([inducing_points, inducing_points], dim=(self.mean_var_batch_dim - 2))
         else:
             inducing_points = torch.stack([inducing_points, inducing_points], dim=-3)
-        super().__init__(model, inducing_points, variational_distribution, learn_inducing_locations)
+        super().__init__(
+            model, inducing_points, variational_distribution, learn_inducing_locations, jitter_val=jitter_val
+        )
 
     def _expand_inputs(self, x, inducing_points):
         # If we haven't explicitly marked a dimension as batch, add the corresponding batch dimension to the input
@@ -177,7 +185,7 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
         # Covariance terms
         num_induc = inducing_points.size(-2)
         test_mean = full_output.mean[..., num_induc:]
-        induc_induc_covar = full_covar[..., :num_induc, :num_induc].add_jitter()
+        induc_induc_covar = full_covar[..., :num_induc, :num_induc].add_jitter(self.jitter_val)
         induc_data_covar = full_covar[..., :num_induc, num_induc:].to_dense()
         data_data_covar = full_covar[..., num_induc:, num_induc:]
 
@@ -211,7 +219,7 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
         if variational_inducing_covar is not None:
             middle_term = SumLinearOperator(variational_inducing_covar, middle_term)
         predictive_covar = SumLinearOperator(
-            data_data_covar.add_jitter(1e-4).to_dense().select(mean_var_batch_dim - 2, 1),
+            data_data_covar.add_jitter(self.jitter_val).to_dense().select(mean_var_batch_dim - 2, 1),
             MatmulLinearOperator(var_interp_term.transpose(-1, -2), middle_term @ var_interp_term),
         )
 

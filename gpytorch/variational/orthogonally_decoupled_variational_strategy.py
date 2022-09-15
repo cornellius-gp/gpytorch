@@ -61,7 +61,7 @@ class OrthogonallyDecoupledVariationalStrategy(_VariationalStrategy):
     @cached(name="prior_distribution_memo")
     def prior_distribution(self):
         out = self.model(self.inducing_points)
-        res = MultivariateNormal(out.mean, out.lazy_covariance_matrix.add_jitter())
+        res = MultivariateNormal(out.mean, out.lazy_covariance_matrix.add_jitter(self.jitter_val))
         return res
 
     def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None, **kwargs):

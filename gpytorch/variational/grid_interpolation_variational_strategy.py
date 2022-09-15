@@ -73,7 +73,8 @@ class GridInterpolationVariationalStrategy(_VariationalStrategy):
     @cached(name="prior_distribution_memo")
     def prior_distribution(self):
         out = self.model.forward(self.inducing_points)
-        res = MultivariateNormal(out.mean, out.lazy_covariance_matrix.add_jitter())
+        # TODO: investigate why smaller than 1e-3 breaks some tests
+        res = MultivariateNormal(out.mean, out.lazy_covariance_matrix.add_jitter(1e-3))
         return res
 
     def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None):

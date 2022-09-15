@@ -73,11 +73,14 @@ class VariationalStrategy(_VariationalStrategy):
         https://www.repository.cam.ac.uk/handle/1810/278022
     """
 
-    def __init__(self, model, inducing_points, variational_distribution, learn_inducing_locations=True):
-        super().__init__(model, inducing_points, variational_distribution, learn_inducing_locations)
+    def __init__(
+        self, model, inducing_points, variational_distribution, learn_inducing_locations=True, jitter_val=None
+    ):
+        super().__init__(
+            model, inducing_points, variational_distribution, learn_inducing_locations, jitter_val=jitter_val
+        )
         self.register_buffer("updated_strategy", torch.tensor(True))
         self._register_load_state_dict_pre_hook(_ensure_updated_strategy_flag_set)
-
         self.has_fantasy_strategy = True
 
     @cached(name="cholesky_factor", ignore_args=True)
@@ -132,7 +135,7 @@ class VariationalStrategy(_VariationalStrategy):
         eval_rhs = cov_diff.transpose(-1, -2).matmul(eval_var_cov)
         inner_term = cov_diff.matmul(cov_diff.transpose(-1, -2))
         # TODO: flag the jitter here
-        inner_solve = inner_term.add_jitter(1e-3).solve(eval_rhs, eval_var_cov.transpose(-1, -2))
+        inner_solve = inner_term.add_jitter(self.jitter_val).solve(eval_rhs, eval_var_cov.transpose(-1, -2))
         inducing_covar = var_cov + inner_solve
 
         inducing_covar = Kmm_root.matmul(inducing_covar).matmul(Kmm_root.transpose(-1, -2))
@@ -141,19 +144,19 @@ class VariationalStrategy(_VariationalStrategy):
         # unwhitened: (S - S R^{-1} S) S^{-1} m = (I - S R^{-1}) m
         rhs = cov_diff.transpose(-1, -2).matmul(var_mean)
         # TODO: this jitter too
-        inner_rhs_mean_solve = inner_term.add_jitter(1e-3).solve(rhs)
+        inner_rhs_mean_solve = inner_term.add_jitter(self.jitter_val).solve(rhs)
         pseudo_target_mean = Kmm_root.matmul(inner_rhs_mean_solve)
 
         # ensure inducing covar is psd
         # TODO: make this be an explicit root decomposition
         try:
-            pseudo_target_covar = CholLinearOperator(inducing_covar.add_jitter(1e-3).cholesky()).to_dense()
+            pseudo_target_covar = CholLinearOperator(inducing_covar.add_jitter(self.jitter_val).cholesky()).to_dense()
         except NotPSDError:
             from linear_operator.operators import DiagLinearOperator
 
             evals, evecs = torch.linalg.eigh(inducing_covar)
             pseudo_target_covar = (
-                evecs.matmul(DiagLinearOperator(evals + 1e-4)).matmul(evecs.transpose(-1, -2)).to_dense()
+                evecs.matmul(DiagLinearOperator(evals + self.jitter_val)).matmul(evecs.transpose(-1, -2)).to_dense()
             )
 
         return pseudo_target_covar, pseudo_target_mean
@@ -167,7 +170,7 @@ class VariationalStrategy(_VariationalStrategy):
         # Covariance terms
         num_induc = inducing_points.size(-2)
         test_mean = full_output.mean[..., num_induc:]
-        induc_induc_covar = full_covar[..., :num_induc, :num_induc].add_jitter()
+        induc_induc_covar = full_covar[..., :num_induc, :num_induc].add_jitter(self.jitter_val)
         induc_data_covar = full_covar[..., :num_induc, num_induc:].to_dense()
         data_data_covar = full_covar[..., num_induc:, num_induc:]
 
@@ -197,12 +200,12 @@ class VariationalStrategy(_VariationalStrategy):
 
         if trace_mode.on():
             predictive_covar = (
-                data_data_covar.add_jitter(1e-4).to_dense()
+                data_data_covar.add_jitter(self.jitter_val).to_dense()
                 + interp_term.transpose(-1, -2) @ middle_term.to_dense() @ interp_term
             )
         else:
             predictive_covar = SumLinearOperator(
-                data_data_covar.add_jitter(1e-4),
+                data_data_covar.add_jitter(self.jitter_val),
                 MatmulLinearOperator(interp_term.transpose(-1, -2), middle_term @ interp_term),
             )
 
@@ -215,7 +218,7 @@ class VariationalStrategy(_VariationalStrategy):
                 # Get unwhitened p(u)
                 prior_function_dist = self(self.inducing_points, prior=True)
                 prior_mean = prior_function_dist.loc
-                L = self._cholesky_factor(prior_function_dist.lazy_covariance_matrix.add_jitter())
+                L = self._cholesky_factor(prior_function_dist.lazy_covariance_matrix.add_jitter(self.jitter_val))
 
                 # Temporarily turn off noise that's added to the mean
                 orig_mean_init_std = self._variational_distribution.mean_init_std

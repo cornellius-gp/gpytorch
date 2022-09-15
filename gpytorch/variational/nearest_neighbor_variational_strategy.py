@@ -6,7 +6,6 @@ from linear_operator import to_dense
 from linear_operator.operators import DiagLinearOperator, TriangularLinearOperator
 from linear_operator.utils.cholesky import psd_safe_cholesky
 
-from .. import settings
 from ..distributions import MultivariateNormal
 from ..utils.errors import CachingError
 from ..utils.memoize import add_to_cache, cached, pop_from_cache
@@ -104,8 +103,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
     @cached(name="prior_distribution_memo")
     def prior_distribution(self):
         out = self.model.forward(self.inducing_points)
-        jitter_val = settings.cholesky_jitter.value(self.inducing_points.dtype)
-        res = MultivariateNormal(out.mean, out.lazy_covariance_matrix.add_jitter(jitter_val))
+        res = MultivariateNormal(out.mean, out.lazy_covariance_matrix.add_jitter(self.jitter_val))
         return res
 
     def _cholesky_factor(self, induc_induc_covar):
@@ -236,8 +234,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
 
         induc_mean, induc_induc_covar = full_output.mean, full_output.lazy_covariance_matrix
 
-        jitter_val = settings.cholesky_jitter.value(self.inducing_points.dtype)
-        induc_induc_covar = induc_induc_covar.add_jitter(jitter_val)
+        induc_induc_covar = induc_induc_covar.add_jitter(self.jitter_val)
         prior_dist = MultivariateNormal(induc_mean, induc_induc_covar)
 
         inducing_values = self._variational_distribution.variational_mean[..., : self.k]
@@ -251,7 +248,6 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
     def _stochastic_kl_helper(self, kl_indices):
         # Compute the KL divergence for a mini batch of the rest M-1 inducing points
         # See paper appendix for kl breakdown
-        jitter_val = settings.cholesky_jitter.value(self.inducing_points.dtype)
         kl_bs = len(kl_indices)
         variational_mean = self._variational_distribution.variational_mean
         variational_stddev = self._variational_distribution._variational_stddev
@@ -275,14 +271,14 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
         cov = self.model.covar_module.forward(nearest_neighbors, nearest_neighbors)
         cross_cov = self.model.covar_module.forward(nearest_neighbors, inducing_points.unsqueeze(-2))
         interp_term = torch.linalg.solve(
-            cov + jitter_val * torch.eye(self.k, device=self.inducing_points.device), cross_cov
+            cov + self.jitter_val * torch.eye(self.k, device=self.inducing_points.device), cross_cov
         ).squeeze(-1)
 
         # compte logdet_p
         invquad_term_for_F = torch.sum(interp_term * cross_cov.squeeze(-1), dim=-1)
         cov_inducing_points = self.model.covar_module.forward(inducing_points, inducing_points, diag=True)
         F = cov_inducing_points - invquad_term_for_F
-        F = F + jitter_val
+        F = F + self.jitter_val
         logdet_p = F.log().sum(dim=-1)
 
         # compute trace_term
