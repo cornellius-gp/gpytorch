@@ -11,7 +11,6 @@ from ..distributions import Delta, MultivariateNormal
 from ..likelihoods import GaussianLikelihood
 from ..models import ExactGP
 from ..module import Module
-from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.memoize import add_to_cache, cached, clear_cache_hook
 
 
@@ -68,7 +67,7 @@ class _VariationalStrategy(Module, ABC):
         """
         Pre-processing step in __call__ to make x the same batch_shape as the inducing points
         """
-        batch_shape = _mul_broadcast_shape(inducing_points.shape[:-2], x.shape[:-2])
+        batch_shape = torch.broadcast_shapes(inducing_points.shape[:-2], x.shape[:-2])
         inducing_points = inducing_points.expand(*batch_shape, *inducing_points.shape[-2:])
         x = x.expand(*batch_shape, *x.shape[-2:])
         return x, inducing_points
@@ -103,9 +102,10 @@ class _VariationalStrategy(Module, ABC):
         :param torch.Tensor inducing_points: Locations :math:`\mathbf Z` of the inducing points
         :param torch.Tensor inducing_values: Samples of the inducing function values :math:`\mathbf u`
             (or the mean of the distribution :math:`q(\mathbf u)` if q is a Gaussian.
-        :param ~gpytorch.lazy.LazyTensor variational_inducing_covar: If the distribuiton :math:`q(\mathbf u)`
-            is Gaussian, then this variable is the covariance matrix of that Gaussian. Otherwise, it will be
-            None.
+        :param ~linear_operator.operators.LinearOperator variational_inducing_covar: If
+            the distribuiton :math:`q(\mathbf u)` is
+            Gaussian, then this variable is the covariance matrix of that Gaussian.
+            Otherwise, it will be None.
 
         :rtype: :obj:`~gpytorch.distributions.MultivariateNormal`
         :return: The distribution :math:`q( \mathbf f(\mathbf X))`
@@ -171,7 +171,7 @@ class _VariationalStrategy(Module, ABC):
             # do the mean cache because the mean cache doesn't solve against lik_train_train_covar
             train_mean = inducing_exact_model.mean_module(*inducing_exact_model.train_inputs)
             train_labels_offset = (inducing_exact_model.prediction_strategy.train_labels - train_mean).unsqueeze(-1)
-            mean_cache = updated_lik_train_train_covar.inv_matmul(train_labels_offset).squeeze(-1)
+            mean_cache = updated_lik_train_train_covar.solve(train_labels_offset).squeeze(-1)
             mean_cache = _add_cache_hook(mean_cache, inducing_exact_model.prediction_strategy)
             add_to_cache(pred_strat, "mean_cache", mean_cache)
             # TODO: check to see if we need to do the covar_cache?

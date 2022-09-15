@@ -5,9 +5,9 @@ import random
 import unittest
 
 import torch
+from linear_operator.operators import DiagLinearOperator
 
 from gpytorch.distributions import MultivariateNormal
-from gpytorch.lazy import DiagLazyTensor
 from gpytorch.test.utils import least_used_cuda_device
 from gpytorch.utils.quadrature import GaussHermiteQuadrature1D
 
@@ -94,7 +94,7 @@ class TestQuadrature(unittest.TestCase):
             variances = variances.cuda()
             quadrature = quadrature.cuda()
 
-        dist = MultivariateNormal(means, DiagLazyTensor(variances.sqrt()))
+        dist = MultivariateNormal(means, DiagLinearOperator(variances.sqrt()))
 
         # Use quadrature
         results = quadrature(func, dist)
@@ -122,7 +122,7 @@ class TestQuadrature(unittest.TestCase):
             variances = variances.cuda()
             quadrature = quadrature.cuda()
 
-        dist = MultivariateNormal(means, DiagLazyTensor(variances.sqrt()))
+        dist = MultivariateNormal(means, DiagLinearOperator(variances.sqrt()))
 
         # Use quadrature
         results = quadrature(func, dist)

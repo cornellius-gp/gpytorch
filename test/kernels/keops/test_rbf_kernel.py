@@ -28,8 +28,8 @@ try:
             kern1 = RBFKernel().cuda()
             kern2 = GRBFKernel().cuda()
 
-            k1 = kern1(x1, x1).evaluate()
-            k2 = kern2(x1, x1).evaluate()
+            k1 = kern1(x1, x1).to_dense()
+            k2 = kern2(x1, x1).to_dense()
 
             self.assertLess(torch.norm(k1 - k2), 1e-4)
 
@@ -43,8 +43,8 @@ try:
             kern1 = RBFKernel().cuda()
             kern2 = GRBFKernel().cuda()
 
-            k1 = kern1(x1, x2).evaluate()
-            k2 = kern2(x1, x2).evaluate()
+            k1 = kern1(x1, x2).to_dense()
+            k2 = kern2(x1, x2).to_dense()
 
             self.assertLess(torch.norm(k1 - k2), 1e-4)
 

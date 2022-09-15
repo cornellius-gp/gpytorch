@@ -3,27 +3,26 @@
 import warnings
 
 import torch
+from linear_operator import to_dense
+from linear_operator.operators import (
+    CholLinearOperator,
+    DiagLinearOperator,
+    MatmulLinearOperator,
+    RootLinearOperator,
+    SumLinearOperator,
+    TriangularLinearOperator,
+)
+from linear_operator.utils.cholesky import psd_safe_cholesky
+from linear_operator.utils.errors import NotPSDError
 
 from gpytorch.variational._variational_strategy import _VariationalStrategy
 from gpytorch.variational.cholesky_variational_distribution import CholeskyVariationalDistribution
 
 from ..distributions import MultivariateNormal
-from ..lazy import (
-    CholLazyTensor,
-    DiagLazyTensor,
-    MatmulLazyTensor,
-    RootLazyTensor,
-    SumLazyTensor,
-    TriangularLazyTensor,
-    delazify,
-)
 from ..settings import _linalg_dtype_cholesky, trace_mode
-from ..utils.cholesky import psd_safe_cholesky
-from ..utils.errors import CachingError, NotPSDError
+from ..utils.errors import CachingError
 from ..utils.memoize import cached, clear_cache_hook, pop_from_cache_ignore_args
 from ..utils.warnings import OldVersionWarning
-
-# from ._variational_strategy import _VariationalStrategy
 
 
 def _ensure_updated_strategy_flag_set(
@@ -83,8 +82,8 @@ class VariationalStrategy(_VariationalStrategy):
 
     @cached(name="cholesky_factor", ignore_args=True)
     def _cholesky_factor(self, induc_induc_covar):
-        L = psd_safe_cholesky(delazify(induc_induc_covar).type(_linalg_dtype_cholesky.value()))
-        return TriangularLazyTensor(L)
+        L = psd_safe_cholesky(to_dense(induc_induc_covar).type(_linalg_dtype_cholesky.value()))
+        return TriangularLinearOperator(L)
 
     @property
     @cached(name="prior_distribution_memo")
@@ -95,7 +94,7 @@ class VariationalStrategy(_VariationalStrategy):
             device=self._variational_distribution.device,
         )
         ones = torch.ones_like(zeros)
-        res = MultivariateNormal(zeros, DiagLazyTensor(ones))
+        res = MultivariateNormal(zeros, DiagLinearOperator(ones))
         return res
 
     @property
@@ -112,8 +111,8 @@ class VariationalStrategy(_VariationalStrategy):
                 self._variational_distribution.__name__,
             )
 
-        var_cov_root = TriangularLazyTensor(self._variational_distribution.chol_variational_covar)
-        var_cov = CholLazyTensor(var_cov_root)
+        var_cov_root = TriangularLinearOperator(self._variational_distribution.chol_variational_covar)
+        var_cov = CholLinearOperator(var_cov_root)
         var_mean = self.variational_distribution.mean
         if var_mean.shape[-1] != 1:
             var_mean = var_mean.unsqueeze(-1)
@@ -129,11 +128,11 @@ class VariationalStrategy(_VariationalStrategy):
         # D_a = (S^{-1} - K^{-1})^{-1} = S + S R^{-1} S
         # note that in the whitened case R = I - S, unwhitened R = K - S
         # we compute (R R^{T})^{-1} R^T S for stability reasons as R is probably not PSD.
-        eval_var_cov = var_cov.evaluate()
+        eval_var_cov = var_cov.to_dense()
         eval_rhs = cov_diff.transpose(-1, -2).matmul(eval_var_cov)
         inner_term = cov_diff.matmul(cov_diff.transpose(-1, -2))
         # TODO: flag the jitter here
-        inner_solve = inner_term.add_jitter(1e-3).inv_matmul(eval_rhs, eval_var_cov.transpose(-1, -2))
+        inner_solve = inner_term.add_jitter(1e-3).solve(eval_rhs, eval_var_cov.transpose(-1, -2))
         inducing_covar = var_cov + inner_solve
 
         inducing_covar = Kmm_root.matmul(inducing_covar).matmul(Kmm_root.transpose(-1, -2))
@@ -142,18 +141,20 @@ class VariationalStrategy(_VariationalStrategy):
         # unwhitened: (S - S R^{-1} S) S^{-1} m = (I - S R^{-1}) m
         rhs = cov_diff.transpose(-1, -2).matmul(var_mean)
         # TODO: this jitter too
-        inner_rhs_mean_solve = inner_term.add_jitter(1e-3).inv_matmul(rhs)
+        inner_rhs_mean_solve = inner_term.add_jitter(1e-3).solve(rhs)
         pseudo_target_mean = Kmm_root.matmul(inner_rhs_mean_solve)
 
         # ensure inducing covar is psd
         # TODO: make this be an explicit root decomposition
         try:
-            pseudo_target_covar = CholLazyTensor(inducing_covar.add_jitter(1e-3).cholesky()).evaluate()
+            pseudo_target_covar = CholLinearOperator(inducing_covar.add_jitter(1e-3).cholesky()).to_dense()
         except NotPSDError:
-            from gpytorch.lazy import DiagLazyTensor
+            from linear_operator.operators import DiagLinearOperator
 
-            evals, evecs = inducing_covar.symeig(eigenvectors=True)
-            pseudo_target_covar = evecs.matmul(DiagLazyTensor(evals + 1e-4)).matmul(evecs.transpose(-1, -2)).evaluate()
+            evals, evecs = torch.linalg.eigh(inducing_covar)
+            pseudo_target_covar = (
+                evecs.matmul(DiagLinearOperator(evals + 1e-4)).matmul(evecs.transpose(-1, -2)).to_dense()
+            )
 
         return pseudo_target_covar, pseudo_target_mean
 
@@ -167,7 +168,7 @@ class VariationalStrategy(_VariationalStrategy):
         num_induc = inducing_points.size(-2)
         test_mean = full_output.mean[..., num_induc:]
         induc_induc_covar = full_covar[..., :num_induc, :num_induc].add_jitter()
-        induc_data_covar = full_covar[..., :num_induc, num_induc:].evaluate()
+        induc_data_covar = full_covar[..., :num_induc, num_induc:].to_dense()
         data_data_covar = full_covar[..., num_induc:, num_induc:]
 
         # Compute interpolation terms
@@ -182,7 +183,7 @@ class VariationalStrategy(_VariationalStrategy):
             except CachingError:
                 pass
             L = self._cholesky_factor(induc_induc_covar)
-        interp_term = L.inv_matmul(induc_data_covar.type(_linalg_dtype_cholesky.value())).to(full_inputs.dtype)
+        interp_term = L.solve(induc_data_covar.type(_linalg_dtype_cholesky.value())).to(full_inputs.dtype)
 
         # Compute the mean of q(f)
         # k_XZ K_ZZ^{-1/2} (m - K_ZZ^{-1/2} \mu_Z) + \mu_X
@@ -192,17 +193,17 @@ class VariationalStrategy(_VariationalStrategy):
         # K_XX + k_XZ K_ZZ^{-1/2} (S - I) K_ZZ^{-1/2} k_ZX
         middle_term = self.prior_distribution.lazy_covariance_matrix.mul(-1)
         if variational_inducing_covar is not None:
-            middle_term = SumLazyTensor(variational_inducing_covar, middle_term)
+            middle_term = SumLinearOperator(variational_inducing_covar, middle_term)
 
         if trace_mode.on():
             predictive_covar = (
-                data_data_covar.add_jitter(1e-4).evaluate()
-                + interp_term.transpose(-1, -2) @ middle_term.evaluate() @ interp_term
+                data_data_covar.add_jitter(1e-4).to_dense()
+                + interp_term.transpose(-1, -2) @ middle_term.to_dense() @ interp_term
             )
         else:
-            predictive_covar = SumLazyTensor(
+            predictive_covar = SumLinearOperator(
                 data_data_covar.add_jitter(1e-4),
-                MatmulLazyTensor(interp_term.transpose(-1, -2), middle_term @ interp_term),
+                MatmulLinearOperator(interp_term.transpose(-1, -2), middle_term @ interp_term),
             )
 
         # Return the distribution
@@ -223,10 +224,10 @@ class VariationalStrategy(_VariationalStrategy):
                 # Change the variational parameters to be whitened
                 variational_dist = self.variational_distribution
                 mean_diff = (variational_dist.loc - prior_mean).unsqueeze(-1).type(_linalg_dtype_cholesky.value())
-                whitened_mean = L.inv_matmul(mean_diff).squeeze(-1).to(variational_dist.loc.dtype)
-                covar_root = variational_dist.lazy_covariance_matrix.root_decomposition().root.evaluate()
+                whitened_mean = L.solve(mean_diff).squeeze(-1).to(variational_dist.loc.dtype)
+                covar_root = variational_dist.lazy_covariance_matrix.root_decomposition().root.to_dense()
                 covar_root = covar_root.type(_linalg_dtype_cholesky.value())
-                whitened_covar = RootLazyTensor(L.inv_matmul(covar_root).to(variational_dist.loc.dtype))
+                whitened_covar = RootLinearOperator(L.solve(covar_root).to(variational_dist.loc.dtype))
                 whitened_variational_distribution = variational_dist.__class__(whitened_mean, whitened_covar)
                 self._variational_distribution.initialize_variational_distribution(whitened_variational_distribution)
 

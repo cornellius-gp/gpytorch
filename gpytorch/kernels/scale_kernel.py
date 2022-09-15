@@ -3,9 +3,9 @@
 from typing import Optional
 
 import torch
+from linear_operator.operators import to_dense
 
 from ..constraints import Interval, Positive
-from ..lazy import delazify
 from ..priors import Prior
 from .kernel import Kernel
 
@@ -51,7 +51,7 @@ class ScaleKernel(Kernel):
         >>> x = torch.randn(10, 5)
         >>> base_covar_module = gpytorch.kernels.RBFKernel()
         >>> scaled_covar_module = gpytorch.kernels.ScaleKernel(base_covar_module)
-        >>> covar = scaled_covar_module(x)  # Output: LazyTensor of size (10 x 10)
+        >>> covar = scaled_covar_module(x)  # Output: LinearOperator of size (10 x 10)
     """
 
     @property
@@ -112,7 +112,7 @@ class ScaleKernel(Kernel):
             outputscales = outputscales.unsqueeze(-1)
         if diag:
             outputscales = outputscales.unsqueeze(-1)
-            return delazify(orig_output) * outputscales
+            return to_dense(orig_output) * outputscales
         else:
             outputscales = outputscales.view(*outputscales.shape, 1, 1)
             return orig_output.mul(outputscales)

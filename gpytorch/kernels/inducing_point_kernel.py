@@ -5,15 +5,21 @@ import math
 from typing import Optional, Tuple
 
 import torch
+from linear_operator import to_dense
+from linear_operator.operators import (
+    DiagLinearOperator,
+    LowRankRootAddedDiagLinearOperator,
+    LowRankRootLinearOperator,
+    MatmulLinearOperator,
+)
+from linear_operator.utils.cholesky import psd_safe_cholesky
 from torch import Tensor
 
 from .. import settings
 from ..distributions import MultivariateNormal
-from ..lazy import DiagLazyTensor, LowRankRootAddedDiagLazyTensor, LowRankRootLazyTensor, MatmulLazyTensor, delazify
 from ..likelihoods import Likelihood
 from ..mlls import InducingPointKernelAddedLossTerm
 from ..models import exact_prediction_strategies
-from ..utils.cholesky import psd_safe_cholesky
 from .kernel import Kernel
 
 
@@ -46,7 +52,7 @@ class InducingPointKernel(Kernel):
         if not self.training and hasattr(self, "_cached_kernel_mat"):
             return self._cached_kernel_mat
         else:
-            res = delazify(self.base_kernel(self.inducing_points, self.inducing_points))
+            res = to_dense(self.base_kernel(self.inducing_points, self.inducing_points))
             if not self.training:
                 self._cached_kernel_mat = res
             return res
@@ -58,7 +64,7 @@ class InducingPointKernel(Kernel):
         else:
             chol = psd_safe_cholesky(self._inducing_mat, upper=True)
             eye = torch.eye(chol.size(-1), device=chol.device, dtype=chol.dtype)
-            inv_root = torch.triangular_solve(eye, chol)[0]
+            inv_root = torch.linalg.solve_triangular(chol, eye, upper=True)
 
             res = inv_root
             if not self.training:
@@ -66,17 +72,17 @@ class InducingPointKernel(Kernel):
             return res
 
     def _get_covariance(self, x1, x2):
-        k_ux1 = delazify(self.base_kernel(x1, self.inducing_points))
+        k_ux1 = to_dense(self.base_kernel(x1, self.inducing_points))
         if torch.equal(x1, x2):
-            covar = LowRankRootLazyTensor(k_ux1.matmul(self._inducing_inv_root))
+            covar = LowRankRootLinearOperator(k_ux1.matmul(self._inducing_inv_root))
 
             # Diagonal correction for predictive posterior
             if not self.training and settings.sgpr_diagonal_correction.on():
-                correction = (self.base_kernel(x1, x2, diag=True) - covar.diag()).clamp(0, math.inf)
-                covar = LowRankRootAddedDiagLazyTensor(covar, DiagLazyTensor(correction))
+                correction = (self.base_kernel(x1, x2, diag=True) - covar.diagonal(dim1=-1, dim2=-2)).clamp(0, math.inf)
+                covar = LowRankRootAddedDiagLinearOperator(covar, DiagLinearOperator(correction))
         else:
-            k_ux2 = delazify(self.base_kernel(x2, self.inducing_points))
-            covar = MatmulLazyTensor(
+            k_ux2 = to_dense(self.base_kernel(x2, self.inducing_points))
+            covar = MatmulLinearOperator(
                 k_ux1.matmul(self._inducing_inv_root), k_ux2.matmul(self._inducing_inv_root).transpose(-1, -2)
             )
 
@@ -87,8 +93,8 @@ class InducingPointKernel(Kernel):
             inputs = inputs.unsqueeze(1)
 
         # Get diagonal of covar
-        covar_diag = delazify(self.base_kernel(inputs, diag=True))
-        return DiagLazyTensor(covar_diag)
+        covar_diag = to_dense(self.base_kernel(inputs, diag=True))
+        return DiagLinearOperator(covar_diag)
 
     def forward(self, x1, x2, diag=False, **kwargs):
         covar = self._get_covariance(x1, x2)
@@ -105,7 +111,7 @@ class InducingPointKernel(Kernel):
             self.update_added_loss_term("inducing_point_loss_term", new_added_loss_term)
 
         if diag:
-            return covar.diag()
+            return covar.diagonal(dim1=-1, dim2=-2)
         else:
             return covar
 

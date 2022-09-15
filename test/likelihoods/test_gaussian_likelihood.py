@@ -4,10 +4,10 @@ import pickle
 import unittest
 
 import torch
+from linear_operator.operators import DiagLinearOperator
 
 from gpytorch import settings
 from gpytorch.distributions import MultivariateNormal
-from gpytorch.lazy import DiagLazyTensor
 from gpytorch.likelihoods import (
     DirichletClassificationLikelihood,
     FixedNoiseGaussianLikelihood,
@@ -71,13 +71,13 @@ class TestFixedNoiseGaussianLikelihood(BaseLikelihoodTestCase, unittest.TestCase
             self.assertTrue(torch.equal(lkhd.noise, new_noise))
             # test __call__
             mean = torch.zeros(4, device=device, dtype=dtype)
-            covar = DiagLazyTensor(torch.ones(4, device=device, dtype=dtype))
+            covar = DiagLinearOperator(torch.ones(4, device=device, dtype=dtype))
             mvn = MultivariateNormal(mean, covar)
             out = lkhd(mvn)
             self.assertTrue(torch.allclose(out.variance, 1 + new_noise))
             # things should break if dimensions mismatch
             mean = torch.zeros(5, device=device, dtype=dtype)
-            covar = DiagLazyTensor(torch.ones(5, device=device, dtype=dtype))
+            covar = DiagLinearOperator(torch.ones(5, device=device, dtype=dtype))
             mvn = MultivariateNormal(mean, covar)
             with self.assertWarns(UserWarning):
                 lkhd(mvn)
@@ -146,13 +146,13 @@ class TestDirichletClassificationLikelihood(BaseLikelihoodTestCase, unittest.Tes
             self.assertTrue(torch.equal(lkhd.noise, new_noise))
             # test __call__
             mean = torch.zeros(6, device=device, dtype=dtype)
-            covar = DiagLazyTensor(torch.ones(6, device=device, dtype=dtype))
+            covar = DiagLinearOperator(torch.ones(6, device=device, dtype=dtype))
             mvn = MultivariateNormal(mean, covar)
             out = lkhd(mvn)
             self.assertTrue(torch.allclose(out.variance, 1 + new_noise))
             # things should break if dimensions mismatch
             mean = torch.zeros(5, device=device, dtype=dtype)
-            covar = DiagLazyTensor(torch.ones(5, device=device, dtype=dtype))
+            covar = DiagLinearOperator(torch.ones(5, device=device, dtype=dtype))
             mvn = MultivariateNormal(mean, covar)
             with self.assertWarns(UserWarning):
                 lkhd(mvn)
@@ -202,7 +202,7 @@ class TestGaussianLikelihoodwithMissingObs(BaseLikelihoodTestCase, unittest.Test
         likelihood.MISSING_VALUE_FILL = -999.0
         like_init_minus = likelihood.log_marginal(samples, mvn).sum().data
 
-        torch.testing.assert_allclose(like_init_plus, like_init_minus)
+        torch.testing.assert_close(like_init_plus, like_init_minus)
 
         # check that the correct noise sd is recovered
 

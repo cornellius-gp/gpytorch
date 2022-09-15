@@ -36,24 +36,24 @@ class TestScaleKernel(BaseKernelTestCase, unittest.TestCase):
         scaled_b = b.div(lengthscales)
         actual = (scaled_a.unsqueeze(-2) - scaled_b.unsqueeze(-3)).pow(2).sum(dim=-1).mul_(-0.5).exp()
         actual.mul_(3)
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # Diag
-        res = kernel(a, b).diag()
-        actual = actual.diag()
+        res = kernel(a, b).diagonal(dim1=-1, dim2=-2)
+        actual = actual.diagonal(dim1=-1, dim2=-2)
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # batch_dims
         actual = scaled_a.transpose(-1, -2).unsqueeze(-1) - scaled_b.transpose(-1, -2).unsqueeze(-2)
         actual = actual.pow(2).mul_(-0.5).exp().view(2, 2, 2)
         actual.mul_(3)
-        res = kernel(a, b, last_dim_is_batch=True).evaluate()
+        res = kernel(a, b, last_dim_is_batch=True).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # batch_dims and diag
-        res = kernel(a, b, last_dim_is_batch=True).diag()
-        actual = torch.cat([actual[i].diag().unsqueeze(0) for i in range(actual.size(0))])
+        res = kernel(a, b, last_dim_is_batch=True).diagonal(dim1=-1, dim2=-2)
+        actual = torch.cat([actual[i].diagonal(dim1=-1, dim2=-2).unsqueeze(0) for i in range(actual.size(0))])
         self.assertLess(torch.norm(res - actual), 1e-5)
 
     def test_ard_batch(self):
@@ -71,12 +71,12 @@ class TestScaleKernel(BaseKernelTestCase, unittest.TestCase):
         scaled_b = b.div(lengthscales)
         actual = (scaled_a.unsqueeze(-2) - scaled_b.unsqueeze(-3)).pow(2).sum(dim=-1).mul_(-0.5).exp()
         actual[1].mul_(2)
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # diag
-        res = kernel(a, b).diag()
-        actual = torch.cat([actual[i].diag().unsqueeze(0) for i in range(actual.size(0))])
+        res = kernel(a, b).diagonal(dim1=-1, dim2=-2)
+        actual = torch.cat([actual[i].diagonal(dim1=-1, dim2=-2).unsqueeze(0) for i in range(actual.size(0))])
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # batch_dims
@@ -85,11 +85,11 @@ class TestScaleKernel(BaseKernelTestCase, unittest.TestCase):
         actual = double_batch_a.unsqueeze(-1) - double_batch_b.unsqueeze(-2)
         actual = actual.pow(2).mul_(-0.5).exp()
         actual[1, :, :, :].mul_(2)
-        res = kernel(a, b, last_dim_is_batch=True).evaluate()
+        res = kernel(a, b, last_dim_is_batch=True).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # batch_dims and diag
-        res = kernel(a, b, last_dim_is_batch=True).diag()
+        res = kernel(a, b, last_dim_is_batch=True).diagonal(dim1=-1, dim2=-2)
         actual = actual.diagonal(dim1=-2, dim2=-1)
         self.assertLess(torch.norm(res - actual), 1e-5)
 

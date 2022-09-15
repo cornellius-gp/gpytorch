@@ -37,7 +37,7 @@ class GPClassificationModel(ApproximateGP):
             variational_distribution=variational_distribution,
         )
         super(GPClassificationModel, self).__init__(variational_strategy)
-        self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1e-5, 1e-5))
+        self.mean_module = ConstantMean(constant_prior=SmoothedBoxPrior(-1e-5, 1e-5))
         self.covar_module = ScaleKernel(
             RBFKernel(ard_num_dims=1, lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1)),
             outputscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1),

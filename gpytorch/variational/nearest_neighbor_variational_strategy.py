@@ -2,11 +2,12 @@
 
 
 import torch
+from linear_operator import to_dense
+from linear_operator.operators import DiagLinearOperator, TriangularLinearOperator
+from linear_operator.utils.cholesky import psd_safe_cholesky
 
 from .. import settings
 from ..distributions import MultivariateNormal
-from ..lazy import DiagLazyTensor, TriangularLazyTensor, delazify
-from ..utils.cholesky import psd_safe_cholesky
 from ..utils.errors import CachingError
 from ..utils.memoize import add_to_cache, cached, pop_from_cache
 from ..utils.nearest_neighbors import NNUtil
@@ -109,8 +110,8 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
 
     def _cholesky_factor(self, induc_induc_covar):
         # Uncached version
-        L = psd_safe_cholesky(delazify(induc_induc_covar))
-        return TriangularLazyTensor(L)
+        L = psd_safe_cholesky(to_dense(induc_induc_covar))
+        return TriangularLinearOperator(L)
 
     def __call__(self, x, prior=False, **kwargs):
         # If we're in prior mode, then we're done!
@@ -167,7 +168,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
             kl = self._kl_divergence(kl_indices)
             add_to_cache(self, "kl_divergence_memo", kl)
 
-            return MultivariateNormal(predictive_mean, DiagLazyTensor(predictive_var))
+            return MultivariateNormal(predictive_mean, DiagLinearOperator(predictive_var))
         else:
 
             nn_indices = self.nn_util.find_nn_idx(x.float())
@@ -194,7 +195,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
             expanded_variational_stddev = variational_stddev.unsqueeze(-1).expand(*batch_shape, self.M, self.k)
             variational_inducing_covar = expanded_variational_stddev.gather(-2, expanded_nn_indices) ** 2
             assert variational_inducing_covar.shape == (*batch_shape, x_bsz, self.k)
-            variational_inducing_covar = DiagLazyTensor(variational_inducing_covar)
+            variational_inducing_covar = DiagLinearOperator(variational_inducing_covar)
             assert variational_inducing_covar.shape == (*batch_shape, x_bsz, self.k, self.k)
 
             # Make everything batch mode
@@ -213,7 +214,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
             assert predictive_mean.shape == predictive_covar.shape[:-2]
 
             # Return the distribution
-            return MultivariateNormal(predictive_mean, DiagLazyTensor(predictive_var))
+            return MultivariateNormal(predictive_mean, DiagLinearOperator(predictive_var))
 
     def _set_training_iterator(self):
         self._training_indices_iter = 0
@@ -241,7 +242,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
 
         inducing_values = self._variational_distribution.variational_mean[..., : self.k]
         variational_covar_fisrtk = self._variational_distribution._variational_stddev[..., : self.k] ** 2
-        variational_inducing_covar = DiagLazyTensor(variational_covar_fisrtk)
+        variational_inducing_covar = DiagLinearOperator(variational_covar_fisrtk)
 
         variational_distribution = MultivariateNormal(inducing_values, variational_inducing_covar)
         kl = torch.distributions.kl.kl_divergence(variational_distribution, prior_dist)  # model_batch_shape

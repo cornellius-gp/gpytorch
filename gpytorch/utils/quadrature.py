@@ -7,7 +7,19 @@ import torch
 from torch.nn import Module
 
 from .. import settings
-from .broadcasting import _pad_with_singletons
+
+
+def _pad_with_singletons(obj: torch.Tensor, num_singletons_before: int = 0, num_singletons_after: int = 0):
+    """
+    Pad obj with singleton dimensions on the left and right
+
+    Example:
+        >>> x = torch.randn(10, 5)
+        >>> _pad_width_singletons(x, 2, 3).shape
+        >>> # [1, 1, 10, 5, 1, 1, 1]
+    """
+    new_shape = [1] * num_singletons_before + list(obj.shape) + [1] * num_singletons_after
+    return obj.view(*new_shape)
 
 
 class GaussHermiteQuadrature1D(Module):

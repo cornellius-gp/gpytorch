@@ -50,7 +50,6 @@ GPyTorch's documentation
    :caption: Advanced Package Reference
 
    module
-   lazy
    functions
    utils
 

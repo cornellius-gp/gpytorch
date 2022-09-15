@@ -12,26 +12,24 @@ Functions
 
 .. automodule:: gpytorch
 
-.. autofunction:: add_diag
+.. autofunction:: add_diagonal
 
 .. autofunction:: add_jitter
 
 .. autofunction:: dsmm
 
-.. autofunction:: inv_matmul
+.. autofunction:: diagonalization
 
 .. autofunction:: inv_quad
 
 .. autofunction:: inv_quad_logdet
-
-.. autofunction:: matmul
-
-.. autofunction:: logdet
-
-.. autofunction:: log_normal_cdf
 
 .. autofunction:: pivoted_cholesky
 
 .. autofunction:: root_decomposition
 
 .. autofunction:: root_inv_decomposition
+
+.. autofunction:: solve
+
+.. autofunction:: sqrt_inv_matmul

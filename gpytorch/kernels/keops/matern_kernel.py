@@ -2,9 +2,9 @@
 import math
 
 import torch
+from linear_operator.operators import KeOpsLinearOperator
 
 from ... import settings
-from ...lazy import KeOpsLazyTensor
 from .keops_kernel import KeOpsKernel
 
 try:
@@ -92,7 +92,7 @@ try:
                 return self.covar_func(x1_, x2_, diag=True)
 
             covar_func = lambda x1, x2, diag=False: self.covar_func(x1, x2, diag)
-            return KeOpsLazyTensor(x1_, x2_, covar_func)
+            return KeOpsLinearOperator(x1_, x2_, covar_func)
 
 except ImportError:
 

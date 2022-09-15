@@ -36,7 +36,7 @@ class ExactGPModel(gpytorch.models.ExactGP):
     def __init__(self, train_inputs, train_targets, likelihood, batch_shape=torch.Size()):
         super(ExactGPModel, self).__init__(train_inputs, train_targets, likelihood)
         self.mean_module = MultitaskMean(
-            ConstantMean(batch_shape=batch_shape, prior=gpytorch.priors.SmoothedBoxPrior(-1, 1)), num_tasks=2
+            ConstantMean(batch_shape=batch_shape, constant_prior=gpytorch.priors.SmoothedBoxPrior(-1, 1)), num_tasks=2
         )
         self.covar_module = MultitaskKernel(
             RBFKernel(

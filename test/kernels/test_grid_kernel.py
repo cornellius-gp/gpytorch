@@ -3,10 +3,10 @@
 import unittest
 
 import torch
+from linear_operator.operators import KroneckerProductLinearOperator
 
 import gpytorch
 from gpytorch.kernels import GridKernel, LinearKernel, RBFKernel
-from gpytorch.lazy import KroneckerProductLazyTensor
 from gpytorch.utils.grid import create_data_from_grid
 
 grid = [torch.linspace(0, 1, 5), torch.linspace(0, 2, 3)]
@@ -20,9 +20,9 @@ class TestGridKernel(unittest.TestCase):
             base_kernel = RBFKernel(ard_num_dims=2)
             kernel = GridKernel(base_kernel, grid)
             grid_covar = kernel(grid_data, grid_data).evaluate_kernel()
-            self.assertIsInstance(grid_covar, KroneckerProductLazyTensor)
-            grid_eval = kernel(grid_data, grid_data).evaluate()
-            actual_eval = base_kernel(grid_data, grid_data).evaluate()
+            self.assertIsInstance(grid_covar, KroneckerProductLinearOperator)
+            grid_eval = kernel(grid_data, grid_data).to_dense()
+            actual_eval = base_kernel(grid_data, grid_data).to_dense()
             self.assertLess(torch.norm(grid_eval - actual_eval), 2e-5)
 
     def test_grid_grid_nontoeplitz(self):
@@ -33,8 +33,8 @@ class TestGridKernel(unittest.TestCase):
             base_kernel = RBFKernel(ard_num_dims=2)
             data = torch.randn(5, d)
             kernel = GridKernel(base_kernel, grid)
-            grid_eval = kernel(grid_data, data).evaluate()
-            actual_eval = base_kernel(grid_data, data).evaluate()
+            grid_eval = kernel(grid_data, data).to_dense()
+            actual_eval = base_kernel(grid_data, data).to_dense()
             self.assertLess(torch.norm(grid_eval - actual_eval), 1e-5)
 
     def test_nongrid_grid_nontoeplitz(self):
@@ -45,8 +45,8 @@ class TestGridKernel(unittest.TestCase):
             base_kernel = RBFKernel(ard_num_dims=2)
             data = torch.randn(5, d)
             kernel = GridKernel(base_kernel, grid)
-            grid_eval = kernel(data, data).evaluate()
-            actual_eval = base_kernel(data, data).evaluate()
+            grid_eval = kernel(data, data).to_dense()
+            actual_eval = base_kernel(data, data).to_dense()
             self.assertLess(torch.norm(grid_eval - actual_eval), 1e-5)
 
     def test_nongrid_nongrid_nontoeplitz(self):

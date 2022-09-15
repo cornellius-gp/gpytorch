@@ -4,35 +4,36 @@ import math
 import unittest
 from unittest.mock import MagicMock, patch
 
+import linear_operator
 import torch
+from linear_operator import to_dense
+from linear_operator.test.linear_operator_test_case import LinearOperatorTestCase
 
 import gpytorch
-from gpytorch.lazy.lazy_tensor import delazify
-from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase, _ensure_symmetric_grad
 
 
-class TestLazyEvaluatedKernelTensorBatch(LazyTensorTestCase, unittest.TestCase):
+class TestLazyEvaluatedKernelTensorBatch(LinearOperatorTestCase, unittest.TestCase):
     seed = 0
 
-    def create_lazy_tensor(self):
+    def create_linear_op(self):
         kern = gpytorch.kernels.RBFKernel()
         mat1 = torch.randn(2, 5, 6)
         mat2 = mat1.detach().clone()
         return kern(mat1, mat2)
 
-    def evaluate_lazy_tensor(self, lazy_tensor):
+    def evaluate_linear_op(self, lazy_tensor):
         with gpytorch.settings.lazily_evaluate_kernels(False):
-            return gpytorch.lazy.delazify(lazy_tensor.kernel(lazy_tensor.x1, lazy_tensor.x2))
+            return to_dense(lazy_tensor.kernel(lazy_tensor.x1, lazy_tensor.x2))
 
     def _test_matmul(self, rhs):
-        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
+        lazy_tensor = self.create_linear_op().requires_grad_(True)
         lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
-        evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
-        rhs_evaluated = delazify(rhs)
+        evaluated = self.evaluate_linear_op(lazy_tensor_copy)
+        rhs_evaluated = to_dense(rhs)
 
         res = lazy_tensor.matmul(rhs)
         actual = evaluated.matmul(rhs_evaluated)
-        res_evaluated = delazify(res)
+        res_evaluated = to_dense(res)
         self.assertAllClose(res_evaluated, actual)
 
         grad = torch.randn_like(res_evaluated)
@@ -45,9 +46,9 @@ class TestLazyEvaluatedKernelTensorBatch(LazyTensorTestCase, unittest.TestCase):
         )
 
     def _test_rmatmul(self, lhs):
-        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
+        lazy_tensor = self.create_linear_op().requires_grad_(True)
         lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
-        evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
+        evaluated = self.evaluate_linear_op(lazy_tensor_copy)
 
         res = lhs @ lazy_tensor
         actual = lhs @ evaluated
@@ -66,10 +67,10 @@ class TestLazyEvaluatedKernelTensorBatch(LazyTensorTestCase, unittest.TestCase):
         )
 
     def _test_inv_matmul(self, rhs, lhs=None, cholesky=False):
-        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
+        lazy_tensor = self.create_linear_op().requires_grad_(True)
         lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
-        evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
-        evaluated.register_hook(_ensure_symmetric_grad)
+        evaluated = self.evaluate_linear_op(lazy_tensor_copy)
+        evaluated.register_hook(self._ensure_symmetric_grad)
 
         # Create a test right hand side and left hand side
         rhs.requires_grad_(True)
@@ -78,15 +79,15 @@ class TestLazyEvaluatedKernelTensorBatch(LazyTensorTestCase, unittest.TestCase):
             lhs.requires_grad_(True)
             lhs_copy = lhs.clone().detach().requires_grad_(True)
 
-        _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
-        with patch("gpytorch.utils.linear_cg", new=_wrapped_cg) as linear_cg_mock:
+        _wrapped_cg = MagicMock(wraps=linear_operator.utils.linear_cg)
+        with patch("linear_operator.utils.linear_cg", new=_wrapped_cg) as linear_cg_mock:
             with gpytorch.settings.max_cholesky_size(math.inf if cholesky else 0), gpytorch.settings.cg_tolerance(1e-4):
                 # Perform the inv_matmul
                 if lhs is not None:
-                    res = lazy_tensor.inv_matmul(rhs, lhs)
+                    res = lazy_tensor.solve(rhs, lhs)
                     actual = lhs_copy @ evaluated.inverse() @ rhs_copy
                 else:
-                    res = lazy_tensor.inv_matmul(rhs)
+                    res = lazy_tensor.solve(rhs)
                     actual = evaluated.inverse().matmul(rhs_copy)
                 self.assertAllClose(res, actual, rtol=0.02, atol=1e-5)
 
@@ -113,14 +114,14 @@ class TestLazyEvaluatedKernelTensorBatch(LazyTensorTestCase, unittest.TestCase):
 
     def test_inv_matmul_matrix_with_checkpointing(self):
         # Add one checkpointing test
-        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
+        lazy_tensor = self.create_linear_op().requires_grad_(True)
         lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
-        evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
+        evaluated = self.evaluate_linear_op(lazy_tensor_copy)
 
         test_vector = torch.randn(2, 5, 6)
         test_vector_copy = test_vector.clone()
         with gpytorch.beta_features.checkpoint_kernel(2):
-            res = lazy_tensor.inv_matmul(test_vector)
+            res = lazy_tensor.solve(test_vector)
             actual = evaluated.inverse().matmul(test_vector_copy)
             self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 3e-1)
 
@@ -148,13 +149,13 @@ class TestLazyEvaluatedKernelTensorBatch(LazyTensorTestCase, unittest.TestCase):
         # Not supported a.t.m. with LazyEvaluatedKernelTensors
         pass
 
-    def test_quad_form_derivative(self):
+    def test_bilinear_derivative(self):
         pass
 
     def test_half(self):
         # many transform operations aren't supported in half so we overwrite
         # this test
-        lazy_tensor = self.create_lazy_tensor()
+        lazy_tensor = self.create_linear_op()
         lazy_tensor.kernel.raw_lengthscale_constraint.transform = lambda x: x + 0.1
         self._test_half(lazy_tensor)
 
@@ -163,7 +164,7 @@ class TestLazyEvaluatedKernelTensorMultitaskBatch(TestLazyEvaluatedKernelTensorB
     seed = 0
     skip_slq_tests = True  # we skip these because of the kronecker structure
 
-    def create_lazy_tensor(self):
+    def create_linear_op(self):
         kern = gpytorch.kernels.MultitaskKernel(gpytorch.kernels.RBFKernel(), num_tasks=3, rank=2)
         mat1 = torch.randn(2, 5, 6)
         mat2 = mat1.detach().clone()
@@ -175,7 +176,7 @@ class TestLazyEvaluatedKernelTensorMultitaskBatch(TestLazyEvaluatedKernelTensorB
     def test_half(self):
         # many transform operations aren't supported in half so we overwrite
         # this test
-        lazy_tensor = self.create_lazy_tensor()
+        lazy_tensor = self.create_linear_op()
         lazy_tensor.kernel.data_covar_module.raw_lengthscale_constraint.transform = lambda x: x + 0.1
         self._test_half(lazy_tensor)
 
@@ -183,14 +184,14 @@ class TestLazyEvaluatedKernelTensorMultitaskBatch(TestLazyEvaluatedKernelTensorB
 class TestLazyEvaluatedKernelTensorAdditive(TestLazyEvaluatedKernelTensorBatch):
     seed = 0
 
-    def create_lazy_tensor(self):
+    def create_linear_op(self):
         kern = gpytorch.kernels.AdditiveStructureKernel(gpytorch.kernels.RBFKernel(), num_dims=6)
         mat1 = torch.randn(5, 6)
         mat2 = mat1.detach().clone()
         return kern(mat1, mat2)
 
-    def evaluate_lazy_tensor(self, lazy_tensor):
-        res = gpytorch.lazy.delazify(
+    def evaluate_linear_op(self, lazy_tensor):
+        res = to_dense(
             gpytorch.Module.__call__(
                 lazy_tensor.kernel.base_kernel,
                 lazy_tensor.x1.transpose(-1, -2).unsqueeze(-1),
@@ -205,6 +206,6 @@ class TestLazyEvaluatedKernelTensorAdditive(TestLazyEvaluatedKernelTensorBatch):
     def test_half(self):
         # many transform operations aren't supported in half so we overwrite
         # this test
-        lazy_tensor = self.create_lazy_tensor()
+        lazy_tensor = self.create_linear_op()
         lazy_tensor.kernel.base_kernel.raw_lengthscale_constraint.transform = lambda x: x + 0.1
         self._test_half(lazy_tensor)

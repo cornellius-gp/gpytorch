@@ -28,7 +28,7 @@ test_y = torch.sin(test_x * (2 * pi))
 good_state_dict = OrderedDict(
     [
         ("likelihood.log_noise", torch.tensor([-5.0])),
-        ("mean_module.constant", torch.tensor([0.4615])),
+        ("mean_module.raw_constant", torch.tensor([0.4615])),
         ("covar_module.log_mixture_weights", torch.tensor([-0.7277, -15.1212, -0.5511, -6.3787]).unsqueeze(0)),
         (
             "covar_module.log_mixture_means",
@@ -45,7 +45,7 @@ good_state_dict = OrderedDict(
 class SpectralMixtureGPModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood, empspect=False):
         super(SpectralMixtureGPModel, self).__init__(train_x, train_y, likelihood)
-        self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1, 1))
+        self.mean_module = ConstantMean(constant_prior=SmoothedBoxPrior(-1, 1))
         self.covar_module = SpectralMixtureKernel(num_mixtures=4, ard_num_dims=1)
         if empspect:
             self.covar_module.initialize_from_data(train_x, train_y)

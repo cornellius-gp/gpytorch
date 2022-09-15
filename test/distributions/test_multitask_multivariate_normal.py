@@ -6,9 +6,9 @@ import random
 import unittest
 
 import torch
+from linear_operator.operators import DiagLinearOperator
 
 from gpytorch.distributions import MultitaskMultivariateNormal, MultivariateNormal
-from gpytorch.lazy import DiagLazyTensor
 from gpytorch.test.base_test_case import BaseTestCase
 from gpytorch.test.utils import least_used_cuda_device
 
@@ -46,7 +46,7 @@ class TestMultiTaskMultivariateNormal(BaseTestCase, unittest.TestCase):
             variance = torch.tensor([[1, 2], [3, 4], [5, 6]], dtype=dtype, device=device)
 
             # interleaved
-            covmat = variance.view(-1).diag()
+            covmat = variance.view(-1).diag_embed()
             mtmvn = MultitaskMultivariateNormal(mean=mean, covariance_matrix=covmat)
             self.assertTrue(torch.equal(mtmvn.mean, mean))
             self.assertTrue(torch.allclose(mtmvn.variance, variance))
@@ -77,7 +77,7 @@ class TestMultiTaskMultivariateNormal(BaseTestCase, unittest.TestCase):
             self.assertTrue(mtmvn.sample(torch.Size([3, 4])).shape == torch.Size([3, 4, 3, 2]))
 
             # non-interleaved
-            covmat = variance.transpose(-1, -2).reshape(-1).diag()
+            covmat = variance.transpose(-1, -2).reshape(-1).diag_embed()
             mtmvn = MultitaskMultivariateNormal(mean=mean, covariance_matrix=covmat, interleaved=False)
             self.assertTrue(torch.equal(mtmvn.mean, mean))
             self.assertTrue(torch.allclose(mtmvn.variance, variance))
@@ -146,7 +146,7 @@ class TestMultiTaskMultivariateNormal(BaseTestCase, unittest.TestCase):
         for dtype in (torch.float, torch.double):
             mean = torch.tensor([[0, 1], [2, 3], [4, 5]], dtype=dtype, device=device)
             variance = torch.tensor([[1, 2], [3, 4], [5, 6]], dtype=dtype, device=device)
-            covmat = variance.view(-1).diag()
+            covmat = variance.view(-1).diag_embed()
             mtmvn = MultitaskMultivariateNormal(mean=mean, covariance_matrix=covmat)
             base_samples = mtmvn.get_base_samples(torch.Size([3, 4]))
             self.assertTrue(mtmvn.sample(base_samples=base_samples).shape == torch.Size([3, 4, 3, 2]))
@@ -183,7 +183,7 @@ class TestMultiTaskMultivariateNormal(BaseTestCase, unittest.TestCase):
             values = mean + 0.5
             diffs = (values - mean).view(-1)
 
-            res = MultitaskMultivariateNormal(mean, DiagLazyTensor(var)).log_prob(values)
+            res = MultitaskMultivariateNormal(mean, DiagLinearOperator(var)).log_prob(values)
             actual = -0.5 * (math.log(math.pi * 2) * 12 + var.log().sum() + (diffs / var * diffs).sum())
             self.assertLess((res - actual).div(res).abs().item(), 1e-2)
 
@@ -192,7 +192,7 @@ class TestMultiTaskMultivariateNormal(BaseTestCase, unittest.TestCase):
             values = mean + 0.5
             diffs = (values - mean).view(3, -1)
 
-            res = MultitaskMultivariateNormal(mean, DiagLazyTensor(var)).log_prob(values)
+            res = MultitaskMultivariateNormal(mean, DiagLinearOperator(var)).log_prob(values)
             actual = -0.5 * (math.log(math.pi * 2) * 12 + var.log().sum(-1) + (diffs / var * diffs).sum(-1))
             self.assertLess((res - actual).div(res).abs().norm(), 1e-2)
 
@@ -204,7 +204,7 @@ class TestMultiTaskMultivariateNormal(BaseTestCase, unittest.TestCase):
     def test_multitask_from_batch(self):
         mean = torch.randn(2, 3)
         variance = torch.randn(2, 3).clamp_min(1e-6)
-        mvn = MultivariateNormal(mean, DiagLazyTensor(variance))
+        mvn = MultivariateNormal(mean, DiagLinearOperator(variance))
         mmvn = MultitaskMultivariateNormal.from_batch_mvn(mvn, task_dim=-1)
         self.assertTrue(isinstance(mmvn, MultitaskMultivariateNormal))
         self.assertEqual(mmvn.batch_shape, torch.Size([]))
@@ -215,7 +215,7 @@ class TestMultiTaskMultivariateNormal(BaseTestCase, unittest.TestCase):
 
         mean = torch.randn(2, 4, 3)
         variance = torch.randn(2, 4, 3).clamp_min(1e-6)
-        mvn = MultivariateNormal(mean, DiagLazyTensor(variance))
+        mvn = MultivariateNormal(mean, DiagLinearOperator(variance))
         mmvn = MultitaskMultivariateNormal.from_batch_mvn(mvn, task_dim=0)
         self.assertTrue(isinstance(mmvn, MultitaskMultivariateNormal))
         self.assertEqual(mmvn.batch_shape, torch.Size([4]))
@@ -227,7 +227,7 @@ class TestMultiTaskMultivariateNormal(BaseTestCase, unittest.TestCase):
     def test_multitask_from_repeat(self):
         mean = torch.randn(2, 3)
         variance = torch.randn(2, 3).clamp_min(1e-6)
-        mvn = MultivariateNormal(mean, DiagLazyTensor(variance))
+        mvn = MultivariateNormal(mean, DiagLinearOperator(variance))
         mmvn = MultitaskMultivariateNormal.from_repeated_mvn(mvn, num_tasks=4)
         self.assertTrue(isinstance(mmvn, MultitaskMultivariateNormal))
         self.assertEqual(mmvn.batch_shape, torch.Size([2]))
@@ -246,7 +246,7 @@ class TestMultiTaskMultivariateNormal(BaseTestCase, unittest.TestCase):
             mvns = [
                 MultivariateNormal(
                     mean=torch.randn(4, device=device, dtype=dtype),
-                    covariance_matrix=DiagLazyTensor(torch.randn(n, device=device, dtype=dtype).abs_()),
+                    covariance_matrix=DiagLinearOperator(torch.randn(n, device=device, dtype=dtype).abs_()),
                 )
                 for i in range(n_tasks)
             ]
@@ -261,7 +261,7 @@ class TestMultiTaskMultivariateNormal(BaseTestCase, unittest.TestCase):
             mvns = [
                 MultivariateNormal(
                     mean=torch.randn(b, n, device=device, dtype=dtype),
-                    covariance_matrix=DiagLazyTensor(torch.randn(b, n, device=device, dtype=dtype).abs_()),
+                    covariance_matrix=DiagLinearOperator(torch.randn(b, n, device=device, dtype=dtype).abs_()),
                 )
                 for i in range(n_tasks)
             ]

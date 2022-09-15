@@ -2,7 +2,6 @@
 
 import torch
 
-from ..utils.broadcasting import _mul_broadcast_shape
 from .mean import Mean
 
 
@@ -15,7 +14,7 @@ class ConstantMeanGrad(Mean):
             self.register_prior("mean_prior", prior, "constant")
 
     def forward(self, input):
-        batch_shape = _mul_broadcast_shape(self.batch_shape, input.shape[:-2])
+        batch_shape = torch.broadcast_shapes(self.batch_shape, input.shape[:-2])
         mean = self.constant.unsqueeze(-1).expand(*batch_shape, input.size(-2), input.size(-1) + 1).contiguous()
         mean[..., 1:] = 0
         return mean

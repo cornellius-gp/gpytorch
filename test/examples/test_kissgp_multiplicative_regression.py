@@ -41,7 +41,7 @@ test_y = (torch.sin(test_x[:, 0]) + torch.cos(test_x[:, 1])) * (2 * pi)
 class GPRegressionModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood):
         super(GPRegressionModel, self).__init__(train_x, train_y, likelihood)
-        self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1, 1))
+        self.mean_module = ConstantMean(constant_prior=SmoothedBoxPrior(-1, 1))
         self.base_covar_module = ScaleKernel(RBFKernel())
         self.covar_module = ProductStructureKernel(
             GridInterpolationKernel(self.base_covar_module, grid_size=100, num_dims=1), num_dims=2

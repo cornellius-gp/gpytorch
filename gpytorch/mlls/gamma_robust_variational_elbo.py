@@ -77,7 +77,7 @@ class GammaRobustVariationalELBO(_ApproximateMarginalLogLikelihood):
         muf, varf = variational_dist_f.mean, variational_dist_f.variance
 
         # Get noise from likelihood
-        noise = self.likelihood._shaped_noise_covar(muf.shape, *args, **kwargs).diag()
+        noise = self.likelihood._shaped_noise_covar(muf.shape, *args, **kwargs).diagonal(dim1=-1, dim2=-2)
         # Potentially reshape the noise to deal with the multitask case
         noise = noise.view(*noise.shape[:-1], *variational_dist_f.event_shape)
 

@@ -3,9 +3,9 @@
 import warnings
 
 import torch
+from linear_operator.operators import RootLinearOperator
 
 from ..distributions import MultitaskMultivariateNormal, MultivariateNormal
-from ..lazy import RootLazyTensor
 from ..module import Module
 from ._variational_strategy import _VariationalStrategy
 
@@ -87,7 +87,7 @@ class IndependentMultitaskVariationalStrategy(_VariationalStrategy):
             task_mask = task_mask.permute(*range(0, task_dim), *range(task_dim + 1, num_batch + 1), task_dim)
 
             mean = (function_dist.mean * task_mask).sum(task_dim)
-            covar = (function_dist.lazy_covariance_matrix * RootLazyTensor(task_mask[..., None])).sum(task_dim)
+            covar = (function_dist.lazy_covariance_matrix * RootLinearOperator(task_mask[..., None])).sum(task_dim)
             return MultivariateNormal(mean, covar)
 
 

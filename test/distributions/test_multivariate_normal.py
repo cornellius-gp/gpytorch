@@ -4,10 +4,11 @@ import math
 import unittest
 
 import torch
+from linear_operator import to_linear_operator
+from linear_operator.operators import DenseLinearOperator, DiagLinearOperator, LinearOperator, RootLinearOperator
 from torch.distributions import MultivariateNormal as TMultivariateNormal
 
 from gpytorch.distributions import MultivariateNormal
-from gpytorch.lazy import DiagLazyTensor, LazyTensor, NonLazyTensor, RootLazyTensor, lazify
 from gpytorch.test.base_test_case import BaseTestCase
 from gpytorch.test.utils import least_used_cuda_device
 
@@ -22,7 +23,7 @@ class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
             covmat = torch.diag(torch.tensor([1, 0.75, 1.5], device=device, dtype=dtype))
             mvn = MultivariateNormal(mean=mean, covariance_matrix=covmat, validate_args=True)
             self.assertTrue(torch.is_tensor(mvn.covariance_matrix))
-            self.assertIsInstance(mvn.lazy_covariance_matrix, LazyTensor)
+            self.assertIsInstance(mvn.lazy_covariance_matrix, LinearOperator)
             self.assertAllClose(mvn.variance, torch.diag(covmat))
             self.assertAllClose(mvn.scale_tril, covmat.sqrt())
             mvn_plus1 = mvn + 1
@@ -60,9 +61,9 @@ class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
                 mean=mean.repeat(2, 1), covariance_matrix=covmat.repeat(2, 1, 1), validate_args=True
             )
             self.assertTrue(torch.is_tensor(mvn.covariance_matrix))
-            self.assertIsInstance(mvn.lazy_covariance_matrix, LazyTensor)
-            self.assertAllClose(mvn.variance, covmat.diag().repeat(2, 1))
-            self.assertAllClose(mvn.scale_tril, torch.diag(covmat.diag().sqrt()).repeat(2, 1, 1))
+            self.assertIsInstance(mvn.lazy_covariance_matrix, LinearOperator)
+            self.assertAllClose(mvn.variance, covmat.diagonal(dim1=-1, dim2=-2).repeat(2, 1))
+            self.assertAllClose(mvn.scale_tril, torch.diag(covmat.diagonal(dim1=-1, dim2=-2).sqrt()).repeat(2, 1, 1))
             mvn_plus1 = mvn + 1
             self.assertAllClose(mvn_plus1.mean, mvn.mean + 1)
             self.assertAllClose(mvn_plus1.covariance_matrix, mvn.covariance_matrix)
@@ -97,9 +98,9 @@ class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
             mean = torch.tensor([0, 1, 2], device=device, dtype=dtype)
             covmat = torch.diag(torch.tensor([1, 0.75, 1.5], device=device, dtype=dtype))
             covmat_chol = torch.linalg.cholesky(covmat)
-            mvn = MultivariateNormal(mean=mean, covariance_matrix=NonLazyTensor(covmat))
+            mvn = MultivariateNormal(mean=mean, covariance_matrix=DenseLinearOperator(covmat))
             self.assertTrue(torch.is_tensor(mvn.covariance_matrix))
-            self.assertIsInstance(mvn.lazy_covariance_matrix, LazyTensor)
+            self.assertIsInstance(mvn.lazy_covariance_matrix, LinearOperator)
             self.assertAllClose(mvn.variance, torch.diag(covmat))
             self.assertAllClose(mvn.covariance_matrix, covmat)
             self.assertAllClose(mvn._unbroadcasted_scale_tril, covmat_chol)
@@ -142,9 +143,9 @@ class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
             mean = torch.tensor([0, 1, 2], device=device, dtype=dtype).repeat(2, 1)
             covmat = torch.diag(torch.tensor([1, 0.75, 1.5], device=device, dtype=dtype)).repeat(2, 1, 1)
             covmat_chol = torch.linalg.cholesky(covmat)
-            mvn = MultivariateNormal(mean=mean, covariance_matrix=NonLazyTensor(covmat))
+            mvn = MultivariateNormal(mean=mean, covariance_matrix=DenseLinearOperator(covmat))
             self.assertTrue(torch.is_tensor(mvn.covariance_matrix))
-            self.assertIsInstance(mvn.lazy_covariance_matrix, LazyTensor)
+            self.assertIsInstance(mvn.lazy_covariance_matrix, LinearOperator)
             self.assertAllClose(mvn.variance, torch.diagonal(covmat, dim1=-2, dim2=-1))
             self.assertAllClose(mvn._unbroadcasted_scale_tril, covmat_chol)
             mvn_plus1 = mvn + 1
@@ -185,7 +186,7 @@ class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
         for dtype in (torch.float, torch.double):
             mean = torch.tensor([0, 1, 2], device=device, dtype=dtype)
             covmat = torch.diag(torch.tensor([1, 0.75, 1.5], device=device, dtype=dtype))
-            mvn = MultivariateNormal(mean=mean, covariance_matrix=NonLazyTensor(covmat))
+            mvn = MultivariateNormal(mean=mean, covariance_matrix=DenseLinearOperator(covmat))
             base_samples = mvn.get_base_samples(torch.Size([3, 4]))
             self.assertTrue(mvn.sample(base_samples=base_samples).shape == torch.Size([3, 4, 3]))
             base_samples = mvn.get_base_samples()
@@ -201,7 +202,9 @@ class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
         for dtype in (torch.float, torch.double):
             mean = torch.tensor([0, 1, 2], device=device, dtype=dtype)
             covmat = torch.diag(torch.tensor([1, 0.75, 1.5], device=device, dtype=dtype))
-            mvn = MultivariateNormal(mean=mean.repeat(2, 1), covariance_matrix=NonLazyTensor(covmat).repeat(2, 1, 1))
+            mvn = MultivariateNormal(
+                mean=mean.repeat(2, 1), covariance_matrix=DenseLinearOperator(covmat).repeat(2, 1, 1)
+            )
             base_samples = mvn.get_base_samples(torch.Size((3, 4)))
             self.assertTrue(mvn.sample(base_samples=base_samples).shape == torch.Size([3, 4, 2, 3]))
             base_samples = mvn.get_base_samples()
@@ -219,7 +222,7 @@ class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
             var = torch.randn(4, device=device, dtype=dtype).abs_()
             values = torch.randn(4, device=device, dtype=dtype)
 
-            res = MultivariateNormal(mean, DiagLazyTensor(var)).log_prob(values)
+            res = MultivariateNormal(mean, DiagLinearOperator(var)).log_prob(values)
             actual = TMultivariateNormal(mean, torch.eye(4, device=device, dtype=dtype) * var).log_prob(values)
             self.assertLess((res - actual).div(res).abs().item(), 1e-2)
 
@@ -227,7 +230,7 @@ class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
             var = torch.randn(3, 4, device=device, dtype=dtype).abs_()
             values = torch.randn(3, 4, device=device, dtype=dtype)
 
-            res = MultivariateNormal(mean, DiagLazyTensor(var)).log_prob(values)
+            res = MultivariateNormal(mean, DiagLinearOperator(var)).log_prob(values)
             actual = TMultivariateNormal(
                 mean, var.unsqueeze(-1) * torch.eye(4, device=device, dtype=dtype).repeat(3, 1, 1)
             ).log_prob(values)
@@ -246,9 +249,9 @@ class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
             var0 = torch.randn(4, device=device, dtype=dtype).abs_()
             var1 = var0 * math.exp(2)
 
-            dist_a = MultivariateNormal(mean0, DiagLazyTensor(var0))
-            dist_b = MultivariateNormal(mean1, DiagLazyTensor(var0))
-            dist_c = MultivariateNormal(mean0, DiagLazyTensor(var1))
+            dist_a = MultivariateNormal(mean0, DiagLinearOperator(var0))
+            dist_b = MultivariateNormal(mean1, DiagLinearOperator(var0))
+            dist_c = MultivariateNormal(mean0, DiagLinearOperator(var1))
 
             res = torch.distributions.kl.kl_divergence(dist_a, dist_a)
             actual = 0.0
@@ -298,7 +301,7 @@ class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
 
     def test_base_sample_shape(self):
         a = torch.randn(5, 10)
-        lazy_square_a = RootLazyTensor(lazify(a))
+        lazy_square_a = RootLinearOperator(to_linear_operator(a))
         dist = MultivariateNormal(torch.zeros(5), lazy_square_a)
 
         # check that providing the base samples is okay
@@ -310,7 +313,7 @@ class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
 
         # check that the proper event shape of base samples is okay for
         # a non root lt
-        nonlazy_square_a = lazify(lazy_square_a.evaluate())
+        nonlazy_square_a = to_linear_operator(lazy_square_a.to_dense())
         dist = MultivariateNormal(torch.zeros(5), nonlazy_square_a)
 
         samples = dist.rsample(torch.Size((16,)), base_samples=torch.randn(16, 5))

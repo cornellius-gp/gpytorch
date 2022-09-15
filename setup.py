@@ -3,45 +3,59 @@
 import io
 import os
 import re
+import sys
 
 from setuptools import find_packages, setup
 
+REQUIRED_MAJOR = 3
+REQUIRED_MINOR = 8
+
+# Check for python version
+if sys.version_info < (REQUIRED_MAJOR, REQUIRED_MINOR):
+    error = (
+        "Your version of python ({major}.{minor}) is too old. You need python >= {required_major}.{required_minor}."
+    ).format(
+        major=sys.version_info.major,
+        minor=sys.version_info.minor,
+        required_minor=REQUIRED_MINOR,
+        required_major=REQUIRED_MAJOR,
+    )
+    sys.exit(error)
+
 
 # Get version
-def read(*names, **kwargs):
-    with io.open(os.path.join(os.path.dirname(__file__), *names), encoding=kwargs.get("encoding", "utf8")) as fp:
-        return fp.read()
-
-
 def find_version(*file_paths):
-    version_file = read(*file_paths)
-    version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]", version_file, re.M)
-    if version_match:
+    try:
+        with io.open(os.path.join(os.path.dirname(__file__), *file_paths), encoding="utf8") as fp:
+            version_file = fp.read()
+        version_match = re.search(r"^__version__ = version = ['\"]([^'\"]*)['\"]", version_file, re.M)
         return version_match.group(1)
-    raise RuntimeError("Unable to find version string.")
+    except Exception:
+        return None
 
 
 readme = open("README.md").read()
-version = find_version("gpytorch", "__init__.py")
 
 
-torch_min = "1.10"
-install_requires = [">=".join(["torch", torch_min])]
+torch_min = "1.11"
+install_requires = [
+    "scikit-learn",
+    "linear_operator>=0.1.1",
+]
 # if recent dev version of PyTorch is installed, no need to install stable
 try:
     import torch
 
     if torch.__version__ >= torch_min:
-        install_requires = []
+        install_requires = [">=".join(["torch", torch_min])] + install_requires
 except ImportError:
     pass
-install_requires += ["numpy", "scikit-learn", "scipy"]
 
 
 # Run the setup
 setup(
     name="gpytorch",
-    version=version,
+    version=find_version("gpytorch", "version.py"),
     description="An implementation of Gaussian Processes in Pytorch",
     long_description=readme,
     long_description_content_type="text/markdown",
@@ -55,11 +69,10 @@ setup(
     license="MIT",
     classifiers=["Development Status :: 4 - Beta", "Programming Language :: Python :: 3"],
     packages=find_packages(exclude=["test", "test.*"]),
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     install_requires=install_requires,
     extras_require={
         "dev": ["black", "twine", "pre-commit"],
-        "docs": ["ipython", "ipykernel", "sphinx<3.0.0", "sphinx_rtd_theme", "nbsphinx", "m2r"],
         "examples": ["ipython", "jupyter", "matplotlib", "scipy", "torchvision", "tqdm"],
         "pyro": ["pyro-ppl>=1.8"],
         "keops": ["pykeops>=1.1.1"],

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
+
 import torch
+from linear_operator.operators import KeOpsLinearOperator
 
 from ... import settings
-from ...lazy import KeOpsLazyTensor
 from ..rbf_kernel import postprocess_rbf
 from .keops_kernel import KeOpsKernel
 
@@ -60,7 +61,7 @@ try:
             if diag:
                 return covar_func(x1_, x2_, diag=True)
 
-            return KeOpsLazyTensor(x1_, x2_, covar_func)
+            return KeOpsLinearOperator(x1_, x2_, covar_func)
 
 except ImportError:
 

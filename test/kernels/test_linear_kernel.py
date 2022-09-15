@@ -20,12 +20,12 @@ class TestLinearKernel(unittest.TestCase, BaseKernelTestCase):
         kernel = LinearKernel().initialize(variance=1.0)
         kernel.eval()
         actual = torch.matmul(a, b.t())
-        res = kernel(a, b).evaluate()
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-4)
 
         # diag
-        res = kernel(a, b).diag()
-        actual = actual.diag()
+        res = kernel(a, b).diagonal(dim1=-1, dim2=-2)
+        actual = actual.diagonal(dim1=-1, dim2=-2)
         self.assertLess(torch.norm(res - actual), 1e-4)
 
     def test_computes_linear_function_square(self):
@@ -34,24 +34,24 @@ class TestLinearKernel(unittest.TestCase, BaseKernelTestCase):
         kernel = LinearKernel().initialize(variance=3.14)
         kernel.eval()
         actual = torch.matmul(a, a.t()) * 3.14
-        res = kernel(a, a).evaluate()
+        res = kernel(a, a).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-4)
 
         # diag
-        res = kernel(a, a).diag()
-        actual = actual.diag()
+        res = kernel(a, a).diagonal(dim1=-1, dim2=-2)
+        actual = actual.diagonal(dim1=-1, dim2=-2)
         self.assertLess(torch.norm(res - actual), 1e-4)
 
         # batch_dims
         dim_group_a = a
         dim_group_a = dim_group_a.permute(1, 0).reshape(-1, 3)
         actual = 3.14 * torch.mul(dim_group_a.unsqueeze(-1), dim_group_a.unsqueeze(-2))
-        res = kernel(a, a, last_dim_is_batch=True).evaluate()
+        res = kernel(a, a, last_dim_is_batch=True).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-4)
 
         # batch_dims + diag
-        res = kernel(a, a, last_dim_is_batch=True).diag()
-        actual = torch.cat([actual[i].diag().unsqueeze(0) for i in range(actual.size(0))])
+        res = kernel(a, a, last_dim_is_batch=True).diagonal(dim1=-1, dim2=-2)
+        actual = torch.cat([actual[i].diagonal(dim1=-1, dim2=-2).unsqueeze(0) for i in range(actual.size(0))])
         self.assertLess(torch.norm(res - actual), 1e-4)
 
     def test_computes_linear_function_square_batch(self):
@@ -60,23 +60,23 @@ class TestLinearKernel(unittest.TestCase, BaseKernelTestCase):
         kernel = LinearKernel().initialize(variance=1.0)
         kernel.eval()
         actual = torch.matmul(a, a.transpose(-1, -2))
-        res = kernel(a, a).evaluate()
+        res = kernel(a, a).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-4)
 
         # diag
-        res = kernel(a, a).diag()
-        actual = torch.cat([actual[i].diag().unsqueeze(0) for i in range(actual.size(0))])
+        res = kernel(a, a).diagonal(dim1=-1, dim2=-2)
+        actual = torch.cat([actual[i].diagonal(dim1=-1, dim2=-2).unsqueeze(0) for i in range(actual.size(0))])
         self.assertLess(torch.norm(res - actual), 1e-4)
 
         # batch_dims
         dim_group_a = a
         dim_group_a = dim_group_a.transpose(-1, -2).unsqueeze(-1)
         actual = dim_group_a.matmul(dim_group_a.transpose(-2, -1))
-        res = kernel(a, a, last_dim_is_batch=True).evaluate()
+        res = kernel(a, a, last_dim_is_batch=True).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-4)
 
         # batch_dims + diag
-        res = kernel(a, a, last_dim_is_batch=True).diag()
+        res = kernel(a, a, last_dim_is_batch=True).diagonal(dim1=-1, dim2=-2)
         actual = actual.diagonal(dim1=-2, dim2=-1)
         self.assertLess(torch.norm(res - actual), 1e-4)
 

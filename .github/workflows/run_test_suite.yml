@@ -18,7 +18,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: "3.7"
+        python-version: "3.8"
     - name: Install dependencies
       run: |
         pip install flake8==4.0.1 flake8-print==4.0.0 pre-commit
@@ -37,22 +37,23 @@ jobs:
     strategy:
       matrix:
         pytorch-version: ["master", "stable"]
-        pyro: ["with-pyro", "no-pyro"]
+        extras: ["with-extras", "no-extras"]
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: "3.7"
+        python-version: "3.8"
     - name: Install dependencies
       run: |
         if [[ ${{ matrix.pytorch-version }} = "master" ]]; then
           pip install --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html;
         else
-          pip install torch==1.10+cpu -f https://download.pytorch.org/whl/torch_stable.html;
+          pip install torch==1.11+cpu -f https://download.pytorch.org/whl/torch_stable.html;
         fi
-        if [[ ${{ matrix.pyro }} == "with-pyro" ]]; then
+        if [[ ${{ matrix.extras }} == "with-extras" ]]; then
           pip install "pyro-ppl>=1.8";
+          pip install faiss-cpu;  # Unofficial pip release: https://pypi.org/project/faiss-cpu/#history
         fi
         pip install -r requirements.txt
     - name: Run unit tests
@@ -66,13 +67,15 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: "3.7"
+        python-version: "3.8"
     - name: Install dependencies
       run: |
+        pip install torch==1.11+cpu -f https://download.pytorch.org/whl/torch_stable.html
         pip install pytest nbval jupyter tqdm matplotlib torchvision scipy
         pip install -r requirements.txt
         python setup.py build develop
         pip install "pyro-ppl>=1.8";
+          pip install faiss-cpu;  # Unofficial pip release: https://pypi.org/project/faiss-cpu/#history
     - name: Run example notebooks
       run: |
         grep -l smoke_test examples/**/*.ipynb | xargs grep -L 'smoke_test = False' | CI=true xargs pytest --nbval-lax --current-env
