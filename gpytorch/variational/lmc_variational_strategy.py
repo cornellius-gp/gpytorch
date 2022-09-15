@@ -136,7 +136,7 @@ class LMCVariationalStrategy(_VariationalStrategy):
         self.register_parameter("lmc_coefficients", torch.nn.Parameter(lmc_coefficients))
 
         if jitter_val is None:
-            self.jitter_val = settings.cholesky_jitter.value()
+            self.jitter_val = settings.cholesky_jitter.value(torch.float32)
         else:
             self.jitter_val = jitter_val
 

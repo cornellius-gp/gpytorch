@@ -31,6 +31,7 @@ class SVGPRegressionModel(ApproximateGP):
                 base_inducing_points,
                 base_variational_distribution,
                 learn_inducing_locations=True,
+                jitter_val=1e-4,
             ),
             inducing_points,
             variational_distribution,
