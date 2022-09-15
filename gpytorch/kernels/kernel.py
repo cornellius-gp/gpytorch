@@ -289,7 +289,7 @@ class Kernel(Module):
         dist_postprocess_func: Callable = default_postprocess_script,
         postprocess: bool = True,
         **params,
-    ) -> Union[Tensor, LinearOperator]:
+    ) -> Tensor:
         r"""
         This is a helper method for computing the Euclidean distance between
         all pairs of points in :math:`\mathbf x_1` and :math:`\mathbf x_2`.
