@@ -65,9 +65,11 @@ class IndexKernel(Kernel):
         if var_constraint is None:
             var_constraint = Positive()
 
-        self.register_parameter(
-            name="covar_factor", parameter=torch.nn.Parameter(torch.randn(*self.batch_shape, num_tasks, rank))
-        )
+        self.rank = rank
+        if self.rank > 0:
+            self.register_parameter(
+                name="covar_factor", parameter=torch.nn.Parameter(torch.randn(*self.batch_shape, num_tasks, self.rank))
+            )
         self.register_parameter(name="raw_var", parameter=torch.nn.Parameter(torch.randn(*self.batch_shape, num_tasks)))
         if prior is not None:
             if not isinstance(prior, Prior):
@@ -94,7 +96,10 @@ class IndexKernel(Kernel):
     @property
     def covar_matrix(self):
         var = self.var
-        res = PsdSumLinearOperator(RootLinearOperator(self.covar_factor), DiagLinearOperator(var))
+        if self.rank > 0:
+            res = PsdSumLinearOperator(RootLinearOperator(self.covar_factor), DiagLinearOperator(var))
+        else:
+            res = DiagLinearOperator(var)
         return res
 
     def forward(self, i1, i2, **params):
