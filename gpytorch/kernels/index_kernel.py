@@ -90,8 +90,11 @@ class IndexKernel(Kernel):
         self.initialize(raw_var=self.raw_var_constraint.inverse_transform(value))
 
     def _eval_covar_matrix(self):
-        cf = self.covar_factor
-        return cf @ cf.transpose(-1, -2) + torch.diag_embed(self.var)
+        if self.rank > 0:
+            cf = self.covar_factor
+            return cf @ cf.transpose(-1, -2) + torch.diag_embed(self.var)
+        else:
+            return torch.diag_embed(self.var)
 
     @property
     def covar_matrix(self):
