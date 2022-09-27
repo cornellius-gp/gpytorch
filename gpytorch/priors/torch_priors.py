@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 
 import torch
-from torch.distributions import Gamma, HalfCauchy, LogNormal, MultivariateNormal, Normal, Uniform
+from torch.distributions import Gamma, HalfCauchy, LogNormal, MultivariateNormal, Normal, Uniform, HalfNormal
 from torch.nn import Module as TModule
-
 from .prior import Prior
 from .utils import _bufferize_attributes, _del_attributes
 
@@ -40,9 +39,9 @@ class HalfNormalPrior(Prior, HalfNormal):
 
     """
 
-    def __init__(self, scale, transform=None):
+    def __init__(self, scale, validate_args=None, transform=None):
         TModule.__init__(self)
-        HalfNormal.__init__(self, scale=scale)
+        HalfNormal.__init__(self, scale=scale, validate_args=validate_args)
         self._transform = transform
 
     def expand(self, batch_shape):
