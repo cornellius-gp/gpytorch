@@ -30,6 +30,28 @@ class NormalPrior(Prior, Normal):
         return NormalPrior(self.loc.expand(batch_shape), self.scale.expand(batch_shape))
 
 
+class HalfNormalPrior(gpytorch.priors.Prior, HalfNormal):
+    """
+    Half-Normal prior.
+    
+    pdf(x) = 2 * (2 * pi * sigma^2)^-0.5 * exp(-x^2 / (2 * sigma^2)) for x >= 0; 0 for x < 0
+
+    where sigma^2 is the variance.
+
+    """
+
+    def __init__(self, scale, transform=None):
+        TModule.__init__(self)
+        HalfNormal.__init__(self, scale=scale)
+        self._transform = transform
+
+    def expand(self, batch_shape):
+        return HalfNormal(self.scale.expand(batch_shape))
+
+    def __call__(self, *args, **kwargs):
+        return super(HalfNormal, self).__call__(*args, **kwargs)
+
+
 class LogNormalPrior(Prior, LogNormal):
     """
     Log Normal prior.
