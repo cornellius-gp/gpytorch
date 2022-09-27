@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import torch
-from torch.distributions import Gamma, HalfCauchy, LogNormal, MultivariateNormal, Normal, Uniform, HalfNormal
+from torch.distributions import Gamma, HalfCauchy, HalfNormal, LogNormal, MultivariateNormal, Normal, Uniform
 from torch.nn import Module as TModule
 
 from .prior import Prior
@@ -34,9 +34,9 @@ class HalfNormalPrior(Prior, HalfNormal):
     """
     Half-Normal prior.
     
-    pdf(x) = 2 * (2 * pi * sigma^2)^-0.5 * exp(-x^2 / (2 * sigma^2)) for x >= 0; 0 for x < 0
+    pdf(x) = 2 * (2 * pi * scale^2)^-0.5 * exp(-x^2 / (2 * scale^2)) for x >= 0; 0 for x < 0
 
-    where sigma^2 is the variance.
+    where scale^2 is the variance.
 
     """
 
