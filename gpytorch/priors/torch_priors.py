@@ -30,7 +30,7 @@ class NormalPrior(Prior, Normal):
         return NormalPrior(self.loc.expand(batch_shape), self.scale.expand(batch_shape))
 
 
-class HalfNormalPrior(gpytorch.priors.Prior, HalfNormal):
+class HalfNormalPrior(Prior, HalfNormal):
     """
     Half-Normal prior.
     
