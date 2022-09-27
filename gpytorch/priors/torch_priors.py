@@ -3,6 +3,7 @@
 import torch
 from torch.distributions import Gamma, HalfCauchy, LogNormal, MultivariateNormal, Normal, Uniform, HalfNormal
 from torch.nn import Module as TModule
+
 from .prior import Prior
 from .utils import _bufferize_attributes, _del_attributes
 
