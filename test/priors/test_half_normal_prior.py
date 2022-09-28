@@ -12,7 +12,7 @@ from gpytorch.test.utils import least_used_cuda_device
 class TestHalfNormalPrior(unittest.TestCase):
     def test_half_normal_prior_to_gpu(self):
         if torch.cuda.is_available():
-            prior = HalfNormal(1.0).cuda()
+            prior = HalfNormalPrior(1.0).cuda()
             self.assertEqual(prior.concentration.device.type, "cuda")
             self.assertEqual(prior.rate.device.type, "cuda")
 
