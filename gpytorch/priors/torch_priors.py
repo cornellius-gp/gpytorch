@@ -48,9 +48,6 @@ class HalfNormalPrior(Prior, HalfNormal):
     def expand(self, batch_shape):
         return HalfNormal(self.scale.expand(batch_shape))
 
-    def __call__(self, *args, **kwargs):
-        return super(HalfNormal, self).__call__(*args, **kwargs)
-
 
 class LogNormalPrior(Prior, LogNormal):
     """
