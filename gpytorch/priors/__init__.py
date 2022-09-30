@@ -21,7 +21,6 @@ __all__ = [
     "Prior",
     "GammaPrior",
     "HalfCauchyPrior",
-    "HalfNormal",
     "HalfNormalPrior",
     "HorseshoePrior",
     "LKJPrior",
