@@ -7,7 +7,7 @@ from .smoothed_box_prior import SmoothedBoxPrior
 from .torch_priors import (
     GammaPrior,
     HalfCauchyPrior,
-    HalfNormal,
+    HalfNormalPrior,
     LogNormalPrior,
     MultivariateNormalPrior,
     NormalPrior,
@@ -22,6 +22,7 @@ __all__ = [
     "GammaPrior",
     "HalfCauchyPrior",
     "HalfNormal",
+    "HalfNormalPrior",
     "HorseshoePrior",
     "LKJPrior",
     "LKJCholeskyFactorPrior",

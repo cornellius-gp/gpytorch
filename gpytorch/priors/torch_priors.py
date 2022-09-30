@@ -33,11 +33,8 @@ class NormalPrior(Prior, Normal):
 class HalfNormalPrior(Prior, HalfNormal):
     """
     Half-Normal prior.
-    
     pdf(x) = 2 * (2 * pi * scale^2)^-0.5 * exp(-x^2 / (2 * scale^2)) for x >= 0; 0 for x < 0
-
     where scale^2 is the variance.
-
     """
 
     def __init__(self, scale, validate_args=None, transform=None):
