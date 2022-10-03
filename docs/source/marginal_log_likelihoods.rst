@@ -43,6 +43,7 @@ These are MLLs for use with :obj:`~gpytorch.models.ExactGP` modules. They comput
 .. autoclass:: LeaveOneOutPseudoLikelihood
    :members:
 
+
 Approximate GP Inference
 -----------------------------------
 
@@ -72,4 +73,23 @@ there is too much data for an ExactGP model).
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: DeepApproximateMLL
+   :members:
+
+
+Modifications to Objective Functions
+---------------------------------------
+
+.. autoclass:: AddedLossTerm
+   :members:
+
+:hidden:`InducingPointKernelAddedLossTerm`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: InducingPointKernelAddedLossTerm
+   :members:
+
+:hidden:`KLGaussianAddedLossTerm`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: KLGaussianAddedLossTerm
    :members:
