@@ -2,8 +2,6 @@
 
 from math import pi
 
-import os
-import random
 import torch
 import unittest
 
@@ -11,6 +9,7 @@ import gpytorch
 from gpytorch.means import ConstantMean, MultitaskMean
 from gpytorch.likelihoods import MultitaskGaussianLikelihood
 from gpytorch.distributions import MultitaskMultivariateNormal
+from gpytorch.test.base_test_case import BaseTestCase
 
 
 # Simple training data: let's try to learn a sine function
@@ -41,18 +40,8 @@ class MultitaskGPModel(gpytorch.models.ExactGP):
         return MultitaskMultivariateNormal(mean_x, covar_x)
 
 
-class TestKroneckerMultiTaskSGPRRegression(unittest.TestCase):
-    def setUp(self):
-        if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
-            self.rng_state = torch.get_rng_state()
-            torch.manual_seed(0)
-            if torch.cuda.is_available():
-                torch.cuda.manual_seed_all(0)
-            random.seed(0)
-
-    def tearDown(self):
-        if hasattr(self, "rng_state"):
-            torch.set_rng_state(self.rng_state)
+class TestSimpleGPRegression(BaseTestCase, unittest.TestCase):
+    seed = 0
 
     def test_multitask_gp_mean_abs_error(self):
         likelihood = MultitaskGaussianLikelihood(num_tasks=2)
