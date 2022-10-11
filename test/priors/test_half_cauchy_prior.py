@@ -19,8 +19,6 @@ class TestHalfCauchyPrior(unittest.TestCase):
     def test_half_cauchy_prior_validate_args(self):
         with self.assertRaises(ValueError):
             HalfCauchyPrior(-1, validate_args=True)
-        with self.assertRaises(ValueError):
-            HalfCauchyPrior(-1, validate_args=True)
 
     def test_half_cauchy_prior_log_prob(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
@@ -37,7 +35,7 @@ class TestHalfCauchyPrior(unittest.TestCase):
     def test_half_cauchy_prior_log_prob_cuda(self):
         if torch.cuda.is_available():
             with least_used_cuda_device():
-                return self.test_gamma_prior_log_prob(cuda=True)
+                return self.test_half_cauchy_prior_log_prob(cuda=True)
 
     def test_half_cauchy_prior_log_prob_log_transform(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
