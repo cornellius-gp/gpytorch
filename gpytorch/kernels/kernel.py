@@ -319,7 +319,10 @@ class Kernel(Module):
             x1 = x1.transpose(-1, -2).unsqueeze(-1)
             x2 = x2.transpose(-1, -2).unsqueeze(-1)
 
-        x1_eq_x2 = torch.equal(x1, x2)
+        if settings.trace_mode.on():
+            x1_eq_x2 = False
+        else:
+            x1_eq_x2 = torch.equal(x1, x2)
 
         # torch scripts expect tensors
         postprocess = torch.tensor(postprocess)
