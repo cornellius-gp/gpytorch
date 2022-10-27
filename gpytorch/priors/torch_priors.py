@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import torch
-from torch.distributions import Gamma, HalfCauchy, LogNormal, MultivariateNormal, Normal, Uniform
+from torch.distributions import Gamma, HalfCauchy, HalfNormal, LogNormal, MultivariateNormal, Normal, Uniform
 from torch.nn import Module as TModule
 
 from .prior import Prior
@@ -28,6 +28,22 @@ class NormalPrior(Prior, Normal):
     def expand(self, batch_shape):
         batch_shape = torch.Size(batch_shape)
         return NormalPrior(self.loc.expand(batch_shape), self.scale.expand(batch_shape))
+
+
+class HalfNormalPrior(Prior, HalfNormal):
+    """
+    Half-Normal prior.
+    pdf(x) = 2 * (2 * pi * scale^2)^-0.5 * exp(-x^2 / (2 * scale^2)) for x >= 0; 0 for x < 0
+    where scale^2 is the variance.
+    """
+
+    def __init__(self, scale, validate_args=None, transform=None):
+        TModule.__init__(self)
+        HalfNormal.__init__(self, scale=scale, validate_args=validate_args)
+        self._transform = transform
+
+    def expand(self, batch_shape):
+        return HalfNormal(self.scale.expand(batch_shape))
 
 
 class LogNormalPrior(Prior, LogNormal):

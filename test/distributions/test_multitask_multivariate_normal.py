@@ -6,7 +6,7 @@ import random
 import unittest
 
 import torch
-from linear_operator.operators import DiagLinearOperator
+from linear_operator.operators import DiagLinearOperator, KroneckerProductLinearOperator
 
 from gpytorch.distributions import MultitaskMultivariateNormal, MultivariateNormal
 from gpytorch.test.base_test_case import BaseTestCase
@@ -200,6 +200,28 @@ class TestMultiTaskMultivariateNormal(BaseTestCase, unittest.TestCase):
         if torch.cuda.is_available():
             with least_used_cuda_device():
                 self.test_log_prob(cuda=True)
+
+    def test_to_data_independent_dist(self, dtype=torch.float, device="cpu", interleaved=True):
+        # Create a fake covariance
+        factor = torch.randn(4, 4, device=device, dtype=dtype)
+        data_covar = factor.mT @ factor
+        task_covar = torch.tensor([[1.0, 0.3, 0.1], [0.3, 1.0, 0.3], [0.1, 0.3, 1.0]], device=device, dtype=dtype)
+        if interleaved:
+            covar = KroneckerProductLinearOperator(data_covar, task_covar)
+        else:
+            covar = KroneckerProductLinearOperator(task_covar, data_covar)
+
+        mean = torch.randn(4, 3, device=device, dtype=dtype)
+        dist = MultitaskMultivariateNormal(mean, covar, interleaved=interleaved)
+
+        res = dist.to_data_independent_dist(jitter_val=1e-4)
+        self.assertEqual(res.mean, mean)
+        data_var = data_covar.diagonal(dim1=-1, dim2=-2)
+        jitter = torch.eye(3, dtype=dtype, device=device) * 1e-4
+        self.assertAllClose(res.covariance_matrix, data_var.view(-1, 1, 1) * task_covar + jitter)
+
+    def test_to_data_independent_dist_no_interleave(self, dtype=torch.float, device="cpu"):
+        return self.test_to_data_independent_dist(dtype=dtype, device=device, interleaved=False)
 
     def test_multitask_from_batch(self):
         mean = torch.randn(2, 3)

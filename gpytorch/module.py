@@ -357,17 +357,20 @@ class Module(nn.Module):
         setting_closure(self, prior.sample())
 
     def to_pyro_random_module(self):
-        pyro_random_module_cls = type("_Pyro" + self.__class__.__name__, (RandomModuleMixin, self.__class__), {})
-        if not isinstance(self, pyro_random_module_cls):
+        return self.to_random_module()
+
+    def to_random_module(self):
+        random_module_cls = type("_Random" + self.__class__.__name__, (RandomModuleMixin, self.__class__), {})
+        if not isinstance(self, random_module_cls):
             new_module = copy.deepcopy(self)
-            new_module.__class__ = pyro_random_module_cls  # hack
+            new_module.__class__ = random_module_cls  # hack
         else:
             # Unclear if this branch would ever get used in practice, but it semantically makes sense to have.
             new_module = copy.deepcopy(self)
 
         for mname, child in new_module.named_children():
             if isinstance(child, Module):
-                setattr(new_module, mname, child.to_pyro_random_module())
+                setattr(new_module, mname, child.to_random_module())
 
         return new_module
 
