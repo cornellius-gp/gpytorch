@@ -55,7 +55,7 @@ def mean_standardized_log_loss(
     combine_dim = -2 if isinstance(pred_dist, MultitaskMultivariateNormal) else -1
     f_mean = pred_dist.mean
     f_var = pred_dist.variance
-    return 0.5 * (torch.log(2 * pi * f_var) + torch.square(test_y - f_mean) / (2 * f_var)).mean(dim=combine_dim)
+    return (0.5 * torch.log(2 * pi * f_var) + torch.square(test_y - f_mean) / (2 * f_var)).mean(dim=combine_dim)
 
 
 def quantile_coverage_error(
