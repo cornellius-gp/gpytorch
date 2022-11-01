@@ -3,6 +3,7 @@
 import warnings
 
 from .added_loss_term import AddedLossTerm
+from .vecc_exact_mll import VeccExactMLL
 from .deep_approximate_mll import DeepApproximateMLL
 from .deep_predictive_log_likelihood import DeepPredictiveLogLikelihood
 from .exact_marginal_log_likelihood import ExactMarginalLogLikelihood
@@ -36,6 +37,7 @@ class VariationalELBOEmpirical(VariationalELBO):
 
 __all__ = [
     "AddedLossTerm",
+    "VeccExactMLL",
     "DeepApproximateMLL",
     "DeepPredictiveLogLikelihood",
     "ExactMarginalLogLikelihood",

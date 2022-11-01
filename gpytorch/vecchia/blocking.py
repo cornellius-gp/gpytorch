@@ -1,0 +1,235 @@
+#!/usr/bin/env python3
+
+import torch
+import faiss
+import numpy as np
+
+import pdb
+
+
+class Block:
+    """
+    Groups datasets into spatial blocks, determines which blocks are neighbors, and enables reordering of the blocks,
+    as Vecchia's approximation depends on the order of the conditioning sets. Once a dataset has been blocked, this
+    class groups new testing datasets into blocks based on the training data.
+
+    :
+    """
+
+    def __init__(self, data, n_blocks, n_neighbors):
+
+        self._n_neighbors = n_neighbors
+        self._n_blocks = n_blocks
+
+        # original block order by index, is constant and represents whatever ordering kmeans imposes on our blocks
+        self._original_block_order = None
+        # block order by index, this gets updated when an "order" method is called
+        self._current_block_order = None
+        # keeps track of whether the blocks have been reordered from their original order
+        self._reordered = False
+
+        # object to save FAISS kmeans object for getting block memnbership of new test points
+        self._k_means = None
+        # numeric values of block centroids after training
+        self._block_centroids = None
+
+        # list of length n_blocks, where the ith entry contains the indices of training data that belong to block i
+        self._train_blocks = None
+        # list of length n_blocks, where the ith entry contains the indices of testing data that belong to block i
+        self._test_blocks = None
+
+        # boolean matrix indicating whether block i is a neighbor of block j
+        self._is_neighbors = None
+        # list of length n_blocks, where the ith element contains the indices of blocks that neighbor block i
+        self._neighbor_block_idx = None
+        # list of length n_blocks, where the ith element contains the indices of training data that neighbor block i
+        self._neighbor_block_obs = None
+        # list of length n_blocks, where the ith element contains the indices of testing data that neighbor block i
+        self._test_neighbor_block_obs = None
+
+        self._block(data, n_blocks)
+        self._create_neighbors(n_neighbors)
+
+    @property
+    def block_order(self):
+        return self._current_block_order
+
+    @property
+    def centroids(self):
+        if self._reordered:
+            return self._block_centroids[self._current_block_order]
+        else:
+            return self._block_centroids
+
+    @property
+    def blocks(self):
+        if self._reordered:
+            return [self._train_blocks[i] for i in self._current_block_order]
+        else:
+            return self._train_blocks
+
+    @property
+    def neighbors(self):
+        return self._neighbor_block_obs
+
+    @property
+    def test_blocks(self):
+        if self._test_blocks is None:
+            raise RuntimeError(
+                "Blocks of testing data do not exist, as the 'block_new_data' "
+                "method has not been called on testing data."
+            )
+        if self._reordered:
+            return [self._test_blocks[i] for i in self._current_block_order]
+        else:
+            return self._test_blocks
+
+    @property
+    def test_neighbors(self):
+        if self._test_blocks is None:
+            raise RuntimeError(
+                "Neighboring sets of testing blocks do not exist, as the 'block_new_data' "
+                "method has not been called on testing data."
+            )
+        return self._test_neighbor_block_obs
+
+    # @property
+    # def neighbors_adj(self):
+    #    return self._is_neighbors
+
+    def _block(self, data, n_blocks):
+        # use FAISS k-means to block data
+        kmeans = faiss.Kmeans(data.shape[1], n_blocks, niter=10)
+        kmeans.train(np.array(data.float()))
+        # store kmeans for finding block membership of test points
+        self._k_means = kmeans
+
+        # k-means gives centroids directly, so save centroids
+        self._block_centroids = torch.tensor(kmeans.centroids)
+
+        # create vectors of order of blocks, one is constant for reference, one represents new orderings of blocks
+        self._original_block_order = torch.tensor(range(0, len(self._block_centroids)))
+        self._current_block_order = torch.tensor(range(0, len(self._block_centroids)))
+
+        # get list of len(data) where the ith element indicates which block the ith element of data belongs to
+        block_membership = kmeans.index.search(np.array(data.float()), 1)[1].squeeze()
+
+        # create array where the ith element contains the set of indices of data points corresponding to the ith block
+        blocking_indices = [[] for _ in range(n_blocks)]
+        argsorted = block_membership.argsort()
+        for i in range(0, len(block_membership)):
+            blocking_indices[block_membership[argsorted[i]]].append(argsorted[i])
+
+        self._train_blocks = [torch.tensor(blocking_index) for blocking_index in blocking_indices]
+        self._trained = True
+
+    def _create_neighbors(self, n_neighbors):
+
+        # euclidean distance matrix
+        dist_matrix = torch.cdist(self.centroids, self.centroids)
+        # sort by distances
+        sorter = dist_matrix.argsort()
+        # create empty matrix to indicate neighbor relationship
+        neighbor_mask = torch.zeros((len(dist_matrix), len(dist_matrix)))
+
+        for i in range(len(dist_matrix)):
+            # this is from the probability chain rule and ensures a valid density function
+            if i < n_neighbors + 1:
+                neighbor_mask[0:i, i] = True
+            else:
+                neighbor_mask[sorter[i][sorter[i] < i][0:n_neighbors], i] = True
+
+        self._is_neighbors = neighbor_mask.transpose(0, 1)
+        self._neighbor_block_idx = [sorter[i][sorter[i] < i][0:n_neighbors] for i in range(0, len(sorter))]
+        self._neighbor_block_obs = [torch.tensor([]), *[torch.cat([self.blocks[block]
+                                               for block in self._neighbor_block_idx[i]])
+                                               for i in range(1, len(self._block_centroids))]]
+
+        # because only training points are considered neighbors of any future testing data, we can calculate testing
+        # neighbors before calling 'block_new_data'
+        self._test_neighbor_block_obs = [self.blocks[0],
+                                        *[torch.cat([self.blocks[i], self.neighbors[i]])
+                                        for i in range(1, self._n_blocks)]]
+
+    def block_new_data(self, new_data):
+        # if blocks already exist, only training points get to be considered neighbors of new testing points.
+        # so, define the neighbors of a block of new data as all training points in that block, as well as all
+        # training points in the neighboring blocks.
+        self._test_neighbor_block_obs = [self.blocks[0],
+                                        *[torch.cat([self.blocks[i], self.neighbors[i]])
+                                        for i in range(1, self._n_blocks)]]
+
+        # get list of len(data) where the ith element indicates which block the ith element of data belongs to
+        block_membership = self._k_means.index.search(np.array(new_data.float()), 1)[1].squeeze()
+        # create array where the ith element contains the set of indices of data corresponding to the ith block
+        blocking_indices = [[] for _ in range(self._n_blocks)]
+
+        argsorted = block_membership.argsort()
+        for i in range(0, len(block_membership)):
+            blocking_indices[block_membership[argsorted[i]]].append(argsorted[i])
+
+        self._test_blocks = [torch.tensor(blocking_index) for blocking_index in blocking_indices]
+
+    def reorder(self, new_order):
+        self._reordered = True
+        # this is where the reordering happens
+        self._current_block_order = new_order
+        # recompute neighbors
+        self._create_neighbors(self._n_neighbors)
+
+    # def order_data(self, x):
+    #    return [x[self.blocks[i]] for i in range(len(self.blocks))]
+
+    def compute_mean_covar(self, x1, x2, y, mean_module, covar_module, training):
+
+        mean_list = []
+        cov_list = []
+
+        if training:
+            # append mean function applied to first block in first spot
+            mean_list.append(mean_module(x1[self.blocks[0]]))
+            # append within covariance block to first spot
+            cov_list.append(covar_module(x1[self.blocks[0]], x2[self.blocks[0]]))
+
+            for i in range(1, len(self.blocks)):
+                # these calculations come from bottom of P7, Quiroz et al, 2021
+                c_within = covar_module(x1[self.blocks[i]], x2[self.blocks[i]])
+                c_between = covar_module(x1[self.blocks[i]], x2[self.neighbors[i]])
+                c_neighbors = covar_module(x1[self.neighbors[i]], x2[self.neighbors[i]])
+
+                # use cholesky decomposition to compute needed terms, may be numerically unstable with large n_neighbors
+                l_inv = c_neighbors.cholesky().inverse()
+                # compute mean
+                b = c_between @ l_inv.t() @ l_inv
+                mean = mean_module(x1[self.blocks[i]]) + \
+                       b @ (y[self.neighbors[i]] - mean_module(x2[self.neighbors[i]]))
+                # compute covariance
+                f = c_within - (c_between @ l_inv.t() @ l_inv @ c_between.t())
+
+                mean_list.append(mean)
+                cov_list.append(f)
+
+        else:
+            # append mean function applied to first block in first spot
+            mean_list.append(mean_module(x1[self.test_blocks[0]]))
+            # append within covariance block to first spot
+            cov_list.append(covar_module(x1[self.test_blocks[0]], x1[self.test_blocks[0]]))
+
+            for i in range(1, len(self.blocks)):
+                c_within = covar_module(x1[self.test_blocks[i]], x1[self.test_blocks[i]])
+                c_between = covar_module(x1[self.test_blocks[i]], x2[self.test_neighbors[i]])
+                c_neighbors = covar_module(x2[self.test_neighbors[i]], x2[self.test_neighbors[i]])
+
+                # use cholesky decomposition to compute needed terms, may be numerically unstable with large n_neighbors
+                l_inv = c_neighbors.cholesky().inverse()
+                # compute mean
+                b = c_between @ l_inv.t() @ l_inv
+                mean = mean_module(x1[self.test_blocks[i]]) + \
+                       b @ (y[self.test_neighbors[i]] - mean_module(x2[self.test_neighbors[i]]))
+                # compute covariance
+                f = c_within - (c_between @ l_inv.t() @ l_inv @ c_between.t())
+
+                mean_list.append(mean)
+                cov_list.append(f)
+
+        return mean_list, cov_list

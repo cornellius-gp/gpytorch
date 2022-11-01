@@ -4,6 +4,7 @@ from .delta import Delta
 from .distribution import Distribution
 from .multitask_multivariate_normal import MultitaskMultivariateNormal
 from .multivariate_normal import MultivariateNormal
+from .vecc_multivariate_normal import  VeccMultivariateNormal
 
 # Get the set of distributions from either PyTorch or Pyro
 try:
@@ -14,4 +15,5 @@ except ImportError:
     import torch.distributions as base_distributions
 
 
-__all__ = ["Delta", "Distribution", "MultivariateNormal", "MultitaskMultivariateNormal", "base_distributions"]
+__all__ = ["Delta", "Distribution", "MultivariateNormal", "MultitaskMultivariateNormal",
+           "VeccMultivariateNormal", "base_distributions"]
