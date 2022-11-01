@@ -32,11 +32,11 @@ class VeccMultivariateNormal(MultivariateNormal):
     def __init__(self, mean, covariance_matrix, blocks, validate_args=False):
         if not all(torch.is_tensor(this_mean) for this_mean in mean) and \
                 not all(isinstance(this_mean, LinearOperator) for this_mean in mean):
-            raise RuntimeError("The mean of a BlockMultivariateNormal must be a list of Tensors or LinearOperators")
+            raise RuntimeError("The mean of a VeccMultivariateNormal must be a list of Tensors or LinearOperators")
 
         if not all(torch.is_tensor(this_cov) for this_cov in covariance_matrix) and \
                 not all(isinstance(this_cov, LinearOperator) for this_cov in covariance_matrix):
-            raise RuntimeError("The covariance of a BlockMultivariateNormal must be a list of Tensors or LinearOperators")
+            raise RuntimeError("The covariance of a VeccMultivariateNormal must be a list of Tensors or LinearOperators")
 
         self.blocks = blocks
 

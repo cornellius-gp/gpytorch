@@ -13,7 +13,7 @@ class VeccExactMLL(MarginalLogLikelihood):
 
     def forward(self, outputs, targets, **kwargs):
         if not isinstance(outputs, VeccMultivariateNormal):
-            raise RuntimeError("VeccExactMLL can only operate on block multivariate normal random variables.")
+            raise RuntimeError("VeccExactMLL can only operate on vecchia multivariate normal random variables.")
 
         res = sum(self.base_mll(output, targets[this_block])
                   for output, this_block in zip(outputs, self.blocks.blocks))
