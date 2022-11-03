@@ -6,7 +6,6 @@ import numpy as np
 
 import pdb
 
-
 class Block:
     """
     Groups datasets into spatial blocks, determines which blocks are neighbors, and enables reordering of the blocks,
@@ -101,19 +100,17 @@ class Block:
         # use FAISS k-means to block data
         kmeans = faiss.Kmeans(data.shape[1], n_blocks, niter=10)
         kmeans.train(np.array(data.float()))
+
         # store kmeans for finding block membership of test points
         self._k_means = kmeans
-
         # k-means gives centroids directly, so save centroids
         self._block_centroids = torch.tensor(kmeans.centroids)
-
         # create vectors of order of blocks, one is constant for reference, one represents new orderings of blocks
         self._original_block_order = torch.tensor(range(0, len(self._block_centroids)))
         self._current_block_order = torch.tensor(range(0, len(self._block_centroids)))
 
         # get list of len(data) where the ith element indicates which block the ith element of data belongs to
         block_membership = kmeans.index.search(np.array(data.float()), 1)[1].squeeze()
-
         # create array where the ith element contains the set of indices of data points corresponding to the ith block
         blocking_indices = [[] for _ in range(n_blocks)]
         argsorted = block_membership.argsort()
@@ -124,7 +121,6 @@ class Block:
         self._trained = True
 
     def _create_neighbors(self, n_neighbors):
-
         if n_neighbors == 0:
             self._is_neighbors = torch.zeros((self._n_blocks, self._n_blocks))
             self._neighbor_block_idx = [torch.tensor([]) for _ in range(0, self._n_blocks)]
@@ -178,7 +174,7 @@ class Block:
         self._create_neighbors(self._n_neighbors)
 
     def compute_mean_covar(self, x1, x2, y, mean_module, covar_module, training):
-
+        # create empty lists to hold block means and covariances
         mean_list = []
         cov_list = []
 
@@ -214,12 +210,7 @@ class Block:
                     cov_list.append(f)
 
         else:
-            # append mean function applied to first block in first spot
-            mean_list.append(mean_module(x1[self.test_blocks[0]]))
-            # append within covariance block to first spot
-            cov_list.append(covar_module(x1[self.test_blocks[0]], x1[self.test_blocks[0]]))
-
-            for i in range(1, len(self.blocks)):
+            for i in range(0, len(self.blocks)):
                 c_within = covar_module(x1[self.test_blocks[i]], x1[self.test_blocks[i]])
                 c_between = covar_module(x1[self.test_blocks[i]], x2[self.test_neighbors[i]])
                 c_neighbors = covar_module(x2[self.test_neighbors[i]], x2[self.test_neighbors[i]])
