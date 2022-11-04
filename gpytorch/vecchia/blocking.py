@@ -12,8 +12,6 @@ class Block:
     as Vecchia's approximation depends on the order of the conditioning sets. Once a dataset has been blocked, this
     class groups new testing datasets into blocks based on the training data.
 
-
-
     :param data:
     :param n_blocks:
     :param n_neighbors:
