@@ -12,7 +12,11 @@ class Block:
     as Vecchia's approximation depends on the order of the conditioning sets. Once a dataset has been blocked, this
     class groups new testing datasets into blocks based on the training data.
 
-    :
+
+
+    :param data:
+    :param n_blocks:
+    :param n_neighbors:
     """
 
     def __init__(self, data, n_blocks, n_neighbors):
@@ -51,10 +55,12 @@ class Block:
 
     @property
     def block_order(self):
+        """Tensor containing the current order of the blocks, relative to their original ordering after kmeans. """
         return self._current_block_order
 
     @property
     def centroids(self):
+        """Tensor containing the centroids of each block, returned in the order given by self.block_order. """
         if self._reordered:
             return self._block_centroids[self._current_block_order]
         else:
@@ -62,6 +68,10 @@ class Block:
 
     @property
     def blocks(self):
+        """
+        List of tensors where the ith element contains the indices of the training set points belonging to the
+        ith block, where the blocks are ordered by self.block_order.
+        """
         if self._reordered:
             return [self._train_blocks[i] for i in self._current_block_order]
         else:
@@ -69,10 +79,18 @@ class Block:
 
     @property
     def neighbors(self):
+        """
+        List of tensors, where the ith element contains the indices of the training set points belonging to the neighbor
+        set of the ith block, where the blocks are ordered by self.block_order.
+        """
         return self._neighbor_block_obs
 
     @property
     def test_blocks(self):
+        """
+        List of tensors where the ith element contains the indices of the testing set points belonging to the ith block,
+        where the blocks are ordered by self.block_order. Only defined after block_new_data has been called.
+        """
         if self._test_blocks is None:
             raise RuntimeError(
                 "Blocks of testing data do not exist, as the 'block_new_data' "
@@ -85,6 +103,11 @@ class Block:
 
     @property
     def test_neighbors(self):
+        """
+        List of tensors, where the ith element contains the indices of the training set points belonging to the
+        neighbor set of the ith test block, where the blocks are ordered by self.block_order. Importantly, the neighbor
+        sets of test blocks only consist of training points. Only defined after block_new_data has been called.
+        """
         if self._test_blocks is None:
             raise RuntimeError(
                 "Neighboring sets of testing blocks do not exist, as the 'block_new_data' "
@@ -94,6 +117,10 @@ class Block:
 
     @property
     def block_adj_mat(self):
+        """
+        Tensor of the adjacency matrix indicating block neighbor relationships,
+        where the blocks are ordered by self.block_order
+        """
         return self._is_neighbors
 
     def _block(self, data, n_blocks):
