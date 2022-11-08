@@ -352,6 +352,49 @@ class Kernel(Module):
 
         return res
 
+    def expand(self, *sizes: Union[torch.Size, Tuple[int, ...]]) -> Kernel:
+        r"""
+        Constructs a new kernel where the lengthscale (and other kernel parameters)
+        are expanded to match the batch dimension determined by `sizes`.
+
+        :param sizes: The batch shape of the new tensor
+        """
+        # Type checking
+        if len(sizes) == 1 and hasattr(sizes, "__iter__"):
+            new_batch_shape = torch.Size(sizes[0])
+        elif all(isinstance(size, int) for size in sizes):
+            new_batch_shape = torch.Size(sizes)
+        else:
+            raise RuntimeError("Invalid arguments {} to expand.".format(sizes))
+
+        # Check for easy case:
+        orig_batch_shape = self.batch_shape
+        if new_batch_shape == orig_batch_shape:
+            return self
+
+        # Ensure that the expansion size is compatible with the given batch shape
+        try:
+            torch.broadcast_shapes(new_batch_shape, orig_batch_shape)
+        except RuntimeError:
+            raise RuntimeError(
+                f"Cannot expand a kernel with batch shape {self.batch_shape} to new shape {new_batch_shape}"
+            )
+
+        # Reshape the parameters of the kernel
+        new_kernel = deepcopy(self)
+        for param_name, param in self._parameters.items():
+            # For a given parameter, get the number of dimensions that do not correspond to the batch shape
+            non_batch_shape = param.shape[len(orig_batch_shape) :]
+            new_param_shape = torch.Size([*new_batch_shape, *non_batch_shape])
+            new_kernel._parameters[param_name].data = param.expand(new_param_shape)
+            new_kernel.batch_shape = new_batch_shape
+
+        # Recurse, if necessary
+        for sub_module_name, sub_module in self.named_sub_kernels():
+            new_kernel._modules[sub_module_name] = sub_module.expand(new_batch_shape)
+
+        return new_kernel
+
     def named_sub_kernels(self) -> Iterable[Tuple[str, Kernel]]:
         """
         For compositional Kernel classes (e.g. :class:`~gpytorch.kernels.AdditiveKernel`
