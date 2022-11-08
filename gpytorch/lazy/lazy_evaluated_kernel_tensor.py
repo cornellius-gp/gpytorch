@@ -304,9 +304,6 @@ class LazyEvaluatedKernelTensor(LinearOperator):
             **self.params,
         )
 
-    def add_jitter(self, jitter_val=1e-3):
-        return self.evaluate_kernel().add_jitter(jitter_val)
-
     def _unsqueeze_batch(self, dim):
         x1 = self.x1.unsqueeze(dim)
         x2 = self.x2.unsqueeze(dim)
