@@ -126,7 +126,7 @@ class LazyEvaluatedKernelTensor(LinearOperator):
 
         # We will be running the __getitem__ command on x1, x2, and the kernel parameters
         # Since kernels can broadcast, x1, x2, and the kernel parameters may not have all of the batch dimensions
-        #   that are being indexed by the __getitem__ operation
+        # that are being indexed by the __getitem__ operation
         # Therefore, we begin by figuring out the broadcasted shape, and expanding all of these objects to that shape
         try:
             batch_shape = torch.broadcast_shapes(x1.shape[:-2], x2.shape[:-2], self.kernel.batch_shape)
@@ -186,7 +186,8 @@ class LazyEvaluatedKernelTensor(LinearOperator):
         try:
             x1 = x1[(*batch_indices, row_index, dim_index)]
         # We're going to handle multi-batch indexing with a try-catch loop
-        # This way - in the default case, we can avoid doing expansions of x1 which can be timely
+        # This way - in the default case, we can avoid doing expansions of x1 which can be
+        # costly in terms of time
         except IndexError:
             x1 = x1.expand(*batch_shape, *x1.shape[-2:])
             x1 = x1[(*batch_indices, row_index, dim_index)]
@@ -195,7 +196,8 @@ class LazyEvaluatedKernelTensor(LinearOperator):
         try:
             x2 = x2[(*batch_indices, col_index, dim_index)]
         # We're going to handle multi-batch indexing with a try-catch loop
-        # This way - in the default case, we can avoid doing expansions of x2 which can be timely
+        # This way - in the default case, we can avoid doing expansions of x2 which can be
+        # costly in terms of time
         except IndexError:
             x2 = x2.expand(*batch_shape, *x2.shape[-2:])
             x2 = x2[(*batch_indices, col_index, dim_index)]
@@ -206,7 +208,8 @@ class LazyEvaluatedKernelTensor(LinearOperator):
             try:
                 new_kernel = self.kernel.__getitem__(batch_indices)
             # We're going to handle multi-batch indexing with a try-catch loop
-            # This way - in the default case, we can avoid doing expansions of self.kernel which can be timely
+            # This way - in the default case, we can avoid doing expansions of self.kernel which can be
+            # costly in terms of time
             except IndexError:
                 expanded_kernel = self.kernel.expand_batch(batch_shape)
                 new_kernel = expanded_kernel.__getitem__(batch_indices)
