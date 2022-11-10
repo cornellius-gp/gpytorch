@@ -208,7 +208,7 @@ class LazyEvaluatedKernelTensor(LinearOperator):
             # We're going to handle multi-batch indexing with a try-catch loop
             # This way - in the default case, we can avoid doing expansions of self.kernel which can be timely
             except IndexError:
-                expanded_kernel = self.kernel.expand(batch_shape)
+                expanded_kernel = self.kernel.expand_batch(batch_shape)
                 new_kernel = expanded_kernel.__getitem__(batch_indices)
 
         # Now construct a kernel with those indices

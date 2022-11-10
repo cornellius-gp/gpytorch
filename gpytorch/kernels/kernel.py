@@ -352,7 +352,7 @@ class Kernel(Module):
 
         return res
 
-    def expand(self, *sizes: Union[torch.Size, Tuple[int, ...]]) -> Kernel:
+    def expand_batch(self, *sizes: Union[torch.Size, Tuple[int, ...]]) -> Kernel:
         r"""
         Constructs a new kernel where the lengthscale (and other kernel parameters)
         are expanded to match the batch dimension determined by `sizes`.
@@ -365,7 +365,7 @@ class Kernel(Module):
         elif all(isinstance(size, int) for size in sizes):
             new_batch_shape = torch.Size(sizes)
         else:
-            raise RuntimeError("Invalid arguments {} to expand.".format(sizes))
+            raise RuntimeError("Invalid arguments {} to expand_batch.".format(sizes))
 
         # Check for easy case:
         orig_batch_shape = self.batch_shape
@@ -391,7 +391,7 @@ class Kernel(Module):
 
         # Recurse, if necessary
         for sub_module_name, sub_module in self.named_sub_kernels():
-            new_kernel._modules[sub_module_name] = sub_module.expand(new_batch_shape)
+            new_kernel._modules[sub_module_name] = sub_module.expand_batch(new_batch_shape)
 
         return new_kernel
 
