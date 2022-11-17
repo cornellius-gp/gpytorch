@@ -1,7 +1,7 @@
 import unittest
 
 import torch
-from gpytorch.vecchia.blocking import Block
+from gpytorch.vecchia.old_blocking import Block
 
 square_grid_data_2d = torch.cartesian_prod(torch.linspace(1, 10, 10), torch.linspace(1, 10, 10))
 
