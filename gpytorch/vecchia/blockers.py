@@ -11,17 +11,19 @@ class KMeansBlocker(AbstractBlocker):
 
     def __init__(self, data, n_blocks, n_neighbors):
 
+        self.n_blocks = n_blocks
+        self.n_neighbors = n_neighbors
+
         self.k_means = None
         self.centroids = None
         self.ordering = None
 
-        super(KMeansBlocker, self).__init__(set_blocks_kwargs={"data": data, "n_blocks": n_blocks},
-                                            set_neighbors_kwargs={"n_blocks": n_blocks, "n_neighbors": n_neighbors})
+        super(KMeansBlocker, self).__init__(set_blocks_kwargs={"data": data}, set_neighbors_kwargs={})
 
-    def set_blocks(self, data, n_blocks):
+    def set_blocks(self, data):
 
         # create and train faiss k-means object
-        kmeans = faiss.Kmeans(data.shape[1], n_blocks, niter=10)
+        kmeans = faiss.Kmeans(data.shape[1], self.n_blocks, niter=10)
         kmeans.train(np.array(data.float()))
 
         # store kmeans for finding block membership of test points
@@ -36,7 +38,7 @@ class KMeansBlocker(AbstractBlocker):
         block_membership = kmeans.index.search(np.array(data.float()), 1)[1].squeeze()
 
         # create array where the ith element contains the set of indices of data points corresponding to the ith block
-        blocking_indices = [[] for _ in range(n_blocks)]
+        blocking_indices = [[] for _ in range(self.n_blocks)]
         argsorted = block_membership.argsort()
         for i in range(0, len(block_membership)):
             blocking_indices[block_membership[argsorted[i]]].append(argsorted[i])
@@ -45,10 +47,10 @@ class KMeansBlocker(AbstractBlocker):
         blocks = [torch.tensor(blocking_index) for blocking_index in blocking_indices]
         return [blocks[idx] for idx in self.ordering]
 
-    def set_neighbors(self, n_blocks, n_neighbors):
+    def set_neighbors(self):
 
-        if n_neighbors == 0:
-            return [torch.tensor([]) for _ in range(0, n_blocks)]
+        if self.n_neighbors == 0:
+            return [torch.tensor([]) for _ in range(0, self.n_blocks)]
 
         else:
             # euclidean distance matrix
@@ -56,14 +58,14 @@ class KMeansBlocker(AbstractBlocker):
             # sort by distances
             sorter = dist_matrix.argsort()
 
-            return [sorter[i][sorter[i] < i][0:n_neighbors] for i in range(0, len(sorter))]
+            return [sorter[i][sorter[i] < i][0:self.n_neighbors] for i in range(0, len(sorter))]
 
-    def set_test_blocks(self, new_data, n_blocks):
+    def set_test_blocks(self, new_data):
 
         # get list of len(data) where the ith element indicates which block the ith element of data belongs to
         block_membership = self.k_means.index.search(np.array(new_data.float()), 1)[1].squeeze()
         # create array where the ith element contains the set of indices of data corresponding to the ith block
-        blocking_indices = [[] for _ in range(n_blocks)]
+        blocking_indices = [[] for _ in range(self.n_blocks)]
 
         argsorted = block_membership.argsort()
         for i in range(0, len(block_membership)):
