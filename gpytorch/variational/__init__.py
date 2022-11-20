@@ -20,6 +20,7 @@ from .orthogonally_decoupled_variational_strategy import OrthogonallyDecoupledVa
 from .tril_natural_variational_distribution import TrilNaturalVariationalDistribution
 from .unwhitened_variational_strategy import UnwhitenedVariationalStrategy
 from .variational_strategy import VariationalStrategy
+from .variational_strategy_decoupled_conditionals import VariationalStrategyDecoupledConditionals
 
 __all__ = [
     "_VariationalStrategy",
@@ -41,4 +42,5 @@ __all__ = [
     "NaturalVariationalDistribution",
     "TrilNaturalVariationalDistribution",
     "NNVariationalStrategy",
+    "VariationalStrategyDecoupledConditionals",
 ]
