@@ -1,7 +1,6 @@
 __all__ = [
-    "abstract_blocker",
-    "blocking_strategies",
-    "ordering_strategies"
+    "_blocker.py",
+    "k_means_blocker"
 ]
 
 

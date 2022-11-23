@@ -1,13 +1,11 @@
-#!/usr/bin/env python3
-
-import torch
 import faiss
+import torch
 import numpy as np
 
-from .abstract_blocker import AbstractBlocker
+from ._blocker import BaseBlocker
 
 
-class KMeansBlocker(AbstractBlocker):
+class KMeansBlocker(BaseBlocker):
 
     def __init__(self, data, n_blocks, n_neighbors):
 
@@ -31,9 +29,6 @@ class KMeansBlocker(AbstractBlocker):
         # k-means gives centroids directly, so save centroids
         self.centroids = torch.tensor(kmeans.centroids)
 
-        # create ordering with l2 norm of the centroids
-        self.ordering = torch.argsort(torch.linalg.norm(self.centroids, axis=1))
-
         # get list of len(data) where the ith element indicates which block the ith element of data belongs to
         block_membership = kmeans.index.search(np.array(data.float()), 1)[1].squeeze()
 
@@ -43,8 +38,11 @@ class KMeansBlocker(AbstractBlocker):
         for i in range(0, len(block_membership)):
             blocking_indices[block_membership[argsorted[i]]].append(argsorted[i])
 
-        # convert each block to a tensor and return in the order specified by self.ordering
+        # convert each block to a tensor
         blocks = [torch.tensor(blocking_index) for blocking_index in blocking_indices]
+
+        # create ordering and return blocks in that order
+        self.ordering = torch.argsort(torch.linalg.norm(self.centroids, axis=1))
         return [blocks[idx] for idx in self.ordering]
 
     def set_neighbors(self):

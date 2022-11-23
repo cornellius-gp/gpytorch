@@ -4,7 +4,7 @@ import torch
 import abc
 
 
-class AbstractBlocker(abc.ABC):
+class BaseBlocker(abc.ABC):
     """
     Provides a base interface for blocking data and establishing neighbor relationships.
     Cannot be directly instantiated and must be subclassed before use.
@@ -12,7 +12,7 @@ class AbstractBlocker(abc.ABC):
     Subclasses must implement the set_blocks, set_neighbors, and set_test_blocks methods. Use help() to learn more
     about what these methods must return.
     """
-    def __init__(self, set_blocks_kwargs, set_neighbors_kwargs):
+    def __init__(self, set_blocks_kwargs=None, set_neighbors_kwargs=None):
 
         self._block_observations = None
         self._neighboring_blocks = None
@@ -27,8 +27,15 @@ class AbstractBlocker(abc.ABC):
         Template that allows children to specify block membership and neighboring structure, then uses that information
         to compute all remaining dependent quantities.
         """
-        self._block_observations = self.set_blocks(**set_blocks_kwargs)
-        self._neighboring_blocks = self.set_neighbors(**set_neighbors_kwargs)
+        if set_blocks_kwargs is None:
+            self._block_observations = self.set_blocks()
+        else:
+            self._block_observations = self.set_blocks(**set_blocks_kwargs)
+
+        if set_neighbors_kwargs is None:
+            self._neighboring_blocks = self.set_neighbors()
+        else:
+            self._neighboring_blocks = self.set_neighbors(**set_neighbors_kwargs)
 
         exclusive_neighboring_observations = []
         inclusive_neighboring_observations = []
@@ -41,8 +48,7 @@ class AbstractBlocker(abc.ABC):
                 exclusive_neighboring_observations.append(
                     torch.cat([self._block_observations[block] for block in self._neighboring_blocks[i]]))
                 inclusive_neighboring_observations.append(
-                    torch.cat([self._block_observations[i], exclusive_neighboring_observations[i]])
-                )
+                    torch.cat([self._block_observations[i], exclusive_neighboring_observations[i]]))
 
         self._exclusive_neighboring_observations = exclusive_neighboring_observations
         self._inclusive_neighboring_observations = inclusive_neighboring_observations
