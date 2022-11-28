@@ -61,11 +61,11 @@ def deprecated_lazy_tensor(_LinearOperatorClass: type) -> type:
             new_name = name.replace("lazy_tensor", "linear_op")
             if hasattr(self, new_name):
                 warnings.warn(
-                    f"The property {self.__class__.__name__}#{name} is depreated. Use "
+                    f"The property {self.__class__.__name__}#{name} is deprecated. Use "
                     f"{self.__class__.__name__}#{new_name} instead."
                 )
                 return getattr(self, new_name)
-        raise AttributeError("Unknown attribute {name} for {self.__name__.__class__}")
+        raise AttributeError(f"Unknown attribute {name} for {self.__class__.__name__}")
 
     _add_deprecated_method(_LinearOperatorClass, "_approx_diag", "_approx_diagonal")
     _add_deprecated_method(_LinearOperatorClass, "_quad_form_derivative", "_bilinear_derivative")
