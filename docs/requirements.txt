@@ -1,7 +1,7 @@
 setuptools_scm
 nbformat
-ipython
-ipykernel
+ipython<=8.6.0
+ipykernel<=6.17.1
 sphinx
 sphinx_rtd_theme
 sphinx_autodoc_typehints
