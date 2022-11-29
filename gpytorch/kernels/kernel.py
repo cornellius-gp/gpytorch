@@ -36,14 +36,14 @@ class Distance(torch.nn.Module):
         # TODO: use torch squared cdist once implemented: https://github.com/pytorch/pytorch/pull/25799
         adjustment = x1.mean(-2, keepdim=True)
         x1 = x1 - adjustment
-        x2 = x2 - adjustment  # x1 and x2 should be identical in all dims except -2 at this point
 
         # Compute squared distance matrix using quadratic expansion
         x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
         x1_pad = torch.ones_like(x1_norm)
         if x1_eq_x2 and not x1.requires_grad and not x2.requires_grad:
-            x2_norm, x2_pad = x1_norm, x1_pad
+            x2, x2_norm, x2_pad = x1, x1_norm, x1_pad
         else:
+            x2 = x2 - adjustment  # x1 and x2 should be identical in all dims except -2 at this point
             x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
             x2_pad = torch.ones_like(x2_norm)
         x1_ = torch.cat([-2.0 * x1, x1_norm, x1_pad], dim=-1)
