@@ -121,6 +121,18 @@ class LazyEvaluatedKernelTensor(LinearOperator):
             num_outs_per_in_rows = num_outs_per_in
             num_outs_per_in_cols = num_outs_per_in
 
+        # We will be running the __getitem__ command on x1, x2, and the kernel parameters
+        # Since kernels can broadcast, x1, x2, and the kernel parameters may not have all of the batch dimensions
+        # that are being indexed by the __getitem__ operation
+        # Therefore, we begin by figuring out the broadcasted shape, and expanding all of these objects to that shape
+        try:
+            batch_shape = torch.broadcast_shapes(x1.shape[:-2], x2.shape[:-2], self.kernel.batch_shape)
+        except RuntimeError:
+            raise RuntimeError(
+                f"The kernel inputs (sizes {x1.shape} and {x2.shape}) are incompatible with the kernel "
+                f"(batch size {self.kernel.batch_shape}). This is likely a bug in GPyTorch."
+            )
+
         # The row index and col index should exactly correspond to which entries of x1 and x2 we need
         # So we'll basically call x1[*batch_indices, row_index, :], x2[*batch_indices, col_index, :]
 
@@ -171,38 +183,33 @@ class LazyEvaluatedKernelTensor(LinearOperator):
         try:
             x1 = x1[(*batch_indices, row_index, dim_index)]
         # We're going to handle multi-batch indexing with a try-catch loop
-        # This way - in the default case, we can avoid doing expansions of x1 which can be timely
+        # This way - in the default case, we can avoid doing expansions of x1 which can be
+        # costly in terms of time
         except IndexError:
-            if any(not isinstance(bi, slice) for bi in batch_indices):
-                raise RuntimeError(
-                    "Attempting to tensor index a non-batch matrix's batch dimensions. "
-                    f"Got batch index {batch_indices} but my shape was {self.shape}"
-                )
-            x1 = x1.expand(*([1] * (len(batch_indices) - self.x1.dim() + 2)), *self.x1.shape)
+            x1 = x1.expand(*batch_shape, *x1.shape[-2:])
             x1 = x1[(*batch_indices, row_index, dim_index)]
 
         # Call x2[*batch_indices, col_index, :]
         try:
             x2 = x2[(*batch_indices, col_index, dim_index)]
         # We're going to handle multi-batch indexing with a try-catch loop
-        # This way - in the default case, we can avoid doing expansions of x1 which can be timely
+        # This way - in the default case, we can avoid doing expansions of x2 which can be
+        # costly in terms of time
         except IndexError:
-            if any(not isinstance(bi, slice) for bi in batch_indices):
-                raise RuntimeError(
-                    "Attempting to tensor index a non-batch matrix's batch dimensions. "
-                    f"Got batch index {batch_indices} but my shape was {self.shape}"
-                )
-            x2 = x2.expand(*([1] * (len(batch_indices) - self.x2.dim() + 2)), *self.x2.shape)
+            x2 = x2.expand(*batch_shape, *x2.shape[-2:])
             x2 = x2[(*batch_indices, col_index, dim_index)]
 
         if len(batch_indices) == 0 or all(ind == slice(None, None, None) for ind in batch_indices):
             new_kernel = self.kernel  # Avoid unnecessary copying when we aren't explicitly indexing batch dims
         else:
-            # Deal with the fact that the batch shape could be different from the kernel's batch shape
-            # (e.g. this can happen due to broadcasting)
-            while len(batch_indices) > len(self.kernel._batch_shape) and batch_indices[0] == _noop_index:
-                batch_indices = batch_indices[1:]
-            new_kernel = self.kernel.__getitem__(batch_indices)
+            try:
+                new_kernel = self.kernel.__getitem__(batch_indices)
+            # We're going to handle multi-batch indexing with a try-catch loop
+            # This way - in the default case, we can avoid doing expansions of self.kernel which can be
+            # costly in terms of time
+            except IndexError:
+                expanded_kernel = self.kernel.expand_batch(batch_shape)
+                new_kernel = expanded_kernel.__getitem__(batch_indices)
 
         # Now construct a kernel with those indices
         return self.__class__(
@@ -296,9 +303,6 @@ class LazyEvaluatedKernelTensor(LinearOperator):
             last_dim_is_batch=self.last_dim_is_batch,
             **self.params,
         )
-
-    def add_jitter(self, jitter_val=1e-3):
-        return self.evaluate_kernel().add_jitter(jitter_val)
 
     def _unsqueeze_batch(self, dim):
         x1 = self.x1.unsqueeze(dim)
