@@ -352,6 +352,58 @@ class Kernel(Module):
 
         return res
 
+    def expand_batch(self, *sizes: Union[torch.Size, Tuple[int, ...]]) -> Kernel:
+        r"""
+        Constructs a new kernel where the lengthscale (and other kernel parameters)
+        are expanded to match the batch dimension determined by `sizes`.
+
+        :param sizes: The batch shape of the new tensor
+        """
+        # Type checking
+        if len(sizes) == 1 and hasattr(sizes, "__iter__"):
+            new_batch_shape = torch.Size(sizes[0])
+        elif all(isinstance(size, int) for size in sizes):
+            new_batch_shape = torch.Size(sizes)
+        else:
+            raise RuntimeError("Invalid arguments {} to expand_batch.".format(sizes))
+
+        # Check for easy case:
+        orig_batch_shape = self.batch_shape
+        if new_batch_shape == orig_batch_shape:
+            return self
+
+        # Ensure that the expansion size is compatible with the given batch shape
+        try:
+            torch.broadcast_shapes(new_batch_shape, orig_batch_shape)
+        except RuntimeError:
+            raise RuntimeError(
+                f"Cannot expand a kernel with batch shape {self.batch_shape} to new shape {new_batch_shape}"
+            )
+
+        # Create a new kernel with updated batch shape
+        new_kernel = deepcopy(self)
+        new_kernel._batch_shape = new_batch_shape
+
+        # Reshape the parameters of the kernel
+        for param_name, param in self.named_parameters(recurse=False):
+            # For a given parameter, get the number of dimensions that do not correspond to the batch shape
+            non_batch_shape = param.shape[len(orig_batch_shape) :]
+            new_param_shape = torch.Size([*new_batch_shape, *non_batch_shape])
+            new_kernel.__getattr__(param_name).data = param.expand(new_param_shape)
+
+        # Reshape the buffers of the kernel
+        for buffr_name, buffr in self.named_buffers(recurse=False):
+            # For a given buffer, get the number of dimensions that do not correspond to the batch shape
+            non_batch_shape = buffr.shape[len(orig_batch_shape) :]
+            new_buffer_shape = torch.Size([*new_batch_shape, *non_batch_shape])
+            new_kernel.__getattr__(buffr_name).data = buffr.expand(new_buffer_shape)
+
+        # Recurse, if necessary
+        for sub_module_name, sub_module in self.named_sub_kernels():
+            new_kernel.__setattr__(sub_module_name, sub_module.expand_batch(new_batch_shape))
+
+        return new_kernel
+
     def named_sub_kernels(self) -> Iterable[Tuple[str, Kernel]]:
         """
         For compositional Kernel classes (e.g. :class:`~gpytorch.kernels.AdditiveKernel`
@@ -510,14 +562,23 @@ class Kernel(Module):
         # Process the index
         index = index if isinstance(index, tuple) else (index,)
 
-        for param_name, param in self._parameters.items():
-            new_kernel._parameters[param_name].data = param.__getitem__(index)
-            ndim_removed = len(param.shape) - len(new_kernel._parameters[param_name].shape)
+        for param_name, param in self.named_parameters(recurse=False):
+            new_param = new_kernel.__getattr__(param_name)
+            new_param.data = new_param.__getitem__(index)
+            ndim_removed = len(param.shape) - len(new_param.shape)
             new_batch_shape_len = len(self.batch_shape) - ndim_removed
-            new_kernel.batch_shape = new_kernel._parameters[param_name].shape[:new_batch_shape_len]
+            new_kernel.batch_shape = new_param.shape[:new_batch_shape_len]
+
+        for buffr_name, buffr in self.named_buffers(recurse=False):
+            # For a given buffer, get the number of dimensions that do not correspond to the batch shape
+            new_buffr = new_kernel.__getattr__(buffr_name)
+            new_buffr.data = new_buffr.__getitem__(index)
+            ndim_removed = len(buffr.shape) - len(new_buffr.shape)
+            new_batch_shape_len = len(self.batch_shape) - ndim_removed
+            new_kernel.batch_shape = new_buffr.shape[:new_batch_shape_len]
 
         for sub_module_name, sub_module in self.named_sub_kernels():
-            new_kernel._modules[sub_module_name] = sub_module.__getitem__(index)
+            new_kernel.__setattr__(sub_module_name, sub_module.__getitem__(index))
 
         return new_kernel
 

@@ -5,4 +5,4 @@ channels:
 dependencies:
   - pytorch
   - scikit-learn
-  - linear_operator>0.1.1
+  - linear_operator>=0.2.0
