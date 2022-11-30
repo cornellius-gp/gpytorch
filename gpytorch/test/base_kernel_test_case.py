@@ -162,6 +162,20 @@ class BaseKernelTestCase(BaseTestCase):
 
         self.assertAllClose(res1, res2, rtol=1e-3, atol=1e-5)
 
+    def test_kernel_getitem_broadcast(self):
+        kernel = self.create_kernel_no_ard(batch_shape=torch.Size([2]))
+        x = self.create_data_double_batch()
+        kernel = kernel.expand_batch(torch.broadcast_shapes(kernel.batch_shape, x.shape[:-2]))
+
+        idx1 = torch.LongTensor([0, 2, 1]).unsqueeze(-1)
+        idx2 = torch.LongTensor([1, 0, 0]).unsqueeze(-2)
+        res1 = kernel(x).to_dense()[idx1, idx2]  # Result of first kernel on first batch of data
+
+        new_kernel = kernel[idx1, idx2]
+        res2 = new_kernel(x[idx1, idx2]).to_dense()  # Should also be result of first kernel on first batch of data.
+
+        self.assertAllClose(res1, res2, rtol=1e-3, atol=1e-5)
+
     def test_kernel_pickle_unpickle(self):
         kernel = self.create_kernel_no_ard(batch_shape=torch.Size([]))
         pickle.loads(pickle.dumps(kernel))  # Should be able to pickle and unpickle a kernel
