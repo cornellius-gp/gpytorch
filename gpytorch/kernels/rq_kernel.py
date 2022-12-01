@@ -63,16 +63,16 @@ class RQKernel(Kernel):
         self.register_constraint("raw_alpha", alpha_constraint)
 
     def forward(self, x1, x2, diag=False, **params):
-        def postprocess_rq(dist):
+        def postprocess_rq(dist_mat):
             alpha = self.alpha
-            for _ in range(1, len(dist.shape) - len(self.batch_shape)):
+            for _ in range(1, len(dist_mat.shape) - len(self.batch_shape)):
                 alpha = alpha.unsqueeze(-1)
-            return (1 + dist.div(2 * alpha)).pow(-alpha)
+            return (1 + dist_mat.div(2 * alpha)).pow(-alpha)
 
         x1_ = x1.div(self.lengthscale)
         x2_ = x2.div(self.lengthscale)
-        return self.covar_dist(
-            x1_, x2_, square_dist=True, diag=diag, dist_postprocess_func=postprocess_rq, postprocess=True, **params
+        return postprocess_rq(
+            self.covar_dist(x1_, x2_, square_dist=True, diag=diag, **params),
         )
 
     @property

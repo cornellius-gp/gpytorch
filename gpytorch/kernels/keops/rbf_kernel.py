@@ -22,13 +22,8 @@ try:
         has_lengthscale = True
 
         def _nonkeops_covar_func(self, x1, x2, diag=False):
-            return self.covar_dist(
-                x1,
-                x2,
-                square_dist=True,
-                diag=diag,
-                dist_postprocess_func=postprocess_rbf,
-                postprocess=True,
+            return postprocess_rbf(
+                self.covar_dist(x1, x2, square_dist=True, diag=diag)
             )
 
         def covar_func(self, x1, x2, diag=False):

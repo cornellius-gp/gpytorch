@@ -10,7 +10,7 @@ import gpytorch
 
 def dist_func(x1, x2):
     dist_module = gpytorch.kernels.kernel.Distance()
-    return dist_module._dist(x1, x2, postprocess=torch.tensor(False))
+    return dist_module._dist(x1, x2)
 
 
 class TestMaternCovariance(unittest.TestCase):
