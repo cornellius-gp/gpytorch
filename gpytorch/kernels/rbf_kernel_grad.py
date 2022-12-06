@@ -70,8 +70,8 @@ class RBFKernelGrad(RBFKernel):
             outer = torch.transpose(outer, -1, -2).contiguous()
 
             # 1) Kernel block
-            diff = self.covar_dist(x1_, x2_, square_dist=True, dist_postprocess_func=postprocess_rbf, **params)
-            K_11 = diff
+            diff = self.covar_dist(x1_, x2_, square_dist=True, **params)
+            K_11 = postprocess_rbf(diff)
             K[..., :n1, :n2] = K_11
 
             # 2) First gradient block
