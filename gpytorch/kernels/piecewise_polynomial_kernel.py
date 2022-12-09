@@ -1,8 +1,30 @@
+import math
 from typing import Optional
 
 import torch
+from torch import Tensor
 
 from .kernel import Kernel
+
+
+def _fmax(r: Tensor, j: int, q: int) -> Tensor:
+    return torch.max(torch.tensor(0.0, dtype=r.dtype, device=r.device), 1 - r).pow(j + q)
+
+
+def _get_cov(r: Tensor, j: int, q: int) -> Tensor:
+    if q == 0:
+        return 1
+    if q == 1:
+        return (j + 1) * r + 1
+    if q == 2:
+        return 1 + (j + 2) * r + ((j + 4 * j + 3) / 3.0) * (r**2)
+    if q == 3:
+        return (
+            1
+            + (j + 3) * r
+            + ((6 * j**2 + 36 * j + 45) / 15.0) * r.square()
+            + ((j**3 + 9 * j**2 + 23 * j + 15) / 15.0) * (r**3)
+        )
 
 
 class PiecewisePolynomialKernel(Kernel):
@@ -79,32 +101,14 @@ class PiecewisePolynomialKernel(Kernel):
             raise ValueError("q expected to be 0, 1, 2 or 3")
         self.q = q
 
-    def fmax(self, r, j, q):
-        return torch.max(torch.tensor(0.0), 1 - r).pow(j + q)
-
-    def get_cov(self, r, j, q):
-        if q == 0:
-            return 1
-        if q == 1:
-            return (j + 1) * r + 1
-        if q == 2:
-            return 1 + (j + 2) * r + ((j**2 + 4 * j + 3) / 3.0) * r**2
-        if q == 3:
-            return (
-                1
-                + (j + 3) * r
-                + ((6 * j**2 + 36 * j + 45) / 15.0) * r**2
-                + ((j**3 + 9 * j**2 + 23 * j + 15) / 15.0) * r**3
-            )
-
-    def forward(self, x1, x2, last_dim_is_batch=False, diag=False, **params):
+    def forward(self, x1: Tensor, x2: Tensor, last_dim_is_batch: bool = False, diag: bool = False, **params) -> Tensor:
         x1_ = x1.div(self.lengthscale)
         x2_ = x2.div(self.lengthscale)
         if last_dim_is_batch is True:
             D = x1.shape[1]
         else:
             D = x1.shape[-1]
-        j = torch.floor(torch.tensor(D / 2.0)) + self.q + 1
+        j = math.floor(D / 2.0) + self.q + 1
         if last_dim_is_batch and diag:
             r = self.covar_dist(x1_, x2_, last_dim_is_batch=True, diag=True)
         elif diag:
@@ -113,5 +117,5 @@ class PiecewisePolynomialKernel(Kernel):
             r = self.covar_dist(x1_, x2_, last_dim_is_batch=True)
         else:
             r = self.covar_dist(x1_, x2_)
-        cov_matrix = self.fmax(r, j, self.q) * self.get_cov(r, j, self.q)
+        cov_matrix = _fmax(r, j, self.q) * _get_cov(r, j, self.q)
         return cov_matrix
