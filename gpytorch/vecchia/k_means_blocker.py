@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import faiss
 import torch
 import numpy as np
@@ -7,7 +9,7 @@ from ._blocker import BaseBlocker
 
 class KMeansBlocker(BaseBlocker):
 
-    def __init__(self, data, n_blocks, n_neighbors):
+    def __init__(self, data, n_blocks, n_neighbors, order_by="l2"):
 
         self.n_blocks = n_blocks
         self.n_neighbors = n_neighbors
@@ -15,6 +17,8 @@ class KMeansBlocker(BaseBlocker):
         self.k_means = None
         self.centroids = None
         self.ordering = None
+
+        self.order_by = order_by
 
         super(KMeansBlocker, self).__init__(set_blocks_kwargs={"data": data}, set_neighbors_kwargs={})
 
@@ -42,7 +46,16 @@ class KMeansBlocker(BaseBlocker):
         blocks = [torch.tensor(blocking_index) for blocking_index in blocking_indices]
 
         # create ordering and return blocks in that order
-        self.ordering = torch.argsort(torch.linalg.norm(self.centroids, axis=1))
+        # TODO: Refactor in terms of ordering strategies
+        if self.order_by == "l2":
+            self.ordering = torch.argsort(torch.linalg.norm(self.centroids, axis=1))
+        elif self.order_by == "x":
+            self.ordering = torch.argsort(self.centroids[:, 0])
+        elif self.order_by == "y":
+            self.ordering = torch.argsort(self.centroids[:, 1])
+        else:
+            raise ValueError
+
         return [blocks[idx] for idx in self.ordering]
 
     def set_neighbors(self):

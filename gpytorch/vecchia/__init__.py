@@ -1,5 +1,5 @@
 __all__ = [
-    "_blocker.py",
+    "_blocker",
     "k_means_blocker"
 ]
 

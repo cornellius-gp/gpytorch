@@ -20,6 +20,8 @@ class BaseBlocker(abc.ABC):
         self._inclusive_neighboring_observations = None
         self._test_block_observations = None
 
+        # self._internal_block_index = None
+
         self._blocks_template(set_blocks_kwargs, set_neighbors_kwargs)
 
     def _blocks_template(self, set_blocks_kwargs, set_neighbors_kwargs):
@@ -31,6 +33,9 @@ class BaseBlocker(abc.ABC):
             self._block_observations = self.set_blocks()
         else:
             self._block_observations = self.set_blocks(**set_blocks_kwargs)
+        # TODO: Create indices that allow reordering
+        #self._internal_block_index = torch.linspace(0, len(self._block_observations)-1,
+        #                                            len(self._block_observations)).int()
 
         if set_neighbors_kwargs is None:
             self._neighboring_blocks = self.set_neighbors()
