@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+import functools
+from typing import Callable
+
 import torch
 from linear_operator import LinearOperator, to_linear_operator
 from linear_operator.utils.getitem import _noop_index
@@ -7,6 +10,22 @@ from linear_operator.utils.getitem import _noop_index
 from .. import beta_features, settings
 from ..utils import deprecation
 from ..utils.memoize import cached
+
+
+def recall_grad_state(method: Callable) -> Callable:
+    """Decorator for LazyEvaluatedKernelTensor's methods to put their execution
+    inside the same grad state as during the instantiation of the lazy object.
+    This makes the lazy tensor object behave in the same way as a regular tensor
+    with respect to the grad state.
+    """
+
+    @functools.wraps(method)
+    def wrapped(self, *args, **kwargs):
+        with torch.set_grad_enabled(self._is_grad_enabled):
+            output = method(self, *args, **kwargs)
+        return output
+
+    return wrapped
 
 
 class LazyEvaluatedKernelTensor(LinearOperator):
@@ -27,6 +46,7 @@ class LazyEvaluatedKernelTensor(LinearOperator):
         self.x2 = x2
         self.last_dim_is_batch = last_dim_is_batch
         self.params = params
+        self._is_grad_enabled = torch.is_grad_enabled()  # records grad state at instantiation
 
     @property
     def dtype(self):
@@ -84,6 +104,7 @@ class LazyEvaluatedKernelTensor(LinearOperator):
         return x1.grad, x2.grad
 
     @cached(name="kernel_diag")
+    @recall_grad_state
     def _diagonal(self) -> torch.Tensor:
         # Getting the diagonal of a kernel can be handled more efficiently by
         # transposing the batch and data dimension before calling the kernel.
@@ -111,6 +132,7 @@ class LazyEvaluatedKernelTensor(LinearOperator):
             res = res.to_dense()
         return res.view(self.shape[:-1]).contiguous()
 
+    @recall_grad_state
     def _getitem(self, row_index, col_index, *batch_indices):
         x1 = self.x1
         x2 = self.x2
@@ -295,6 +317,7 @@ class LazyEvaluatedKernelTensor(LinearOperator):
             expected_size = expected_size[:-2] + x1.shape[-1:] + expected_size[-2:]
         return expected_size
 
+    @recall_grad_state
     def _transpose_nonbatch(self):
         return self.__class__(
             self.x2,
@@ -304,6 +327,7 @@ class LazyEvaluatedKernelTensor(LinearOperator):
             **self.params,
         )
 
+    @recall_grad_state
     def _unsqueeze_batch(self, dim):
         x1 = self.x1.unsqueeze(dim)
         x2 = self.x2.unsqueeze(dim)
@@ -316,6 +340,7 @@ class LazyEvaluatedKernelTensor(LinearOperator):
         )
 
     @cached(name="kernel_eval")
+    @recall_grad_state
     def evaluate_kernel(self):
         """
         NB: This is a meta LinearOperator, in the sense that evaluate can return
@@ -346,6 +371,7 @@ class LazyEvaluatedKernelTensor(LinearOperator):
 
         return to_linear_operator(res)
 
+    @recall_grad_state
     def repeat(self, *repeats):
         if len(repeats) == 1 and hasattr(repeats[0], "__iter__"):
             repeats = repeats[0]
@@ -383,6 +409,7 @@ class LazyEvaluatedKernelTensor(LinearOperator):
     def to_dense(self):
         return self.evaluate_kernel().to_dense()
 
+    @recall_grad_state
     def __getitem__(self, index):
         """
         Supports subindexing of the matrix this LinearOperator represents. This may return either another

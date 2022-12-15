@@ -159,6 +159,16 @@ class TestLazyEvaluatedKernelTensorBatch(LinearOperatorTestCase, unittest.TestCa
         lazy_tensor.kernel.raw_lengthscale_constraint.transform = lambda x: x + 0.1
         self._test_half(lazy_tensor)
 
+    def test_grad_state(self):
+        k = gpytorch.kernels.RBFKernel()
+        X = torch.randn(2, 3)
+        X.requires_grad = True
+        lazy_tensor = k(X)
+        self.assertTrue(lazy_tensor.to_dense().requires_grad)
+        with torch.no_grad():
+            lazy_tensor = k(X)
+        self.assertFalse(lazy_tensor.to_dense().requires_grad)
+
 
 class TestLazyEvaluatedKernelTensorMultitaskBatch(TestLazyEvaluatedKernelTensorBatch):
     seed = 0
