@@ -179,3 +179,14 @@ class BaseKernelTestCase(BaseTestCase):
     def test_kernel_pickle_unpickle(self):
         kernel = self.create_kernel_no_ard(batch_shape=torch.Size([]))
         pickle.loads(pickle.dumps(kernel))  # Should be able to pickle and unpickle a kernel
+
+    def test_kernel_dtype_device(self):
+        kernel = self.create_kernel_no_ard(batch_shape=torch.Size([]))
+        self.assertEqual(kernel.dtype, torch.get_default_dtype())
+        self.assertEqual(kernel.device, torch.device("cpu"))
+        new_type = next(iter({torch.float32, torch.float64} - {torch.get_default_dtype()}))
+        kernel.to(dtype=new_type)
+        self.assertEqual(kernel.dtype, new_type)
+        if torch.cuda.is_available():
+            kernel.to(device="cuda")
+            self.assertNotEqual(kernel.device, torch.device("cpu"))

@@ -262,6 +262,15 @@ class Kernel(Module):
         self._batch_shape = val
 
     @property
+    def device(self) -> Optional[torch.device]:
+        if self.has_lengthscale:
+            return self.lengthscale.device
+        else:
+            for param in self.parameters():
+                return param.device
+            return None
+
+    @property
     def dtype(self) -> torch.dtype:
         if self.has_lengthscale:
             return self.lengthscale.dtype
