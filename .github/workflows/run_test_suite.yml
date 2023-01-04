@@ -38,9 +38,6 @@ jobs:
       matrix:
         pytorch-version: ["master", "stable"]
         extras: ["with-extras", "no-extras"]
-        exclude:  # Currently pyro does not support the torch 2.0.0 beta
-          - pytorch-version: "master"
-            extras: "with-extras"
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python
