@@ -29,6 +29,7 @@ Here we highlight a number of common batch GP scenarios and how to construct the
    :maxdepth: 1
    :hidden:
 
+   ../03_Multitask_Exact_GPs/Batch_Independent_Multioutput_GP.ipynb
    Simple_Batch_Mode_GP_Regression.ipynb
 
 
@@ -47,22 +48,29 @@ See the `1D derivatives GP example`_ or the `2D derivatives GP example`_ for exa
    Simple_GP_Regression_Derivative_Information_2d.ipynb
 
 .. _Batch Independent Multioutput GP:
-  Batch_Independent_Multioutput_GP.ipynb
+  ../03_Multitask_Exact_GPs/Batch_Independent_Multioutput_GP.ipynb
 
 .. _Batch Mode Regression:
   Simple_Batch_Mode_GP_Regression.ipynb
 
 .. _1D derivatives GP example:
-  Batch_Independent_Multioutput_GP.ipynb
+  Simple_GP_Regression_Derivative_Information_1d.ipynb
 
 .. _2D derivatives GP example:
-  Simple_Batch_Mode_GP_Regression.ipynb:
+  Simple_GP_Regression_Derivative_Information_2d.ipynb
 
 
 Variational Fantasization
 ----------------------------------
 We also include an example of how to perform fantasy modelling (e.g. efficient, closed form updates) for variational
-Gaussian process models, enabling their usage for lookahead optimization.
+Gaussian process models, enabling their usage for lookahead optimization. See the `Variational fantasization`_ example.
+
+.. toctree::
+   :glob:
+   :maxdepth: 1
+   :hidden:
+
+   SVGP_Model_Updating.ipynb
 
 .. _Variational fantasization:
   SVGP_Model_Updating.ipynb
@@ -81,4 +89,3 @@ how to convert both an exact GP and a variational GP to a ScriptModule that can 
 
    TorchScript_Exact_Models.ipynb
    TorchScript_Variational_Models.ipynb
-   SVGP_Model_Updating.ipynb
