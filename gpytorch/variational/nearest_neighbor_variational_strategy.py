@@ -73,7 +73,9 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
             variational_distribution, MeanFieldVariationalDistribution
         ), "Currently, NNVariationalStrategy only supports MeanFieldVariationalDistribution."
 
-        super().__init__(model, inducing_points, variational_distribution, learn_inducing_locations=False, jitter_val=jitter_val)
+        super().__init__(
+            model, inducing_points, variational_distribution, learn_inducing_locations=False, jitter_val=jitter_val
+        )
         # Make sure we don't try to initialize variational parameters - because of minibatching
         self.variational_params_initialized.fill_(1)
 
@@ -98,7 +100,6 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
 
         self.training_batch_size = training_batch_size
         self._set_training_iterator()
-
 
     @property
     @cached(name="prior_distribution_memo")
