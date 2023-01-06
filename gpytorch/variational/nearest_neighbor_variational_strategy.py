@@ -68,12 +68,12 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
         https://github.com/facebookresearch/faiss
     """
 
-    def __init__(self, model, inducing_points, variational_distribution, k, training_batch_size):
+    def __init__(self, model, inducing_points, variational_distribution, k, training_batch_size, jitter_val=None):
         assert isinstance(
             variational_distribution, MeanFieldVariationalDistribution
         ), "Currently, NNVariationalStrategy only supports MeanFieldVariationalDistribution."
 
-        super().__init__(model, inducing_points, variational_distribution, learn_inducing_locations=False)
+        super().__init__(model, inducing_points, variational_distribution, learn_inducing_locations=False, jitter_val=jitter_val)
         # Make sure we don't try to initialize variational parameters - because of minibatching
         self.variational_params_initialized.fill_(1)
 
@@ -98,6 +98,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
 
         self.training_batch_size = training_batch_size
         self._set_training_iterator()
+
 
     @property
     @cached(name="prior_distribution_memo")
