@@ -295,7 +295,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
         # compute invquad_term
         nearest_neighbor_variational_mean = expanded_variational_mean.gather(-2, expanded_nearest_neighbor_indices)
         Bj_m = torch.sum(interp_term * nearest_neighbor_variational_mean, dim=-1)
-        inducing_point_variational_mean = variational_mean[..., kl_indices] ** 2
+        inducing_point_variational_mean = variational_mean[..., kl_indices]
         invquad_term = torch.sum((inducing_point_variational_mean - Bj_m) ** 2 / F, dim=-1)
 
         kl = 1.0 / 2 * (logdet_p - logdet_q - kl_bs + trace_term + invquad_term)
