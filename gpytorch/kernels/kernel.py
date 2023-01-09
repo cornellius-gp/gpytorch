@@ -23,44 +23,55 @@ from ..module import Module
 from ..priors import Prior
 
 
-def default_postprocess_script(x):
-    return x
+def sq_dist(x1, x2, x1_eq_x2=False):
+    # TODO: use torch squared cdist once implemented: https://github.com/pytorch/pytorch/pull/25799
+    adjustment = x1.mean(-2, keepdim=True)
+    x1 = x1 - adjustment
+
+    # Compute squared distance matrix using quadratic expansion
+    x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
+    x1_pad = torch.ones_like(x1_norm)
+    if x1_eq_x2 and not x1.requires_grad and not x2.requires_grad:
+        x2, x2_norm, x2_pad = x1, x1_norm, x1_pad
+    else:
+        x2 = x2 - adjustment  # x1 and x2 should be identical in all dims except -2 at this point
+        x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
+        x2_pad = torch.ones_like(x2_norm)
+    x1_ = torch.cat([-2.0 * x1, x1_norm, x1_pad], dim=-1)
+    x2_ = torch.cat([x2, x2_pad, x2_norm], dim=-1)
+    res = x1_.matmul(x2_.transpose(-2, -1))
+
+    if x1_eq_x2 and not x1.requires_grad and not x2.requires_grad:
+        res.diagonal(dim1=-2, dim2=-1).fill_(0)
+
+    # Zero out negative values
+    return res.clamp_min_(0)
 
 
+def dist(x1, x2, x1_eq_x2=False):
+    # TODO: use torch cdist once implementation is improved: https://github.com/pytorch/pytorch/pull/25799
+    res = sq_dist(x1, x2, x1_eq_x2=x1_eq_x2)
+    return res.clamp_min_(1e-30).sqrt_()
+
+
+# only necessary for legacy purposes
 class Distance(torch.nn.Module):
-    def __init__(self, postprocess_script=default_postprocess_script):
+    def __init__(self, postprocess: Optional[Callable] = None):
         super().__init__()
-        self._postprocess = postprocess_script
+        if postprocess is not None:
+            warnings.warn(
+                "The `postprocess` argument is deprecated. "
+                "See https://github.com/cornellius-gp/gpytorch/pull/2205 for details.",
+                DeprecationWarning,
+            )
+        self._postprocess = postprocess
 
-    def _sq_dist(self, x1, x2, postprocess, x1_eq_x2=False):
-        # TODO: use torch squared cdist once implemented: https://github.com/pytorch/pytorch/pull/25799
-        adjustment = x1.mean(-2, keepdim=True)
-        x1 = x1 - adjustment
-
-        # Compute squared distance matrix using quadratic expansion
-        x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
-        x1_pad = torch.ones_like(x1_norm)
-        if x1_eq_x2 and not x1.requires_grad and not x2.requires_grad:
-            x2, x2_norm, x2_pad = x1, x1_norm, x1_pad
-        else:
-            x2 = x2 - adjustment  # x1 and x2 should be identical in all dims except -2 at this point
-            x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
-            x2_pad = torch.ones_like(x2_norm)
-        x1_ = torch.cat([-2.0 * x1, x1_norm, x1_pad], dim=-1)
-        x2_ = torch.cat([x2, x2_pad, x2_norm], dim=-1)
-        res = x1_.matmul(x2_.transpose(-2, -1))
-
-        if x1_eq_x2 and not x1.requires_grad and not x2.requires_grad:
-            res.diagonal(dim1=-2, dim2=-1).fill_(0)
-
-        # Zero out negative values
-        res.clamp_min_(0)
+    def _sq_dist(self, x1, x2, x1_eq_x2=False, postprocess=False):
+        res = sq_dist(x1, x2, x1_eq_x2=x1_eq_x2)
         return self._postprocess(res) if postprocess else res
 
-    def _dist(self, x1, x2, postprocess, x1_eq_x2=False):
-        # TODO: use torch cdist once implementation is improved: https://github.com/pytorch/pytorch/pull/25799
-        res = self._sq_dist(x1, x2, postprocess=False, x1_eq_x2=x1_eq_x2)
-        res = res.clamp_min_(1e-30).sqrt_()
+    def _dist(self, x1, x2, x1_eq_x2=False, postprocess=False):
+        res = dist(x1, x2, x1_eq_x2=x1_eq_x2)
         return self._postprocess(res) if postprocess else res
 
 
@@ -148,7 +159,7 @@ class Kernel(Module):
     def __init__(
         self,
         ard_num_dims: Optional[int] = None,
-        batch_shape: Optional[torch.Size] = torch.Size([]),
+        batch_shape: Optional[torch.Size] = None,
         active_dims: Optional[Tuple[int, ...]] = None,
         lengthscale_prior: Optional[Prior] = None,
         lengthscale_constraint: Optional[Interval] = None,
@@ -156,7 +167,7 @@ class Kernel(Module):
         **kwargs,
     ):
         super(Kernel, self).__init__()
-        self._batch_shape = batch_shape
+        self._batch_shape = torch.Size([]) if batch_shape is None else batch_shape
         if active_dims is not None and not torch.is_tensor(active_dims):
             active_dims = torch.tensor(active_dims, dtype=torch.long)
         self.register_buffer("active_dims", active_dims)
@@ -251,13 +262,26 @@ class Kernel(Module):
         self._batch_shape = val
 
     @property
+    def device(self) -> Optional[torch.device]:
+        if self.has_lengthscale:
+            return self.lengthscale.device
+        devices = {param.device for param in self.parameters()}
+        if len(devices) > 1:
+            raise RuntimeError(f"The kernel's parameters are on multiple devices: {devices}.")
+        elif devices:
+            return devices.pop()
+        return None
+
+    @property
     def dtype(self) -> torch.dtype:
         if self.has_lengthscale:
             return self.lengthscale.dtype
-        else:
-            for param in self.parameters():
-                return param.dtype
-            return torch.get_default_dtype()
+        dtypes = {param.dtype for param in self.parameters()}
+        if len(dtypes) > 1:
+            raise RuntimeError(f"The kernel's parameters have multiple dtypes: {dtypes}.")
+        elif dtypes:
+            return dtypes.pop()
+        return torch.get_default_dtype()
 
     @property
     def lengthscale(self) -> Tensor:
@@ -286,8 +310,6 @@ class Kernel(Module):
         diag: bool = False,
         last_dim_is_batch: bool = False,
         square_dist: bool = False,
-        dist_postprocess_func: Callable = default_postprocess_script,
-        postprocess: bool = True,
         **params,
     ) -> Tensor:
         r"""
@@ -303,11 +325,6 @@ class Kernel(Module):
             (Useful for additive structure over the dimensions). (Default: False.)
         :param square_dist:
             If True, returns the squared distance rather than the standard distance. (Default: False.)
-        :param postprocess: Whether or not to apply `dist_postprocess_func` to the resulting distance
-            matrix. (Default: True.)
-        :param dist_postprocess_func:
-            Postprocessing function to apply to the distance matrix.
-
         :return: The kernel matrix or vector. The shape depends on the kernel's evaluation mode:
 
             * `full_covar`: `... x N x M`
@@ -320,37 +337,18 @@ class Kernel(Module):
             x2 = x2.transpose(-1, -2).unsqueeze(-1)
 
         x1_eq_x2 = torch.equal(x1, x2)
-
-        # torch scripts expect tensors
-        postprocess = torch.tensor(postprocess)
-
         res = None
-
-        # Cache the Distance object or else JIT will recompile every time
-        if not self.distance_module or self.distance_module._postprocess != dist_postprocess_func:
-            self.distance_module = Distance(dist_postprocess_func)
 
         if diag:
             # Special case the diagonal because we can return all zeros most of the time.
             if x1_eq_x2:
-                res = torch.zeros(*x1.shape[:-2], x1.shape[-2], dtype=x1.dtype, device=x1.device)
-                if postprocess:
-                    res = dist_postprocess_func(res)
-                return res
+                return torch.zeros(*x1.shape[:-2], x1.shape[-2], dtype=x1.dtype, device=x1.device)
             else:
-                res = torch.norm(x1 - x2, p=2, dim=-1)
-                if square_dist:
-                    res = res.pow(2)
-            if postprocess:
-                res = dist_postprocess_func(res)
-            return res
-
-        elif square_dist:
-            res = self.distance_module._sq_dist(x1, x2, postprocess, x1_eq_x2)
+                res = torch.linalg.norm(x1 - x2, dim=-1)  # 2-norm by default
+                return res.pow(2) if square_dist else res
         else:
-            res = self.distance_module._dist(x1, x2, postprocess, x1_eq_x2)
-
-        return res
+            dist_func = sq_dist if square_dist else dist
+            return dist_func(x1, x2, x1_eq_x2)
 
     def expand_batch(self, *sizes: Union[torch.Size, Tuple[int, ...]]) -> Kernel:
         r"""
@@ -620,7 +618,7 @@ class AdditiveKernel(Kernel):
     def __getitem__(self, index) -> Kernel:
         new_kernel = deepcopy(self)
         for i, kernel in enumerate(self.kernels):
-            new_kernel.kernels[i] = self.kernels[i].__getitem__(index)
+            new_kernel.kernels[i] = kernel.__getitem__(index)
 
         return new_kernel
 
@@ -677,6 +675,6 @@ class ProductKernel(Kernel):
     def __getitem__(self, index) -> Kernel:
         new_kernel = deepcopy(self)
         for i, kernel in enumerate(self.kernels):
-            new_kernel.kernels[i] = self.kernels[i].__getitem__(index)
+            new_kernel.kernels[i] = kernel.__getitem__(index)
 
         return new_kernel

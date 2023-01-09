@@ -97,7 +97,7 @@ class DeepGPLayer(ApproximateGP):
             inputs = inputs.expand(*inputs.shape[:-3], self.output_dims, *inputs.shape[-2:])
 
         # Now run samples through the GP
-        output = ApproximateGP.__call__(self, inputs)
+        output = ApproximateGP.__call__(self, inputs, **kwargs)
         if self.output_dims is not None:
             mean = output.loc.transpose(-1, -2)
             covar = BlockDiagLinearOperator(output.lazy_covariance_matrix, block_dim=-3)
