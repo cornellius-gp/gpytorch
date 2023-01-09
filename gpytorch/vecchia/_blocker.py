@@ -20,23 +20,30 @@ class BaseBlocker(abc.ABC):
         self._inclusive_neighboring_observations = None
         self._test_block_observations = None
 
-        # self._internal_block_index = None
+        self.set_blocks_kwargs = set_blocks_kwargs
+        self.set_neighbors_kwargs = set_neighbors_kwargs
 
-        self._blocks_template(set_blocks_kwargs, set_neighbors_kwargs)
+        self._blocks_template()
 
-    def _blocks_template(self, set_blocks_kwargs, set_neighbors_kwargs):
+    def _blocks_template(self):
         """
         Template that allows children to specify block membership and neighboring structure, then uses that information
         to compute all remaining dependent quantities.
         """
-        if set_blocks_kwargs is None:
+        if self.set_blocks_kwargs is None:
             self._block_observations = self.set_blocks()
         else:
-            self._block_observations = self.set_blocks(**set_blocks_kwargs)
-        # TODO: Create indices that allow reordering
-        #self._internal_block_index = torch.linspace(0, len(self._block_observations)-1,
-        #                                            len(self._block_observations)).int()
+            self._block_observations = self.set_blocks(**self.set_blocks_kwargs)
 
+        self._create_ordered_neighbors(self.set_neighbors_kwargs)
+
+    def _create_ordered_neighbors(self, set_neighbors_kwargs):
+        """
+        Calculates neighboring relationships based on the order defined by self._block_observations, using the algorithm
+        defined by self.set_neighbors(). This is the meat of the template method defined above. Since the results of
+        these calculations implicitly depend on the order of self._block_observations, we wrap these steps in a separate
+        function, so we can recalculate if the order of self._block_observations changes via a call to self.reorder().
+        """
         if set_neighbors_kwargs is None:
             self._neighboring_blocks = self.set_neighbors()
         else:
@@ -125,6 +132,11 @@ class BaseBlocker(abc.ABC):
                 "method has not been called on testing data."
             )
         return self._inclusive_neighboring_observations
+
+    # TODO: Document reorder and how it should be implemented
+    def reorder(self, new_order):
+        self._block_observations = [self._block_observations[idx] for idx in new_order]
+        self._create_ordered_neighbors(self.set_neighbors_kwargs)
 
     def block_new_data(self, **kwargs):
         self._test_block_observations = self.set_test_blocks(**kwargs)

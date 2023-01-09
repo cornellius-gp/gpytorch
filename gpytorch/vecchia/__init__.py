@@ -1,6 +1,14 @@
+#!/usr/bin/env python3
+
+from ._blocker import BaseBlocker
+from .k_means_blocker import KMeansBlocker
+
+from .ordering_strategies import OrderingStrategies
+
 __all__ = [
-    "_blocker",
-    "k_means_blocker"
+    "BaseBlocker",
+    "KMeansBlocker",
+    "OrderingStrategies"
 ]
 
 
