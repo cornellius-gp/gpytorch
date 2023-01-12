@@ -3,6 +3,7 @@
 from torch.nn import ModuleList
 
 from gpytorch.likelihoods import Likelihood
+from gpytorch.utils.generic import length_safe_zip
 
 
 def _get_tuple_args_(*args):
@@ -21,7 +22,7 @@ class LikelihoodList(Likelihood):
     def expected_log_prob(self, *args, **kwargs):
         return [
             likelihood.expected_log_prob(*args_, **kwargs)
-            for likelihood, args_ in zip(self.likelihoods, _get_tuple_args_(*args))
+            for likelihood, args_ in length_safe_zip(self.likelihoods, _get_tuple_args_(*args))
         ]
 
     def forward(self, *args, **kwargs):
@@ -30,18 +31,18 @@ class LikelihoodList(Likelihood):
             # if noise kwarg is passed, assume it's an iterable of noise tensors
             return [
                 likelihood.forward(*args_, {**kwargs, "noise": noise_})
-                for likelihood, args_, noise_ in zip(self.likelihoods, _get_tuple_args_(*args), noise)
+                for likelihood, args_, noise_ in length_safe_zip(self.likelihoods, _get_tuple_args_(*args), noise)
             ]
         else:
             return [
                 likelihood.forward(*args_, **kwargs)
-                for likelihood, args_ in zip(self.likelihoods, _get_tuple_args_(*args))
+                for likelihood, args_ in length_safe_zip(self.likelihoods, _get_tuple_args_(*args))
             ]
 
     def pyro_sample_output(self, *args, **kwargs):
         return [
             likelihood.pyro_sample_output(*args_, **kwargs)
-            for likelihood, args_ in zip(self.likelihoods, _get_tuple_args_(*args))
+            for likelihood, args_ in length_safe_zip(self.likelihoods, _get_tuple_args_(*args))
         ]
 
     def __call__(self, *args, **kwargs):
@@ -50,9 +51,10 @@ class LikelihoodList(Likelihood):
             # if noise kwarg is passed, assume it's an iterable of noise tensors
             return [
                 likelihood(*args_, {**kwargs, "noise": noise_})
-                for likelihood, args_, noise_ in zip(self.likelihoods, _get_tuple_args_(*args), noise)
+                for likelihood, args_, noise_ in length_safe_zip(self.likelihoods, _get_tuple_args_(*args), noise)
             ]
         else:
             return [
-                likelihood(*args_, **kwargs) for likelihood, args_ in zip(self.likelihoods, _get_tuple_args_(*args))
+                likelihood(*args_, **kwargs)
+                for likelihood, args_ in length_safe_zip(self.likelihoods, _get_tuple_args_(*args))
             ]

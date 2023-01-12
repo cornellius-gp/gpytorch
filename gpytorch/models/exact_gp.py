@@ -8,6 +8,7 @@ import torch
 from .. import settings
 from ..distributions import MultivariateNormal
 from ..likelihoods import _GaussianLikelihoodBase
+from ..utils.generic import length_safe_zip
 from ..utils.warnings import GPInputWarning
 from .exact_prediction_strategies import prediction_strategy
 from .gp import GP
@@ -113,7 +114,7 @@ class ExactGP(GP):
                 inputs = (inputs,)
             inputs = tuple(input_.unsqueeze(-1) if input_.ndimension() == 1 else input_ for input_ in inputs)
             if strict:
-                for input_, t_input in zip(inputs, self.train_inputs or (None,)):
+                for input_, t_input in length_safe_zip(inputs, self.train_inputs or (None,)):
                     for attr in {"shape", "dtype", "device"}:
                         expected_attr = getattr(t_input, attr, None)
                         found_attr = getattr(input_, attr, None)
@@ -200,10 +201,16 @@ class ExactGP(GP):
         train_targets = self.train_targets.expand(target_batch_shape + self.train_targets.shape[-1:])
 
         full_inputs = [
-            torch.cat([train_input, input.expand(input_batch_shape + input.shape[-2:])], dim=-2)
-            for train_input, input in zip(train_inputs, inputs)
+            torch.cat(
+                [train_input, input.expand(input_batch_shape + input.shape[-2:])],
+                dim=-2,
+            )
+            for train_input, input in length_safe_zip(train_inputs, inputs)
         ]
-        full_targets = torch.cat([train_targets, targets.expand(target_batch_shape + targets.shape[-1:])], dim=-1)
+        full_targets = torch.cat(
+            [train_targets, targets.expand(target_batch_shape + targets.shape[-1:])],
+            dim=-1,
+        )
 
         try:
             fantasy_kwargs = {"noise": kwargs.pop("noise")}
@@ -253,7 +260,9 @@ class ExactGP(GP):
                     "Call .eval() for prior predictions, or call .set_train_data() to add training data."
                 )
             if settings.debug.on():
-                if not all(torch.equal(train_input, input) for train_input, input in zip(train_inputs, inputs)):
+                if not all(
+                    torch.equal(train_input, input) for train_input, input in length_safe_zip(train_inputs, inputs)
+                ):
                     raise RuntimeError("You must train on the training inputs!")
             res = super().__call__(*inputs, **kwargs)
             return res
@@ -270,7 +279,7 @@ class ExactGP(GP):
         # Posterior mode
         else:
             if settings.debug.on():
-                if all(torch.equal(train_input, input) for train_input, input in zip(train_inputs, inputs)):
+                if all(torch.equal(train_input, input) for train_input, input in length_safe_zip(train_inputs, inputs)):
                     warnings.warn(
                         "The input matches the stored training data. Did you forget to call model.train()?",
                         GPInputWarning,
@@ -291,7 +300,7 @@ class ExactGP(GP):
             # Concatenate the input to the training input
             full_inputs = []
             batch_shape = train_inputs[0].shape[:-2]
-            for train_input, input in zip(train_inputs, inputs):
+            for train_input, input in length_safe_zip(train_inputs, inputs):
                 # Make sure the batch shapes agree for training/test data
                 if batch_shape != train_input.shape[:-2]:
                     batch_shape = torch.broadcast_shapes(batch_shape, train_input.shape[:-2])
@@ -317,7 +326,10 @@ class ExactGP(GP):
 
             # Make the prediction
             with settings.cg_tolerance(settings.eval_cg_tolerance.value()):
-                predictive_mean, predictive_covar = self.prediction_strategy.exact_prediction(full_mean, full_covar)
+                (
+                    predictive_mean,
+                    predictive_covar,
+                ) = self.prediction_strategy.exact_prediction(full_mean, full_covar)
 
             # Reshape predictive mean to match the appropriate event shape
             predictive_mean = predictive_mean.view(*batch_shape, *test_shape).contiguous()

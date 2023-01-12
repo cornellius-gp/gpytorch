@@ -7,6 +7,7 @@ from torch.nn import ModuleList
 
 from gpytorch.likelihoods import LikelihoodList
 from gpytorch.models import GP
+from gpytorch.utils.generic import length_safe_zip
 
 
 class AbstractModelList(GP, ABC):
@@ -47,7 +48,7 @@ class IndependentModelList(AbstractModelList):
 
     def forward(self, *args, **kwargs):
         return [
-            model.forward(*args_, **kwargs) for model, args_ in _length_safe_zip(self.models, _get_tensor_args(*args))
+            model.forward(*args_, **kwargs) for model, args_ in length_safe_zip(self.models, _get_tensor_args(*args))
         ]
 
     def get_fantasy_model(self, inputs, targets, **kwargs):
@@ -74,7 +75,7 @@ class IndependentModelList(AbstractModelList):
 
         fantasy_models = [
             model.get_fantasy_model(*inputs_, *targets_, **kwargs_)
-            for model, inputs_, targets_, kwargs_ in _length_safe_zip(
+            for model, inputs_, targets_, kwargs_ in length_safe_zip(
                 self.models,
                 _get_tensor_args(*inputs),
                 _get_tensor_args(*targets),
@@ -85,7 +86,7 @@ class IndependentModelList(AbstractModelList):
 
     def __call__(self, *args, **kwargs):
         return [
-            model.__call__(*args_, **kwargs) for model, args_ in _length_safe_zip(self.models, _get_tensor_args(*args))
+            model.__call__(*args_, **kwargs) for model, args_ in length_safe_zip(self.models, _get_tensor_args(*args))
         ]
 
     @property
@@ -98,26 +99,8 @@ class IndependentModelList(AbstractModelList):
 
 
 def _get_tensor_args(*args):
-    arg_list = []
     for arg in args:
         if torch.is_tensor(arg):
-            arg_list.append((arg,))
+            yield (arg,)
         else:
-            arg_list.append(arg)
-    return arg_list
-
-
-def _length_safe_zip(*args):
-    """Python's `zip(...)` with checks to ensure the arguments have
-    the same number of elements.
-
-    NOTE: This does not work with generators.
-    """
-    if len({len(a) for a in args}) > 1:
-        raise ValueError(
-            "Expected the lengths of all arguments to be equal. Got lengths "
-            f"{[len(a) for a in args]} for args {args}. Possible cause: "
-            "IndependentModelList requires an input for each model. "
-            "Did you attempt pass fewer inputs by any chance?"
-        )
-    return zip(*args)
+            yield arg
