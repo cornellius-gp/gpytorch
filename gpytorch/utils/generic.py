@@ -11,7 +11,7 @@ def length_safe_zip(*args):
     if len({len(a) for a in args}) > 1:
         raise ValueError(
             "Expected the lengths of all arguments to be equal. Got lengths "
-            f"{[len(a) for a in args]} for args {args}. Did you pass in"
+            f"{[len(a) for a in args]} for args {args}. Did you pass in "
             "fewer inputs than expected?"
         )
     return zip(*args)
