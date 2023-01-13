@@ -23,13 +23,15 @@ class TestModelListGP(unittest.TestCase):
         models = [self.create_model() for _ in range(2)]
         model = IndependentModelList(*models)
         model.eval()
-        model(torch.rand(3))
+        with self.assertRaises(ValueError):
+            model(torch.rand(3))
+        model(torch.rand(3), torch.rand(3))
 
     def test_forward_eval_fixed_noise(self):
         models = [self.create_model(fixed_noise=True) for _ in range(2)]
         model = IndependentModelList(*models)
         model.eval()
-        model(torch.rand(3))
+        model(torch.rand(3), torch.rand(3))
 
     def test_get_fantasy_model(self):
         models = [self.create_model() for _ in range(2)]
@@ -39,7 +41,7 @@ class TestModelListGP(unittest.TestCase):
         fant_x = [torch.randn(2), torch.randn(3)]
         fant_y = [torch.randn(2), torch.randn(3)]
         fmodel = model.get_fantasy_model(fant_x, fant_y)
-        fmodel(torch.randn(4))
+        fmodel(torch.randn(4), torch.randn(4))
 
     def test_get_fantasy_model_fixed_noise(self):
         models = [self.create_model(fixed_noise=True) for _ in range(2)]
@@ -50,7 +52,7 @@ class TestModelListGP(unittest.TestCase):
         fant_y = [torch.randn(2), torch.randn(3)]
         fant_noise = [0.1 * torch.ones(2), 0.1 * torch.ones(3)]
         fmodel = model.get_fantasy_model(fant_x, fant_y, noise=fant_noise)
-        fmodel(torch.randn(4))
+        fmodel(torch.randn(4), torch.randn(4))
 
 
 if __name__ == "__main__":
