@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
 import warnings
+from typing import Optional, Tuple
 
 import torch
 from linear_operator import to_dense
 from linear_operator.operators import (
     CholLinearOperator,
     DiagLinearOperator,
+    LinearOperator,
     MatmulLinearOperator,
     RootLinearOperator,
     SumLinearOperator,
@@ -14,15 +16,18 @@ from linear_operator.operators import (
 )
 from linear_operator.utils.cholesky import psd_safe_cholesky
 from linear_operator.utils.errors import NotPSDError
+from torch import Tensor
 
 from gpytorch.variational._variational_strategy import _VariationalStrategy
 from gpytorch.variational.cholesky_variational_distribution import CholeskyVariationalDistribution
 
 from ..distributions import MultivariateNormal
+from ..models import ApproximateGP
 from ..settings import _linalg_dtype_cholesky, trace_mode
 from ..utils.errors import CachingError
 from ..utils.memoize import cached, clear_cache_hook, pop_from_cache_ignore_args
 from ..utils.warnings import OldVersionWarning
+from . import _VariationalDistribution
 
 
 def _ensure_updated_strategy_flag_set(
@@ -55,17 +60,17 @@ class VariationalStrategy(_VariationalStrategy):
     This variational strategy uses "whitening" to accelerate the optimization of the variational
     parameters. See `Matthews (2017)`_ for more info.
 
-    :param ~gpytorch.models.ApproximateGP model: Model this strategy is applied to.
+    :param model: Model this strategy is applied to.
         Typically passed in when the VariationalStrategy is created in the
         __init__ method of the user defined model.
-    :param torch.Tensor inducing_points: Tensor containing a set of inducing
+    :param inducing_points: Tensor containing a set of inducing
         points to use for variational inference.
-    :param ~gpytorch.variational.VariationalDistribution variational_distribution: A
+    :param variational_distribution: A
         VariationalDistribution object that represents the form of the variational distribution :math:`q(\mathbf u)`
     :param learn_inducing_locations: (Default True): Whether or not
         the inducing point locations :math:`\mathbf Z` should be learned (i.e. are they
         parameters of the model).
-    :type learn_inducing_locations: `bool`, optional
+    :param jitter_val: Amount of diagonal jitter to add for Cholesky factorization numerical stability
 
     .. _Hensman et al. (2015):
         http://proceedings.mlr.press/v38/hensman15.pdf
@@ -74,7 +79,12 @@ class VariationalStrategy(_VariationalStrategy):
     """
 
     def __init__(
-        self, model, inducing_points, variational_distribution, learn_inducing_locations=True, jitter_val=None
+        self,
+        model: ApproximateGP,
+        inducing_points: Tensor,
+        variational_distribution: _VariationalDistribution,
+        learn_inducing_locations: bool = True,
+        jitter_val: Optional[float] = None,
     ):
         super().__init__(
             model, inducing_points, variational_distribution, learn_inducing_locations, jitter_val=jitter_val
@@ -84,13 +94,13 @@ class VariationalStrategy(_VariationalStrategy):
         self.has_fantasy_strategy = True
 
     @cached(name="cholesky_factor", ignore_args=True)
-    def _cholesky_factor(self, induc_induc_covar):
+    def _cholesky_factor(self, induc_induc_covar: LinearOperator) -> TriangularLinearOperator:
         L = psd_safe_cholesky(to_dense(induc_induc_covar).type(_linalg_dtype_cholesky.value()))
         return TriangularLinearOperator(L)
 
     @property
     @cached(name="prior_distribution_memo")
-    def prior_distribution(self):
+    def prior_distribution(self) -> MultivariateNormal:
         zeros = torch.zeros(
             self._variational_distribution.shape(),
             dtype=self._variational_distribution.dtype,
@@ -102,7 +112,7 @@ class VariationalStrategy(_VariationalStrategy):
 
     @property
     @cached(name="pseudo_points_memo")
-    def pseudo_points(self):
+    def pseudo_points(self) -> Tuple[Tensor, Tensor]:
         # TODO: have var_mean, var_cov come from a method of _variational_distribution
         # while having Kmm_root be a root decomposition to enable CIQVariationalDistribution support.
 
@@ -161,7 +171,14 @@ class VariationalStrategy(_VariationalStrategy):
 
         return pseudo_target_covar, pseudo_target_mean
 
-    def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None, **kwargs):
+    def forward(
+        self,
+        x: Tensor,
+        inducing_points: Tensor,
+        inducing_values: Tensor,
+        variational_inducing_covar: Optional[LinearOperator] = None,
+        **kwargs,
+    ) -> MultivariateNormal:
         # Compute full prior distribution
         full_inputs = torch.cat([inducing_points, x], dim=-2)
         full_output = self.model.forward(full_inputs, **kwargs)
@@ -212,7 +229,7 @@ class VariationalStrategy(_VariationalStrategy):
         # Return the distribution
         return MultivariateNormal(predictive_mean, predictive_covar)
 
-    def __call__(self, x, prior=False, **kwargs):
+    def __call__(self, x: Tensor, prior: bool = False, **kwargs) -> MultivariateNormal:
         if not self.updated_strategy.item() and not prior:
             with torch.no_grad():
                 # Get unwhitened p(u)

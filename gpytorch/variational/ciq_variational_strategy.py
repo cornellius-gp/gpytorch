@@ -6,6 +6,7 @@ import torch
 from linear_operator import to_linear_operator
 from linear_operator.operators import DiagLinearOperator, MatmulLinearOperator, SumLinearOperator
 from linear_operator.utils import linear_cg
+from torch import Tensor
 
 from .. import settings
 from ..distributions import Delta, MultivariateNormal
@@ -141,17 +142,17 @@ class CiqVariationalStrategy(_VariationalStrategy):
         :obj:`~gpytorch.variational.NaturalVariationalDistribution` and
         `natural gradient descent`_.
 
-    :param ~gpytorch.models.ApproximateGP model: Model this strategy is applied to.
+    :param model: Model this strategy is applied to.
         Typically passed in when the VariationalStrategy is created in the
         __init__ method of the user defined model.
-    :param torch.Tensor inducing_points: Tensor containing a set of inducing
+    :param inducing_points: Tensor containing a set of inducing
         points to use for variational inference.
-    :param ~gpytorch.variational.VariationalDistribution variational_distribution: A
+    :param variational_distribution: A
         VariationalDistribution object that represents the form of the variational distribution :math:`q(\mathbf u)`
     :param learn_inducing_locations: (Default True): Whether or not
         the inducing point locations :math:`\mathbf Z` should be learned (i.e. are they
         parameters of the model).
-    :type learn_inducing_locations: `bool`, optional
+    :param jitter_val: Amount of diagonal jitter to add for Cholesky factorization numerical stability
 
     .. _Pleiss et al. (2020):
         https://arxiv.org/pdf/2006.11267.pdf
@@ -161,12 +162,12 @@ class CiqVariationalStrategy(_VariationalStrategy):
         examples/04_Variational_and_Approximate_GPs/Natural_Gradient_Descent.html
     """
 
-    def _ngd(self):
+    def _ngd(self) -> bool:
         return isinstance(self._variational_distribution, NaturalVariationalDistribution)
 
     @property
     @cached(name="prior_distribution_memo")
-    def prior_distribution(self):
+    def prior_distribution(self) -> MultivariateNormal:
         zeros = torch.zeros(
             self._variational_distribution.shape(),
             dtype=self._variational_distribution.dtype,
@@ -178,7 +179,7 @@ class CiqVariationalStrategy(_VariationalStrategy):
 
     @property
     @cached(name="variational_distribution_memo")
-    def variational_distribution(self):
+    def variational_distribution(self) -> MultivariateNormal:
         if self._ngd():
             raise RuntimeError(
                 "Variational distribution for NGD-CIQ should be computed during forward calls. "
@@ -253,8 +254,8 @@ class CiqVariationalStrategy(_VariationalStrategy):
         # Return the distribution
         return MultivariateNormal(predictive_mean, predictive_covar)
 
-    def kl_divergence(self):
-        r"""
+    def kl_divergence(self) -> Tensor:
+        """
         Compute the KL divergence between the variational inducing distribution :math:`q(\mathbf u)`
         and the prior inducing distribution :math:`p(\mathbf u)`.
 

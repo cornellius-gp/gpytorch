@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 
+from typing import Optional, Union
+
 import torch
 from linear_operator.operators import KroneckerProductLinearOperator, RootLinearOperator
 from linear_operator.utils.interpolation import left_interp
+from torch import LongTensor, Tensor
 
 from .. import settings
 from ..distributions import MultitaskMultivariateNormal, MultivariateNormal
@@ -94,21 +97,21 @@ class LMCVariationalStrategy(_VariationalStrategy):
         >>>         )
         >>>
 
-    :param ~gpytorch.variational.VariationalStrategy base_variational_strategy: Base variational strategy
-    :param int num_tasks: The total number of tasks (output functions)
-    :param int num_latents: The total number of latent functions in each group
+    :param base_variational_strategy: Base variational strategy
+    :param num_tasks: The total number of tasks (output functions)
+    :param num_latents: The total number of latent functions in each group
     :param latent_dim: (Default: -1) Which batch dimension corresponds to the latent function batch.
         **Must be negative indexed**
-    :type latent_dim: `int` < 0
+    :param jitter_val: Amount of diagonal jitter to add for Cholesky factorization numerical stability
     """
 
     def __init__(
         self,
-        base_variational_strategy,
-        num_tasks,
-        num_latents=1,
-        latent_dim=-1,
-        jitter_val=None,
+        base_variational_strategy: _VariationalStrategy,
+        num_tasks: int,
+        num_latents: int = 1,
+        latent_dim: int = -1,
+        jitter_val: Optional[float] = None,
     ):
         Module.__init__(self)
         self.base_variational_strategy = base_variational_strategy
@@ -143,21 +146,23 @@ class LMCVariationalStrategy(_VariationalStrategy):
             self.jitter_val = jitter_val
 
     @property
-    def prior_distribution(self):
+    def prior_distribution(self) -> MultivariateNormal:
         return self.base_variational_strategy.prior_distribution
 
     @property
-    def variational_distribution(self):
+    def variational_distribution(self) -> MultivariateNormal:
         return self.base_variational_strategy.variational_distribution
 
     @property
-    def variational_params_initialized(self):
+    def variational_params_initialized(self) -> bool:
         return self.base_variational_strategy.variational_params_initialized
 
-    def kl_divergence(self):
+    def kl_divergence(self) -> Tensor:
         return super().kl_divergence().sum(dim=self.latent_dim)
 
-    def __call__(self, x, task_indices=None, prior=False, **kwargs):
+    def __call__(
+        self, x: Tensor, prior: bool = False, task_indices: Optional[LongTensor] = None, **kwargs
+    ) -> Union[MultitaskMultivariateNormal, MultivariateNormal]:
         r"""
         Computes the variational (or prior) distribution
         :math:`q( \mathbf f \mid \mathbf X)` (or :math:`p( \mathbf f \mid \mathbf X)`).
@@ -174,18 +179,15 @@ class LMCVariationalStrategy(_VariationalStrategy):
             :class:`~gpytorch.distributions.MultivariateNormal`.
 
         :param x: Input locations to evaluate variational strategy
-        :type x: torch.Tensor (... x N x D)
         :param task_indices: (Default: None) Task index associated with each input.
             If this **is not** provided, then the returned distribution evaluates every input on every task
             (returns :class:`~gpytorch.distributions.MultitaskMultivariateNormal`).
             If this **is** provided, then the returned distribution evaluates each input only on its assigned task.
             (returns :class:`~gpytorch.distributions.MultivariateNormal`).
-        :type task_indices: torch.Tensor (... x N), optional
         :param prior: (Default: False) If False, returns the variational distribution
             :math:`q( \mathbf f \mid \mathbf X)`.
             If True, returns the prior distribution
             :math:`p( \mathbf f \mid \mathbf X)`.
-        :type prior: bool
         :return: :math:`q( \mathbf f \mid \mathbf X)` (or the prior),
             either for all tasks (if `task_indices == None`)
             or for a specific task (if `task_indices != None`).

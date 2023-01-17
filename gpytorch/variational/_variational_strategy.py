@@ -3,15 +3,19 @@
 import functools
 from abc import ABC, abstractproperty
 from copy import deepcopy
+from typing import Optional, Tuple
 
 import torch
+from linear_operator.operators import LinearOperator
+from torch import Tensor
 
 from .. import settings
 from ..distributions import Delta, MultivariateNormal
 from ..likelihoods import GaussianLikelihood
-from ..models import ExactGP
+from ..models import ApproximateGP, ExactGP
 from ..module import Module
 from ..utils.memoize import add_to_cache, cached, clear_cache_hook
+from . import _VariationalDistribution
 
 
 class _BaseExactGP(ExactGP):
@@ -42,14 +46,16 @@ class _VariationalStrategy(Module, ABC):
     has_fantasy_strategy = False
 
     def __init__(
-        self, model, inducing_points, variational_distribution, learn_inducing_locations=True, jitter_val=None
+        self,
+        model: ApproximateGP,
+        inducing_points: Tensor,
+        variational_distribution: _VariationalDistribution,
+        learn_inducing_locations: bool = True,
+        jitter_val: Optional[float] = None,
     ):
         super().__init__()
 
-        if jitter_val is None:
-            self.jitter_val = settings.variational_cholesky_jitter.value(inducing_points.dtype)
-        else:
-            self.jitter_val = jitter_val
+        self._jitter_val = jitter_val
 
         # Model
         object.__setattr__(self, "model", model)
@@ -70,7 +76,7 @@ class _VariationalStrategy(Module, ABC):
     def _clear_cache(self):
         clear_cache_hook(self)
 
-    def _expand_inputs(self, x, inducing_points):
+    def _expand_inputs(self, x: Tensor, inducing_points: Tensor) -> Tuple[Tensor, Tensor]:
         """
         Pre-processing step in __call__ to make x the same batch_shape as the inducing points
         """
@@ -79,9 +85,19 @@ class _VariationalStrategy(Module, ABC):
         x = x.expand(*batch_shape, *x.shape[-2:])
         return x, inducing_points
 
+    @property
+    def jitter_val(self) -> float:
+        if self._jitter_val is None:
+            return settings.variational_cholesky_jitter.value(dtype=self.inducing_points.dtype)
+        return self._jitter_val
+
+    @jitter_val.setter
+    def jitter_val(self, jitter_val: float):
+        self._jitter_val = jitter_val
+
     @abstractproperty
     @cached(name="prior_distribution_memo")
-    def prior_distribution(self):
+    def prior_distribution(self) -> MultivariateNormal:
         r"""
         The :func:`~gpytorch.variational.VariationalStrategy.prior_distribution` method determines how to compute the
         GP prior distribution of the inducing points, e.g. :math:`p(u) \sim N(\mu(X_u), K(X_u, X_u))`. Most commonly,
@@ -94,22 +110,29 @@ class _VariationalStrategy(Module, ABC):
 
     @property
     @cached(name="variational_distribution_memo")
-    def variational_distribution(self):
+    def variational_distribution(self) -> MultivariateNormal:
         return self._variational_distribution()
 
-    def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None, **kwargs):
+    def forward(
+        self,
+        x: Tensor,
+        inducing_points: Tensor,
+        inducing_values: Tensor,
+        variational_inducing_covar: Optional[LinearOperator] = None,
+        **kwargs,
+    ) -> MultivariateNormal:
         r"""
         The :func:`~gpytorch.variational.VariationalStrategy.forward` method determines how to marginalize out the
         inducing point function values. Specifically, forward defines how to transform a variational distribution
         over the inducing point values, :math:`q(u)`, in to a variational distribution over the function values at
         specified locations x, :math:`q(f|x)`, by integrating :math:`\int p(f|x, u)q(u)du`
 
-        :param torch.Tensor x: Locations :math:`\mathbf X` to get the
+        :param x: Locations :math:`\mathbf X` to get the
             variational posterior of the function values at.
-        :param torch.Tensor inducing_points: Locations :math:`\mathbf Z` of the inducing points
-        :param torch.Tensor inducing_values: Samples of the inducing function values :math:`\mathbf u`
+        :param inducing_points: Locations :math:`\mathbf Z` of the inducing points
+        :param inducing_values: Samples of the inducing function values :math:`\mathbf u`
             (or the mean of the distribution :math:`q(\mathbf u)` if q is a Gaussian.
-        :param ~linear_operator.operators.LinearOperator variational_inducing_covar: If
+        :param variational_inducing_covar: If
             the distribuiton :math:`q(\mathbf u)` is
             Gaussian, then this variable is the covariance matrix of that Gaussian.
             Otherwise, it will be None.
@@ -119,19 +142,19 @@ class _VariationalStrategy(Module, ABC):
         """
         raise NotImplementedError
 
-    def kl_divergence(self):
+    def kl_divergence(self) -> Tensor:
         r"""
         Compute the KL divergence between the variational inducing distribution :math:`q(\mathbf u)`
         and the prior inducing distribution :math:`p(\mathbf u)`.
-
-        :rtype: torch.Tensor
         """
         with settings.max_preconditioner_size(0):
             kl_divergence = torch.distributions.kl.kl_divergence(self.variational_distribution, self.prior_distribution)
         return kl_divergence
 
     @cached(name="amortized_exact_gp")
-    def amortized_exact_gp(self, mean_module=None, covar_module=None):
+    def amortized_exact_gp(
+        self, mean_module: Optional[Module] = None, covar_module: Optional[Module] = None
+    ) -> ExactGP:
         mean_module = self.model.mean_module if mean_module is None else mean_module
         covar_module = self.model.covar_module if covar_module is None else covar_module
 
@@ -186,17 +209,17 @@ class _VariationalStrategy(Module, ABC):
             inducing_exact_model.prediction_strategy = pred_strat
         return inducing_exact_model
 
-    def pseudo_points(self):
+    def pseudo_points(self) -> Tuple[Tensor, Tensor]:
         raise NotImplementedError("Each variational strategy must implement its own pseudo points method")
 
     def get_fantasy_model(
         self,
-        inputs,
-        targets,
-        mean_module=None,
-        covar_module=None,
+        inputs: Tensor,
+        targets: Tensor,
+        mean_module: Optional[Module] = None,
+        covar_module: Optional[Module] = None,
         **kwargs,
-    ):
+    ) -> ExactGP:
         r"""
         Performs the online variational conditioning (OVC) strategy of Maddox et al, '21 to return
         an exact GP model that incorporates the inputs and targets alongside the variational model's inducing
@@ -211,17 +234,16 @@ class _VariationalStrategy(Module, ABC):
         modules are attributes of the model itself called mean_module and covar_module respectively OR that you
         pass them into this method explicitly.
 
-        :param torch.Tensor inputs: (`b1 x ... x bk x m x d` or `f x b1 x ... x bk x m x d`) Locations of fantasy
+        :param inputs: (`b1 x ... x bk x m x d` or `f x b1 x ... x bk x m x d`) Locations of fantasy
             observations.
-        :param torch.Tensor targets: (`b1 x ... x bk x m` or `f x b1 x ... x bk x m`) Labels of fantasy observations.
-        :param torch.nn.Module mean_module: torch module describing the mean function of the GP model. Optional if
+        :param targets: (`b1 x ... x bk x m` or `f x b1 x ... x bk x m`) Labels of fantasy observations.
+        :param mean_module: torch module describing the mean function of the GP model. Optional if
             `mean_module` is already an attribute of the variational GP.
-        :param torch.nn.Module covar_module: torch module describing the covariance function of the GP model. Optional
+        :param covar_module: torch module describing the covariance function of the GP model. Optional
             if `covar_module` is already an attribute of the variational GP.
         :return: An `ExactGP` model with `k + m` training examples, where the `m` fantasy examples have been added
             and all test-time caches have been updated. We assume that there are `k` inducing points in this variational
             GP. Note that we return an `ExactGP` rather than a variational GP.
-        :rtype: ~gpytorch.models.ExactGP
 
         Reference: "Conditioning Sparse Variational Gaussian Processes for Online Decision-Making,"
             Maddox, Stanton, Wilson, NeurIPS, '21
@@ -282,7 +304,7 @@ class _VariationalStrategy(Module, ABC):
         fantasy_model.prediction_strategy = fant_pred_strat
         return fantasy_model
 
-    def __call__(self, x, prior=False, **kwargs):
+    def __call__(self, x: Tensor, prior: bool = False, **kwargs) -> MultivariateNormal:
         # If we're in prior mode, then we're done!
         if prior:
             return self.model.forward(x, **kwargs)
