@@ -13,6 +13,9 @@ class BaseBlocker(abc.ABC):
 
     Subclasses must implement the set_blocks, set_neighbors, and set_test_blocks methods. Use help() to learn more
     about what these methods must return.
+
+    :param set_blocks_kwargs: Dict of keyword arguments to be passed to child's set_blocks implementation
+    :param set_neighbors_kwargs: Dict of keyword arguments to be passed to child's set_neighbors implementation
     """
     def __init__(self, set_blocks_kwargs: dict = None, set_neighbors_kwargs: dict = None):
 
@@ -45,6 +48,8 @@ class BaseBlocker(abc.ABC):
         defined by self.set_neighbors(). This is the meat of the template method defined above. Since the results of
         these calculations implicitly depend on the order of self._block_observations, we wrap these steps in a separate
         function, so we can recalculate if the order of self._block_observations changes via a call to self.reorder().
+
+        :param set_neighbors_kwargs: Dict of keyword arguments to be passed to child's set_neighbors implementation
         """
         if set_neighbors_kwargs is None:
             self._neighboring_blocks = self.set_neighbors()
@@ -68,27 +73,33 @@ class BaseBlocker(abc.ABC):
         self._inclusive_neighboring_observations = inclusive_neighboring_observations
 
     @abc.abstractmethod
-    def set_blocks(self, **kwargs) -> List[torch.IntTensor]:
+    def set_blocks(self, **kwargs) -> List[torch.LongTensor]:
         """
         Returns a list of length equal to the number of blocks, where the ith element is a tensor containing the
         indices of the training set that belong to the ith block.
+
+        :param kwargs: Keyword arguments to be passed to child's set_blocks implementation
         """
         ...
 
     @abc.abstractmethod
-    def set_neighbors(self, **kwargs) -> List[torch.IntTensor]:
+    def set_neighbors(self, **kwargs) -> List[torch.LongTensor]:
         """
         Returns a list of length equal to the number of blocks, where the ith element is a tensor containing the
         indices of the blocks that neighbor the ith block. Importantly, the ordering structure of the blocks is
         defined here, and cannot be modified after the object is instantiated.
+
+        :param kwargs: Keyword arguments to be passed to child's set_neighbors implementation
         """
         ...
 
     @abc.abstractmethod
-    def set_test_blocks(self, **kwargs) -> List[torch.IntTensor]:
+    def set_test_blocks(self, **kwargs) -> List[torch.LongTensor]:
         """
         Returns a list of length equal to the number of blocks, where the ith element is a tensor containing the
         indices of the testing set that belong to the ith block.
+
+        :param kwargs: Keyword arguments to be passed to child's set_test_blocks implementation
         """
         ...
 
@@ -134,10 +145,12 @@ class BaseBlocker(abc.ABC):
             )
         return self._inclusive_neighboring_observations
 
-    def reorder(self, new_order: torch.IntTensor):
+    def reorder(self, new_order: torch.LongTensor):
         """
         Reorders self._block_observations to the order specified by new_order. The ordered neighbors are recalculated,
         and all the relevant lists are modified in place.
+
+        :param new_order: Tensor where the ith element contains the index of the block to be moved to index i
         """
         # blocks get reordered here directly
         self._block_observations = [self._block_observations[idx] for idx in new_order]
@@ -145,4 +158,7 @@ class BaseBlocker(abc.ABC):
         self._create_ordered_neighbors(self.set_neighbors_kwargs)
 
     def block_new_data(self, **kwargs):
+        """
+
+        """
         self._test_block_observations = self.set_test_blocks(**kwargs)
