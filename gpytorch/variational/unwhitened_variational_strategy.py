@@ -37,14 +37,14 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
     - When the number of inducing points is very large (e.g. >2000). Unwhitened models can use CG for faster
       computation.
 
-    :param ~gpytorch.models.ApproximateGP model: Model this strategy is applied to.
+    :param ~model: Model this strategy is applied to.
         Typically passed in when the VariationalStrategy is created in the
         __init__ method of the user defined model.
     :param inducing_points: Tensor containing a set of inducing
         points to use for variational inference.
     :param variational_distribution: A
         VariationalDistribution object that represents the form of the variational distribution :math:`q(\mathbf u)`
-    :param learn_inducing_points: (optional, default True): Whether or not
+    :param learn_inducing_locations: (default True): Whether or not
         the inducing point locations :math:`\mathbf Z` should be learned (i.e. are they
         parameters of the model).
     :param jitter_val: Amount of diagonal jitter to add for Cholesky factorization numerical stability
