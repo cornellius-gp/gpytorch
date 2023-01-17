@@ -14,9 +14,8 @@ class KMeansBlocker(BaseBlocker):
         self.n_blocks = n_blocks
         self.n_neighbors = n_neighbors
 
-        self.k_means = None
+        #self.k_means = None
         self.centroids = None
-        #self.ordering = None
 
         super(KMeansBlocker, self).__init__(set_blocks_kwargs={"data": data}, set_neighbors_kwargs={})
 
@@ -27,7 +26,7 @@ class KMeansBlocker(BaseBlocker):
         kmeans.train(np.array(data.float()))
 
         # store kmeans for finding block membership of test points
-        self.k_means = kmeans
+        #self.k_means = kmeans
         # k-means gives centroids directly, so save centroids
         self.centroids = torch.tensor(kmeans.centroids)
 
@@ -46,22 +45,20 @@ class KMeansBlocker(BaseBlocker):
 
     def set_neighbors(self, **kwargs):
 
+        # if there are no neighbors, we want a list of empty tensors
         if self.n_neighbors == 0:
             return [torch.tensor([]) for _ in range(0, self.n_blocks)]
 
         else:
-            # euclidean distance matrix
-            dist_matrix = torch.cdist(self.centroids, self.centroids)
-            # sort by distances
-            sorter = dist_matrix.argsort()
-
+            # get distance matrix and find ordered distances
+            sorter = torch.cdist(self.centroids, self.centroids).argsort()
             return [sorter[i][sorter[i] < i][0:self.n_neighbors] for i in range(0, len(sorter))]
 
-    # TODO: Make this work with new ordering mechanisms
     def set_test_blocks(self, new_data):
 
         # get list of len(data) where the ith element indicates which block the ith element of data belongs to
-        block_membership = self.k_means.index.search(np.array(new_data.float()), 1)[1].squeeze()
+        #block_membership = self.k_means.index.search(np.array(new_data.float()), 1)[1].squeeze()
+        block_membership = torch.cdist(new_data, self.centroids).argsort()[:, 0]  # THIS SUCKS
         # create array where the ith element contains the set of indices of data corresponding to the ith block
         blocking_indices = [[] for _ in range(self.n_blocks)]
 
@@ -69,9 +66,8 @@ class KMeansBlocker(BaseBlocker):
         for i in range(0, len(block_membership)):
             blocking_indices[block_membership[argsorted[i]]].append(argsorted[i])
 
-        # convert each block to a tensor and return in the order specified by self.ordering
         test_blocks = [torch.tensor(blocking_index) for blocking_index in blocking_indices]
-        return [test_blocks[idx] for idx in self.ordering]
+        return test_blocks
 
     def reorder(self, ordering_strategy):
         new_order = ordering_strategy(self.centroids)
