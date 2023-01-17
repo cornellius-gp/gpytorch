@@ -3,6 +3,8 @@
 import torch
 import abc
 
+from typing import List
+
 
 class BaseBlocker(abc.ABC):
     """
@@ -12,7 +14,7 @@ class BaseBlocker(abc.ABC):
     Subclasses must implement the set_blocks, set_neighbors, and set_test_blocks methods. Use help() to learn more
     about what these methods must return.
     """
-    def __init__(self, set_blocks_kwargs=None, set_neighbors_kwargs=None):
+    def __init__(self, set_blocks_kwargs: dict = None, set_neighbors_kwargs: dict = None):
 
         self._block_observations = None
         self._neighboring_blocks = None
@@ -37,7 +39,7 @@ class BaseBlocker(abc.ABC):
 
         self._create_ordered_neighbors(self.set_neighbors_kwargs)
 
-    def _create_ordered_neighbors(self, set_neighbors_kwargs):
+    def _create_ordered_neighbors(self, set_neighbors_kwargs: dict):
         """
         Calculates neighboring relationships based on the order defined by self._block_observations, using the algorithm
         defined by self.set_neighbors(). This is the meat of the template method defined above. Since the results of
@@ -66,7 +68,7 @@ class BaseBlocker(abc.ABC):
         self._inclusive_neighboring_observations = inclusive_neighboring_observations
 
     @abc.abstractmethod
-    def set_blocks(self, **kwargs):
+    def set_blocks(self, **kwargs) -> List[torch.IntTensor]:
         """
         Returns a list of length equal to the number of blocks, where the ith element is a tensor containing the
         indices of the training set that belong to the ith block.
@@ -74,7 +76,7 @@ class BaseBlocker(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def set_neighbors(self, **kwargs):
+    def set_neighbors(self, **kwargs) -> List[torch.IntTensor]:
         """
         Returns a list of length equal to the number of blocks, where the ith element is a tensor containing the
         indices of the blocks that neighbor the ith block. Importantly, the ordering structure of the blocks is
@@ -83,7 +85,7 @@ class BaseBlocker(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def set_test_blocks(self, **kwargs):
+    def set_test_blocks(self, **kwargs) -> List[torch.IntTensor]:
         """
         Returns a list of length equal to the number of blocks, where the ith element is a tensor containing the
         indices of the testing set that belong to the ith block.
@@ -93,8 +95,7 @@ class BaseBlocker(abc.ABC):
     @property
     def blocks(self):
         """
-        List of tensors where the ith element contains the indices of the training set points belonging to the
-        ith block, where the blocks are ordered by self.block_order.
+        List of tensors where the ith element contains the indices of the training set points belonging to block i.
         """
         return self._block_observations
 
@@ -102,15 +103,15 @@ class BaseBlocker(abc.ABC):
     def neighbors(self):
         """
         List of tensors, where the ith element contains the indices of the training set points belonging to the neighbor
-        set of the ith block, where the blocks are ordered by self.block_order.
+        set of block i.
         """
         return self._exclusive_neighboring_observations
 
     @property
     def test_blocks(self):
         """
-        List of tensors where the ith element contains the indices of the testing set points belonging to the ith block,
-        where the blocks are ordered by self.block_order. Only defined after set_test_blocks has been called.
+        List of tensors where the ith element contains the indices of the testing set points belonging to block i.
+        Only defined after set_test_blocks has been called.
         """
         if self._test_block_observations is None:
             raise RuntimeError(
@@ -133,9 +134,14 @@ class BaseBlocker(abc.ABC):
             )
         return self._inclusive_neighboring_observations
 
-    # TODO: Document reorder and how it should be implemented
-    def reorder(self, new_order):
+    def reorder(self, new_order: torch.IntTensor):
+        """
+        Reorders self._block_observations to the order specified by new_order. The ordered neighbors are recalculated,
+        and all the relevant lists are modified in place.
+        """
+        # blocks get reordered here directly
         self._block_observations = [self._block_observations[idx] for idx in new_order]
+        # neighboring blocks get recomputed here based on new ordering, so we do not have to explicitly reorder them
         self._create_ordered_neighbors(self.set_neighbors_kwargs)
 
     def block_new_data(self, **kwargs):
