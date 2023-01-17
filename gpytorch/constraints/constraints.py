@@ -102,8 +102,8 @@ class Interval(Module):
         """
         Transforms a tensor to satisfy the specified bounds.
 
-        If upper_bound is finite, we assume that `self.transform` saturates at 1 as tensor -> infinity. Similarly,
-        if lower_bound is finite, we assume that `self.transform` saturates at 0 as tensor -> -infinity.
+        If upper_bound is finite, we assume that `self._transform` saturates at 1 as tensor -> infinity. Similarly,
+        if lower_bound is finite, we assume that `self._transform` saturates at 0 as tensor -> -infinity.
 
         Example transforms for one of the bounds being finite include torch.exp and torch.nn.functional.softplus.
         An example transform for the case where both are finite is torch.nn.functional.sigmoid.
