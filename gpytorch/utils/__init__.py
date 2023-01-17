@@ -7,7 +7,7 @@ from typing import Any
 
 import linear_operator
 
-from . import deprecation, errors, grid, interpolation, quadrature, transforms, warnings
+from . import deprecation, errors, generic, grid, interpolation, quadrature, transforms, warnings
 from .memoize import cached
 from .nearest_neighbors import NNUtil
 
@@ -15,6 +15,7 @@ __all__ = [
     "cached",
     "deprecation",
     "errors",
+    "generic",
     "grid",
     "interpolation",
     "quadrature",
