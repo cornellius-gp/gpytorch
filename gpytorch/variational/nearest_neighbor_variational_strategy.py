@@ -68,12 +68,14 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
         https://github.com/facebookresearch/faiss
     """
 
-    def __init__(self, model, inducing_points, variational_distribution, k, training_batch_size):
+    def __init__(self, model, inducing_points, variational_distribution, k, training_batch_size, jitter_val=None):
         assert isinstance(
             variational_distribution, MeanFieldVariationalDistribution
         ), "Currently, NNVariationalStrategy only supports MeanFieldVariationalDistribution."
 
-        super().__init__(model, inducing_points, variational_distribution, learn_inducing_locations=False)
+        super().__init__(
+            model, inducing_points, variational_distribution, learn_inducing_locations=False, jitter_val=jitter_val
+        )
         # Make sure we don't try to initialize variational parameters - because of minibatching
         self.variational_params_initialized.fill_(1)
 
@@ -295,7 +297,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
         # compute invquad_term
         nearest_neighbor_variational_mean = expanded_variational_mean.gather(-2, expanded_nearest_neighbor_indices)
         Bj_m = torch.sum(interp_term * nearest_neighbor_variational_mean, dim=-1)
-        inducing_point_variational_mean = variational_mean[..., kl_indices] ** 2
+        inducing_point_variational_mean = variational_mean[..., kl_indices]
         invquad_term = torch.sum((inducing_point_variational_mean - Bj_m) ** 2 / F, dim=-1)
 
         kl = 1.0 / 2 * (logdet_p - logdet_q - kl_bs + trace_term + invquad_term)
