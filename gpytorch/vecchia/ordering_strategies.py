@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import torch
+from ._blocker import BaseBlocker
 
 
 # TODO: Document ordering strategies and test more orders

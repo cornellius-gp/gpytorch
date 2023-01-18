@@ -5,6 +5,10 @@ import abc
 
 from typing import List
 
+import math
+import numpy as np
+from matplotlib import pyplot as plt
+
 
 class BaseBlocker(abc.ABC):
     """
@@ -162,3 +166,56 @@ class BaseBlocker(abc.ABC):
 
         """
         self._test_block_observations = self.set_test_blocks(**kwargs)
+
+    def plot(self, x, y, n_blocks=None, seed=0):
+
+        np.random.seed(seed)
+
+        if n_blocks is not None:
+            if n_blocks > len(self._block_observations):
+                raise ValueError("Number of blocks to plot must not exceed total number of blocks.")
+        else:
+            n_blocks = math.ceil(math.log(len(self._block_observations)))
+
+        ordered_x = torch.cat([x[self._block_observations[i], :] for i in range(len(self._block_observations))]).numpy()
+        ordered_y = torch.cat([y[self._block_observations[i]] for i in range(len(self._block_observations))]).numpy()
+
+        unique_colors = np.linspace(0, 1, len(self._block_observations))
+        colors = np.concatenate(
+            [[(unique_colors[j], 0, unique_colors[j])
+              for _ in range(len(self._block_observations[j]))]
+              for j in range(len(self._block_observations))])
+
+        plt.figure(figsize=(15, 10))
+
+        plt.subplot(2, 2, 1)
+        plt.scatter(ordered_x[:, 0], ordered_x[:, 1], c=colors)
+        plt.title("Ordered Features")
+
+        plt.subplot(2, 2, 2)
+        plt.scatter(ordered_x[:, 0], ordered_x[:, 1], c=ordered_y)
+        plt.title("Response Values")
+
+        sampled_blocks = np.random.permutation(len(self._block_observations))[:n_blocks]
+
+        plt.subplot(2, 2, 3)
+        plt.scatter(ordered_x[:, 0], ordered_x[:, 1], c="grey", alpha=0.25)
+        for sampled_block in sampled_blocks:
+            plt.scatter(x[self._block_observations[sampled_block], 0].numpy(),
+                        x[self._block_observations[sampled_block], 1].numpy(), c="red", s=50)
+            plt.scatter(x[self._exclusive_neighboring_observations[sampled_block], 0].numpy(),
+                        x[self._exclusive_neighboring_observations[sampled_block], 1].numpy(), c="red", alpha=0.25)
+        plt.title("Ordered Neighbors")
+
+        plt.subplot(2, 2, 4)
+        plt.scatter(ordered_x[:, 0], ordered_x[:, 1], c="grey", alpha=0.25)
+        for sampled_block in sampled_blocks:
+            plt.scatter(x[self._block_observations[sampled_block], 0].numpy(),
+                        x[self._block_observations[sampled_block], 1].numpy(),
+                        c=y[self._block_observations[sampled_block]].numpy(),
+                        vmin=torch.min(y), vmax=torch.max(y))
+            plt.scatter(x[self._exclusive_neighboring_observations[sampled_block], 0].numpy(),
+                        x[self._exclusive_neighboring_observations[sampled_block], 1].numpy(),
+                        c=y[self._exclusive_neighboring_observations[sampled_block]].numpy(),
+                        vmin=torch.min(y), vmax=torch.max(y))
+        plt.title("Corresponding Response Values")
