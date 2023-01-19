@@ -18,8 +18,8 @@ class BaseBlocker(abc.ABC):
     Subclasses must implement the set_blocks, set_neighbors, and set_test_blocks methods. Use help() to learn more
     about what these methods must return.
 
-    :param set_blocks_kwargs: Dict of keyword arguments to be passed to child's set_blocks implementation
-    :param set_neighbors_kwargs: Dict of keyword arguments to be passed to child's set_neighbors implementation
+    :param set_blocks_kwargs: Dict of keyword arguments to be passed to child's set_blocks implementation.
+    :param set_neighbors_kwargs: Dict of keyword arguments to be passed to child's set_neighbors implementation.
     """
     def __init__(self, set_blocks_kwargs: dict = None, set_neighbors_kwargs: dict = None):
 
@@ -53,7 +53,7 @@ class BaseBlocker(abc.ABC):
         these calculations implicitly depend on the order of self._block_observations, we wrap these steps in a separate
         function, so we can recalculate if the order of self._block_observations changes via a call to self.reorder().
 
-        :param set_neighbors_kwargs: Dict of keyword arguments to be passed to child's set_neighbors implementation
+        :param set_neighbors_kwargs: Dict of keyword arguments to be passed to child's set_neighbors implementation.
         """
         if set_neighbors_kwargs is None:
             self._neighboring_blocks = self.set_neighbors()
@@ -82,7 +82,7 @@ class BaseBlocker(abc.ABC):
         Returns a list of length equal to the number of blocks, where the ith element is a tensor containing the
         indices of the training set that belong to the ith block.
 
-        :param kwargs: Keyword arguments to be passed to child's set_blocks implementation
+        :param kwargs: Keyword arguments to be passed to child's set_blocks implementation.
         """
         ...
 
@@ -93,7 +93,7 @@ class BaseBlocker(abc.ABC):
         indices of the blocks that neighbor the ith block. Importantly, the ordering structure of the blocks is
         defined here, and cannot be modified after the object is instantiated.
 
-        :param kwargs: Keyword arguments to be passed to child's set_neighbors implementation
+        :param kwargs: Keyword arguments to be passed to child's set_neighbors implementation.
         """
         ...
 
@@ -103,7 +103,7 @@ class BaseBlocker(abc.ABC):
         Returns a list of length equal to the number of blocks, where the ith element is a tensor containing the
         indices of the testing set that belong to the ith block.
 
-        :param kwargs: Keyword arguments to be passed to child's set_test_blocks implementation
+        :param kwargs: Keyword arguments to be passed to child's set_test_blocks implementation.
         """
         ...
 
@@ -154,7 +154,7 @@ class BaseBlocker(abc.ABC):
         Reorders self._block_observations to the order specified by new_order. The ordered neighbors are recalculated,
         and all the relevant lists are modified in place.
 
-        :param new_order: Tensor where the ith element contains the index of the block to be moved to index i
+        :param new_order: Tensor where the ith element contains the index of the block to be moved to index i.
         """
         # blocks get reordered here directly
         self._block_observations = [self._block_observations[idx] for idx in new_order]
@@ -163,11 +163,19 @@ class BaseBlocker(abc.ABC):
 
     def block_new_data(self, **kwargs):
         """
-
+        Calls the set_test_blocks method defined by the child class.
         """
         self._test_block_observations = self.set_test_blocks(**kwargs)
 
-    def plot(self, x, y, n_blocks=None, seed=0):
+    def plot(self, x: torch.tensor, y: torch.tensor, n_blocks: int = None, seed: int = 0):
+        """
+        Useful visualization for this object and the ordering of the blocks, only implemented for 2D features.
+
+        :param x: Spatial coordinates to plot. This must be the same tensor that was used to construct the blocks.
+        :param y: Response values corresponding to each spatial coordinate in x.
+        :param n_blocks: Number of blocks to sample for the plot.
+        :param seed: RNG seed to change which blocks get randomly sampled.
+        """
 
         np.random.seed(seed)
 
@@ -196,7 +204,9 @@ class BaseBlocker(abc.ABC):
         plt.scatter(ordered_x[:, 0], ordered_x[:, 1], c=ordered_y)
         plt.title("Response Values")
 
-        sampled_blocks = np.random.permutation(len(self._block_observations))[:n_blocks]
+        # for a fixed sample of indices, this will always yield the same sampled_blocks regardless of reordering
+        invariant_block_idx = torch.argsort(torch.stack([torch.max(block) for block in self._block_observations]))
+        sampled_blocks = invariant_block_idx[np.random.permutation(len(self._block_observations))[:n_blocks]]
 
         plt.subplot(2, 2, 3)
         plt.scatter(ordered_x[:, 0], ordered_x[:, 1], c="grey", alpha=0.25)
