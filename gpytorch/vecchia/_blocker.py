@@ -98,11 +98,12 @@ class BaseBlocker(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def set_test_blocks(self, **kwargs) -> List[torch.LongTensor]:
+    def set_test_blocks(self, *args, **kwargs) -> List[torch.LongTensor]:
         """
         Returns a list of length equal to the number of blocks, where the ith element is a tensor containing the
         indices of the testing set that belong to the ith block.
 
+        :param args: Positional arguments to be passed to child's set_test_blocks implementation.
         :param kwargs: Keyword arguments to be passed to child's set_test_blocks implementation.
         """
         ...
@@ -126,7 +127,7 @@ class BaseBlocker(abc.ABC):
     def test_blocks(self):
         """
         List of tensors where the ith tensor contains the indices of the testing set points belonging to block i.
-        Only defined after set_test_blocks has been called.
+        Only defined after block_new_data has been called.
         """
         if self._test_block_observations is None:
             raise RuntimeError(
@@ -140,11 +141,11 @@ class BaseBlocker(abc.ABC):
         """
         List of tensors, where the ith tensor contains the indices of the training set points belonging to the
         neighbor set of the ith test block. Importantly, the neighbor sets of test blocks only consist of training
-        points. Only defined after set_test_blocks has been called.
+        points. Only defined after block_new_data has been called.
         """
         if self._test_block_observations is None:
             raise RuntimeError(
-                "Neighboring sets of testing blocks do not exist, as the 'set_test_blocks' "
+                "Neighboring sets of testing blocks do not exist, as the 'block_new_data' "
                 "method has not been called on testing data."
             )
         return self._inclusive_neighboring_observations
@@ -161,11 +162,11 @@ class BaseBlocker(abc.ABC):
         # neighboring blocks get recomputed here based on new ordering, so we do not have to explicitly reorder them
         self._create_ordered_neighbors(self.set_neighbors_kwargs)
 
-    def block_new_data(self, **kwargs):
+    def block_new_data(self, *args, **kwargs):
         """
         Calls the set_test_blocks method defined by the child class.
         """
-        self._test_block_observations = self.set_test_blocks(**kwargs)
+        self._test_block_observations = self.set_test_blocks(*args, **kwargs)
 
     def plot(self, x: torch.tensor, y: torch.tensor, n_blocks: int = None, seed: int = 0):
         """
@@ -188,11 +189,10 @@ class BaseBlocker(abc.ABC):
         ordered_x = torch.cat([x[self._block_observations[i], :] for i in range(len(self._block_observations))]).numpy()
         ordered_y = torch.cat([y[self._block_observations[i]] for i in range(len(self._block_observations))]).numpy()
 
-        unique_colors = np.linspace(0, 1, len(self._block_observations))
-        colors = np.concatenate(
-            [[(unique_colors[j], 0, unique_colors[j])
-              for _ in range(len(self._block_observations[j]))]
-              for j in range(len(self._block_observations))])
+        unique_color_vals = np.linspace(0, 1, len(self._block_observations))
+        unique_colors = np.array([(unique_color_vals[i], 0, unique_color_vals[i])
+                                  for i in range(len(unique_color_vals))])
+        colors = np.repeat(unique_colors, [len(block) for block in self._block_observations], axis=0)
 
         plt.figure(figsize=(15, 10))
 
