@@ -11,8 +11,8 @@ from ._blocker import BaseBlocker
 
 class KMeansBlocker(BaseBlocker):
     """
-    This blocker performs K-Means clustering on a given feature set, computes neighboring blocks, enables evaluating
-    block membership for test points, and enables reordering of the blocks based on block centroids.
+    This blocker performs K-Means clustering on a given feature set, computes neighboring blocks, enables
+    evaluating block membership for test points, and enables reordering of the blocks based on block centroids.
 
     :param data: Features to cluster via K-Means, typically an n x 2 tensor of spatial lat-long coordinates.
     :param n_blocks: Number of desired clusters. Note that this does not guarantee similarly-sized clusters.
