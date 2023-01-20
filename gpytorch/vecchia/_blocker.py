@@ -117,15 +117,15 @@ class BaseBlocker(abc.ABC):
     @property
     def neighbors(self):
         """
-        List of tensors, where the ith element contains the indices of the training set points belonging to the neighbor
-        set of block i.
+        List of tensors, where the ith tensor contains the indices of the training set points belonging to the
+        neighbor set of block i.
         """
         return self._exclusive_neighboring_observations
 
     @property
     def test_blocks(self):
         """
-        List of tensors where the ith element contains the indices of the testing set points belonging to block i.
+        List of tensors where the ith tensor contains the indices of the testing set points belonging to block i.
         Only defined after set_test_blocks has been called.
         """
         if self._test_block_observations is None:
@@ -138,9 +138,9 @@ class BaseBlocker(abc.ABC):
     @property
     def test_neighbors(self):
         """
-        List of tensors, where the ith element contains the indices of the training set points belonging to the
-        neighbor set of the ith test block, where the blocks are ordered by self.block_order. Importantly, the neighbor
-        sets of test blocks only consist of training points. Only defined after set_test_blocks has been called.
+        List of tensors, where the ith tensor contains the indices of the training set points belonging to the
+        neighbor set of the ith test block. Importantly, the neighbor sets of test blocks only consist of training
+        points. Only defined after set_test_blocks has been called.
         """
         if self._test_block_observations is None:
             raise RuntimeError(
