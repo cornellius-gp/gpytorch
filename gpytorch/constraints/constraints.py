@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import math
 
 import torch
@@ -23,11 +25,21 @@ class Interval(Module):
             lower_bound (float or torch.Tensor): The lower bound on the parameter.
             upper_bound (float or torch.Tensor): The upper bound on the parameter.
         """
-        lower_bound = torch.as_tensor(lower_bound).float()
-        upper_bound = torch.as_tensor(upper_bound).float()
+        dtype = torch.get_default_dtype()
+        lower_bound = torch.as_tensor(lower_bound).to(dtype)
+        upper_bound = torch.as_tensor(upper_bound).to(dtype)
 
         if torch.any(torch.ge(lower_bound, upper_bound)):
-            raise RuntimeError("Got parameter bounds with empty intervals.")
+            raise ValueError("Got parameter bounds with empty intervals.")
+
+        if type(self) == Interval:
+            max_bound = torch.max(upper_bound)
+            min_bound = torch.min(lower_bound)
+            if max_bound == math.inf or min_bound == -math.inf:
+                raise ValueError(
+                    "Cannot make an Interval directly with non-finite bounds. Use a derived class like "
+                    "GreaterThan or LessThan instead."
+                )
 
         super().__init__()
 
@@ -110,16 +122,6 @@ class Interval(Module):
         """
         if not self.enforced:
             return tensor
-
-        if settings.debug.on():
-            max_bound = torch.max(self.upper_bound)
-            min_bound = torch.min(self.lower_bound)
-
-            if max_bound == math.inf or min_bound == -math.inf:
-                raise RuntimeError(
-                    "Cannot make an Interval directly with non-finite bounds. Use a derived class like "
-                    "GreaterThan or LessThan instead."
-                )
 
         transformed_tensor = (self._transform(tensor) * (self.upper_bound - self.lower_bound)) + self.lower_bound
 
