@@ -171,6 +171,12 @@ Specialty Kernels
 .. autoclass:: RBFKernelGrad
    :members:
 
+:hidden:`RBFKernelGradGrad`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: RBFKernelGradGrad
+   :members:
+
 
 Kernels for Scalable GP Regression Methods
 --------------------------------------------
