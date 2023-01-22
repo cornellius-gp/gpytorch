@@ -19,6 +19,6 @@ class LinearMeanGradGrad(Mean):
         res = x.matmul(self.weights)
         if self.bias is not None:
             res = res + self.bias.unsqueeze(-1)
-        dres = self.weights.expand(x.transpose(-1,-2).shape).transpose(-1,-2)
+        dres = self.weights.expand(x.transpose(-1, -2).shape).transpose(-1, -2)
         ddres = torch.zeros_like(dres)
-        return torch.cat((res,dres,ddres),-1)
+        return torch.cat((res, dres, ddres), -1)

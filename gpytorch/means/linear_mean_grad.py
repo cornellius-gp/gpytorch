@@ -19,5 +19,5 @@ class LinearMeanGrad(Mean):
         res = x.matmul(self.weights)
         if self.bias is not None:
             res = res + self.bias.unsqueeze(-1)
-        dres = self.weights.expand(x.transpose(-1,-2).shape).transpose(-1,-2)
-        return torch.cat((res,dres),-1)
+        dres = self.weights.expand(x.transpose(-1, -2).shape).transpose(-1, -2)
+        return torch.cat((res, dres), -1)
