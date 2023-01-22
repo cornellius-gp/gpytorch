@@ -51,6 +51,7 @@ jobs:
       run: |
         conda config --set anaconda_upload yes
         conda config --append channels pytorch
+        conda config --append channels gpytorch
         /usr/share/miniconda/bin/anaconda login --username ${{ secrets.CONDA_USERNAME }} --password ${{ secrets.CONDA_PASSWORD }}
         python -m setuptools_scm
         cd .conda

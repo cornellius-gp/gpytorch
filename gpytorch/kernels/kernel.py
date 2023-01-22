@@ -262,13 +262,26 @@ class Kernel(Module):
         self._batch_shape = val
 
     @property
+    def device(self) -> Optional[torch.device]:
+        if self.has_lengthscale:
+            return self.lengthscale.device
+        devices = {param.device for param in self.parameters()}
+        if len(devices) > 1:
+            raise RuntimeError(f"The kernel's parameters are on multiple devices: {devices}.")
+        elif devices:
+            return devices.pop()
+        return None
+
+    @property
     def dtype(self) -> torch.dtype:
         if self.has_lengthscale:
             return self.lengthscale.dtype
-        else:
-            for param in self.parameters():
-                return param.dtype
-            return torch.get_default_dtype()
+        dtypes = {param.dtype for param in self.parameters()}
+        if len(dtypes) > 1:
+            raise RuntimeError(f"The kernel's parameters have multiple dtypes: {dtypes}.")
+        elif dtypes:
+            return dtypes.pop()
+        return torch.get_default_dtype()
 
     @property
     def lengthscale(self) -> Tensor:

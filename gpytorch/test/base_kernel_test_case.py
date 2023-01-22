@@ -179,3 +179,19 @@ class BaseKernelTestCase(BaseTestCase):
     def test_kernel_pickle_unpickle(self):
         kernel = self.create_kernel_no_ard(batch_shape=torch.Size([]))
         pickle.loads(pickle.dumps(kernel))  # Should be able to pickle and unpickle a kernel
+
+    def test_kernel_dtype_device(self):
+        kernel = self.create_kernel_no_ard(batch_shape=torch.Size([]))
+        orig_type = kernel.dtype
+        self.assertEqual(orig_type, torch.get_default_dtype())
+        self.assertEqual(kernel.device, torch.device("cpu"))
+        new_type = ({torch.float32, torch.float64} - {torch.get_default_dtype()}).pop()
+        kernel.to(dtype=new_type)
+        self.assertEqual(kernel.dtype, new_type)
+        if torch.cuda.is_available():
+            kernel.to(device="cuda")
+            self.assertNotEqual(kernel.device, torch.device("cpu"))
+        if not kernel.has_lengthscale:
+            kernel.register_parameter("foo", torch.nn.Parameter(torch.zeros(1, dtype=orig_type)))
+            with self.assertRaisesRegex(RuntimeError, "parameters have multiple dtypes"):
+                kernel.dtype
