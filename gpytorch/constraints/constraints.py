@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import math
+from typing import Optional
 
 import torch
-from torch import sigmoid
+from torch import Tensor, sigmoid
 from torch.nn import Module
 
-from .. import settings
 from ..utils.transforms import _get_inv_param_transform, inv_sigmoid, inv_softplus
 
 # define softplus here instead of using torch.nn.functional.softplus because the functional version can't be pickled
@@ -53,9 +53,7 @@ class Interval(Module):
             self._inv_transform = _get_inv_param_transform(transform)
 
         if initial_value is not None:
-            if not isinstance(initial_value, torch.Tensor):
-                initial_value = torch.tensor(initial_value)
-            self._initial_value = self.inverse_transform(initial_value)
+            self._initial_value = self.inverse_transform(torch.as_tensor(initial_value))
         else:
             self._initial_value = None
 
@@ -81,19 +79,19 @@ class Interval(Module):
         return result
 
     @property
-    def enforced(self):
+    def enforced(self) -> bool:
         return self._transform is not None
 
-    def check(self, tensor):
+    def check(self, tensor) -> bool:
         return bool(torch.all(tensor <= self.upper_bound) and torch.all(tensor >= self.lower_bound))
 
-    def check_raw(self, tensor):
+    def check_raw(self, tensor) -> bool:
         return bool(
             torch.all((self.transform(tensor) <= self.upper_bound))
             and torch.all(self.transform(tensor) >= self.lower_bound)
         )
 
-    def intersect(self, other):
+    def intersect(self, other: Interval) -> Interval:
         """
         Returns a new Interval constraint that is the intersection of this one and another specified one.
 
@@ -110,7 +108,7 @@ class Interval(Module):
         upper_bound = torch.min(self.upper_bound, other.upper_bound)
         return Interval(lower_bound, upper_bound)
 
-    def transform(self, tensor):
+    def transform(self, tensor: Tensor) -> Tensor:
         """
         Transforms a tensor to satisfy the specified bounds.
 
@@ -127,35 +125,25 @@ class Interval(Module):
 
         return transformed_tensor
 
-    def inverse_transform(self, transformed_tensor):
+    def inverse_transform(self, transformed_tensor: Tensor) -> Tensor:
         """
         Applies the inverse transformation.
         """
         if not self.enforced:
             return transformed_tensor
 
-        if settings.debug.on():
-            max_bound = torch.max(self.upper_bound)
-            min_bound = torch.min(self.lower_bound)
-
-            if max_bound == math.inf or min_bound == -math.inf:
-                raise RuntimeError(
-                    "Cannot make an Interval directly with non-finite bounds. Use a derived class like "
-                    "GreaterThan or LessThan instead."
-                )
-
         tensor = self._inv_transform((transformed_tensor - self.lower_bound) / (self.upper_bound - self.lower_bound))
 
         return tensor
 
     @property
-    def initial_value(self):
+    def initial_value(self) -> Optional[Tensor]:
         """
         The initial parameter value (if specified, None otherwise)
         """
         return self._initial_value
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if self.lower_bound.numel() == 1 and self.upper_bound.numel() == 1:
             return self._get_name() + f"({self.lower_bound:.3E}, {self.upper_bound:.3E})"
         else:
@@ -176,17 +164,17 @@ class GreaterThan(Interval):
             initial_value=initial_value,
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if self.lower_bound.numel() == 1:
             return self._get_name() + f"({self.lower_bound:.3E})"
         else:
             return super().__repr__()
 
-    def transform(self, tensor):
+    def transform(self, tensor: Tensor) -> Tensor:
         transformed_tensor = self._transform(tensor) + self.lower_bound if self.enforced else tensor
         return transformed_tensor
 
-    def inverse_transform(self, transformed_tensor):
+    def inverse_transform(self, transformed_tensor: Tensor) -> Tensor:
         tensor = self._inv_transform(transformed_tensor - self.lower_bound) if self.enforced else transformed_tensor
         return tensor
 
@@ -195,14 +183,14 @@ class Positive(GreaterThan):
     def __init__(self, transform=softplus, inv_transform=inv_softplus, initial_value=None):
         super().__init__(lower_bound=0.0, transform=transform, inv_transform=inv_transform, initial_value=initial_value)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self._get_name() + "()"
 
-    def transform(self, tensor):
+    def transform(self, tensor: Tensor) -> Tensor:
         transformed_tensor = self._transform(tensor) if self.enforced else tensor
         return transformed_tensor
 
-    def inverse_transform(self, transformed_tensor):
+    def inverse_transform(self, transformed_tensor: Tensor) -> Tensor:
         tensor = self._inv_transform(transformed_tensor) if self.enforced else transformed_tensor
         return tensor
 
@@ -217,13 +205,13 @@ class LessThan(Interval):
             initial_value=initial_value,
         )
 
-    def transform(self, tensor):
+    def transform(self, tensor: Tensor) -> Tensor:
         transformed_tensor = -self._transform(-tensor) + self.upper_bound if self.enforced else tensor
         return transformed_tensor
 
-    def inverse_transform(self, transformed_tensor):
+    def inverse_transform(self, transformed_tensor: Tensor) -> Tensor:
         tensor = -self._inv_transform(-(transformed_tensor - self.upper_bound)) if self.enforced else transformed_tensor
         return tensor
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self._get_name() + f"({self.upper_bound:.3E})"
