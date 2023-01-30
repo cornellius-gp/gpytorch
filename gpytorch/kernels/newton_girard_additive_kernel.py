@@ -90,14 +90,14 @@ class NewtonGirardAdditiveKernel(Kernel):
         s_k = kern_values.unsqueeze(kernel_dim - 1).pow(kvals).sum(dim=kernel_dim)
 
         # just the constant -1
-        m1 = torch.tensor([-1], dtype=torch.float, device=kern_values.device)
+        m1 = torch.tensor([-1], dtype=x1.dtype, device=kern_values.device)
 
         shape = [1 for _ in range(len(kern_values.shape))]
         shape[kernel_dim] = -1
         for deg in range(1, self.max_degree + 1):  # deg goes from 1 to R (it's 1-indexed!)
             # we avg over k [1, ..., deg] (-1)^(k-1)e_{deg-k} s_{k}
 
-            ks = torch.arange(1, deg + 1, device=kern_values.device, dtype=torch.float).reshape(*shape)  # use for pow
+            ks = torch.arange(1, deg + 1, device=kern_values.device, dtype=x1.dtype).reshape(*shape)  # use for pow
             kslong = torch.arange(1, deg + 1, device=kern_values.device, dtype=torch.long)  # use for indexing
 
             # note that s_k is 0-indexed, so we must subtract 1 from kslong

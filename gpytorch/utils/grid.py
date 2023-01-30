@@ -2,7 +2,7 @@
 
 import math
 import warnings
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import torch
 
@@ -130,8 +130,8 @@ def create_grid(
     grid_sizes: List[int],
     grid_bounds: List[Tuple[float, float]],
     extend: bool = True,
-    device="cpu",
-    dtype=torch.float,
+    device: str = "cpu",
+    dtype: Optional[torch.dtype] = None,
 ) -> List[torch.Tensor]:
     """
     Creates a grid represented by a list of 1D Tensors representing the
@@ -141,16 +141,14 @@ def create_grid(
     which can be important for getting good grid interpolations.
 
     :param grid_sizes: Sizes of each grid dimension
-    :type grid_sizes: List[int]
     :param grid_bounds: Lower and upper bounds of each grid dimension
-    :type grid_sizes: List[Tuple[float, float]]
     :param device: target device for output (default: cpu)
-    :type device: torch.device, optional
     :param dtype: target dtype for output (default: torch.float)
-    :type dtype: torch.dtype, optional
     :return: Grid points for each dimension. Grid points are stored in a :obj:`torch.Tensor` with shape `grid_sizes[i]`.
     :rtype: List[torch.Tensor]
     """
+    if dtype is None:
+        dtype = torch.get_default_dtype()
     grid = []
     for i in range(len(grid_bounds)):
         grid_diff = float(grid_bounds[i][1] - grid_bounds[i][0]) / (grid_sizes[i] - 2)

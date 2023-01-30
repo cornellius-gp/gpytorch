@@ -2,8 +2,6 @@
 
 from math import pi
 
-import os
-import random
 import torch
 import unittest
 
@@ -13,6 +11,7 @@ from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.distributions import MultivariateNormal
+from gpytorch.test.base_test_case import BaseTestCase
 from torch import optim
 
 # Simple training data: let's try to learn a sine function,
@@ -52,18 +51,8 @@ class GPRegressionModel(gpytorch.models.ExactGP):
         return MultivariateNormal(mean_x, covar_x)
 
 
-class TestKISSGPKroneckerProductRegression(unittest.TestCase):
-    def setUp(self):
-        if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
-            self.rng_state = torch.get_rng_state()
-            torch.manual_seed(0)
-            if torch.cuda.is_available():
-                torch.cuda.manual_seed_all(0)
-            random.seed(0)
-
-    def tearDown(self):
-        if hasattr(self, "rng_state"):
-            torch.set_rng_state(self.rng_state)
+class TestKISSGPKroneckerProductRegression(unittest.TestCase, BaseTestCase):
+    seed = 0
 
     def test_kissgp_gp_mean_abs_error(self):
         likelihood = GaussianLikelihood()
@@ -98,6 +87,22 @@ class TestKISSGPKroneckerProductRegression(unittest.TestCase):
             test_preds = likelihood(gp_model(test_x)).mean
             mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
             self.assertLess(mean_abs_error.squeeze().item(), 0.2)
+
+            # Try drawing a sample - make sure there's no errors
+            with torch.no_grad(), gpytorch.settings.max_root_decomposition_size(100):
+                with gpytorch.settings.fast_pred_samples():
+                    gp_model(train_x).rsample(torch.Size([1]))
+
+
+class TestKISSGPKroneckerProductRegressionDouble(TestKISSGPKroneckerProductRegression):
+    def setUp(self):
+        super().setUp
+        self.default_dtype = torch.get_default_dtype()
+        torch.set_default_dtype(torch.float64)
+
+    def tearDown(self):
+        super().tearDown()
+        torch.set_default_dtype(self.default_dtype)
 
 
 if __name__ == "__main__":
