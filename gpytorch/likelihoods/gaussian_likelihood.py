@@ -308,7 +308,7 @@ class DirichletClassificationLikelihood(FixedNoiseGaussianLikelihood):
         >>> pred_y = likelihood(gp_model(test_x), targets=labels)
     """
 
-    def _prepare_targets(self, targets: torch.Tensor, alpha_epsilon: float = 0.01, dtype: Optional[torch.dtype] = None):
+    def _prepare_targets(self, targets: torch.Tensor, alpha_epsilon: float = 0.01, dtype: Optional[torch.dtype] = None) -> Tuple[torch.Tensor, torch.Tensor, int]:
         if dtype is None:
             dtype = torch.get_default_dtype()
 
