@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
+import unittest
 from math import pi
 
-import torch
-import unittest
-
 import gpytorch
-from gpytorch.means import ConstantMean, MultitaskMean
-from gpytorch.likelihoods import MultitaskGaussianLikelihood
+
+import torch
 from gpytorch.distributions import MultitaskMultivariateNormal
+from gpytorch.likelihoods import MultitaskGaussianLikelihood
+from gpytorch.means import ConstantMean, MultitaskMean
 from gpytorch.test.base_test_case import BaseTestCase
 
 
@@ -31,7 +31,9 @@ class MultitaskGPModel(gpytorch.models.ExactGP):
         self.covar_module = gpytorch.kernels.MultitaskKernel(
             gpytorch.kernels.InducingPointKernel(
                 gpytorch.kernels.RBFKernel(), inducing_points=torch.randn(50, 1), likelihood=likelihood
-            ), num_tasks=2, rank=2
+            ),
+            num_tasks=2,
+            rank=2,
         )
 
     def forward(self, x):

@@ -3,9 +3,9 @@
 import unittest
 
 import torch
-from linear_operator.operators import InterpolatedLinearOperator
 
 from gpytorch.kernels import GridInterpolationKernel, RBFKernel
+from linear_operator.operators import InterpolatedLinearOperator
 
 
 class TestGridInterpolationKernel(unittest.TestCase):

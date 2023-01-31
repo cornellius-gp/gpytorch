@@ -34,9 +34,7 @@ class SVGPRegressionModel(ApproximateGP):
             inducing_points.size(-2), batch_shape=torch.Size([2])
         )
         variational_strategy = VariationalStrategy(
-            self, inducing_points, variational_distribution,
-            learn_inducing_locations=True,
-            jitter_val=1e-3
+            self, inducing_points, variational_distribution, learn_inducing_locations=True, jitter_val=1e-3
         )
         super(SVGPRegressionModel, self).__init__(variational_strategy)
         self.mean_module = gpytorch.means.ConstantMean()

@@ -3,23 +3,23 @@
 import os
 import random
 import unittest
-from unittest.mock import MagicMock, patch
 import warnings
 from math import exp, pi
+from unittest.mock import MagicMock, patch
 
 import gpytorch
-import torch
 import linear_operator
+import torch
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.kernels import InducingPointKernel, RBFKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
+
+from gpytorch.test.base_test_case import BaseTestCase
 from gpytorch.test.utils import least_used_cuda_device
 from gpytorch.utils.warnings import NumericalWarning
 from torch import optim
-
-from gpytorch.test.base_test_case import BaseTestCase
 
 
 # Simple training data: let's try to learn a sine function,
@@ -81,9 +81,7 @@ class TestSGPRRegression(unittest.TestCase, BaseTestCase):
             likelihood = likelihood.cuda()
 
         # Mock cholesky
-        _wrapped_cholesky = MagicMock(
-            wraps=torch.linalg.cholesky_ex
-        )
+        _wrapped_cholesky = MagicMock(wraps=torch.linalg.cholesky_ex)
         with patch("torch.linalg.cholesky_ex", new=_wrapped_cholesky) as cholesky_mock:
 
             # Optimize the model

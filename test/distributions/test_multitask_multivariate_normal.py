@@ -6,11 +6,11 @@ import random
 import unittest
 
 import torch
-from linear_operator.operators import DiagLinearOperator, KroneckerProductLinearOperator
 
 from gpytorch.distributions import MultitaskMultivariateNormal, MultivariateNormal
 from gpytorch.test.base_test_case import BaseTestCase
 from gpytorch.test.utils import least_used_cuda_device
+from linear_operator.operators import DiagLinearOperator, KroneckerProductLinearOperator
 
 
 class TestMultiTaskMultivariateNormal(BaseTestCase, unittest.TestCase):

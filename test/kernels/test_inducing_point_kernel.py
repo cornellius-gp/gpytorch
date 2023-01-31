@@ -3,10 +3,10 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
+import gpytorch
+
 import linear_operator
 import torch
-
-import gpytorch
 from gpytorch.kernels import InducingPointKernel, RBFKernel, ScaleKernel
 
 

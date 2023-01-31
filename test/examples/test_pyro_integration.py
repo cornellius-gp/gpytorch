@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
-from math import pi
-import torch
 import time
 import unittest
+from math import pi
+
 import gpytorch
+import torch
 from gpytorch.test.base_test_case import BaseTestCase
 
 
@@ -361,7 +362,6 @@ try:
                     abs_delta = (torch.abs(grads[param] - numerical) / torch.abs(numerical)).item()
                     # Pyro's gradient should differ by less than 5% from numerical est.
                     self.assertLess(abs_delta, 0.05)
-
 
 except ImportError:
     pass

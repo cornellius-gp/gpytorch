@@ -7,7 +7,7 @@ import unittest
 
 import gpytorch
 import torch
-from gpytorch.distributions import MultivariateNormal, MultitaskMultivariateNormal
+from gpytorch.distributions import MultitaskMultivariateNormal, MultivariateNormal
 from gpytorch.kernels import RBFKernel, ScaleKernel
 from gpytorch.likelihoods import MultitaskGaussianLikelihood
 from gpytorch.means import ConstantMean

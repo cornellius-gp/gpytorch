@@ -3,10 +3,10 @@
 import unittest
 
 import torch
-from torch.distributions import HalfCauchy
 
 from gpytorch.priors import HalfCauchyPrior
 from gpytorch.test.utils import least_used_cuda_device
+from torch.distributions import HalfCauchy
 
 
 class TestHalfCauchyPrior(unittest.TestCase):

@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 
-from math import pi
-
 import os
 import random
-import torch
 import unittest
+from math import pi
 
 import gpytorch
-from gpytorch.kernels import RBFKernel, MultitaskKernel
-from gpytorch.means import ConstantMean, MultitaskMean
-from gpytorch.likelihoods import MultitaskGaussianLikelihood
+import torch
 from gpytorch.distributions import MultitaskMultivariateNormal
+from gpytorch.kernels import MultitaskKernel, RBFKernel
+from gpytorch.likelihoods import MultitaskGaussianLikelihood
+from gpytorch.means import ConstantMean, MultitaskMean
 
 
 # Simple training data: let's try to learn a sine function

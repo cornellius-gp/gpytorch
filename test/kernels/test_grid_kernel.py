@@ -2,12 +2,12 @@
 
 import unittest
 
-import torch
-from linear_operator.operators import KroneckerProductLinearOperator
-
 import gpytorch
+
+import torch
 from gpytorch.kernels import GridKernel, LinearKernel, RBFKernel
 from gpytorch.utils.grid import create_data_from_grid
+from linear_operator.operators import KroneckerProductLinearOperator
 
 grid = [torch.linspace(0, 1, 5), torch.linspace(0, 2, 3)]
 d = len(grid)

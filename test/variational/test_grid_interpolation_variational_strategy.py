@@ -2,9 +2,9 @@
 
 import unittest
 
-import torch
-
 import gpytorch
+
+import torch
 from gpytorch.test.variational_test_case import VariationalTestCase
 
 

@@ -5,9 +5,9 @@ import random
 import unittest
 from math import pi
 
-import torch
-
 import gpytorch
+
+import torch
 from gpytorch.distributions import MultitaskMultivariateNormal
 from gpytorch.kernels import MultitaskKernel, RBFKernel
 from gpytorch.likelihoods import MultitaskGaussianLikelihood

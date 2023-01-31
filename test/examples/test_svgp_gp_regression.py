@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 import math
-import warnings
 import unittest
+import warnings
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 

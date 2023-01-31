@@ -3,11 +3,11 @@
 import unittest
 
 import torch
-from linear_operator.operators import KroneckerProductLinearOperator, RootLinearOperator, ToeplitzLinearOperator
 
 from gpytorch.distributions import MultitaskMultivariateNormal
 from gpytorch.likelihoods import MultitaskGaussianLikelihood
 from gpytorch.test.base_likelihood_test_case import BaseLikelihoodTestCase
+from linear_operator.operators import KroneckerProductLinearOperator, RootLinearOperator, ToeplitzLinearOperator
 
 
 class TestMultitaskGaussianLikelihood(BaseLikelihoodTestCase, unittest.TestCase):

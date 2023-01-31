@@ -3,10 +3,10 @@
 import math
 import unittest
 
+import gpytorch
+
 import linear_operator
 import torch
-
-import gpytorch
 from gpytorch.kernels import LinearKernel, MaternKernel, RBFKernel, RFFKernel
 
 

@@ -3,10 +3,10 @@
 
 import unittest
 
+import gpytorch.distributions as dist
+
 import numpy as np
 import torch
-
-import gpytorch.distributions as dist
 from gpytorch.test.base_test_case import BaseTestCase
 
 

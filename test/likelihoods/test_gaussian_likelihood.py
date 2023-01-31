@@ -4,7 +4,6 @@ import pickle
 import unittest
 
 import torch
-from linear_operator.operators import DiagLinearOperator
 
 from gpytorch import settings
 from gpytorch.distributions import MultivariateNormal
@@ -17,6 +16,7 @@ from gpytorch.likelihoods import (
 from gpytorch.likelihoods.noise_models import FixedGaussianNoise
 from gpytorch.priors import GammaPrior
 from gpytorch.test.base_likelihood_test_case import BaseLikelihoodTestCase
+from linear_operator.operators import DiagLinearOperator
 
 
 class TestGaussianLikelihood(BaseLikelihoodTestCase, unittest.TestCase):

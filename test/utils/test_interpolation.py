@@ -3,10 +3,10 @@
 import unittest
 
 import torch
-from linear_operator.utils.interpolation import left_interp
 
 from gpytorch.test.utils import approx_equal
 from gpytorch.utils.interpolation import Interpolation
+from linear_operator.utils.interpolation import left_interp
 
 
 class TestCubicInterpolation(unittest.TestCase):

@@ -7,8 +7,8 @@ import warnings
 from math import pi
 
 import gpytorch
-import torch
 import linear_operator
+import torch
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.kernels import RFFKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood

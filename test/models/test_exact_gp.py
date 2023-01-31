@@ -2,9 +2,9 @@
 
 import unittest
 
-import torch
-
 import gpytorch
+
+import torch
 from gpytorch import settings
 from gpytorch.kernels import GridInterpolationKernel
 from gpytorch.likelihoods import GaussianLikelihood

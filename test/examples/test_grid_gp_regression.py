@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 
-import warnings
-
 import math
 import os
 import random
 import unittest
+import warnings
 
 import gpytorch
 import torch

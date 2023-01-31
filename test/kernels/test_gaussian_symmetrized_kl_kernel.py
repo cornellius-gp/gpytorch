@@ -3,10 +3,10 @@
 import unittest
 
 import torch
-from torch.distributions import Normal, kl_divergence
 
 from gpytorch.kernels import GaussianSymmetrizedKLKernel
 from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
+from torch.distributions import kl_divergence, Normal
 
 
 class TestGaussianSymmetrizedKLKernel(unittest.TestCase, BaseKernelTestCase):

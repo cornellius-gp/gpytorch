@@ -3,12 +3,12 @@
 import math
 import unittest
 
+import gpytorch
+
 import torch
+from gpytorch.test.base_test_case import BaseTestCase
 from torch import sigmoid
 from torch.nn.functional import softplus
-
-import gpytorch
-from gpytorch.test.base_test_case import BaseTestCase
 
 
 # Basic exact GP model for testing parameter + constraint name resolution

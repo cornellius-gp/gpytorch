@@ -7,11 +7,11 @@ from math import exp, pi
 
 import gpytorch
 import torch
+from gpytorch.distributions import MultivariateNormal
 from gpytorch.kernels import IndexKernel, RBFKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import LKJCovariancePrior, SmoothedBoxPrior
-from gpytorch.distributions import MultivariateNormal
 from torch import optim
 
 # Simple training data: let's try to learn a sine function
