@@ -3,10 +3,10 @@
 import unittest
 import warnings
 
-import gpytorch
-
 import linear_operator
 import torch
+
+import gpytorch
 from gpytorch.test.base_test_case import BaseTestCase
 
 lazy_tensor_map = {

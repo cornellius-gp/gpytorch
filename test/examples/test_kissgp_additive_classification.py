@@ -5,8 +5,10 @@ import random
 import unittest
 from math import exp
 
-import gpytorch
 import torch
+from torch import optim
+
+import gpytorch
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.kernels import RBFKernel, ScaleKernel
 from gpytorch.likelihoods import BernoulliLikelihood
@@ -14,7 +16,6 @@ from gpytorch.means import ConstantMean
 from gpytorch.models import ApproximateGP
 from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.variational import AdditiveGridInterpolationVariationalStrategy, CholeskyVariationalDistribution
-from torch import optim
 
 n = 64
 train_x = torch.zeros(n**2, 2)

@@ -2,9 +2,9 @@
 
 import unittest
 
-import gpytorch
-
 import torch
+
+import gpytorch
 from gpytorch.models import ApproximateGP
 from gpytorch.test.model_test_case import VariationalModelTestCase
 from gpytorch.variational import CholeskyVariationalDistribution, VariationalStrategy

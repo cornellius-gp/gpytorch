@@ -1,7 +1,8 @@
 import unittest
 
-import gpytorch
 import torch
+
+import gpytorch
 from gpytorch.kernels import MaternKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean, LinearMean

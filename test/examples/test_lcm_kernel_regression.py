@@ -3,8 +3,9 @@
 import math
 import unittest
 
-import gpytorch
 import torch
+
+import gpytorch
 from gpytorch.distributions import MultitaskMultivariateNormal
 from gpytorch.kernels import LCMKernel, MultitaskKernel, RBFKernel
 from gpytorch.likelihoods import MultitaskGaussianLikelihood

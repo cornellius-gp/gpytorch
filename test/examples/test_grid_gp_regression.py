@@ -6,11 +6,12 @@ import random
 import unittest
 import warnings
 
-import gpytorch
 import torch
+from torch import optim
+
+import gpytorch
 from gpytorch.test.utils import least_used_cuda_device
 from gpytorch.utils.warnings import GPInputWarning
-from torch import optim
 
 
 def make_data(grid, cuda=False):

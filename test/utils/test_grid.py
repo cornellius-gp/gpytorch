@@ -2,9 +2,9 @@
 
 import unittest
 
-import gpytorch
-
 import torch
+
+import gpytorch
 
 
 class TestGrid(unittest.TestCase):

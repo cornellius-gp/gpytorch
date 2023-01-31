@@ -6,16 +6,17 @@ import unittest
 import warnings
 from math import pi
 
-import gpytorch
 import linear_operator
 import torch
+from torch import optim
+
+import gpytorch
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.kernels import RFFKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.utils.warnings import NumericalWarning
-from torch import optim
 
 
 # Simple training data: let's try to learn a sine function,

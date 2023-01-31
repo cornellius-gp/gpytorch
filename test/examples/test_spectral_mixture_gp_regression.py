@@ -4,16 +4,16 @@ import unittest
 from collections import OrderedDict
 from math import exp, pi
 
-import gpytorch
-
 import torch
+from torch import optim
+
+import gpytorch
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.kernels import SpectralMixtureKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.test.base_test_case import BaseTestCase
-from torch import optim
 
 
 # Simple training data: let's try to learn a sine function

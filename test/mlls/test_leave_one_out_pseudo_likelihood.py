@@ -3,9 +3,9 @@
 import math
 import unittest
 
-import gpytorch
-
 import torch
+
+import gpytorch
 
 
 class ExactGPModel(gpytorch.models.ExactGP):

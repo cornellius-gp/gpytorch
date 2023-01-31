@@ -3,9 +3,9 @@
 import math
 import unittest
 
-import gpytorch
-
 import torch
+
+import gpytorch
 
 
 def dist_func(x1, x2):

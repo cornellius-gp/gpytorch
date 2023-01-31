@@ -4,8 +4,9 @@ import time
 import unittest
 from math import pi
 
-import gpytorch
 import torch
+
+import gpytorch
 from gpytorch.test.base_test_case import BaseTestCase
 
 

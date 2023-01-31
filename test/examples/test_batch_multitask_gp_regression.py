@@ -5,13 +5,14 @@ import os
 import random
 import unittest
 
-import gpytorch
 import torch
+from torch import optim
+
+import gpytorch
 from gpytorch.distributions import MultitaskMultivariateNormal
 from gpytorch.kernels import MultitaskKernel, RBFKernel
 from gpytorch.likelihoods import MultitaskGaussianLikelihood
 from gpytorch.means import ConstantMean, MultitaskMean
-from torch import optim
 
 
 # Batch training test: Let's learn hyperparameters on a sine dataset, but test on a sine dataset and a cosine dataset

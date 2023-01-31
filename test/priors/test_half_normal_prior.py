@@ -3,10 +3,10 @@
 import unittest
 
 import torch
+from torch.distributions import HalfNormal
 
 from gpytorch.priors import HalfNormalPrior
 from gpytorch.test.utils import least_used_cuda_device
-from torch.distributions import HalfNormal
 
 
 class TestHalfNormalPrior(unittest.TestCase):

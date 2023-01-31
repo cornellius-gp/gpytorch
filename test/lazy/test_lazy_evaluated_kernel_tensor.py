@@ -4,12 +4,12 @@ import math
 import unittest
 from unittest.mock import MagicMock, patch
 
-import gpytorch
-
 import linear_operator
 import torch
 from linear_operator import to_dense
 from linear_operator.test.linear_operator_test_case import LinearOperatorTestCase
+
+import gpytorch
 
 
 class TestLazyEvaluatedKernelTensorBatch(LinearOperatorTestCase, unittest.TestCase):

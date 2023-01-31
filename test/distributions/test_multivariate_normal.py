@@ -4,13 +4,13 @@ import math
 import unittest
 
 import torch
+from linear_operator import to_linear_operator
+from linear_operator.operators import DenseLinearOperator, DiagLinearOperator, LinearOperator, RootLinearOperator
+from torch.distributions import MultivariateNormal as TMultivariateNormal
 
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.test.base_test_case import BaseTestCase
 from gpytorch.test.utils import least_used_cuda_device
-from linear_operator import to_linear_operator
-from linear_operator.operators import DenseLinearOperator, DiagLinearOperator, LinearOperator, RootLinearOperator
-from torch.distributions import MultivariateNormal as TMultivariateNormal
 
 
 class TestMultivariateNormal(BaseTestCase, unittest.TestCase):

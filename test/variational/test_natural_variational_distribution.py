@@ -2,13 +2,13 @@
 
 import unittest
 
-import gpytorch
-
 import torch
+from linear_operator.operators import CholLinearOperator, TriangularLinearOperator
+
+import gpytorch
 from gpytorch.constraints import GreaterThan
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.variational import NaturalVariationalDistribution, TrilNaturalVariationalDistribution
-from linear_operator.operators import CholLinearOperator, TriangularLinearOperator
 
 
 class Float64Test(unittest.TestCase):

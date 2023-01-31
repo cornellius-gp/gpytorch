@@ -6,9 +6,9 @@ import unittest
 import warnings
 from collections import OrderedDict
 
-import gpytorch
-
 import torch
+
+import gpytorch
 from gpytorch.constraints import GreaterThan
 from gpytorch.means import ConstantMean
 from gpytorch.priors import NormalPrior

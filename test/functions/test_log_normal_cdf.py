@@ -3,10 +3,10 @@
 import math
 import unittest
 
-import gpytorch
-
 import torch
 from torch import nn
+
+import gpytorch
 
 
 class TestLogNormalCDF(unittest.TestCase):

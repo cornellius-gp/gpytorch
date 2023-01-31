@@ -5,14 +5,15 @@ import random
 import unittest
 from math import exp, pi
 
-import gpytorch
 import torch
+from torch import optim
+
+import gpytorch
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.kernels import RBFKernel, ScaleKernel
 from gpytorch.likelihoods import BernoulliLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
-from torch import optim
 
 
 train_x = torch.linspace(0, 1, 10)

@@ -5,11 +5,11 @@ import random
 import unittest
 
 import torch
+from linear_operator.operators import DiagLinearOperator
 
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.test.utils import least_used_cuda_device
 from gpytorch.utils.quadrature import GaussHermiteQuadrature1D
-from linear_operator.operators import DiagLinearOperator
 
 
 class TestQuadrature(unittest.TestCase):

@@ -3,12 +3,12 @@
 import unittest
 
 import torch
+from linear_operator.operators import DiagLinearOperator
 
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.mlls import InducingPointKernelAddedLossTerm
 from gpytorch.test.base_test_case import BaseTestCase
-from linear_operator.operators import DiagLinearOperator
 
 
 class TestInducingPointKernelAddedLossTerm(BaseTestCase, unittest.TestCase):

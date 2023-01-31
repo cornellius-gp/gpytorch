@@ -2,9 +2,9 @@
 
 import unittest
 
-import gpytorch
-
 import torch
+
+import gpytorch
 
 
 def sq_dist_func(x1, x2):

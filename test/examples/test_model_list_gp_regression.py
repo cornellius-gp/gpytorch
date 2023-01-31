@@ -3,8 +3,9 @@
 import math
 import unittest
 
-import gpytorch
 import torch
+
+import gpytorch
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.kernels import RBFKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood, LikelihoodList

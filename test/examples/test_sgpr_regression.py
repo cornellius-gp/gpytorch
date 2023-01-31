@@ -7,9 +7,11 @@ import warnings
 from math import exp, pi
 from unittest.mock import MagicMock, patch
 
-import gpytorch
 import linear_operator
 import torch
+from torch import optim
+
+import gpytorch
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.kernels import InducingPointKernel, RBFKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
@@ -19,7 +21,6 @@ from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.test.base_test_case import BaseTestCase
 from gpytorch.test.utils import least_used_cuda_device
 from gpytorch.utils.warnings import NumericalWarning
-from torch import optim
 
 
 # Simple training data: let's try to learn a sine function,
