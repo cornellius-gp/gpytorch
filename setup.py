@@ -72,7 +72,7 @@ setup(
     python_requires=">=3.8",
     install_requires=install_requires,
     extras_require={
-        "dev": ["black", "twine", "pre-commit"],
+        "dev": ["ufmt", "twine", "pre-commit"],
         "examples": ["ipython", "jupyter", "matplotlib", "scipy", "torchvision", "tqdm"],
         "pyro": ["pyro-ppl>=1.8"],
         "keops": ["pykeops>=1.1.1"],
