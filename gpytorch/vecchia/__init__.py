@@ -2,12 +2,14 @@
 
 from ._blocker import BaseBlocker
 from .k_means_blocker import KMeansBlocker
+from .voronoi_blocker import VoronoiBlocker
 
 from .ordering_strategies import OrderingStrategies
 
 __all__ = [
     "BaseBlocker",
     "KMeansBlocker",
+    "VoronoiBlocker",
     "OrderingStrategies"
 ]
 
