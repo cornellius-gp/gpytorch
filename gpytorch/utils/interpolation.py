@@ -6,8 +6,7 @@ from operator import mul
 from typing import List
 
 import torch
-from linear_operator.utils.interpolation import left_interp as _left_interp
-from linear_operator.utils.interpolation import left_t_interp as _left_t_interp
+from linear_operator.utils.interpolation import left_interp as _left_interp, left_t_interp as _left_t_interp
 
 from .grid import convert_legacy_grid
 

@@ -3,7 +3,7 @@
 import torch
 from linear_operator.operators import KroneckerProductLinearOperator
 
-from .rbf_kernel import RBFKernel, postprocess_rbf
+from .rbf_kernel import postprocess_rbf, RBFKernel
 
 
 class RBFKernelGrad(RBFKernel):
