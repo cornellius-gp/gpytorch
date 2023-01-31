@@ -23,7 +23,6 @@ jobs:
       run: |
         pip install flake8==4.0.1 flake8-print==4.0.0 pre-commit
         pre-commit install
-        pre-commit run seed-isort-config || true
     - name: Run linting
       run: |
         flake8
