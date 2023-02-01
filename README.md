@@ -82,7 +82,7 @@ to the general style guidelines enforced by the repo. To do this, navigate to yo
 pip install pre-commit
 pre-commit install
 ```
-From then on, this will automatically run flake8, isort, black and other tools over the files you commit each time you commit to gpytorch or a fork of it.
+From then on, this will automatically run flake8, µfmt (black + µsort), and other tools over the files you commit each time you commit to gpytorch or a fork of it.
 
 ## The Team
 

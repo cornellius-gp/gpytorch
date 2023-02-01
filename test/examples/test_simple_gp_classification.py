@@ -5,12 +5,13 @@ import random
 import unittest
 from math import pi
 
-import gpytorch
 import torch
+from torch import optim
+
+import gpytorch
 from gpytorch.likelihoods import BernoulliLikelihood
 from gpytorch.models import ApproximateGP
 from gpytorch.variational import CholeskyVariationalDistribution, UnwhitenedVariationalStrategy
-from torch import optim
 
 
 def train_data():

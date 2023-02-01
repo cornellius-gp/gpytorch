@@ -4,7 +4,7 @@ import warnings
 
 import torch
 
-from ..distributions import Distribution, MultitaskMultivariateNormal, base_distributions
+from ..distributions import base_distributions, Distribution, MultitaskMultivariateNormal
 from .likelihood import Likelihood
 
 

@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 
-import warnings
-
 import math
 import os
 import random
 import unittest
+import warnings
+
+import torch
+from torch import optim
 
 import gpytorch
-import torch
 from gpytorch.test.utils import least_used_cuda_device
 from gpytorch.utils.warnings import GPInputWarning
-from torch import optim
 
 
 def make_data(grid, cuda=False):

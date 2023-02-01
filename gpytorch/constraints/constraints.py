@@ -6,7 +6,7 @@ import math
 from typing import Optional
 
 import torch
-from torch import Tensor, sigmoid
+from torch import sigmoid, Tensor
 from torch.nn import Module
 
 from ..utils.transforms import _get_inv_param_transform, inv_sigmoid, inv_softplus

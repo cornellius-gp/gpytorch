@@ -4,7 +4,7 @@ import unittest
 
 import torch
 
-from gpytorch.likelihoods import BetaLikelihood, _OneDimensionalLikelihood
+from gpytorch.likelihoods import _OneDimensionalLikelihood, BetaLikelihood
 from gpytorch.test.base_likelihood_test_case import BaseLikelihoodTestCase
 
 

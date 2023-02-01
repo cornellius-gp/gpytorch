@@ -15,9 +15,9 @@ from linear_operator.operators import (
 from torch import Tensor
 
 from ..constraints import GreaterThan
-from ..distributions import MultitaskMultivariateNormal, base_distributions
+from ..distributions import base_distributions, MultitaskMultivariateNormal
 from ..lazy import LazyEvaluatedKernelTensor
-from ..likelihoods import Likelihood, _GaussianLikelihoodBase
+from ..likelihoods import _GaussianLikelihoodBase, Likelihood
 from ..module import Module
 from ..priors import Prior
 

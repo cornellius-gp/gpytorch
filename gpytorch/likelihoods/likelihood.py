@@ -8,7 +8,7 @@ from copy import deepcopy
 import torch
 
 from .. import settings
-from ..distributions import MultivariateNormal, base_distributions
+from ..distributions import base_distributions, MultivariateNormal
 from ..module import Module
 from ..utils.quadrature import GaussHermiteQuadrature1D
 from ..utils.warnings import GPInputWarning

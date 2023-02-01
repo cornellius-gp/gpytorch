@@ -4,7 +4,7 @@ import math
 from numbers import Number
 
 import torch
-from torch.distributions import HalfCauchy, Normal, constraints
+from torch.distributions import constraints, HalfCauchy, Normal
 from torch.nn import Module as TModule
 
 from gpytorch.priors.prior import Prior

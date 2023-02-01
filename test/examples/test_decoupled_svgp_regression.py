@@ -4,13 +4,14 @@ import math
 import unittest
 from unittest.mock import MagicMock, patch
 
-import gpytorch
 import linear_operator
 import torch
+from torch import optim
+
+import gpytorch
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.models import ApproximateGP
 from gpytorch.test.base_test_case import BaseTestCase
-from torch import optim
 
 
 def train_data():

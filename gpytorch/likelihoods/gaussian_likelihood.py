@@ -9,7 +9,7 @@ import torch
 from linear_operator.operators import ZeroLinearOperator
 from torch import Tensor
 
-from ..distributions import MultivariateNormal, base_distributions
+from ..distributions import base_distributions, MultivariateNormal
 from ..utils.warnings import GPInputWarning
 from .likelihood import Likelihood
 from .noise_models import FixedGaussianNoise, HomoskedasticNoise, Noise
