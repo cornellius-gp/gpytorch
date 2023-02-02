@@ -214,9 +214,10 @@ class BaseBlocker(abc.ABC):
         plt.scatter(ordered_x[:, 0], ordered_x[:, 1], c="grey", alpha=0.25)
         for sampled_block in sampled_blocks:
             plt.scatter(x[self._block_observations[sampled_block], 0].numpy(),
-                        x[self._block_observations[sampled_block], 1].numpy(), c="red", s=50)
+                        x[self._block_observations[sampled_block], 1].numpy(), c="blue", s=50)
             plt.scatter(x[self._exclusive_neighboring_observations[sampled_block], 0].numpy(),
-                        x[self._exclusive_neighboring_observations[sampled_block], 1].numpy(), c="red", alpha=0.25)
+                        x[self._exclusive_neighboring_observations[sampled_block], 1].numpy(),
+                        c="deepskyblue", alpha=0.5)
         plt.title("Ordered Neighbors")
 
         plt.subplot(2, 2, 4)

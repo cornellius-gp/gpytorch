@@ -89,7 +89,7 @@ def is_inside(polygon: torch.tensor, points: torch.tensor) -> torch.tensor:
     Ray tracing algorithm to determine which of an array of points is contained within a polygon.
 
     @param polygon: Tensor of size ((n+1), 2), where the first n rows correspond to n vertices in the polygon,
-    and the final row contains a duplicate of the first vertex to complete the polygon.
+        and the final row contains a duplicate of the first vertex to complete the polygon.
     @param points: Tensor of size (m, 2) representing the points of interest.
 
     @return: Tensor where the ith element is 1 if the ith point in points belongs to the polygon, 0 otherwise.
@@ -123,8 +123,10 @@ class VoronoiBlocker(BaseBlocker):
     @param data: Features to use for Voronoi diagram, typically an (n,2) tensor of spatial lat-long coordinates.
     @param n_blocks: Number of desired polygons. Note that this does not guarantee similarly-sized clusters.
     @param n_neighbors: Number of neighboring polygons per polygon.
+    @param p_norm_dist: P value for the p-norm used to define the distance between block centroids for establishing
+        neighbor relationships. Defaults to p_norm_dist=2 (Euclidean distance).
     """
-    def __init__(self, data: torch.tensor, n_blocks: int, n_neighbors: int):
+    def __init__(self, data: torch.tensor, n_blocks: int, n_neighbors: int, p_norm_dist: float = 2):
 
         self.n_blocks = n_blocks
         self.n_neighbors = n_neighbors
@@ -134,17 +136,17 @@ class VoronoiBlocker(BaseBlocker):
         self.vertices = None
 
         # this call executes set_blocks and set_neighbors, then superclass computes all dependent quantities
-        super(VoronoiBlocker, self).__init__(set_blocks_kwargs={"data": data}, set_neighbors_kwargs={})
+        super(VoronoiBlocker, self).__init__(set_blocks_kwargs={"data": data}, set_neighbors_kwargs={"p": p_norm_dist})
 
     def _get_cluster_membership(self, data: torch.tensor) -> List[torch.LongTensor]:
         """
         Determines which Voronoi region each point in the provided data belongs to.
 
         @param data: Tensor for which to evaluate Voronoi region membership. If any of these points are outside the
-        domain of the points that the Voronoi diagram was constructed with, you may get nonsensical results.
+            domain of the points that the Voronoi diagram was constructed with, you may get nonsensical results.
 
         @return: List of tensors, where the ith tensor contains the indices of the points in data that belong to the
-        ith Voronoi region.
+            ith Voronoi region.
         """
         blocks = []
         remaining_idx = torch.LongTensor(range(len(data)))
@@ -172,14 +174,14 @@ class VoronoiBlocker(BaseBlocker):
         # determine indices of data points that belong to each voronoi region and return
         return self._get_cluster_membership(data)
 
-    def set_neighbors(self, **kwargs) -> List[torch.LongTensor]:
+    def set_neighbors(self, p: float) -> List[torch.LongTensor]:
         # if there are no neighbors, we want a list of empty tensors
         if self.n_neighbors == 0:
             return [torch.LongTensor([]) for _ in range(0, self.n_blocks)]
 
         else:
             # get distance matrix and find ordered distances
-            sorter = torch.cdist(self.inducing_points, self.inducing_points).argsort().long()
+            sorter = torch.cdist(self.inducing_points, self.inducing_points, p=p).argsort().long()
             return [sorter[i][sorter[i] < i][0:self.n_neighbors] for i in range(0, len(sorter))]
 
     def set_test_blocks(self, new_data: torch.tensor) -> List[torch.LongTensor]:
@@ -187,7 +189,11 @@ class VoronoiBlocker(BaseBlocker):
         return self._get_cluster_membership(new_data)
 
     def reorder(self, ordering_strategy):
+        # new order is defined as some reordering of the inducing points for the Voronoi diagram
         new_order = ordering_strategy(self.inducing_points)
+
+        # reorder the instance attributes that depend on the ordering
         self.inducing_points = self.inducing_points[new_order]
         self.regions = [self.regions[idx] for idx in new_order]
+        # reorder superclass attributes and recompute neighbors under new ordering
         super().reorder(new_order)
