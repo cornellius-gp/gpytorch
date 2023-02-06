@@ -206,7 +206,7 @@ class NNUtil(Module):
                     ).squeeze()
 
                     nn_idx[bi][i - self.k].copy_(nn_idx_i)
-        nn_idx = nn_idx.view(*self.batch_shape, N - self.k, self.k)
+        nn_idx = nn_idx.view(*self.batch_shape, N - self.k, self.k).to(device=x.device)
         return nn_idx
 
     def to(self, device):
