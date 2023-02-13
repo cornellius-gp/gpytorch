@@ -63,7 +63,6 @@ class VariationalStrategyDecoupledConditionals(_VariationalStrategy):
         self.register_buffer("updated_strategy", torch.tensor(True))
         self._register_load_state_dict_pre_hook(_ensure_updated_strategy_flag_set)
         self.covar_module_mean = covar_module_mean
-        print("DCSVGP")
 
     @cached(name="cholesky_factor", ignore_args=True)
     def _cholesky_factor(self, induc_induc_covar):
@@ -79,14 +78,46 @@ class VariationalStrategyDecoupledConditionals(_VariationalStrategy):
     @property
     @cached(name="prior_distribution_memo")
     def prior_distribution(self):
-        zeros = torch.zeros(
-            self._variational_distribution.shape(),
-            dtype=self._variational_distribution.dtype,
-            device=self._variational_distribution.device,
-        )
-        ones = torch.ones_like(zeros)
-        res = MultivariateNormal(zeros, DiagLazyTensor(ones))
+        out = self.model.forward(self.inducing_points)
+        induc_induc_covar = out.lazy_covariance_matrix.add_jitter()
+        kernel = self.covar_module_mean
+        induc_induc_covar_mean = kernel(self.inducing_points).add_jitter()
+        L = self._cholesky_factor(induc_induc_covar).evaluate()
+        L_mean = self._cholesky_factor_mean(induc_induc_covar_mean)
+        Lbar = L_mean.inv_matmul(L).to(induc_induc_covar_mean.dtype)
+        # Kbar = CholLazyTensor(Lbar)
+        Kbar = RootLazyTensor(Lbar)
+        res = MultivariateNormal(out.mean, Kbar)
         return res
+
+    def kl_divergence(self):
+        r"""
+        Compute the KL divergence between the variational inducing distribution :math:`q(\mathbf u)`
+        and the prior inducing distribution :math:`p(\mathbf u)`.
+
+        :rtype: torch.Tensor
+        """
+        m = self.variational_distribution.loc
+        L_s = self.variational_distribution.lazy_covariance_matrix.root
+        out = self.model.forward(self.inducing_points)
+        m_p = out.mean
+    
+        out = self.model.forward(self.inducing_points)
+        induc_induc_covar = out.lazy_covariance_matrix.add_jitter()
+        kernel = self.covar_module_mean
+        induc_induc_covar_mean = kernel(self.inducing_points).add_jitter()
+        L = self._cholesky_factor(induc_induc_covar)
+        L_mean = self._cholesky_factor_mean(induc_induc_covar_mean)
+
+        logdet_term = L.diag().log().sum() - L_mean.diag().log().sum() - self.variational_distribution.lazy_covariance_matrix.logdet()/2
+        trace_term = L.inv_matmul(L_mean.evaluate() @ L_s.evaluate().type(_linalg_dtype_cholesky.value())).to(self.inducing_points.dtype).square().sum()
+        Lm = (L_mean @ (m-m_p).to(dtype=L_mean.dtype)).reshape(-1,1)
+        quad_term_half = L.inv_matmul(Lm.type(_linalg_dtype_cholesky.value())).to(self.inducing_points.dtype)
+        quad_term = torch.norm(quad_term_half).square()
+        
+        res = logdet_term + (trace_term + quad_term - L_s.shape[0])/2
+        return res
+
 
     def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None, **kwargs):
         # Compute full prior distribution
@@ -121,7 +152,8 @@ class VariationalStrategyDecoupledConditionals(_VariationalStrategy):
         kernel = self.covar_module_mean
         induc_data_covar_mean = kernel(inducing_points, x).evaluate()
         induc_induc_covar_mean = kernel(inducing_points, inducing_points)
-        
+        induc_induc_covar_mean = induc_induc_covar_mean + torch.diag(1e-4*torch.ones(num_induc)).to(induc_induc_covar_mean.device)
+
         L_mean = self._cholesky_factor_mean(induc_induc_covar_mean)
         if L_mean.shape != induc_induc_covar_mean.shape:
             try:
@@ -135,22 +167,20 @@ class VariationalStrategyDecoupledConditionals(_VariationalStrategy):
         
         # Compute the covariance of q(f)
         # K_XX + Q_XZ Q_ZZ^{-T/2} S Q_ZZ^{-1/2} Q_ZX - k_XZ K_ZZ^{-T/2} I K_ZZ^{-1/2} K_ZX
-        middle_term = self.prior_distribution.lazy_covariance_matrix.mul(-1)
-        if variational_inducing_covar is not None:
-            # tail_term = Q_XZ * Q_ZZ_^{-T/2} * S * Q_ZZ_^{-/2} * Q_XZ
-            tail_term = interp_term_mean.transpose(-1, -2) @ variational_inducing_covar.evaluate() @ interp_term_mean 
-        
+
         if trace_mode.on():
             predictive_covar = (
                 data_data_covar.add_jitter(1e-4).evaluate()
-                + interp_term.transpose(-1, -2) @ middle_term.evaluate() @ interp_term + tail_term
+                - interp_term.transpose(-1, -2) @ interp_term 
+                + interp_term_mean.transpose(-1, -2) @ variational_inducing_covar.evaluate() @ interp_term_mean 
             )
         else:
             predictive_covar = SumLazyTensor(
                 SumLazyTensor(
                 data_data_covar.add_jitter(1e-4),
-                MatmulLazyTensor(interp_term.transpose(-1, -2), middle_term @ interp_term),
-                ), tail_term
+                MatmulLazyTensor(-interp_term.transpose(-1, -2), interp_term),
+                ), 
+                MatmulLazyTensor(interp_term_mean.transpose(-1, -2), variational_inducing_covar @ interp_term_mean)   
                 )
 
         # Return the distribution
