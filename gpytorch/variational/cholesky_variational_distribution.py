@@ -47,7 +47,9 @@ class CholeskyVariationalDistribution(_VariationalDistribution):
         variational_covar = CholLinearOperator(chol_variational_covar)
         return MultivariateNormal(self.variational_mean, variational_covar)
 
-    def initialize_variational_distribution(self, prior_dist):
+    def initialize_variational_distribution(self, prior_dist, **kwargs):
         self.variational_mean.data.copy_(prior_dist.mean)
         self.variational_mean.data.add_(torch.randn_like(prior_dist.mean), alpha=self.mean_init_std)
-        self.chol_variational_covar.data.copy_(prior_dist.lazy_covariance_matrix.cholesky().to_dense())
+        if kwargs["initialize_covar"] or "initialize_covar" not in kwargs:
+            self.chol_variational_covar.data.copy_(prior_dist.lazy_covariance_matrix.cholesky().evaluate())
+        # self.chol_variational_covar.data.copy_(prior_dist.lazy_covariance_matrix.cholesky().to_dense())

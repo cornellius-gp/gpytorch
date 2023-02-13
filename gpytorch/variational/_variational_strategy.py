@@ -292,8 +292,15 @@ class _VariationalStrategy(Module, ABC):
             self._clear_cache()
         # (Maybe) initialize variational distribution
         if not self.variational_params_initialized.item():
+            kwargs_init = {"initialize_covar": False}
+            try:
+                a = self.covar_module_mean
+            except:
+                kwargs_init["initialize_covar"] = True
+
             prior_dist = self.prior_distribution
-            self._variational_distribution.initialize_variational_distribution(prior_dist)
+            # self._variational_distribution.initialize_variational_distribution(prior_dist)
+            self._variational_distribution.initialize_variational_distribution(prior_dist, **kwargs_init)
             self.variational_params_initialized.fill_(1)
 
         # Ensure inducing_points and x are the same size
