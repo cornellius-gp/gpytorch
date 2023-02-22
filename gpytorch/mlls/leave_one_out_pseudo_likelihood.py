@@ -9,7 +9,7 @@ from .exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 
 
 class LeaveOneOutPseudoLikelihood(ExactMarginalLogLikelihood):
-    """
+    r"""
     The leave one out cross-validation (LOO-CV) likelihood from RW 5.4.2 for an exact Gaussian process with a
     Gaussian likelihood. This offers an alternative to the exact marginal log likelihood where we
     instead maximize the sum of the leave one out log probabilities :math:`\log p(y_i | X, y_{-i}, \theta)`.
