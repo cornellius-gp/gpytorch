@@ -4,7 +4,9 @@ import functools
 from typing import Callable
 
 import torch
-from linear_operator import LinearOperator, to_linear_operator
+# from linear_operator import LinearOperator, to_linear_operator
+from linops.linear_algebra import lazify as to_linear_operator
+from linops.operator_base import LinearOperator
 from linear_operator.utils.getitem import _noop_index
 
 from .. import beta_features, settings
@@ -38,8 +40,8 @@ class LazyEvaluatedKernelTensor(LinearOperator):
             return "x1 must be a tensor. Got {}".format(x1.__class__.__name__)
 
     def __init__(self, x1, x2, kernel, last_dim_is_batch=False, **params):
-        super(LazyEvaluatedKernelTensor, self).__init__(
-            x1, x2, kernel=kernel, last_dim_is_batch=last_dim_is_batch, **params
+        super().__init__(
+                dtype=torch.float32, shape=(x1.shape[0], x2.shape[0])
         )
         self.kernel = kernel
         self.x1 = x1
@@ -47,10 +49,6 @@ class LazyEvaluatedKernelTensor(LinearOperator):
         self.last_dim_is_batch = last_dim_is_batch
         self.params = params
         self._is_grad_enabled = torch.is_grad_enabled()  # records grad state at instantiation
-
-    @property
-    def dtype(self):
-        return self.kernel.dtype
 
     @property
     def device(self):

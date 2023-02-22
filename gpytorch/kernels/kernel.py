@@ -10,6 +10,7 @@ from typing import Callable, Dict, Iterable, Optional, Tuple, Union
 import torch
 from linear_operator import to_dense, to_linear_operator
 from linear_operator.operators import LinearOperator, ZeroLinearOperator
+from linops.linear_algebra import lazify
 from torch import Tensor
 from torch.nn import ModuleList
 
@@ -191,11 +192,13 @@ class Kernel(Module):
             lengthscale_num_dims = 1 if ard_num_dims is None else ard_num_dims
             self.register_parameter(
                 name="raw_lengthscale",
-                parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, lengthscale_num_dims)),
+                parameter=torch.nn.Parameter(torch.zeros(
+                    *self.batch_shape, 1, lengthscale_num_dims)),
             )
             if lengthscale_prior is not None:
                 if not isinstance(lengthscale_prior, Prior):
-                    raise TypeError("Expected gpytorch.priors.Prior but got " + type(lengthscale_prior).__name__)
+                    raise TypeError("Expected gpytorch.priors.Prior but got " +
+                                    type(lengthscale_prior).__name__)
                 self.register_prior(
                     "lengthscale_prior", lengthscale_prior, self._lengthscale_param, self._lengthscale_closure
                 )
@@ -385,14 +388,14 @@ class Kernel(Module):
         # Reshape the parameters of the kernel
         for param_name, param in self.named_parameters(recurse=False):
             # For a given parameter, get the number of dimensions that do not correspond to the batch shape
-            non_batch_shape = param.shape[len(orig_batch_shape) :]
+            non_batch_shape = param.shape[len(orig_batch_shape):]
             new_param_shape = torch.Size([*new_batch_shape, *non_batch_shape])
             new_kernel.__getattr__(param_name).data = param.expand(new_param_shape)
 
         # Reshape the buffers of the kernel
         for buffr_name, buffr in self.named_buffers(recurse=False):
             # For a given buffer, get the number of dimensions that do not correspond to the batch shape
-            non_batch_shape = buffr.shape[len(orig_batch_shape) :]
+            non_batch_shape = buffr.shape[len(orig_batch_shape):]
             new_buffer_shape = torch.Size([*new_batch_shape, *non_batch_shape])
             new_kernel.__getattr__(buffr_name).data = buffr.expand(new_buffer_shape)
 
@@ -504,11 +507,13 @@ class Kernel(Module):
             if self.ard_num_dims is not None and self.ard_num_dims != x1_.size(-1):
                 raise RuntimeError(
                     "Expected the input to have {} dimensionality "
-                    "(based on the ard_num_dims argument). Got {}.".format(self.ard_num_dims, x1_.size(-1))
+                    "(based on the ard_num_dims argument). Got {}.".format(
+                        self.ard_num_dims, x1_.size(-1))
                 )
 
         if diag:
-            res = super(Kernel, self).__call__(x1_, x2_, diag=True, last_dim_is_batch=last_dim_is_batch, **params)
+            res = super(Kernel, self).__call__(x1_, x2_, diag=True,
+                                               last_dim_is_batch=last_dim_is_batch, **params)
             # Did this Kernel eat the diag option?
             # If it does not return a LazyEvaluatedKernelTensor, we can call diag on the output
             if not isinstance(res, LazyEvaluatedKernelTensor):
@@ -518,10 +523,15 @@ class Kernel(Module):
 
         else:
             if settings.lazily_evaluate_kernels.on():
-                res = LazyEvaluatedKernelTensor(x1_, x2_, kernel=self, last_dim_is_batch=last_dim_is_batch, **params)
+                res = LazyEvaluatedKernelTensor(
+                    x1_, x2_, kernel=self, last_dim_is_batch=last_dim_is_batch, **params)
             else:
-                res = to_linear_operator(
-                    super(Kernel, self).__call__(x1_, x2_, last_dim_is_batch=last_dim_is_batch, **params)
+                # res = to_linear_operator(
+                #     super(Kernel, self).__call__(x1_, x2_, last_dim_is_batch=last_dim_is_batch, **params)
+                # )
+                res = lazify(
+                    super(Kernel, self).__call__(
+                        x1_, x2_, last_dim_is_batch=last_dim_is_batch, **params)
                 )
             return res
 

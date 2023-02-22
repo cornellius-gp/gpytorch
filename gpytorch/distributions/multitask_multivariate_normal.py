@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 import torch
-from linear_operator import LinearOperator, to_linear_operator
+# from linear_operator import LinearOperator, to_linear_operator
+from linops.linear_algebra import lazify as to_linear_operator
+from linops.operator_base import LinearOperator
 from linear_operator.operators import BlockDiagLinearOperator, BlockInterleavedLinearOperator, CatLinearOperator
 
 from .multivariate_normal import MultivariateNormal
@@ -37,8 +39,8 @@ class MultitaskMultivariateNormal(MultivariateNormal):
         # Ensure that shapes are broadcasted appropriately across the mean and covariance
         # Means can have singleton dimensions for either the `n` or `t` dimensions
         batch_shape = torch.broadcast_shapes(mean.shape[:-2], covariance_matrix.shape[:-2])
-        if mean.shape[-2:].numel() != covariance_matrix.size(-1):
-            if covariance_matrix.size(-1) % mean.shape[-2:].numel():
+        if mean.shape[-2:].numel() != covariance_matrix.shape[-1]:
+            if covariance_matrix.shape[-1] % mean.shape[-2:].numel():
                 raise RuntimeError(
                     f"mean shape {mean.shape} is incompatible with covariance shape {covariance_matrix.shape}"
                 )

@@ -7,7 +7,8 @@ import operator
 from collections import OrderedDict
 
 import torch
-from linear_operator.operators import LinearOperator
+# from linear_operator.operators import LinearOperator
+from linops.operator_base import LinearOperator
 from torch import nn
 from torch.distributions import Distribution
 

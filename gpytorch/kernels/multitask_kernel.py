@@ -4,6 +4,8 @@ from typing import Optional
 
 from linear_operator import to_linear_operator
 from linear_operator.operators import KroneckerProductLinearOperator
+from linops.linear_algebra import lazify
+from linops.operators import Kronecker
 
 from ..priors import Prior
 from .index_kernel import IndexKernel
@@ -12,12 +14,13 @@ from .kernel import Kernel
 
 class MultitaskKernel(Kernel):
     r"""
-    Kernel supporting Kronecker style multitask Gaussian processes (where every data point is evaluated at every
+    Kernel supporting Kronecker style multitask Gaussian processes
+    (where every data point is evaluated at every
     task) using :class:`gpytorch.kernels.IndexKernel` as a basic multitask kernel.
 
-    Given a base covariance module to be used for the data, :math:`K_{XX}`, this kernel computes a task kernel of
-    specified size :math:`K_{TT}` and returns :math:`K = K_{TT} \otimes K_{XX}`. as an
-    :obj:`~linear_operator.operators.KroneckerProductLinearOperator`.
+    Given a base covariance module to be used for the data, :math:`K_{XX}`, this kernel computes a
+    task kernel of specified size :math:`K_{TT}` and returns :math:`K = K_{TT} \otimes K_{XX}`.
+    as an :obj:`~linear_operator.operators.KroneckerProductLinearOperator`.
 
     :param ~gpytorch.kernels.Kernel data_covar_module: Kernel to use as the data kernel.
     :param int num_tasks: Number of tasks
@@ -49,8 +52,10 @@ class MultitaskKernel(Kernel):
         covar_i = self.task_covar_module.covar_matrix
         if len(x1.shape[:-2]):
             covar_i = covar_i.repeat(*x1.shape[:-2], 1, 1)
-        covar_x = to_linear_operator(self.data_covar_module.forward(x1, x2, **params))
-        res = KroneckerProductLinearOperator(covar_x, covar_i)
+        # covar_x = to_linear_operator(self.data_covar_module.forward(x1, x2, **params))
+        # res = KroneckerProductLinearOperator(covar_x, covar_i)
+        covar_x = lazify(self.data_covar_module.forward(x1, x2, **params))
+        res = Kronecker((covar_x, covar_i))
         return res.diagonal(dim1=-1, dim2=-2) if diag else res
 
     def num_outputs_per_input(self, x1, x2):
