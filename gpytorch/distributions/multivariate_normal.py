@@ -9,7 +9,8 @@ from typing import Optional, Tuple, Union
 
 import torch
 from linear_operator import to_dense, to_linear_operator
-from linear_operator.operators import DiagLinearOperator, LinearOperator, RootLinearOperator
+from linear_operator.operators import DiagLinearOperator, RootLinearOperator
+from linops.operator_base import LinearOperator
 from torch import Tensor
 from torch.distributions import MultivariateNormal as TMultivariateNormal
 from torch.distributions.kl import register_kl
