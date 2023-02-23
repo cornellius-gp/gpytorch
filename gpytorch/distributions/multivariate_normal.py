@@ -194,7 +194,8 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         # Get log determininant and first part of quadratic form
         # covar = covar.evaluate_kernel()
         # covar = covar.to_dense()
-        inv_quad = solve_symmetric(covar, diff.unsqueeze(-1))[:, 0]
+        inv_quad = solve_symmetric(covar, diff.unsqueeze(-1))
+        inv_quad = torch.sum(diff * inv_quad[:, 0])
         logdet = 0
         # inv_quad, logdet = covar.inv_quad_logdet(inv_quad_rhs=diff.unsqueeze(-1), logdet=True)
 

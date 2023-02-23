@@ -260,7 +260,7 @@ class DefaultPredictionStrategy(object):
         # Find the components of the distribution that contain test data
         test_mean = joint_mean[..., self.num_train :]
         # For efficiency - we can make things more efficient
-        if joint_covar.size(-1) <= settings.max_eager_kernel_size.value():
+        if joint_covar.shape[-1] <= settings.max_eager_kernel_size.value():
             test_covar = joint_covar[..., self.num_train :, :].to_dense()
             test_test_covar = test_covar[..., self.num_train :]
             test_train_covar = test_covar[..., : self.num_train]
