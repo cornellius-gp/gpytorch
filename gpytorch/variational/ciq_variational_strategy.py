@@ -254,7 +254,7 @@ class CiqVariationalStrategy(_VariationalStrategy):
         return MultivariateNormal(predictive_mean, predictive_covar)
 
     def kl_divergence(self):
-        """
+        r"""
         Compute the KL divergence between the variational inducing distribution :math:`q(\mathbf u)`
         and the prior inducing distribution :math:`p(\mathbf u)`.
 
