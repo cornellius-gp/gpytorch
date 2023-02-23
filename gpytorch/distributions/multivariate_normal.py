@@ -178,6 +178,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         diff = value - mean
 
         # Repeat the covar to match the batch shape of diff
+        covar.batch_shape = torch.Size([])
         if diff.shape[:-1] != covar.batch_shape:
             if len(diff.shape[:-1]) < len(covar.batch_shape):
                 diff = diff.expand(covar.shape[:-1])
@@ -190,7 +191,8 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
                 )
 
         # Get log determininant and first part of quadratic form
-        covar = covar.evaluate_kernel()
+        # covar = covar.evaluate_kernel()
+        covar = covar.to_dense()
         inv_quad, logdet = covar.inv_quad_logdet(inv_quad_rhs=diff.unsqueeze(-1), logdet=True)
 
         res = -0.5 * sum([inv_quad, logdet, diff.size(-1) * math.log(2 * math.pi)])
