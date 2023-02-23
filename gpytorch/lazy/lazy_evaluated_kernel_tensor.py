@@ -40,15 +40,22 @@ class LazyEvaluatedKernelTensor(LinearOperator):
             return "x1 must be a tensor. Got {}".format(x1.__class__.__name__)
 
     def __init__(self, x1, x2, kernel, last_dim_is_batch=False, **params):
+        shape = (x1.shape[0] * kernel.num_tasks, x2.shape[0] * kernel.num_tasks)
         super().__init__(
-                dtype=torch.float32, shape=(x1.shape[0], x2.shape[0])
+            dtype=torch.float32, shape=shape
         )
+        def dim(): return 2
+        self.dim = dim
         self.kernel = kernel
         self.x1 = x1
         self.x2 = x2
         self.last_dim_is_batch = last_dim_is_batch
         self.params = params
         self._is_grad_enabled = torch.is_grad_enabled()  # records grad state at instantiation
+
+    @property
+    def expand(self):
+        return self.kernel
 
     @property
     def device(self):
@@ -94,7 +101,8 @@ class LazyEvaluatedKernelTensor(LinearOperator):
                         **self.params,
                     )
                 )
-            sub_grad_outputs = tuple(sub_kernel_matrix._bilinear_derivative(sub_left_vecs, right_vecs))
+            sub_grad_outputs = tuple(
+                sub_kernel_matrix._bilinear_derivative(sub_left_vecs, right_vecs))
             sub_kernel_outputs = tuple(sub_kernel_matrix.representation())
             torch.autograd.backward(sub_kernel_outputs, sub_grad_outputs)
 
@@ -146,7 +154,8 @@ class LazyEvaluatedKernelTensor(LinearOperator):
         # that are being indexed by the __getitem__ operation
         # Therefore, we begin by figuring out the broadcasted shape, and expanding all of these objects to that shape
         try:
-            batch_shape = torch.broadcast_shapes(x1.shape[:-2], x2.shape[:-2], self.kernel.batch_shape)
+            batch_shape = torch.broadcast_shapes(
+                x1.shape[:-2], x2.shape[:-2], self.kernel.batch_shape)
         except RuntimeError:
             raise RuntimeError(
                 f"The kernel inputs (sizes {x1.shape} and {x2.shape}) are incompatible with the kernel "
@@ -187,8 +196,10 @@ class LazyEvaluatedKernelTensor(LinearOperator):
                 return self.evaluate_kernel()._getitem(row_index, col_index, *batch_indices)
 
             # Otherwise - let's divide the slices by the number of outputs per input
-            row_index = slice(row_start // num_outs_per_in_rows, row_end // num_outs_per_in_rows, None)
-            col_index = slice(col_start // num_outs_per_in_cols, col_end // num_outs_per_in_cols, None)
+            row_index = slice(row_start // num_outs_per_in_rows,
+                              row_end // num_outs_per_in_rows, None)
+            col_index = slice(col_start // num_outs_per_in_cols,
+                              col_end // num_outs_per_in_cols, None)
 
         # Define the index we're using for the last index
         # If the last index corresponds to a batch, then we'll use the appropriate batch_index
@@ -276,7 +287,8 @@ class LazyEvaluatedKernelTensor(LinearOperator):
     def _size(self):
         if settings.debug.on():
             if hasattr(self.kernel, "size"):
-                raise RuntimeError("Kernels must define `num_outputs_per_input` and should not define `size`")
+                raise RuntimeError(
+                    "Kernels must define `num_outputs_per_input` and should not define `size`")
 
         x1 = self.x1
         x2 = self.x2
@@ -427,7 +439,8 @@ class LazyEvaluatedKernelTensor(LinearOperator):
 deprecation._deprecated_renamed_method(
     LazyEvaluatedKernelTensor, old_method_name="_quad_form_derivative", new_method_name="_bilinear_derivative"
 )
-deprecation._deprecated_renamed_method(LazyEvaluatedKernelTensor, old_method_name="diag", new_method_name="diagonal")
+deprecation._deprecated_renamed_method(
+    LazyEvaluatedKernelTensor, old_method_name="diag", new_method_name="diagonal")
 deprecation._deprecated_renamed_method(
     LazyEvaluatedKernelTensor, old_method_name="evaluate", new_method_name="to_dense"
 )
