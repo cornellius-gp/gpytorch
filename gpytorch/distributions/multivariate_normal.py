@@ -11,7 +11,7 @@ import torch
 from linear_operator import to_dense, to_linear_operator
 from linear_operator.operators import DiagLinearOperator, RootLinearOperator
 from linops.operator_base import LinearOperator
-from linops.algorithms import solve_cg
+from linops.linalg.solve_linear import solve_symmetric
 from torch import Tensor
 from torch.distributions import MultivariateNormal as TMultivariateNormal
 from torch.distributions.kl import register_kl
@@ -194,7 +194,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         # Get log determininant and first part of quadratic form
         # covar = covar.evaluate_kernel()
         # covar = covar.to_dense()
-        inv_quad = solve_cg(covar, diff.unsqueeze(-1))
+        inv_quad = solve_symmetric(covar, diff.unsqueeze(-1))[:, 0]
         logdet = 0
         # inv_quad, logdet = covar.inv_quad_logdet(inv_quad_rhs=diff.unsqueeze(-1), logdet=True)
 
