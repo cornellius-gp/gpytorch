@@ -18,8 +18,11 @@ class BernoulliLikelihood(_OneDimensionalLikelihood):
 
     .. math::
         \begin{equation*}
-            p(Y=y|f)=\Phi(yf)
+            p(Y=y|f)=\Phi((2y - 1)f)
         \end{equation*}
+
+    .. note::
+        The labels should take values in {0, 1}.
     """
 
     def forward(self, function_samples, **kwargs):
