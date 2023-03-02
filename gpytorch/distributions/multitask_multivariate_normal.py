@@ -304,7 +304,7 @@ class MultitaskMultivariateNormal(MultivariateNormal):
                 raise IndexError("Only one ellipsis '...' is supported!")
             prefix = idx[:ellipsis_location]
             suffix = idx[ellipsis_location + 1 :]
-            infix_length = self.mean.dim() - prefix - suffix
+            infix_length = self.mean.dim() - len(prefix) - len(suffix)
             if infix_length < 0:
                 raise IndexError(f"Index {idx} has too many dimensions")
             idx = prefix + (slice(None),) * infix_length + suffix
