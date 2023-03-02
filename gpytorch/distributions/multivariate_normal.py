@@ -196,7 +196,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         # covar = covar.to_dense()
         inv_quad = solve_symmetric(covar, diff.unsqueeze(-1))
         inv_quad = torch.sum(diff * inv_quad[:, 0])
-        logdet = 0
+        logdet = torch.logdet(covar.to_dense())
         # inv_quad, logdet = covar.inv_quad_logdet(inv_quad_rhs=diff.unsqueeze(-1), logdet=True)
 
         res = -0.5 * sum([inv_quad, logdet, diff.size(-1) * math.log(2 * math.pi)])
