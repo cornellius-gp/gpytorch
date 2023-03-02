@@ -313,7 +313,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
     def variance(self) -> Tensor:
         if self.islazy:
             # overwrite this since torch MVN uses unbroadcasted_scale_tril for this
-            diag = self.lazy_covariance_matrix.diagonal(dim1=-1, dim2=-2)
+            diag = self.lazy_covariance_matrix.to_dense().diagonal(dim1=-1, dim2=-2)
             diag = diag.view(diag.shape[:-1] + self._event_shape)
             variance = diag.expand(self._batch_shape + self._event_shape)
         else:

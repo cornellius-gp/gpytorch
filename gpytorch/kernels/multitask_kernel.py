@@ -2,8 +2,8 @@
 
 from typing import Optional
 
-from linear_operator import to_linear_operator
-from linear_operator.operators import KroneckerProductLinearOperator
+# from linear_operator import to_linear_operator
+# from linear_operator.operators import KroneckerProductLinearOperator
 from linops.linear_algebra import lazify
 from linops.operators import Kronecker
 

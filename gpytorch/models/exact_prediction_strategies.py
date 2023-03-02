@@ -19,6 +19,8 @@ from linear_operator.operators import (
 )
 from linear_operator.utils.cholesky import psd_safe_cholesky
 from linear_operator.utils.interpolation import left_interp, left_t_interp
+from linops.linalg.solve_linear import solve_symmetric
+from linops.linear_algebra import lazify
 from torch import Tensor
 
 from .. import settings
@@ -226,7 +228,10 @@ class DefaultPredictionStrategy(object):
     @cached(name="covar_cache")
     def covar_cache(self):
         train_train_covar = self.lik_train_train_covar
-        train_train_covar_inv_root = to_dense(train_train_covar.root_inv_decomposition().root)
+        # train_train_covar_inv_root = to_dense(train_train_covar.root_inv_decomposition().root)
+        aux = train_train_covar.to_dense()
+        train_train_covar_inv = aux.inverse()
+        train_train_covar_inv_root = torch.cholesky(train_train_covar_inv)
         return self._exact_predictive_covar_inv_quad_form_cache(train_train_covar_inv_root, self._last_test_train_covar)
 
     @property
@@ -236,7 +241,8 @@ class DefaultPredictionStrategy(object):
         train_mean, train_train_covar = mvn.loc, mvn.lazy_covariance_matrix
 
         train_labels_offset = (self.train_labels - train_mean).unsqueeze(-1)
-        mean_cache = train_train_covar.evaluate_kernel().solve(train_labels_offset).squeeze(-1)
+        # mean_cache = train_train_covar.evaluate_kernel().solve(train_labels_offset).squeeze(-1)
+        mean_cache = solve_symmetric(train_train_covar, train_labels_offset[:, 0])
 
         if settings.detach_test_caches.on():
             mean_cache = mean_cache.detach()
@@ -258,15 +264,18 @@ class DefaultPredictionStrategy(object):
 
     def exact_prediction(self, joint_mean, joint_covar):
         # Find the components of the distribution that contain test data
-        test_mean = joint_mean[..., self.num_train :]
+        test_mean = joint_mean[..., self.num_train:]
         # For efficiency - we can make things more efficient
         if joint_covar.shape[-1] <= settings.max_eager_kernel_size.value():
-            test_covar = joint_covar[..., self.num_train :, :].to_dense()
-            test_test_covar = test_covar[..., self.num_train :]
+            # test_covar = joint_covar[..., self.num_train :, :].to_dense()
+            # test_test_covar = test_covar[..., self.num_train :]
+            # test_train_covar = test_covar[..., : self.num_train]
+            test_covar = joint_covar.to_dense()[..., self.num_train:, :]
+            test_test_covar = test_covar[..., self.num_train:]
             test_train_covar = test_covar[..., : self.num_train]
         else:
-            test_test_covar = joint_covar[..., self.num_train :, self.num_train :]
-            test_train_covar = joint_covar[..., self.num_train :, : self.num_train]
+            test_test_covar = joint_covar[..., self.num_train:, self.num_train:]
+            test_train_covar = joint_covar[..., self.num_train:, :self.num_train]
 
         return (
             self.exact_predictive_mean(test_mean, test_train_covar),
@@ -335,11 +344,14 @@ class DefaultPredictionStrategy(object):
         precomputed_cache = self.covar_cache
         covar_inv_quad_form_root = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache, test_train_covar)
         if torch.is_tensor(test_test_covar):
-            return to_linear_operator(
-                torch.add(
-                    test_test_covar, covar_inv_quad_form_root @ covar_inv_quad_form_root.transpose(-1, -2), alpha=-1
-                )
-            )
+            # return to_linear_operator(
+            #     torch.add(
+            #         test_test_covar, covar_inv_quad_form_root @ covar_inv_quad_form_root.transpose(-1, -2), alpha=-1
+            #     )
+            # )
+            aux = covar_inv_quad_form_root @ covar_inv_quad_form_root.transpose(-1, -2)
+            posterior_covar = test_test_covar + aux
+            return lazify(posterior_covar)
         else:
             return test_test_covar + MatmulLinearOperator(
                 covar_inv_quad_form_root, covar_inv_quad_form_root.transpose(-1, -2).mul(-1)

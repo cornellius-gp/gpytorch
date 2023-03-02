@@ -9,6 +9,8 @@ from linear_operator.operators import (
     PsdSumLinearOperator,
     RootLinearOperator,
 )
+from linops.linear_algebra import lazify
+from linops.operators import Diagonal, Sum, Product, Sliced
 
 from ..constraints import Interval, Positive
 from ..priors import Prior
@@ -59,7 +61,8 @@ class IndexKernel(Kernel):
         **kwargs,
     ):
         if rank > num_tasks:
-            raise RuntimeError("Cannot create a task covariance matrix larger than the number of tasks")
+            raise RuntimeError(
+                "Cannot create a task covariance matrix larger than the number of tasks")
         super().__init__(**kwargs)
 
         if var_constraint is None:
@@ -68,7 +71,8 @@ class IndexKernel(Kernel):
         self.register_parameter(
             name="covar_factor", parameter=torch.nn.Parameter(torch.randn(*self.batch_shape, num_tasks, rank))
         )
-        self.register_parameter(name="raw_var", parameter=torch.nn.Parameter(torch.randn(*self.batch_shape, num_tasks)))
+        self.register_parameter(name="raw_var", parameter=torch.nn.Parameter(
+            torch.randn(*self.batch_shape, num_tasks)))
         if prior is not None:
             if not isinstance(prior, Prior):
                 raise TypeError("Expected gpytorch.priors.Prior but got " + type(prior).__name__)
@@ -94,7 +98,9 @@ class IndexKernel(Kernel):
     @property
     def covar_matrix(self):
         var = self.var
-        res = PsdSumLinearOperator(RootLinearOperator(self.covar_factor), DiagLinearOperator(var))
+        # res = PsdSumLinearOperator(RootLinearOperator(self.covar_factor), DiagLinearOperator(var))
+        RootOp = Diagonal(self.covar_factor[:, 0])
+        res = Sum(Ms=(Product(Ms=(RootOp, RootOp)), Diagonal(var)))
         return res
 
     def forward(self, i1, i2, **params):
@@ -103,9 +109,13 @@ class IndexKernel(Kernel):
         covar_matrix = self._eval_covar_matrix()
         batch_shape = torch.broadcast_shapes(i1.shape[:-2], i2.shape[:-2], self.batch_shape)
 
-        res = InterpolatedLinearOperator(
-            base_linear_op=covar_matrix,
-            left_interp_indices=i1.expand(batch_shape + i1.shape[-2:]),
-            right_interp_indices=i2.expand(batch_shape + i2.shape[-2:]),
-        )
+        slice1 = i1.expand(batch_shape + i1.shape[-2:])
+        slice2 = i2.expand(batch_shape + i2.shape[-2:])
+        res = Sliced(covar_matrix, slices=(slice1, slice2))
+
+        # res = InterpolatedLinearOperator(
+        #     base_linear_op=covar_matrix,
+        #     left_interp_indices=i1.expand(batch_shape + i1.shape[-2:]),
+        #     right_interp_indices=i2.expand(batch_shape + i2.shape[-2:]),
+        # )
         return res
