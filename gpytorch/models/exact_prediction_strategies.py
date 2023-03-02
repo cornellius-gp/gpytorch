@@ -237,14 +237,14 @@ class DefaultPredictionStrategy(object):
 
         train_labels_offset = (self.train_labels - train_mean).unsqueeze(-1)
 
-        nan_labels = torch.isnan(self.train_labels)
-        if not torch.any(nan_labels):
+        not_observed = torch.isnan(self.train_labels)
+        if not torch.any(not_observed):
             mean_cache = train_train_covar.evaluate_kernel().solve(train_labels_offset).squeeze(-1)
         else:
-            non_nan_labels = torch.where(~nan_labels)[0]
+            observed = torch.where(~not_observed)[0]
             mean_cache = torch.full_like(self.train_labels, torch.nan)
-            non_nan_kernel = train_train_covar[..., non_nan_labels, :][..., :, non_nan_labels].evaluate_kernel()
-            mean_cache[~nan_labels] = non_nan_kernel.solve(train_labels_offset[non_nan_labels]).squeeze(-1)
+            non_nan_kernel = train_train_covar[..., observed, :][..., :, observed].evaluate_kernel()
+            mean_cache[~not_observed] = non_nan_kernel.solve(train_labels_offset[observed]).squeeze(-1)
 
         if settings.detach_test_caches.on():
             mean_cache = mean_cache.detach()
@@ -293,12 +293,12 @@ class DefaultPredictionStrategy(object):
         # NOTE TO FUTURE SELF:
         # You **cannot* use addmv here, because test_train_covar may not actually be a non lazy tensor even for an exact
         # GP, and using addmv requires you to to_dense test_train_covar, which is obviously a huge no-no!
-        nan_means = torch.isnan(self.mean_cache)
-        if not torch.any(nan_means):
+        not_observed = torch.isnan(self.mean_cache)
+        if not torch.any(not_observed):
             res = (test_train_covar @ self.mean_cache.unsqueeze(-1)).squeeze(-1)
         else:
-            non_nan_idx = torch.where(~nan_means)[0]
-            res = (test_train_covar[..., non_nan_idx] @ self.mean_cache[non_nan_idx].unsqueeze(-1)).squeeze(-1)
+            observed = torch.where(~not_observed)[0]
+            res = (test_train_covar[..., observed] @ self.mean_cache[observed].unsqueeze(-1)).squeeze(-1)
         res = res + test_mean
 
         return res

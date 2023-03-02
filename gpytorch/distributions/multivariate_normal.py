@@ -343,7 +343,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
 
         The mean and covariance matrix arguments are indexed accordingly.
 
-        :param idx: Index to apply.
+        :param idx: Index to apply to the mean. The covariance matrix is indexed accordingly.
         """
 
         if not isinstance(idx, tuple):
@@ -353,6 +353,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         new_mean = self.mean[idx]
 
         if len(idx) <= self.mean.dim() - 1 and (Ellipsis not in rest_idx):
+            # We are only indexing the batch dimensions in this case
             new_cov = self.lazy_covariance_matrix[idx]
         elif len(idx) > self.mean.dim():
             raise IndexError(f"Index {idx} has too many dimensions")

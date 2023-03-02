@@ -2,7 +2,12 @@
 
 import torch
 from linear_operator import LinearOperator, to_linear_operator
-from linear_operator.operators import BlockDiagLinearOperator, BlockInterleavedLinearOperator, CatLinearOperator
+from linear_operator.operators import (
+    BlockDiagLinearOperator,
+    BlockInterleavedLinearOperator,
+    CatLinearOperator,
+    DiagLinearOperator,
+)
 
 from .multivariate_normal import MultivariateNormal
 
@@ -18,7 +23,7 @@ class MultitaskMultivariateNormal(MultivariateNormal):
     :param torch.Tensor mean:  An `n x t` or batch `b x n x t` matrix of means for the MVN distribution.
     :param ~linear_operator.operators.LinearOperator covar: An `... x NT x NT` (batch) matrix.
         covariance matrix of MVN distribution.
-    :param bool validate_args: (default=False) If True, validate `mean` anad `covariance_matrix` arguments.
+    :param bool validate_args: (default=False) If True, validate `mean` and `covariance_matrix` arguments.
     :param bool interleaved: (default=True) If True, covariance matrix is interpreted as block-diagonal w.r.t.
         inter-task covariances for each observation. If False, it is interpreted as block-diagonal
         w.r.t. inter-observation covariance for each task.
@@ -275,3 +280,105 @@ class MultitaskMultivariateNormal(MultivariateNormal):
             new_shape = self._output_shape[:-2] + self._output_shape[:-3:-1]
             return var.view(new_shape).transpose(-1, -2).contiguous()
         return var.view(self._output_shape)
+
+    def __getitem__(self, idx) -> MultivariateNormal:
+        r"""
+        Constructs a new MultivariateNormal that represents a random variable
+        modified by an indexing operation.
+
+        The mean and covariance matrix arguments are indexed accordingly.
+
+        :param idx: Index to apply to the mean. The covariance matrix is indexed accordingly.
+        :return: If indices specify a slice for samples and tasks, returns a
+        MultitaskMultivariateNormal, else returns a MultivariateNormal.
+        """
+
+        # Normalize index to a tuple
+        if not isinstance(idx, tuple):
+            idx = (idx,)
+
+        if ... in idx:
+            # Replace ellipsis '...' with explicit indices
+            ellipsis_location = idx.index(...)
+            if ... in idx[ellipsis_location + 1 :]:
+                raise IndexError("Only one ellipsis '...' is supported!")
+            prefix = idx[:ellipsis_location]
+            suffix = idx[ellipsis_location + 1 :]
+            infix_length = self.mean.dim() - prefix - suffix
+            if infix_length < 0:
+                raise IndexError(f"Index {idx} has too many dimensions")
+            idx = prefix + (slice(None),) * infix_length + suffix
+        elif len(idx) == self.mean.dim() - 1:
+            # Normalize indices ignoring the task-index to include it
+            idx = idx + (slice(None),)
+
+        new_mean = self.mean[idx]
+
+        # We now create a covariance matrix appropriate for new_mean
+        if len(idx) <= self.mean.dim() - 2:
+            # We are only indexing the batch dimensions in this case
+            return MultitaskMultivariateNormal(
+                mean=new_mean,
+                covariance_matrix=self.lazy_covariance_matrix[idx],
+                interleaved=self._interleaved,
+            )
+        elif len(idx) > self.mean.dim():
+            raise IndexError(f"Index {idx} has too many dimensions")
+        else:
+            # We have an index that extends over all dimensions
+            batch_idx = idx[:-2]
+            if self._interleaved:
+                row_idx = idx[-2]
+                col_idx = idx[-1]
+                num_rows = self._output_shape[-2]
+                num_cols = self._output_shape[-1]
+            else:
+                row_idx = idx[-1]
+                col_idx = idx[-2]
+                num_rows = self._output_shape[-1]
+                num_cols = self._output_shape[-2]
+
+            if isinstance(row_idx, int) and isinstance(col_idx, int):
+                # Single sample with single task
+                new_cov = DiagLinearOperator(
+                    self.lazy_covariance_matrix.diagonal()[batch_idx + (row_idx * num_cols + col_idx,)]
+                )
+                return MultivariateNormal(mean=new_mean, covariance_matrix=new_cov)
+            elif isinstance(row_idx, int) and isinstance(col_idx, slice):
+                # A block of the covariance matrix
+                new_slice = slice(
+                    (col_idx.start if col_idx.start else 0) + row_idx * num_cols,
+                    (col_idx.stop if col_idx.stop else num_cols) + row_idx * num_cols,
+                    col_idx.step,
+                )
+                new_cov = self.lazy_covariance_matrix[batch_idx + (new_slice, new_slice)]
+                return MultivariateNormal(mean=new_mean, covariance_matrix=new_cov)
+            elif isinstance(row_idx, slice) and isinstance(col_idx, int):
+                # A block of the reversely interleaved covariance matrix
+                new_slice = slice(
+                    row_idx.start if row_idx.start else 0,
+                    (row_idx.stop if row_idx.stop else num_rows) * num_cols,
+                    (row_idx.step if row_idx.step else 1) * num_cols,
+                )
+                new_cov = self.lazy_covariance_matrix[batch_idx + (new_slice, new_slice)]
+                return MultivariateNormal(mean=new_mean, covariance_matrix=new_cov)
+            elif isinstance(row_idx, slice) or isinstance(col_idx, slice):
+                # slice x slice or indices x slice or slice x indices
+                if isinstance(row_idx, slice):
+                    row_idx = torch.arange(num_rows)[row_idx]
+                if isinstance(col_idx, slice):
+                    col_idx = torch.arange(num_cols)[col_idx]
+                row_grid, col_grid = torch.meshgrid(row_idx, col_idx, indexing="ij")
+                indices = (row_grid * num_cols + col_grid).reshape(-1)
+                new_cov = self.lazy_covariance_matrix[batch_idx + (indices,)][..., indices]
+                return MultitaskMultivariateNormal(
+                    mean=new_mean, covariance_matrix=new_cov, interleaved=self._interleaved, validate_args=False
+                )
+            else:
+                # row_idx and col_idx have pairs of indices
+                indices = row_idx * num_cols + col_idx
+                new_cov = self.lazy_covariance_matrix[batch_idx + (indices,)][..., indices]
+                return MultivariateNormal(
+                    mean=new_mean,
+                    covariance_matrix=new_cov,
+                )
