@@ -340,26 +340,28 @@ class MultitaskMultivariateNormal(MultivariateNormal):
 
             if isinstance(row_idx, int) and isinstance(col_idx, int):
                 # Single sample with single task
+                row_idx = _normalize_index(row_idx, num_rows)
+                col_idx = _normalize_index(col_idx, num_cols)
                 new_cov = DiagLinearOperator(
                     self.lazy_covariance_matrix.diagonal()[batch_idx + (row_idx * num_cols + col_idx,)]
                 )
                 return MultivariateNormal(mean=new_mean, covariance_matrix=new_cov)
             elif isinstance(row_idx, int) and isinstance(col_idx, slice):
                 # A block of the covariance matrix
+                row_idx = _normalize_index(row_idx, num_rows)
+                col_idx = _normalize_slice(col_idx, num_cols)
                 new_slice = slice(
-                    (col_idx.start if col_idx.start else 0) + row_idx * num_cols,
-                    (col_idx.stop if col_idx.stop else num_cols) + row_idx * num_cols,
+                    col_idx.start + row_idx * num_cols,
+                    col_idx.stop + row_idx * num_cols,
                     col_idx.step,
                 )
                 new_cov = self.lazy_covariance_matrix[batch_idx + (new_slice, new_slice)]
                 return MultivariateNormal(mean=new_mean, covariance_matrix=new_cov)
             elif isinstance(row_idx, slice) and isinstance(col_idx, int):
                 # A block of the reversely interleaved covariance matrix
-                new_slice = slice(
-                    row_idx.start if row_idx.start else 0,
-                    (row_idx.stop if row_idx.stop else num_rows) * num_cols,
-                    (row_idx.step if row_idx.step else 1) * num_cols,
-                )
+                row_idx = _normalize_slice(row_idx, num_rows)
+                col_idx = _normalize_index(col_idx, num_cols)
+                new_slice = slice(row_idx.start + col_idx, row_idx.stop * num_cols + col_idx, row_idx.step * num_cols)
                 new_cov = self.lazy_covariance_matrix[batch_idx + (new_slice, new_slice)]
                 return MultivariateNormal(mean=new_mean, covariance_matrix=new_cov)
             elif isinstance(row_idx, slice) or isinstance(col_idx, slice):
@@ -382,3 +384,27 @@ class MultitaskMultivariateNormal(MultivariateNormal):
                     mean=new_mean,
                     covariance_matrix=new_cov,
                 )
+
+
+def _normalize_index(i: int, dim_size: int) -> int:
+    if i < 0:
+        return dim_size + i
+    else:
+        return i
+
+
+def _normalize_slice(s: slice, dim_size: int) -> slice:
+    start = s.start
+    if start is None:
+        start = 0
+    elif start < 0:
+        start = dim_size + start
+    stop = s.stop
+    if stop is None:
+        stop = dim_size
+    elif stop < 0:
+        stop = dim_size + stop
+    step = s.step
+    if step is None:
+        step = 1
+    return slice(start, stop, step)
