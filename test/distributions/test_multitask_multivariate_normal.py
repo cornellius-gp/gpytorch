@@ -315,6 +315,156 @@ class TestMultiTaskMultivariateNormal(BaseTestCase, unittest.TestCase):
             covar = _covar @ _covar.transpose(-1, -2)
             MultitaskMultivariateNormal(mean, covar)
 
+    def test_getitem_interleaved(self):
+        mean_shape = (2, 4, 3, 2)
+        covar_shape = (2, 4, 6, 6)
+        mean = torch.randn(mean_shape)
+        _covar = torch.randn(covar_shape)
+        covar = _covar @ _covar.transpose(-1, -2)
+        distribution = MultitaskMultivariateNormal(mean, covar, validate_args=True)
+
+        def flat(observation: int, task: int) -> int:
+            return observation * 2 + task
+
+        part = distribution[1, -1]
+        self.assertIsInstance(part, MultitaskMultivariateNormal)
+        self.assertEqual(part.batch_shape, torch.Size(()))
+        self.assertEqual(part.event_shape, torch.Size((3, 2)))
+        self.assertAllClose(part.mean, mean[1, -1])
+        self.assertAllClose(part.covariance_matrix, covar[1, -1])
+
+        part = distribution[..., 2, 1]
+        self.assertFalse(isinstance(part, MultitaskMultivariateNormal))
+        self.assertIsInstance(part, MultivariateNormal)
+        self.assertEqual(part.batch_shape, torch.Size((2,)))
+        self.assertEqual(part.event_shape, (4,))
+        self.assertAllClose(part.mean, mean[..., 2, 1])
+        self.assertAllClose(part.covariance_matrix, torch.diag_embed(covar[:, :, flat(2, 1), flat(2, 1)]))
+
+        part = distribution[1, ..., -2]
+        self.assertFalse(isinstance(part, MultitaskMultivariateNormal))
+        self.assertIsInstance(part, MultivariateNormal)
+        self.assertEqual(part.batch_shape, torch.Size((4,)))
+        self.assertEqual(part.event_shape, torch.Size((3,)))
+        self.assertAllClose(part.mean, mean[1, :, :, 0])
+        self.assertAllClose(part.covariance_matrix, covar[1, :, ::2, ::2])
+
+        part = distribution[..., 2, :]
+        self.assertFalse(isinstance(part, MultitaskMultivariateNormal))
+        self.assertIsInstance(part, MultivariateNormal)
+        self.assertEqual(part.batch_shape, torch.Size((2, 4)))
+        self.assertEqual(part.event_shape, torch.Size((2,)))
+        self.assertAllClose(part.mean, mean[:, :, 2, :])
+        self.assertAllClose(part.covariance_matrix, covar[:, :, 2 * 2 : 3 * 2, 2 * 2 : 3 * 2])
+
+        part = distribution[0, :, :, torch.tensor([1, 0])]
+        self.assertIsInstance(part, MultitaskMultivariateNormal)
+        self.assertEqual(part.batch_shape, torch.Size((4,)))
+        self.assertEqual(part.event_shape, torch.Size((3, 2)))
+        self.assertAllClose(part.mean, mean[0, ..., torch.tensor([1, 0])])
+        indices = torch.tensor([1, 0, 3, 2, 5, 4])
+        self.assertAllClose(part.covariance_matrix, covar[0, :, indices][..., indices])
+
+        part = distribution[:, 1, torch.tensor([2, 0])]
+        self.assertIsInstance(part, MultitaskMultivariateNormal)
+        self.assertEqual(part.batch_shape, torch.Size((2,)))
+        self.assertEqual(part.event_shape, torch.Size((2, 2)))
+        self.assertAllClose(part.mean, mean[:, 1, torch.tensor([2, 0])])
+        indices = torch.tensor([4, 5, 0, 1])
+        self.assertAllClose(part.covariance_matrix, covar[:, 1, indices][..., indices])
+
+        part = distribution[..., 1:, :-1]
+        self.assertIsInstance(part, MultitaskMultivariateNormal)
+        self.assertEqual(part.batch_shape, torch.Size((2, 4)))
+        self.assertEqual(part.event_shape, torch.Size((2, 1)))
+        self.assertAllClose(part.mean, mean[..., 1:, :-1])
+        indices = torch.tensor([flat(1, 0), flat(2, 0)])
+        self.assertAllClose(part.covariance_matrix, covar[..., indices, :][..., indices])
+
+        part = distribution[..., torch.tensor([2, 0, 2]), torch.tensor([1, 0, 0])]
+        self.assertFalse(isinstance(part, MultitaskMultivariateNormal))
+        self.assertIsInstance(part, MultivariateNormal)
+        self.assertEqual(part.batch_shape, torch.Size((2, 4)))
+        self.assertEqual(part.event_shape, torch.Size((3,)))
+        self.assertAllClose(part.mean, mean[..., torch.tensor([2, 0, 2]), torch.tensor([1, 0, 0])])
+        indices = torch.tensor([flat(2, 1), flat(0, 0), flat(2, 0)])
+        self.assertAllClose(part.covariance_matrix, covar[..., indices, :][..., indices])
+
+    def test_getitem_non_interleaved(self):
+        mean_shape = (2, 4, 3, 2)
+        covar_shape = (2, 4, 6, 6)
+        mean = torch.randn(mean_shape)
+        _covar = torch.randn(covar_shape)
+        covar = _covar @ _covar.transpose(-1, -2)
+        distribution = MultitaskMultivariateNormal(mean, covar, validate_args=True, interleaved=False)
+
+        def flat(observation: int, task: int) -> int:
+            return task * 3 + observation
+
+        part = distribution[1, -1]
+        self.assertIsInstance(part, MultitaskMultivariateNormal)
+        self.assertEqual(part.batch_shape, torch.Size(()))
+        self.assertEqual(part.event_shape, torch.Size((3, 2)))
+        self.assertAllClose(part.mean, mean[1, -1])
+        self.assertAllClose(part.covariance_matrix, covar[1, -1])
+
+        part = distribution[..., 2, 1]
+        self.assertFalse(isinstance(part, MultitaskMultivariateNormal))
+        self.assertIsInstance(part, MultivariateNormal)
+        self.assertEqual(part.batch_shape, torch.Size((2,)))
+        self.assertEqual(part.event_shape, (4,))
+        self.assertAllClose(part.mean, mean[..., 2, 1])
+        self.assertAllClose(part.covariance_matrix, torch.diag_embed(covar[:, :, flat(2, 1), flat(2, 1)]))
+
+        part = distribution[1, ..., -2]
+        self.assertFalse(isinstance(part, MultitaskMultivariateNormal))
+        self.assertIsInstance(part, MultivariateNormal)
+        self.assertEqual(part.batch_shape, torch.Size((4,)))
+        self.assertEqual(part.event_shape, torch.Size((3,)))
+        self.assertAllClose(part.mean, mean[1, :, :, 0])
+        self.assertAllClose(part.covariance_matrix, covar[1, :, :3, :3])
+
+        part = distribution[..., 2, :]
+        self.assertFalse(isinstance(part, MultitaskMultivariateNormal))
+        self.assertIsInstance(part, MultivariateNormal)
+        self.assertEqual(part.batch_shape, torch.Size((2, 4)))
+        self.assertEqual(part.event_shape, torch.Size((2,)))
+        self.assertAllClose(part.mean, mean[:, :, 2, :])
+        self.assertAllClose(part.covariance_matrix, covar[:, :, 2::3, 2::3])
+
+        part = distribution[0, :, :, torch.tensor([1, 0])]
+        self.assertIsInstance(part, MultitaskMultivariateNormal)
+        self.assertEqual(part.batch_shape, torch.Size((4,)))
+        self.assertEqual(part.event_shape, torch.Size((3, 2)))
+        self.assertAllClose(part.mean, mean[0, ..., torch.tensor([1, 0])])
+        indices = torch.tensor([3, 4, 5, 0, 1, 2])
+        self.assertAllClose(part.covariance_matrix, covar[0, :, indices][..., indices])
+
+        part = distribution[:, 1, torch.tensor([2, 0])]
+        self.assertIsInstance(part, MultitaskMultivariateNormal)
+        self.assertEqual(part.batch_shape, torch.Size((2,)))
+        self.assertEqual(part.event_shape, torch.Size((2, 2)))
+        self.assertAllClose(part.mean, mean[:, 1, torch.tensor([2, 0])])
+        indices = torch.tensor([2, 0, 5, 3])
+        self.assertAllClose(part.covariance_matrix, covar[:, 1, indices][..., indices])
+
+        part = distribution[..., 1:, :-1]
+        self.assertIsInstance(part, MultitaskMultivariateNormal)
+        self.assertEqual(part.batch_shape, torch.Size((2, 4)))
+        self.assertEqual(part.event_shape, torch.Size((2, 1)))
+        self.assertAllClose(part.mean, mean[..., 1:, :-1])
+        indices = torch.tensor([flat(1, 0), flat(2, 0)])
+        self.assertAllClose(part.covariance_matrix, covar[..., indices, :][..., indices])
+
+        part = distribution[..., torch.tensor([2, 0, 2]), torch.tensor([1, 0, 0])]
+        self.assertFalse(isinstance(part, MultitaskMultivariateNormal))
+        self.assertIsInstance(part, MultivariateNormal)
+        self.assertEqual(part.batch_shape, torch.Size((2, 4)))
+        self.assertEqual(part.event_shape, torch.Size((3,)))
+        self.assertAllClose(part.mean, mean[..., torch.tensor([2, 0, 2]), torch.tensor([1, 0, 0])])
+        indices = torch.tensor([flat(2, 1), flat(0, 0), flat(2, 0)])
+        self.assertAllClose(part.covariance_matrix, covar[..., indices, :][..., indices])
+
 
 if __name__ == "__main__":
     unittest.main()
