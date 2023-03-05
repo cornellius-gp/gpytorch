@@ -32,19 +32,19 @@ Exact GP Inference
 These are MLLs for use with :obj:`~gpytorch.models.ExactGP` modules. They compute the MLL exactly.
 
 :hidden:`ExactMarginalLogLikelihood`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: ExactMarginalLogLikelihood
    :members:
 
 :hidden:`ExactMarginalLogLikelihoodWithMissingObs`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: ExactMarginalLogLikelihoodWithMissingObs
    :members:
 
 :hidden:`LeaveOneOutPseudoLikelihood`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: LeaveOneOutPseudoLikelihood
    :members:
