@@ -178,7 +178,7 @@ class LMCVariationalStrategy(_VariationalStrategy):
             The return type will be a (... x N)
             :class:`~gpytorch.distributions.MultivariateNormal`.
 
-        :param x: Input locations to evaluate variational strategy
+        :param x: (... x N x D) Input locations to evaluate variational strategy
         :param task_indices: (Default: None) Task index associated with each input.
             If this **is not** provided, then the returned distribution evaluates every input on every task
             (returns :class:`~gpytorch.distributions.MultitaskMultivariateNormal`).
