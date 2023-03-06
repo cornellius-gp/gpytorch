@@ -3,34 +3,44 @@
 import functools
 from abc import ABC, abstractproperty
 from copy import deepcopy
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 import torch
 from linear_operator.operators import LinearOperator
 from torch import Tensor
 
 from .. import settings
-from ..distributions import Delta, MultivariateNormal
+from ..distributions import Delta, Distribution, MultivariateNormal
+from ..kernels import Kernel
 from ..likelihoods import GaussianLikelihood
+from ..means import Mean
 from ..models import ApproximateGP, ExactGP
+from ..models.exact_prediction_strategies import DefaultPredictionStrategy
 from ..module import Module
 from ..utils.memoize import add_to_cache, cached, clear_cache_hook
 from . import _VariationalDistribution
 
 
 class _BaseExactGP(ExactGP):
-    def __init__(self, train_inputs, train_targets, likelihood, mean_module, covar_module):
+    def __init__(
+        self,
+        train_inputs: Optional[Union[Tensor, Tuple[Tensor, ...]]],
+        train_targets: Optional[Tensor],
+        likelihood: GaussianLikelihood,
+        mean_module: Mean,
+        covar_module: Kernel,
+    ):
         super().__init__(train_inputs, train_targets, likelihood)
         self.mean_module = mean_module
         self.covar_module = covar_module
 
-    def forward(self, x):
+    def forward(self, x: Tensor, **kwargs) -> MultivariateNormal:
         mean = self.mean_module(x)
         covar = self.covar_module(x)
         return MultivariateNormal(mean, covar)
 
 
-def _add_cache_hook(tsr, pred_strat):
+def _add_cache_hook(tsr: Tensor, pred_strat: DefaultPredictionStrategy) -> Tensor:
     if tsr.grad_fn is not None:
         wrapper = functools.partial(clear_cache_hook, pred_strat)
         functools.update_wrapper(wrapper, clear_cache_hook)
@@ -47,7 +57,7 @@ class _VariationalStrategy(Module, ABC):
 
     def __init__(
         self,
-        model: ApproximateGP,
+        model: Union[ApproximateGP, "_VariationalStrategy"],
         inducing_points: Tensor,
         variational_distribution: _VariationalDistribution,
         learn_inducing_locations: bool = True,
@@ -73,7 +83,7 @@ class _VariationalStrategy(Module, ABC):
         self._variational_distribution = variational_distribution
         self.register_buffer("variational_params_initialized", torch.tensor(0))
 
-    def _clear_cache(self):
+    def _clear_cache(self) -> None:
         clear_cache_hook(self)
 
     def _expand_inputs(self, x: Tensor, inducing_points: Tensor) -> Tuple[Tensor, Tensor]:
@@ -110,7 +120,7 @@ class _VariationalStrategy(Module, ABC):
 
     @property
     @cached(name="variational_distribution_memo")
-    def variational_distribution(self) -> MultivariateNormal:
+    def variational_distribution(self) -> Distribution:
         return self._variational_distribution()
 
     def forward(

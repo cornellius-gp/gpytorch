@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import warnings
-from typing import Optional, Tuple
+from typing import Any, Dict, Iterable, Optional, Tuple
 
 import torch
 from linear_operator import to_dense
@@ -31,7 +31,13 @@ from . import _VariationalDistribution
 
 
 def _ensure_updated_strategy_flag_set(
-    state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
+    state_dict: Dict[str, Tensor],
+    prefix: str,
+    local_metadata: Dict[str, Any],
+    strict: bool,
+    missing_keys: Iterable[str],
+    unexpected_keys: Iterable[str],
+    error_msgs: Iterable[str],
 ):
     device = state_dict[list(state_dict.keys())[0]].device
     if prefix + "updated_strategy" not in state_dict:
@@ -243,13 +249,16 @@ class VariationalStrategy(_VariationalStrategy):
 
                 # Change the variational parameters to be whitened
                 variational_dist = self.variational_distribution
-                mean_diff = (variational_dist.loc - prior_mean).unsqueeze(-1).type(_linalg_dtype_cholesky.value())
-                whitened_mean = L.solve(mean_diff).squeeze(-1).to(variational_dist.loc.dtype)
-                covar_root = variational_dist.lazy_covariance_matrix.root_decomposition().root.to_dense()
-                covar_root = covar_root.type(_linalg_dtype_cholesky.value())
-                whitened_covar = RootLinearOperator(L.solve(covar_root).to(variational_dist.loc.dtype))
-                whitened_variational_distribution = variational_dist.__class__(whitened_mean, whitened_covar)
-                self._variational_distribution.initialize_variational_distribution(whitened_variational_distribution)
+                if isinstance(variational_dist, MultivariateNormal):
+                    mean_diff = (variational_dist.loc - prior_mean).unsqueeze(-1).type(_linalg_dtype_cholesky.value())
+                    whitened_mean = L.solve(mean_diff).squeeze(-1).to(variational_dist.loc.dtype)
+                    covar_root = variational_dist.lazy_covariance_matrix.root_decomposition().root.to_dense()
+                    covar_root = covar_root.type(_linalg_dtype_cholesky.value())
+                    whitened_covar = RootLinearOperator(L.solve(covar_root).to(variational_dist.loc.dtype))
+                    whitened_variational_distribution = variational_dist.__class__(whitened_mean, whitened_covar)
+                    self._variational_distribution.initialize_variational_distribution(
+                        whitened_variational_distribution
+                    )
 
                 # Reset the random noise parameter of the model
                 self._variational_distribution.mean_init_std = orig_mean_init_std

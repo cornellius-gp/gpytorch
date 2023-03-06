@@ -1,0 +1,17 @@
+{
+  "site_package_search_strategy": "pep561",
+  "source_directories": [
+    {"import_root": ".", "source": "gpytorch/"}
+  ],
+  "search_path": [
+    ".",
+    "../linear_operator",
+    {"site-package": "faiss"},
+    {"site-package": "linear_operator"},
+    {"site-package": "pykeops"},
+    {"site-package": "pyro"},
+    {"site-package": "scipy"},
+    {"site-package": "sklearn"}
+  ],
+  "strict": true
+}

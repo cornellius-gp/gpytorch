@@ -164,6 +164,7 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
 
         # Expand everything to the right size
         shapes = [mean_diff.shape[:-1], induc_data_covar.shape[:-1], induc_induc_covar.shape[:-1]]
+        root_variational_covar = None
         if variational_inducing_covar is not None:
             root_variational_covar = variational_inducing_covar.root_decomposition().root.to_dense()
             shapes.append(root_variational_covar.shape[:-1])

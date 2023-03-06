@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 
+from typing import Tuple
+
 import torch
 from linear_operator.operators import CholLinearOperator, TriangularLinearOperator
+from torch import Tensor
+from torch.autograd.function import FunctionCtx
 
-from ..distributions import MultivariateNormal
+from ..distributions import Distribution, MultivariateNormal
 from .natural_variational_distribution import (
     _NaturalToMuVarSqrt,
     _NaturalVariationalDistribution,
@@ -46,7 +50,7 @@ class TrilNaturalVariationalDistribution(_NaturalVariationalDistribution):
     :param float mean_init_std: (Default: 1e-3) Standard deviation of gaussian noise to add to the mean initialization.
     """
 
-    def __init__(self, num_inducing_points, batch_shape=torch.Size([]), mean_init_std=1e-3, **kwargs):
+    def __init__(self, num_inducing_points: int, batch_shape: torch.Size = torch.Size([]), mean_init_std: float = 1e-3):
         super().__init__(num_inducing_points=num_inducing_points, batch_shape=batch_shape, mean_init_std=mean_init_std)
         scaled_mean_init = torch.zeros(num_inducing_points)
         neg_prec_init = torch.eye(num_inducing_points, num_inducing_points)
@@ -57,11 +61,11 @@ class TrilNaturalVariationalDistribution(_NaturalVariationalDistribution):
         self.register_parameter(name="natural_vec", parameter=torch.nn.Parameter(scaled_mean_init))
         self.register_parameter(name="natural_tril_mat", parameter=torch.nn.Parameter(neg_prec_init))
 
-    def forward(self):
+    def forward(self) -> Distribution:
         mean, chol_covar = _TrilNaturalToMuVarSqrt.apply(self.natural_vec, self.natural_tril_mat)
         return MultivariateNormal(mean, CholLinearOperator(TriangularLinearOperator(chol_covar)))
 
-    def initialize_variational_distribution(self, prior_dist):
+    def initialize_variational_distribution(self, prior_dist: MultivariateNormal) -> None:
         prior_cov = prior_dist.lazy_covariance_matrix
         chol = prior_cov.cholesky().to_dense()
         tril_mat = _triangular_inverse(chol, upper=False)
@@ -75,20 +79,20 @@ class TrilNaturalVariationalDistribution(_NaturalVariationalDistribution):
 
 class _TrilNaturalToMuVarSqrt(torch.autograd.Function):
     @staticmethod
-    def _forward(nat_mean, tril_nat_covar):
+    def _forward(nat_mean: Tensor, tril_nat_covar: Tensor) -> Tuple[Tensor, Tensor]:
         L = _triangular_inverse(tril_nat_covar, upper=False)
         mu = L @ (L.transpose(-1, -2) @ nat_mean.unsqueeze(-1))
         return mu.squeeze(-1), L
         # return nat_mean, L
 
     @staticmethod
-    def forward(ctx, nat_mean, tril_nat_covar):
+    def forward(ctx: FunctionCtx, nat_mean: Tensor, tril_nat_covar: Tensor) -> Tuple[Tensor, Tensor]:
         mu, L = _TrilNaturalToMuVarSqrt._forward(nat_mean, tril_nat_covar)
         ctx.save_for_backward(mu, L, tril_nat_covar)
         return mu, L
 
     @staticmethod
-    def backward(ctx, dout_dmu, dout_dL):
+    def backward(ctx: FunctionCtx, dout_dmu: Tensor, dout_dL: Tensor) -> Tuple[Tensor, Tensor]:
         mu, L, C = ctx.saved_tensors
         dout_dnat1, dout_dnat2 = _NaturalToMuVarSqrt._backward(dout_dmu, dout_dL, mu, L, C)
         """

@@ -4,12 +4,13 @@ from typing import Optional, Tuple
 
 import torch
 from linear_operator import to_linear_operator
-from linear_operator.operators import DiagLinearOperator, MatmulLinearOperator, SumLinearOperator
+from linear_operator.operators import DiagLinearOperator, LinearOperator, MatmulLinearOperator, SumLinearOperator
 from linear_operator.utils import linear_cg
 from torch import Tensor
+from torch.autograd.function import FunctionCtx
 
 from .. import settings
-from ..distributions import Delta, MultivariateNormal
+from ..distributions import Delta, Distribution, MultivariateNormal
 from ..module import Module
 from ..utils.memoize import cached
 from ._variational_strategy import _VariationalStrategy
@@ -35,7 +36,10 @@ class _NgdInterpTerms(torch.autograd.Function):
 
     @staticmethod
     def forward(
-        ctx, interp_term: torch.Tensor, natural_vec: torch.Tensor, natural_mat: torch.Tensor
+        ctx: FunctionCtx,
+        interp_term: torch.Tensor,
+        natural_vec: torch.Tensor,
+        natural_mat: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # Compute precision
         prec = natural_mat.mul(-2.0)
@@ -80,8 +84,8 @@ class _NgdInterpTerms(torch.autograd.Function):
 
     @staticmethod
     def backward(
-        ctx, interp_mean_grad: torch.Tensor, interp_var_grad: torch.Tensor, kl_div_grad: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        ctx: FunctionCtx, interp_mean_grad: torch.Tensor, interp_var_grad: torch.Tensor, kl_div_grad: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, None]:
         # Get the saved terms
         interp_term, s_times_interp_term, interp_mean, natural_vec, expec_vec, prec = ctx.saved_tensors
 
@@ -101,12 +105,10 @@ class _NgdInterpTerms(torch.autograd.Function):
         # interp_mean component: K^{-1/2} k
         # interp_var component: (k^T K^{-1/2} m) K^{-1/2} k
         # kl component: S^{-1} m
-        expec_vec_grad = sum(
-            [
-                (interp_var_grad * interp_mean.unsqueeze(-2) * interp_term).sum(dim=-1).mul(-2),
-                (interp_mean_grad * interp_term).sum(dim=-1),
-                (kl_div_grad.unsqueeze(-1) * natural_vec),
-            ]
+        expec_vec_grad = (
+            (interp_var_grad * interp_mean.unsqueeze(-2) * interp_term).sum(dim=-1).mul(-2)
+            + (interp_mean_grad * interp_term).sum(dim=-1)
+            + (kl_div_grad.unsqueeze(-1) * natural_vec)
         )
 
         # Compute gradient of expected matrix (mm^T + S)
@@ -179,7 +181,7 @@ class CiqVariationalStrategy(_VariationalStrategy):
 
     @property
     @cached(name="variational_distribution_memo")
-    def variational_distribution(self) -> MultivariateNormal:
+    def variational_distribution(self) -> Distribution:
         if self._ngd():
             raise RuntimeError(
                 "Variational distribution for NGD-CIQ should be computed during forward calls. "
@@ -192,12 +194,13 @@ class CiqVariationalStrategy(_VariationalStrategy):
         x: torch.Tensor,
         inducing_points: torch.Tensor,
         inducing_values: torch.Tensor,
-        variational_inducing_covar: Optional[MultivariateNormal] = None,
+        variational_inducing_covar: Optional[LinearOperator] = None,
+        *params,
         **kwargs,
     ) -> MultivariateNormal:
         # Compute full prior distribution
         full_inputs = torch.cat([inducing_points, x], dim=-2)
-        full_output = self.model.forward(full_inputs)
+        full_output = self.model.forward(full_inputs, *params, **kwargs)
         full_covar = full_output.lazy_covariance_matrix
 
         # Covariance terms
@@ -272,7 +275,7 @@ class CiqVariationalStrategy(_VariationalStrategy):
         else:
             return super().kl_divergence()
 
-    def __call__(self, x: torch.Tensor, prior: bool = False, **kwargs) -> MultivariateNormal:
+    def __call__(self, x: torch.Tensor, prior: bool = False, *params, **kwargs) -> MultivariateNormal:
         # This is mostly the same as _VariationalStrategy.__call__()
         # but with special rules for natural gradient descent (to prevent O(M^3) computation)
 
@@ -310,6 +313,7 @@ class CiqVariationalStrategy(_VariationalStrategy):
                 inducing_points,
                 inducing_values=None,
                 variational_inducing_covar=None,
+                *params,
                 **kwargs,
             )
         else:
@@ -332,7 +336,6 @@ class CiqVariationalStrategy(_VariationalStrategy):
                     inducing_points,
                     inducing_values=variational_dist_u.mean,
                     variational_inducing_covar=None,
-                    ngd=False,
                     **kwargs,
                 )
             else:
