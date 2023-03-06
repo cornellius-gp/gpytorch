@@ -229,16 +229,14 @@ class DefaultPredictionStrategy(object):
     def covar_cache(self):
         train_train_covar = self.lik_train_train_covar
 
+        # train_train_covar_inv_root = to_dense(train_train_covar.root_inv_decomposition().root)
         # ones = torch.ones(size=(train_train_covar.shape[0],), dtype=train_train_covar.dtype)
         # aux = train_train_covar @ ones
-        # train_train_covar_inv_root = to_dense(train_train_covar.root_inv_decomposition().root)
-        # aux = train_train_covar.to_dense()
-        # train_train_covar_inv = aux.inverse()
-        # train_train_covar_inv_root = torch.linalg.cholesky(train_train_covar_inv)
+        aux = train_train_covar.to_dense()
+        train_train_covar_inv = aux.inverse()
+        train_train_covar_inv_root = torch.linalg.cholesky(train_train_covar_inv)
         # out = torch.linalg.cholesky(train_train_covar.to_dense())
         # train_train_covar_inv_root = out.inverse()
-
-        train_train_covar_inv_root = torch.load("inv_root.pt")
         return self._exact_predictive_covar_inv_quad_form_cache(train_train_covar_inv_root, self._last_test_train_covar)
 
     @property
@@ -278,6 +276,8 @@ class DefaultPredictionStrategy(object):
             # test_test_covar = test_covar[..., self.num_train :]
             # test_train_covar = test_covar[..., : self.num_train]
             test_covar = joint_covar.to_dense()[..., self.num_train:, :]
+            # ones = torch.ones(size=(test_covar.shape[1],))
+            # aux = test_covar @ ones
             test_test_covar = test_covar[..., self.num_train:]
             test_train_covar = test_covar[..., : self.num_train]
         else:
@@ -357,7 +357,7 @@ class DefaultPredictionStrategy(object):
             #     )
             # )
             aux = covar_inv_quad_form_root @ covar_inv_quad_form_root.transpose(-1, -2)
-            posterior_covar = test_test_covar + aux
+            posterior_covar = test_test_covar - aux
             return lazify(posterior_covar)
         else:
             return test_test_covar + MatmulLinearOperator(
