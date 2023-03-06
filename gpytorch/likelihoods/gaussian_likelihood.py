@@ -165,7 +165,7 @@ class GaussianLikelihoodWithMissingObs(GaussianLikelihood):
 
 
 class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
-    """
+    r"""
     A Likelihood that assumes fixed heteroscedastic noise. This is useful when you have fixed, known observation
     noise for each training example.
 
