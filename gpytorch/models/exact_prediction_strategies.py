@@ -228,10 +228,17 @@ class DefaultPredictionStrategy(object):
     @cached(name="covar_cache")
     def covar_cache(self):
         train_train_covar = self.lik_train_train_covar
+
+        # ones = torch.ones(size=(train_train_covar.shape[0],), dtype=train_train_covar.dtype)
+        # aux = train_train_covar @ ones
         # train_train_covar_inv_root = to_dense(train_train_covar.root_inv_decomposition().root)
-        aux = train_train_covar.to_dense()
-        train_train_covar_inv = aux.inverse()
-        train_train_covar_inv_root = torch.cholesky(train_train_covar_inv)
+        # aux = train_train_covar.to_dense()
+        # train_train_covar_inv = aux.inverse()
+        # train_train_covar_inv_root = torch.linalg.cholesky(train_train_covar_inv)
+        # out = torch.linalg.cholesky(train_train_covar.to_dense())
+        # train_train_covar_inv_root = out.inverse()
+
+        train_train_covar_inv_root = torch.load("inv_root.pt")
         return self._exact_predictive_covar_inv_quad_form_cache(train_train_covar_inv_root, self._last_test_train_covar)
 
     @property
