@@ -288,8 +288,9 @@ class MultitaskMultivariateNormal(MultivariateNormal):
 
         The mean and covariance matrix arguments are indexed accordingly.
 
-        :param idx: Index to apply to the mean. The covariance matrix is indexed accordingly.
-        :return: If indices specify a slice for samples and tasks, returns a
+        :param Any idx: Index to apply to the mean. The covariance matrix is indexed accordingly.
+
+        :returns: If indices specify a slice for samples and tasks, returns a
         MultitaskMultivariateNormal, else returns a MultivariateNormal.
         """
 
