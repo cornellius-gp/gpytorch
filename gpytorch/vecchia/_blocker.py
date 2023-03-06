@@ -79,8 +79,20 @@ class BaseBlocker(abc.ABC):
         self._exclusive_neighboring_observations = exclusive_neighboring_observations
         self._inclusive_neighboring_observations = inclusive_neighboring_observations
 
+    def _reorder(self, new_order: torch.LongTensor):
+        """
+        Reorders self._block_observations to the order specified by new_order. The ordered neighbors are recalculated,
+        and all the relevant lists are modified in place.
+
+        @param new_order: Tensor where the ith element contains the index of the block to be moved to index i.
+        """
+        # blocks get reordered here directly
+        self._block_observations = [self._block_observations[idx] for idx in new_order]
+        # neighboring blocks get recomputed here based on new ordering, so we do not have to explicitly reorder them
+        self._create_ordered_neighbors(self.set_neighbors_kwargs)
+
     @abc.abstractmethod
-    def set_blocks(self, **kwargs) -> List[torch.LongTensor]:
+    def set_blocks(self, *args, **kwargs) -> List[torch.LongTensor]:
         """
         Returns a list of length equal to the number of blocks, where the ith element is a tensor containing the
         indices of the training set that belong to the ith block.
@@ -90,7 +102,7 @@ class BaseBlocker(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def set_neighbors(self, **kwargs) -> List[torch.LongTensor]:
+    def set_neighbors(self, *args, **kwargs) -> List[torch.LongTensor]:
         """
         Returns a list of length equal to the number of blocks, where the ith element is a tensor containing the
         indices of the blocks that neighbor the ith block.
@@ -107,6 +119,14 @@ class BaseBlocker(abc.ABC):
 
         @param args: Positional arguments to be passed to child's set_test_blocks implementation.
         @param kwargs: Keyword arguments to be passed to child's set_test_blocks implementation.
+        """
+        ...
+
+    @abc.abstractmethod
+    def reorder(self, *args, **kwargs):
+        """
+        In-place operation that defines a new ordering of blocks (new_order) in terms of their indices, reorders any
+        order-dependent quantities that the child class defines, and calls super().__reorder__(new_order).
         """
         ...
 
@@ -151,18 +171,6 @@ class BaseBlocker(abc.ABC):
                 "method has not been called on testing data."
             )
         return self._inclusive_neighboring_observations
-
-    def reorder(self, new_order: torch.LongTensor):
-        """
-        Reorders self._block_observations to the order specified by new_order. The ordered neighbors are recalculated,
-        and all the relevant lists are modified in place.
-
-        @param new_order: Tensor where the ith element contains the index of the block to be moved to index i.
-        """
-        # blocks get reordered here directly
-        self._block_observations = [self._block_observations[idx] for idx in new_order]
-        # neighboring blocks get recomputed here based on new ordering, so we do not have to explicitly reorder them
-        self._create_ordered_neighbors(self.set_neighbors_kwargs)
 
     def block_new_data(self, *args, **kwargs):
         """

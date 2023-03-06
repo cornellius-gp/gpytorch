@@ -1,16 +1,26 @@
 #!/usr/bin/env python3
 
+from .distance_metrics import *
+from .ordering_strategies import *
+
 from ._blocker import BaseBlocker
 from .k_means_blocker import KMeansBlocker
 from .voronoi_blocker import VoronoiBlocker
 
-from .ordering_strategies import OrderingStrategies
-
 __all__ = [
+    "AbstractDistanceMetric",
+    "EuclideanDistance",
+    "ManhattanDistance",
+    "DistanceMetrics",
+
+    "AbstractOrderingStrategy",
+    "CoordinateOrdering",
+    "NormOrdering",
+    "OrderingStrategies",
+
     "BaseBlocker",
     "KMeansBlocker",
-    "VoronoiBlocker",
-    "OrderingStrategies"
+    "VoronoiBlocker"
 ]
 
 
