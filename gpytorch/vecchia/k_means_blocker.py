@@ -19,7 +19,7 @@ class KMeansBlocker(BaseBlocker):
     @param n_neighbors: Number of neighboring clusters per cluster.
     """
 
-    def __init__(self, data: torch.tensor, n_blocks: int, n_neighbors: int, distance_metric: AbstractDistanceMetric):
+    def __init__(self, data: torch.tensor, n_blocks: int, n_neighbors: int, distance_metric):
         self.n_blocks = n_blocks
         self.n_neighbors = n_neighbors
         self.distance_metric = distance_metric
