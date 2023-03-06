@@ -5,10 +5,11 @@ import inspect
 import itertools
 import operator
 from collections import OrderedDict
+from typing import Union
 
 import torch
 from linear_operator.operators import LinearOperator
-from torch import nn
+from torch import nn, Tensor
 from torch.distributions import Distribution
 
 from .constraints import Interval
@@ -56,7 +57,7 @@ class Module(nn.Module):
         for _, strategy in self.named_added_loss_terms():
             yield strategy
 
-    def forward(self, *inputs, **kwargs):
+    def forward(self, *inputs, **kwargs) -> Union[Tensor, Distribution, LinearOperator]:
         raise NotImplementedError
 
     def constraints(self):

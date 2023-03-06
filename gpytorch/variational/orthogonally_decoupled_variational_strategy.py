@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 
+from typing import Optional
+
 import torch
+from linear_operator.operators import LinearOperator
+from torch import Tensor
 
 from ..distributions import MultivariateNormal
 from ..utils.memoize import add_to_cache, cached
+from ._variational_distribution import _VariationalDistribution
 from ._variational_strategy import _VariationalStrategy
 from .delta_variational_distribution import DeltaVariationalDistribution
 
@@ -20,12 +25,13 @@ class OrthogonallyDecoupledVariationalStrategy(_VariationalStrategy):
     It then wraps a different :obj:`~gpytorch.variational._VariationalStrategy` which
     defines the covariance inducing points.
 
-    :param ~gpytorch.variational._VariationalStrategy covar_variational_strategy:
+    :param covar_variational_strategy:
         The variational strategy for the covariance term.
-    :param torch.Tensor inducing_points: Tensor containing a set of inducing
+    :param inducing_points: Tensor containing a set of inducing
         points to use for variational inference.
-    :param ~gpytorch.variational.VariationalDistribution variational_distribution: A
+    :param variational_distribution: A
         VariationalDistribution object that represents the form of the variational distribution :math:`q(\mathbf u)`
+    :param jitter_val: Amount of diagonal jitter to add for Cholesky factorization numerical stability
 
     Example:
         >>> mean_inducing_points = torch.randn(1000, train_x.size(-1), dtype=train_x.dtype, device=train_x.device)
@@ -46,25 +52,42 @@ class OrthogonallyDecoupledVariationalStrategy(_VariationalStrategy):
         https://arxiv.org/abs/1809.08820
     """
 
-    def __init__(self, covar_variational_strategy, inducing_points, variational_distribution):
+    def __init__(
+        self,
+        covar_variational_strategy: _VariationalStrategy,
+        inducing_points: Tensor,
+        variational_distribution: _VariationalDistribution,
+        jitter_val: Optional[float] = None,
+    ):
         if not isinstance(variational_distribution, DeltaVariationalDistribution):
             raise NotImplementedError(
                 "OrthogonallyDecoupledVariationalStrategy currently works with DeltaVariationalDistribution"
             )
 
         super().__init__(
-            covar_variational_strategy, inducing_points, variational_distribution, learn_inducing_locations=True
+            covar_variational_strategy,
+            inducing_points,
+            variational_distribution,
+            learn_inducing_locations=True,
+            jitter_val=jitter_val,
         )
         self.base_variational_strategy = covar_variational_strategy
 
     @property
     @cached(name="prior_distribution_memo")
-    def prior_distribution(self):
+    def prior_distribution(self) -> MultivariateNormal:
         out = self.model(self.inducing_points)
         res = MultivariateNormal(out.mean, out.lazy_covariance_matrix.add_jitter(self.jitter_val))
         return res
 
-    def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None, **kwargs):
+    def forward(
+        self,
+        x: Tensor,
+        inducing_points: Tensor,
+        inducing_values: Tensor,
+        variational_inducing_covar: Optional[LinearOperator] = None,
+        **kwargs,
+    ) -> MultivariateNormal:
         if variational_inducing_covar is not None:
             raise NotImplementedError(
                 "OrthogonallyDecoupledVariationalStrategy currently works with DeltaVariationalDistribution"
@@ -89,7 +112,7 @@ class OrthogonallyDecoupledVariationalStrategy(_VariationalStrategy):
         # Return the distribution
         return MultivariateNormal(predictive_mean, predictive_covar)
 
-    def kl_divergence(self):
+    def kl_divergence(self) -> Tensor:
         mean = self.variational_distribution.mean
         induc_induc_covar = self.prior_distribution.lazy_covariance_matrix
         kl = self.model.kl_divergence() + ((induc_induc_covar @ mean.unsqueeze(-1)).squeeze(-1) * mean).sum(-1).mul(0.5)
