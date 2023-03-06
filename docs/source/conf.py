@@ -298,6 +298,10 @@ def _process(annotation, config):
         arg = annotation.__args__[0]
         res = "list(" + _process(arg, config) + ")"
 
+    # Convert any List[*A*] into "list(*A*)"
+    elif str(annotation).startswith("typing.Dict"):
+        res = str(annotation)
+
     # Convert any Iterable[*A*] into "iterable(*A*)"
     elif str(annotation).startswith("typing.Iterable"):
         arg = annotation.__args__[0]

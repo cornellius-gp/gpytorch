@@ -27,7 +27,7 @@ class Module(nn.Module):
 
         self._register_load_state_dict_pre_hook(self._load_state_hook_ignore_shapes)
 
-    def __call__(self, *inputs, **kwargs):
+    def __call__(self, *inputs, **kwargs) -> Union[Tensor, Distribution, LinearOperator]:
         outputs = self.forward(*inputs, **kwargs)
         if isinstance(outputs, list):
             return [_validate_module_outputs(output) for output in outputs]
