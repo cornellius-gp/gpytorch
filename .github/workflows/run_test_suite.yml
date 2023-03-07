@@ -30,6 +30,8 @@ jobs:
       # skipping flake8 here (run separatey above b/c pre-commit does not include flake8-print)
       run: |
         SKIP=flake8 pre-commit run --files test/**/*.py gpytorch/**/*.py
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v3
 
   run_unit_tests:
     runs-on: ubuntu-latest

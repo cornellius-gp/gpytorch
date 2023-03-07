@@ -63,7 +63,7 @@ for root, dirs, files in os.walk(examples_source):
 # -- Project information -----------------------------------------------------
 
 project = "GPyTorch"
-copyright = "2020, Cornellius GP"
+copyright = "2023, Cornellius GP"
 author = "Cornellius GP"
 
 # The short X.Y version
