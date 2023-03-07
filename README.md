@@ -108,7 +108,22 @@ GPyTorch is primarily maintained by:
 - [Andrew Gordon Wilson](https://cims.nyu.edu/~andrewgw/) (New York University)
 - [Max Balandat](https://research.fb.com/people/balandat-max/) (Meta)
 
-We would like to thank our other contributors including (but not limited to)  David Arbour, Eytan Bakshy, David Eriksson, Jared Frank, Sam Stanton, Bram Wallace, Ke Alexander Wang, Ruihan Wu.
+We would like to thank our other contributors including (but not limited to)
+Eytan Bakshy,
+Wesley Maddox,
+Ke Alexander Wang,
+Ruihan Wu,
+Sait Cakmak,
+David Eriksson,
+Sam Daulton,
+Martin Jankowiak,
+Sam Stanton,
+Zitong Zhou,
+David Arbour,
+Karthik Rajkumar,
+Bram Wallace,
+Jared Frank,
+and many more!
 
 
 ## Acknowledgements
