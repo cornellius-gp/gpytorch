@@ -282,16 +282,15 @@ class MultitaskMultivariateNormal(MultivariateNormal):
         return var.view(self._output_shape)
 
     def __getitem__(self, idx) -> MultivariateNormal:
-        r"""
+        """
         Constructs a new MultivariateNormal that represents a random variable
         modified by an indexing operation.
 
         The mean and covariance matrix arguments are indexed accordingly.
 
         :param Any idx: Index to apply to the mean. The covariance matrix is indexed accordingly.
-
         :returns: If indices specify a slice for samples and tasks, returns a
-        MultitaskMultivariateNormal, else returns a MultivariateNormal.
+            MultitaskMultivariateNormal, else returns a MultivariateNormal.
         """
 
         # Normalize index to a tuple
