@@ -37,12 +37,6 @@ These are MLLs for use with :obj:`~gpytorch.models.ExactGP` modules. They comput
 .. autoclass:: ExactMarginalLogLikelihood
    :members:
 
-:hidden:`ExactMarginalLogLikelihoodWithMissingObs`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: ExactMarginalLogLikelihoodWithMissingObs
-   :members:
-
 :hidden:`LeaveOneOutPseudoLikelihood`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

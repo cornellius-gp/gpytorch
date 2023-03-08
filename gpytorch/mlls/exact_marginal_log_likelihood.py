@@ -18,6 +18,8 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
 
     :param ~gpytorch.likelihoods.GaussianLikelihood likelihood: The Gaussian likelihood for the model
     :param ~gpytorch.models.ExactGP model: The exact GP model
+    :param bool nan_means_missing_data: If set to True, this module checks for NaN values in the output
+        and ignores them for calculations.
 
     Example:
         >>> # model is a gpytorch.models.ExactGP
@@ -29,10 +31,11 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
         >>> loss.backward()
     """
 
-    def __init__(self, likelihood, model):
+    def __init__(self, likelihood, model, nan_means_missing_data=False):
         if not isinstance(likelihood, _GaussianLikelihoodBase):
             raise RuntimeError("Likelihood must be Gaussian for exact inference")
         super(ExactMarginalLogLikelihood, self).__init__(likelihood, model)
+        self.nan_means_missing_data = nan_means_missing_data
 
     def _add_other_terms(self, res, params):
         # Add additional terms (SGPR / learned inducing points, heteroskedastic likelihood models)
@@ -60,33 +63,17 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
         if not isinstance(function_dist, MultivariateNormal):
             raise RuntimeError("ExactMarginalLogLikelihood can only operate on Gaussian random variables")
 
-        # Get the log prob of the marginal distribution
+        # Determine output likelihood
         output = self.likelihood(function_dist, *params)
-        res = output.log_prob(target)
-        res = self._add_other_terms(res, params)
 
-        # Scale by the amount of data we have
-        num_data = function_dist.event_shape.numel()
-        return res.div_(num_data)
-
-
-class ExactMarginalLogLikelihoodWithMissingObs(ExactMarginalLogLikelihood):
-    """
-    Like :obj:`~gpytorch.models.ExactGP` but with support for NaN values in the target.
-    These are just ignored for computation of the marginal.
-    """
-
-    def forward(self, function_dist, target, *params):
-
-        if not isinstance(function_dist, MultivariateNormal):
-            raise RuntimeError("ExactMarginalLogLikelihood can only operate on Gaussian random variables")
-
-        # Only operate on observed variables
-        observed = torch.nonzero(~torch.isnan(target), as_tuple=True)
+        # Remove NaN values if enabled
+        if self.nan_means_missing_data:
+            observed = torch.nonzero(~torch.isnan(target), as_tuple=True)
+            output = output[observed]
+            target = target[observed]
 
         # Get the log prob of the marginal distribution
-        output = self.likelihood(function_dist, *params)[observed]
-        res = output.log_prob(target[observed])
+        res = output.log_prob(target)
         res = self._add_other_terms(res, params)
 
         # Scale by the amount of data we have

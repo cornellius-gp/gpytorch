@@ -2,11 +2,11 @@ import unittest
 
 import torch
 
+from gpytorch import ExactMarginalLogLikelihood
 from gpytorch.distributions import MultivariateNormal, MultitaskMultivariateNormal
 from gpytorch.kernels import ScaleKernel, RBFKernel, MultitaskKernel
 from gpytorch.likelihoods import GaussianLikelihood, Likelihood, MultitaskGaussianLikelihood
 from gpytorch.means import ConstantMean, MultitaskMean
-from gpytorch.mlls import ExactMarginalLogLikelihoodWithMissingObs
 from gpytorch.models import ExactGP
 from gpytorch.test.base_test_case import BaseTestCase
 
@@ -42,7 +42,7 @@ class TestMissingData(BaseTestCase, unittest.TestCase):
         model.train()
         likelihood.train()
 
-        mll = ExactMarginalLogLikelihoodWithMissingObs(likelihood, model)
+        mll = ExactMarginalLogLikelihood(likelihood, model, nan_means_missing_data=True)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.15)
 
         for _ in range(20):
