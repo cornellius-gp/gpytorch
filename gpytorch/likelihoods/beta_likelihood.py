@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 
-import torch
+from typing import Any, Optional
 
-from ..constraints import Positive
+import torch
+from torch import Tensor
+from torch.distributions import Beta
+
+from ..constraints import Interval, Positive
 from ..distributions import base_distributions
+from ..priors import Prior
 from .likelihood import _OneDimensionalLikelihood
 
 
@@ -27,16 +32,18 @@ class BetaLikelihood(_OneDimensionalLikelihood):
         p(y \mid f) = \text{Beta} \left( \sigma(f) s , (1 - \sigma(f)) s\right)
 
     :param batch_shape: The batch shape of the learned noise parameter (default: []).
-    :type batch_shape: torch.Size, optional
     :param scale_prior: Prior for scale parameter :math:`s`.
-    :type scale_prior: ~gpytorch.priors.Prior, optional
     :param scale_constraint: Constraint for scale parameter :math:`s`.
-    :type scale_constraint: ~gpytorch.constraints.Interval, optional
 
-    :var torch.Tensor scale: :math:`s` parameter (scale)
+    :ivar torch.Tensor scale: :math:`s` parameter (scale)
     """
 
-    def __init__(self, batch_shape=torch.Size([]), scale_prior=None, scale_constraint=None):
+    def __init__(
+        self,
+        batch_shape: torch.Size = torch.Size([]),
+        scale_prior: Optional[Prior] = None,
+        scale_constraint: Optional[Interval] = None,
+    ) -> None:
         super().__init__()
 
         if scale_constraint is None:
@@ -49,19 +56,19 @@ class BetaLikelihood(_OneDimensionalLikelihood):
         self.register_constraint("raw_scale", scale_constraint)
 
     @property
-    def scale(self):
+    def scale(self) -> Tensor:
         return self.raw_scale_constraint.transform(self.raw_scale)
 
     @scale.setter
-    def scale(self, value):
+    def scale(self, value: Tensor) -> None:
         self._set_scale(value)
 
-    def _set_scale(self, value):
+    def _set_scale(self, value: Tensor) -> None:
         if not torch.is_tensor(value):
             value = torch.as_tensor(value).to(self.raw_scale)
         self.initialize(raw_scale=self.raw_scale_constraint.inverse_transform(value))
 
-    def forward(self, function_samples, **kwargs):
+    def forward(self, function_samples: Tensor, *args: Any, **kwargs: Any) -> Beta:
         mixture = torch.sigmoid(function_samples)
         scale = self.scale
         alpha = mixture * scale + 1

@@ -12,6 +12,7 @@ Likelihood
 --------------------
 
 .. autoclass:: Likelihood
+   :special-members: __call__
    :members:
 
 
