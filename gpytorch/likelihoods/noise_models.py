@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 import warnings
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import torch
-from linear_operator.operators import ConstantDiagLinearOperator, DiagLinearOperator, ZeroLinearOperator
+from linear_operator.operators import ConstantDiagLinearOperator, DiagLinearOperator, LinearOperator, ZeroLinearOperator
 from torch import Tensor
 from torch.nn import Parameter
 
@@ -16,7 +16,11 @@ from ..utils.warnings import NumericalWarning
 
 
 class Noise(Module):
-    pass
+    def __call__(
+        self, *params: Any, shape: Optional[torch.Size] = None, **kwargs: Any
+    ) -> Union[Tensor, LinearOperator]:
+        # For corredct typing
+        return super().__call__(*params, shape=shape, **kwargs)
 
 
 class _HomoskedasticNoiseBase(Noise):
@@ -167,3 +171,9 @@ class FixedGaussianNoise(Module):
     def _apply(self, fn):
         self.noise = fn(self.noise)
         return super(FixedGaussianNoise, self)._apply(fn)
+
+    def __call__(
+        self, *params: Any, shape: Optional[torch.Size] = None, **kwargs: Any
+    ) -> Union[Tensor, LinearOperator]:
+        # For corredct typing
+        return super().__call__(*params, shape=shape, **kwargs)

@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 
 import warnings
+from typing import Any, Optional, Union
 
 import torch
+from torch import Tensor
+from torch.distributions import Categorical, Distribution
 
-from ..distributions import base_distributions, Distribution, MultitaskMultivariateNormal
+from ..distributions import base_distributions, MultitaskMultivariateNormal
+from ..priors import Prior
 from .likelihood import Likelihood
 
 
@@ -17,23 +21,30 @@ class SoftmaxLikelihood(Likelihood):
 
     :math:`\mathbf W` is a set of linear mixing weights applied to the latent functions :math:`\mathbf f`.
 
-    :param int num_features: Dimensionality of latent function :math:`\mathbf f`.
-    :param int num_classes: Number of classes.
-    :param bool mixing_weights: (Default: `True`) Whether to learn a linear mixing weight :math:`\mathbf W` applied to
+    :param num_features: Dimensionality of latent function :math:`\mathbf f`.
+    :param num_classes: Number of classes.
+    :param mixing_weights: (Default: `True`) Whether to learn a linear mixing weight :math:`\mathbf W` applied to
         the latent function :math:`\mathbf f`. If `False`, then :math:`\mathbf W = \mathbf I`.
     :param mixing_weights_prior: Prior to use over the mixing weights :math:`\mathbf W`.
-    :type mixing_weights_prior: ~gpytorch.priors.Prior, optional
+
+    :ivar torch.Tensor mixing_weights: (Optional) mixing weights.
     """
 
-    def __init__(self, num_features=None, num_classes=None, mixing_weights=True, mixing_weights_prior=None):
+    def __init__(
+        self,
+        num_features: Optional[int] = None,
+        num_classes: int = None,  # pyre-fixme[9]
+        mixing_weights: bool = True,
+        mixing_weights_prior: Optional[Prior] = None,
+    ) -> None:
         super().__init__()
         if num_classes is None:
             raise ValueError("num_classes is required")
         self.num_classes = num_classes
-        if mixing_weights:
-            self.num_features = num_features
+        if mixing_weights is not None:
             if num_features is None:
                 raise ValueError("num_features is required with mixing weights")
+            self.num_features: int = num_features
             self.register_parameter(
                 name="mixing_weights",
                 parameter=torch.nn.Parameter(torch.randn(num_classes, num_features).div_(num_features)),
@@ -42,9 +53,9 @@ class SoftmaxLikelihood(Likelihood):
                 self.register_prior("mixing_weights_prior", mixing_weights_prior, "mixing_weights")
         else:
             self.num_features = num_classes
-            self.mixing_weights = None
+            self.mixing_weights: Optional[torch.nn.Parameter] = None
 
-    def forward(self, function_samples, *params, **kwargs):
+    def forward(self, function_samples: Tensor, *params: Any, **kwargs: Any) -> Categorical:
         num_data, num_features = function_samples.shape[-2:]
 
         # Catch legacy mode
@@ -67,12 +78,12 @@ class SoftmaxLikelihood(Likelihood):
         res = base_distributions.Categorical(logits=mixed_fs)
         return res
 
-    def __call__(self, function, *params, **kwargs):
-        if isinstance(function, Distribution) and not isinstance(function, MultitaskMultivariateNormal):
+    def __call__(self, input: Union[Tensor, MultitaskMultivariateNormal], *args: Any, **kwargs: Any) -> Distribution:
+        if isinstance(input, Distribution) and not isinstance(input, MultitaskMultivariateNormal):
             warnings.warn(
                 "The input to SoftmaxLikelihood should be a MultitaskMultivariateNormal (num_data x num_tasks). "
                 "Batch MultivariateNormal inputs (num_tasks x num_data) will be deprectated.",
                 DeprecationWarning,
             )
-            function = MultitaskMultivariateNormal.from_batch_mvn(function)
-        return super().__call__(function, *params, **kwargs)
+            input = MultitaskMultivariateNormal.from_batch_mvn(input)
+        return super().__call__(input, *args, **kwargs)
