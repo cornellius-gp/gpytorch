@@ -3,7 +3,7 @@
 import torch
 from linear_operator.operators import KeOpsLinearOperator
 from ... import settings
-from ...kernels import PeriodicKernel as gpytorchPeriodicKernel
+from ...kernels import PeriodicKernel as GPeriodicKernel
 from keops_kernel import KeOpsKernel
 import math
 
@@ -11,7 +11,7 @@ try:
     from pykeops.torch import LazyTensor as KEOLazyTensor
 
     # subclass from original periodic kernel to reduce code duplication
-    class PeriodicKernel(gpytorchPeriodicKernel, KeOpsKernel):
+    class PeriodicKernel(GPeriodicKernel, KeOpsKernel):
         """
         Implements the Periodic Kernel using KeOps as a driver for kernel matrix multiplies.
 
