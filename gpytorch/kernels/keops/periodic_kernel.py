@@ -3,15 +3,18 @@
 import torch
 from linear_operator.operators import KeOpsLinearOperator
 from ... import settings
-from ...kernels import PeriodicKernel as GPeriodicKernel
-from keops_kernel import KeOpsKernel
+from .keops_kernel import KeOpsKernel
 import math
+from typing import Optional
+from ...constraints import Interval, Positive
+from ...priors import Prior
+
 
 try:
     from pykeops.torch import LazyTensor as KEOLazyTensor
 
     # subclass from original periodic kernel to reduce code duplication
-    class PeriodicKernel(GPeriodicKernel, KeOpsKernel):
+    class PeriodicKernel(KeOpsKernel):
         """
         Implements the Periodic Kernel using KeOps as a driver for kernel matrix multiplies.
 
@@ -20,6 +23,46 @@ try:
         """
 
         has_lengthscale = True
+
+        def __init__(
+            self,
+            period_length_prior: Optional[Prior] = None,
+            period_length_constraint: Optional[Interval] = None,
+            **kwargs,
+        ):
+            super(PeriodicKernel, self).__init__(**kwargs)
+            if period_length_constraint is None:
+                period_length_constraint = Positive()
+
+            ard_num_dims = kwargs.get("ard_num_dims", 1)
+            self.register_parameter(
+                name="raw_period_length", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, ard_num_dims))
+            )
+
+            if period_length_prior is not None:
+                if not isinstance(period_length_prior, Prior):
+                    raise TypeError("Expected gpytorch.priors.Prior but got " + type(period_length_prior).__name__)
+                self.register_prior(
+                    "period_length_prior",
+                    period_length_prior,
+                    lambda m: m.period_length,
+                    lambda m, v: m._set_period_length(v),
+                )
+
+            self.register_constraint("raw_period_length", period_length_constraint)
+
+        @property
+        def period_length(self):
+            return self.raw_period_length_constraint.transform(self.raw_period_length)
+
+        @period_length.setter
+        def period_length(self, value):
+            self._set_period_length(value)
+
+        def _set_period_length(self, value):
+            if not torch.is_tensor(value):
+                value = torch.as_tensor(value).to(self.raw_period_length)
+            self.initialize(raw_period_length=self.raw_period_length_constraint.inverse_transform(value))
 
         # code from the already-implemented Periodic Kernel
         def _nonkeops_covar_func(self, x1, x2, diag=False):
@@ -73,11 +116,6 @@ try:
                 return covar_func(x1_, x2_, diag=True)
 
             return KeOpsLinearOperator(x1_, x2_, covar_func)
-
-        # need to override __call__ again to use KeOpsKernel.__call__
-        def __call__(self, *args, **kwargs):
-            return KeOpsKernel.__call__(self, *args, **kwargs)
-
 
 except ImportError:
 
