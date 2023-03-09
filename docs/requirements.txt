@@ -8,3 +8,5 @@ sphinx_autodoc_typehints
 nbsphinx
 m2r2
 pyro-ppl
+linear_operator>=0.2.0
+torch>=1.11

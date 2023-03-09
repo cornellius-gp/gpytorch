@@ -30,6 +30,8 @@ jobs:
       # skipping flake8 here (run separatey above b/c pre-commit does not include flake8-print)
       run: |
         SKIP=flake8 pre-commit run --files test/**/*.py gpytorch/**/*.py
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v3
 
   run_unit_tests:
     runs-on: ubuntu-latest
@@ -50,11 +52,11 @@ jobs:
         else
           pip install torch==1.11+cpu -f https://download.pytorch.org/whl/torch_stable.html;
         fi
+        pip install -e .
         if [[ ${{ matrix.extras }} == "with-extras" ]]; then
           pip install "pyro-ppl>=1.8";
           pip install faiss-cpu;  # Unofficial pip release: https://pypi.org/project/faiss-cpu/#history
         fi
-        pip install -r requirements.txt
     - name: Run unit tests
       run: |
         python -m unittest discover
@@ -71,8 +73,7 @@ jobs:
       run: |
         pip install torch==1.11+cpu -f https://download.pytorch.org/whl/torch_stable.html
         pip install pytest nbval jupyter tqdm matplotlib torchvision scipy
-        pip install -r requirements.txt
-        python setup.py build develop
+        pip install -e .
         pip install "pyro-ppl>=1.8";
           pip install faiss-cpu;  # Unofficial pip release: https://pypi.org/project/faiss-cpu/#history
     - name: Run example notebooks

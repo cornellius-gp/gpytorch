@@ -1,6 +1,0 @@
-linear_operator>=0.2.0
-scikit-learn
-torch>=1.11
-black==22.3.0
-ufmt==2.0.0
-usort==1.0.3
