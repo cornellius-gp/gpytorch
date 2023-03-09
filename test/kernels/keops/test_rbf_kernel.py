@@ -5,7 +5,6 @@ import unittest
 import torch
 
 import gpytorch
-
 from gpytorch.kernels import RBFKernel as GRBFKernel
 from gpytorch.kernels.keops import RBFKernel
 from gpytorch.test.base_kernel_test_case import BaseKernelTestCase

@@ -5,7 +5,6 @@ import unittest
 import torch
 
 import gpytorch
-
 from gpytorch.kernels import PeriodicKernel as GPeriodicKernel
 from gpytorch.kernels.keops import PeriodicKernel
 from gpytorch.priors import NormalPrior

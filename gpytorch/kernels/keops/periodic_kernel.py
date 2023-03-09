@@ -11,7 +11,6 @@ from ...constraints import Interval, Positive
 from ...priors import Prior
 from .keops_kernel import KeOpsKernel
 
-
 try:
     from pykeops.torch import LazyTensor as KEOLazyTensor
 
