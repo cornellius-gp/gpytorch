@@ -104,7 +104,7 @@ try:
                 lengthscale = self.lengthscale[..., None, None, 0, :]
                 # do not use .power(2.0) as it gives NaN values on cuda
                 # seems related to https://github.com/getkeops/keops/issues/112
-                K = (((x1_ - x2_).abs().sin()) ** 2).divop(lengthscale).mulop(-2.0).sum(-1).exp()
+                K = ((((x1_ - x2_).abs().sin()) ** 2) * (-2.0 / lengthscale)).sum(-1).exp()
 
                 return K
 
