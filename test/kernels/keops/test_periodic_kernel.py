@@ -25,6 +25,8 @@ try:
 
         # tests the keops implementation
         def test_forward_x1_eq_x2(self):
+            if not torch.cuda.is_available():
+                return
 
             with gpytorch.settings.max_cholesky_size(2):
 
@@ -39,6 +41,8 @@ try:
                 self.assertLess(torch.norm(k1 - k2), 1e-4)
 
         def test_forward_x1_neq_x2(self):
+            if not torch.cuda.is_available():
+                return
 
             with gpytorch.settings.max_cholesky_size(2):
 
@@ -54,6 +58,8 @@ try:
                 self.assertLess(torch.norm(k1 - k2), 1e-4)
 
         def test_batch_matmul(self):
+            if not torch.cuda.is_available():
+                return
 
             with gpytorch.settings.max_cholesky_size(2):
 
@@ -69,6 +75,8 @@ try:
 
         # tests the nonkeops implementation (_nonkeops_covar_func)
         def test_forward_x1_eq_x2_nonkeops(self):
+            if not torch.cuda.is_available():
+                return
 
             with gpytorch.settings.max_cholesky_size(800):
 
@@ -83,6 +91,8 @@ try:
             self.assertLess(torch.norm(k1 - k2), 1e-4)
 
         def test_forward_x1_neq_x2_nonkeops(self):
+            if not torch.cuda.is_available():
+                return
 
             with gpytorch.settings.max_cholesky_size(800):
 
@@ -98,6 +108,8 @@ try:
                 self.assertLess(torch.norm(k1 - k2), 1e-4)
 
         def test_batch_matmul_nonkeops(self):
+            if not torch.cuda.is_available():
+                return
 
             with gpytorch.settings.max_cholesky_size(800):
 
