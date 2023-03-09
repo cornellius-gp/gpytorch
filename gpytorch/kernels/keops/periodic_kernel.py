@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 
-import torch
-from linear_operator.operators import KeOpsLinearOperator
-from ... import settings
-from .keops_kernel import KeOpsKernel
 import math
 from typing import Optional
+
+import torch
+from linear_operator.operators import KeOpsLinearOperator
+
+from ... import settings
 from ...constraints import Interval, Positive
 from ...priors import Prior
+from .keops_kernel import KeOpsKernel
 
 
 try:
@@ -101,7 +103,9 @@ try:
                 # symbolic array of ..., shape 1 x ndatax2_ x ndim
                 x2_ = KEOLazyTensor(x2[..., None, :, :])
                 lengthscale = self.lengthscale[..., None, None, 0, :]
-                K = (x1_ - x2_).abs().sin().power(2.0).divop(lengthscale).mulop(-2.0).sum(-1).exp()
+                # do not use .power(2.0) as it gives NaN values on cuda
+                # seems related to https://github.com/getkeops/keops/issues/112
+                K = (((x1_ - x2_).abs().sin()) ** 2).divop(lengthscale).mulop(-2.0).sum(-1).exp()
 
                 return K
 
