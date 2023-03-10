@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from typing import Tuple
+
 import torch
 from linear_operator.settings import (
     _linalg_dtype_cholesky,
@@ -422,7 +424,7 @@ class observation_nan_policy(_value_context):
         super().__init__(value)
 
     @staticmethod
-    def _get_observed(observations, event_shape) -> tuple[Tensor, ...]:
+    def _get_observed(observations, event_shape) -> Tuple[Tensor, ...]:
         """
         Constructs an index that masks out all elements in the event shape of the tensor which contain a NaN value in
         any batch element. Applying this index flattens the event_shape, as the task structure cannot be retained.
