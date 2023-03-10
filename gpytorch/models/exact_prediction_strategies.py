@@ -230,22 +230,39 @@ class DefaultPredictionStrategy(object):
         return self._exact_predictive_covar_inv_quad_form_cache(train_train_covar_inv_root, self._last_test_train_covar)
 
     @property
-    @cached(name="mean_cache")
     def mean_cache(self):
+        return self._mean_cache(settings.observation_nan_policy.value())
+
+    @cached(name="mean_cache")
+    def _mean_cache(self, nan_policy: str) -> Tensor:
         mvn = self.likelihood(self.train_prior_dist, self.train_inputs)
         train_mean, train_train_covar = mvn.loc, mvn.lazy_covariance_matrix
 
         train_labels_offset = (self.train_labels - train_mean).unsqueeze(-1)
 
-        not_observed = torch.isnan(self.train_labels)
-        if not torch.any(not_observed):
+        if nan_policy == "ignore":
             mean_cache = train_train_covar.evaluate_kernel().solve(train_labels_offset).squeeze(-1)
-        else:
-            observed = torch.where(~not_observed)[0]
+        elif nan_policy == "mask":
+            # Restrict solving to the outputs observed in every batch element.
+            observed = settings.observation_nan_policy._get_observed(
+                self.train_labels, torch.Size((self.train_labels.shape[-1],))
+            )[0]
             mean_cache = torch.full_like(self.train_labels, torch.nan)
-            non_nan_kernel = train_train_covar[..., observed, :][..., :, observed].evaluate_kernel()
-            mean_cache[~not_observed] = non_nan_kernel.solve(train_labels_offset[observed]).squeeze(-1)
-
+            kernel = train_train_covar[..., observed, :][..., :, observed].evaluate_kernel()
+            mean_cache[..., observed] = kernel.solve(train_labels_offset[..., observed, :]).squeeze(-1)
+        else:  # 'fill'
+            # Fill all rows and columns in the kernel matrix corresponding to the missing observations with 0.
+            # Don't touch the corresponding diagonal elements to ensure a unique solution.
+            # This ensures that missing data is ignored during solving.
+            kernel = train_train_covar.evaluate_kernel()
+            missing = torch.isnan(self.train_labels)
+            kernel_mask = (~missing).to(torch.float)
+            kernel_mask = kernel_mask[..., None] * kernel_mask[..., None, :]
+            torch.diagonal(kernel_mask, dim1=-2, dim2=-1)[...] = 1
+            kernel = kernel * kernel_mask  # Unfortunately, this makes the kernel dense at the moment.
+            train_labels_offset = settings.observation_nan_policy._fill_tensor(train_labels_offset)
+            mean_cache = kernel.solve(train_labels_offset).squeeze(-1)
+            mean_cache[missing] = torch.nan  # Ensure that nobody expects these values to be valid.
         if settings.detach_test_caches.on():
             mean_cache = mean_cache.detach()
 
@@ -293,12 +310,21 @@ class DefaultPredictionStrategy(object):
         # NOTE TO FUTURE SELF:
         # You **cannot* use addmv here, because test_train_covar may not actually be a non lazy tensor even for an exact
         # GP, and using addmv requires you to to_dense test_train_covar, which is obviously a huge no-no!
-        not_observed = torch.isnan(self.mean_cache)
-        if not torch.any(not_observed):
+        nan_policy = settings.observation_nan_policy.value()
+        if nan_policy == "ignore":
             res = (test_train_covar @ self.mean_cache.unsqueeze(-1)).squeeze(-1)
-        else:
-            observed = torch.where(~not_observed)[0]
-            res = (test_train_covar[..., observed] @ self.mean_cache[observed].unsqueeze(-1)).squeeze(-1)
+        elif nan_policy == "mask":
+            # Restrict train dimension to observed values
+            observed = settings.observation_nan_policy._get_observed(
+                self.mean_cache, torch.Size((self.mean_cache.shape[-1],))
+            )[0]
+            res = (test_train_covar[..., observed] @ self.mean_cache[..., observed].unsqueeze(-1)).squeeze(-1)
+        else:  # 'fill'
+            # Set the columns corresponding to missing observations to 0 to ignore them during matmul.
+            mask = (~torch.isnan(self.mean_cache)).to(torch.float)[..., None, :]
+            test_train_covar = test_train_covar * mask
+            mean = settings.observation_nan_policy._fill_tensor(self.mean_cache)
+            res = (test_train_covar @ mean.unsqueeze(-1)).squeeze(-1)
         res = res + test_mean
 
         return res

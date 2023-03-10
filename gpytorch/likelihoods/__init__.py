@@ -7,7 +7,6 @@ from .gaussian_likelihood import (
     DirichletClassificationLikelihood,
     FixedNoiseGaussianLikelihood,
     GaussianLikelihood,
-    GaussianLikelihoodWithMissingObs,
 )
 from .laplace_likelihood import LaplaceLikelihood
 from .likelihood import _OneDimensionalLikelihood, Likelihood
@@ -26,7 +25,6 @@ __all__ = [
     "DirichletClassificationLikelihood",
     "FixedNoiseGaussianLikelihood",
     "GaussianLikelihood",
-    "GaussianLikelihoodWithMissingObs",
     "HeteroskedasticNoise",
     "LaplaceLikelihood",
     "Likelihood",

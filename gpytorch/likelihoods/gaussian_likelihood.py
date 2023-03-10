@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 import math
 import warnings
 from copy import deepcopy
@@ -9,6 +8,7 @@ import torch
 from linear_operator.operators import ZeroLinearOperator
 from torch import Tensor
 
+from .. import settings
 from ..distributions import base_distributions, MultivariateNormal
 from ..utils.warnings import GPInputWarning
 from .likelihood import Likelihood
@@ -35,17 +35,34 @@ class _GaussianLikelihoodBase(Likelihood):
         return self.noise_covar(*params, shape=base_shape, **kwargs)
 
     def expected_log_prob(self, target: Tensor, input: MultivariateNormal, *params: Any, **kwargs: Any) -> Tensor:
-        mean, variance = input.mean, input.variance
-        num_event_dim = len(input.event_shape)
 
-        noise = self._shaped_noise_covar(mean.shape, *params, **kwargs).diagonal(dim1=-1, dim2=-2)
+        noise = self._shaped_noise_covar(input.mean.shape, *params, **kwargs).diagonal(dim1=-1, dim2=-2)
         # Potentially reshape the noise to deal with the multitask case
         noise = noise.view(*noise.shape[:-1], *input.event_shape)
 
+        # Handle NaN values if enabled
+        nan_policy = settings.observation_nan_policy.value()
+        if nan_policy == "mask":
+            observed = settings.observation_nan_policy._get_observed(target, input.event_shape)
+            input = input[(...,) + observed]
+            noise = noise[(...,) + observed]
+            target = target[(...,) + observed]
+        elif nan_policy == "fill":
+            missing = torch.isnan(target)
+            target = settings.observation_nan_policy._fill_tensor(target)
+
+        mean, variance = input.mean, input.variance
         res = ((target - mean) ** 2 + variance) / noise + noise.log() + math.log(2 * math.pi)
         res = res.mul(-0.5)
-        if num_event_dim > 1:  # Do appropriate summation for multitask Gaussian likelihoods
+
+        if nan_policy == "fill":
+            res = res * ~missing
+
+        # Do appropriate summation for multitask Gaussian likelihoods
+        num_event_dim = len(input.event_shape)
+        if num_event_dim > 1:
             res = res.sum(list(range(-1, -num_event_dim, -1)))
+
         return res
 
     def forward(self, function_samples: Tensor, *params: Any, **kwargs: Any) -> base_distributions.Normal:
@@ -56,12 +73,26 @@ class _GaussianLikelihoodBase(Likelihood):
         self, observations: Tensor, function_dist: MultivariateNormal, *params: Any, **kwargs: Any
     ) -> Tensor:
         marginal = self.marginal(function_dist, *params, **kwargs)
+
+        # Handle NaN values if enabled
+        nan_policy = settings.observation_nan_policy.value()
+        if nan_policy == "mask":
+            observed = settings.observation_nan_policy._get_observed(observations, marginal.event_shape)
+            marginal = marginal[(...,) + observed]
+            observations = observations[(...,) + observed]
+        elif nan_policy == "fill":
+            missing = torch.isnan(observations)
+            observations = settings.observation_nan_policy._fill_tensor(observations)
+
         # We're making everything conditionally independent
         indep_dist = base_distributions.Normal(marginal.mean, marginal.variance.clamp_min(1e-8).sqrt())
         res = indep_dist.log_prob(observations)
 
+        if nan_policy == "fill":
+            res = res * ~missing
+
         # Do appropriate summation for multitask Gaussian likelihoods
-        num_event_dim = len(function_dist.event_shape)
+        num_event_dim = len(marginal.event_shape)
         if num_event_dim > 1:
             res = res.sum(list(range(-1, -num_event_dim, -1)))
         return res
@@ -117,51 +148,6 @@ class GaussianLikelihood(_GaussianLikelihoodBase):
     @raw_noise.setter
     def raw_noise(self, value: Tensor) -> None:
         self.noise_covar.initialize(raw_noise=value)
-
-
-class GaussianLikelihoodWithMissingObs(GaussianLikelihood):
-    r"""
-    The standard likelihood for regression with support for missing values.
-    Assumes a standard homoskedastic noise model:
-
-    .. math::
-        p(y \mid f) = f + \epsilon, \quad \epsilon \sim \mathcal N (0, \sigma^2)
-
-    where :math:`\sigma^2` is a noise parameter. Values of y that are nan do
-    not impact the likelihood calculation.
-
-    .. note::
-        This likelihood can be used for exact or approximate inference.
-
-    :param noise_prior: Prior for noise parameter :math:`\sigma^2`.
-    :type noise_prior: ~gpytorch.priors.Prior, optional
-    :param noise_constraint: Constraint for noise parameter :math:`\sigma^2`.
-    :type noise_constraint: ~gpytorch.constraints.Interval, optional
-    :param batch_shape: The batch shape of the learned noise parameter (default: []).
-    :type batch_shape: torch.Size, optional
-
-    :var torch.Tensor noise: :math:`\sigma^2` parameter (noise)
-    """
-
-    MISSING_VALUE_FILL = -999.0
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-    def _get_masked_obs(self, x):
-        missing_idx = x.isnan()
-        x_masked = x.masked_fill(missing_idx, self.MISSING_VALUE_FILL)
-        return missing_idx, x_masked
-
-    def expected_log_prob(self, target, input, *params, **kwargs):
-        missing_idx, target = self._get_masked_obs(target)
-        res = super().expected_log_prob(target, input, *params, **kwargs)
-        return res * ~missing_idx
-
-    def log_marginal(self, observations, function_dist, *params, **kwargs):
-        missing_idx, observations = self._get_masked_obs(observations)
-        res = super().log_marginal(observations, function_dist, *params, **kwargs)
-        return res * ~missing_idx
 
 
 class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):

@@ -348,6 +348,11 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
 
         if not isinstance(idx, tuple):
             idx = (idx,)
+        if len(idx) > self.mean.dim() and Ellipsis in idx:
+            idx = tuple(i for i in idx if i != Ellipsis)
+            if len(idx) < self.mean.dim():
+                raise IndexError("Multiple ambiguous ellipsis in index!")
+
         rest_idx = idx[:-1]
         last_idx = idx[-1]
         new_mean = self.mean[idx]

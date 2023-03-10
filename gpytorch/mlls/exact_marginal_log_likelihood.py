@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-import torch
 
+from .. import settings
 from ..distributions import MultivariateNormal
 from ..likelihoods import _GaussianLikelihoodBase
 from .marginal_log_likelihood import MarginalLogLikelihood
@@ -18,8 +18,6 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
 
     :param ~gpytorch.likelihoods.GaussianLikelihood likelihood: The Gaussian likelihood for the model
     :param ~gpytorch.models.ExactGP model: The exact GP model
-    :param bool nan_means_missing_data: If set to True, this module checks for NaN values in the output
-        and ignores them for calculations.
 
     Example:
         >>> # model is a gpytorch.models.ExactGP
@@ -31,11 +29,10 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
         >>> loss.backward()
     """
 
-    def __init__(self, likelihood, model, nan_means_missing_data=False):
+    def __init__(self, likelihood, model):
         if not isinstance(likelihood, _GaussianLikelihoodBase):
             raise RuntimeError("Likelihood must be Gaussian for exact inference")
         super(ExactMarginalLogLikelihood, self).__init__(likelihood, model)
-        self.nan_means_missing_data = nan_means_missing_data
 
     def _add_other_terms(self, res, params):
         # Add additional terms (SGPR / learned inducing points, heteroskedastic likelihood models)
@@ -67,15 +64,17 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
         output = self.likelihood(function_dist, *params)
 
         # Remove NaN values if enabled
-        if self.nan_means_missing_data:
-            observed = torch.nonzero(~torch.isnan(target), as_tuple=True)
-            output = output[observed]
-            target = target[observed]
+        if settings.observation_nan_policy.value() == "mask":
+            observed = settings.observation_nan_policy._get_observed(target, output.event_shape)
+            output = output[(...,) + observed]
+            target = target[(...,) + observed]
+        elif settings.observation_nan_policy.value() == "fill":
+            raise ValueError("NaN observation policy 'fill' is not supported by ExactMarginalLogLikelihood!")
 
         # Get the log prob of the marginal distribution
         res = output.log_prob(target)
         res = self._add_other_terms(res, params)
 
         # Scale by the amount of data we have
-        num_data = output.event_shape.numel()
+        num_data = function_dist.event_shape.numel()
         return res.div_(num_data)

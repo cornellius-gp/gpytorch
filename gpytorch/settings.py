@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 import torch
 from linear_operator.settings import (
     _linalg_dtype_cholesky,
@@ -27,6 +26,7 @@ from linear_operator.settings import (
     use_toeplitz,
     verbose_linalg,
 )
+from torch import Tensor
 
 
 class _dtype_value_context:
@@ -401,6 +401,54 @@ class variational_cholesky_jitter(_dtype_value_context):
         return super().value(dtype=dtype)
 
 
+class observation_nan_policy(_value_context):
+    """
+    NaN handling policy for observations.
+
+    * ``ignore``: Do not check for NaN values.
+    * ``mask``: Mask out NaN values during calculation. If an output is NaN in a single batch element, this output is
+      masked for the complete batch.
+    * ``fill``: Fill in NaN values with a dummy value, perform computations and filter them later.
+      Not supported by :class:`gpytorch.mlls.ExactMarginalLogLikelihood`.
+      Does not support lazy covariance matrices during prediction.
+    """
+
+    _fill_value = -999.0
+    _global_value = "ignore"
+
+    def __init__(self, value):
+        if value not in {"ignore", "mask", "fill"}:
+            raise ValueError(f"NaN handling policy {value} not supported!")
+        super().__init__(value)
+
+    @staticmethod
+    def _get_observed(observations, event_shape) -> tuple[Tensor, ...]:
+        """
+        Constructs an index that masks out all elements in the event shape of the tensor which contain a NaN value in
+        any batch element. Applying this index flattens the event_shape, as the task structure cannot be retained.
+        This function is used if observation_nan_policy is set to 'mask'.
+
+        :param Tensor observations: The observations to search for NaN values in.
+        :param torch.Size event_shape: The shape of a single event, i.e. the shape of observations without batch
+            dimensions.
+        :return: The index to the event dimensions of the observations.
+        """
+        missing = torch.any(torch.isnan(observations.reshape(-1, *event_shape)), dim=0)
+        index = torch.nonzero(~missing, as_tuple=True)
+        return index
+
+    @classmethod
+    def _fill_tensor(cls, observations) -> Tensor:
+        """
+        Fills a tensor's NaN values with a filling value.
+        This function is used if observation_nan_policy is set to 'fill'.
+
+        :param Tensor observations: The tensor to fill with values.
+        :return: The filled in observations.
+        """
+        return torch.nan_to_num(observations, nan=cls._fill_value)
+
+
 __all__ = [
     "_linalg_dtype_symeig",
     "_linalg_dtype_cholesky",
@@ -431,6 +479,7 @@ __all__ = [
     "num_gauss_hermite_locs",
     "num_likelihood_samples",
     "num_trace_samples",
+    "observation_nan_policy",
     "preconditioner_tolerance",
     "prior_mode",
     "sgpr_diagonal_correction",
