@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 
+from typing import Optional, Tuple
+
 import torch
-from linear_operator.operators import MatmulLinearOperator, SumLinearOperator
+from linear_operator.operators import LinearOperator, MatmulLinearOperator, SumLinearOperator
+from torch import Tensor
 from torch.distributions.kl import kl_divergence
 
 from ..distributions import Delta, MultivariateNormal
+from ..models import ApproximateGP
 from ..utils.errors import CachingError
 from ..utils.memoize import pop_from_cache_ignore_args
+from ._variational_distribution import _VariationalDistribution
 from .delta_variational_distribution import DeltaVariationalDistribution
 from .variational_strategy import VariationalStrategy
 
@@ -58,21 +63,20 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
         :obj:`~gpytorch.variational.OrthogonallyDecoupledVariationalStrategy` (a variant proposed by
         `Salimbeni et al. (2018)`_ that uses orthogonal projections.)
 
-    :param ~gpytorch.models.ApproximateGP model: Model this strategy is applied to.
+    :param model: Model this strategy is applied to.
         Typically passed in when the VariationalStrategy is created in the
         __init__ method of the user defined model.
-    :param torch.Tensor inducing_points: Tensor containing a set of inducing
+    :param inducing_points: Tensor containing a set of inducing
         points to use for variational inference.
-    :param ~gpytorch.variational.VariationalDistribution variational_distribution: A
+    :param variational_distribution: A
         VariationalDistribution object that represents the form of the variational distribution :math:`q(\mathbf u)`
     :param learn_inducing_locations: (Default True): Whether or not
         the inducing point locations :math:`\mathbf Z` should be learned (i.e. are they
         parameters of the model).
-    :type learn_inducing_locations: `bool`, optional
-    :type mean_var_batch_dim: `int`, optional
     :param mean_var_batch_dim: (Default `None`):
         Set this parameter (ideally to `-1`) to indicate which dimension corresponds to different
         kernel hyperparameters for the mean/variance functions.
+    :param jitter_val: Amount of diagonal jitter to add for Cholesky factorization numerical stability
 
     .. _Cheng et al. (2017):
         https://arxiv.org/abs/1711.10127
@@ -133,12 +137,12 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
 
     def __init__(
         self,
-        model,
-        inducing_points,
-        variational_distribution,
-        learn_inducing_locations=True,
-        mean_var_batch_dim=None,
-        jitter_val=None,
+        model: ApproximateGP,
+        inducing_points: Tensor,
+        variational_distribution: _VariationalDistribution,
+        learn_inducing_locations: bool = True,
+        mean_var_batch_dim: Optional[int] = None,
+        jitter_val: Optional[float] = None,
     ):
         if isinstance(variational_distribution, DeltaVariationalDistribution):
             raise NotImplementedError(
@@ -163,7 +167,7 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
             model, inducing_points, variational_distribution, learn_inducing_locations, jitter_val=jitter_val
         )
 
-    def _expand_inputs(self, x, inducing_points):
+    def _expand_inputs(self, x: Tensor, inducing_points: Tensor) -> Tuple[Tensor, Tensor]:
         # If we haven't explicitly marked a dimension as batch, add the corresponding batch dimension to the input
         if self.mean_var_batch_dim is None:
             x = x.unsqueeze(-3)
@@ -171,7 +175,14 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
             x = x.unsqueeze(self.mean_var_batch_dim - 2)
         return super()._expand_inputs(x, inducing_points)
 
-    def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None, **kwargs):
+    def forward(
+        self,
+        x: Tensor,
+        inducing_points: Tensor,
+        inducing_values: Tensor,
+        variational_inducing_covar: Optional[LinearOperator] = None,
+        **kwargs,
+    ) -> MultivariateNormal:
         # We'll compute the covariance, and cross-covariance terms for both the
         # pred-mean and pred-covar, using their different inducing points (and maybe kernel hypers)
 
@@ -225,7 +236,7 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
 
         return MultivariateNormal(predictive_mean, predictive_covar)
 
-    def kl_divergence(self):
+    def kl_divergence(self) -> Tensor:
         variational_dist = self.variational_distribution
         prior_dist = self.prior_distribution
 

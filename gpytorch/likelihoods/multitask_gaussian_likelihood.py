@@ -13,13 +13,14 @@ from linear_operator.operators import (
     RootLinearOperator,
 )
 from torch import Tensor
+from torch.distributions import Normal
 
-from ..constraints import GreaterThan
+from ..constraints import GreaterThan, Interval
 from ..distributions import base_distributions, MultitaskMultivariateNormal
 from ..lazy import LazyEvaluatedKernelTensor
 from ..likelihoods import _GaussianLikelihoodBase, Likelihood
-from ..module import Module
 from ..priors import Prior
+from .noise_models import FixedGaussianNoise, Noise
 
 
 class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
@@ -39,17 +40,17 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
     def __init__(
         self,
         num_tasks: int,
-        noise_covar: Module,
-        rank: Optional[int] = 0,
+        noise_covar: Union[Noise, FixedGaussianNoise],
+        rank: int = 0,
         task_correlation_prior: Optional[Prior] = None,
         batch_shape: torch.Size = torch.Size(),
-    ):
+    ) -> None:
         super().__init__(noise_covar=noise_covar)
         if rank != 0:
             if rank > num_tasks:
                 raise ValueError(f"Cannot have rank ({rank}) greater than num_tasks ({num_tasks})")
             tidcs = torch.tril_indices(num_tasks, rank, dtype=torch.long)
-            self.tidcs = tidcs[:, 1:]  # (1, 1) must be 1.0, no need to parameterize this
+            self.tidcs: Tensor = tidcs[:, 1:]  # (1, 1) must be 1.0, no need to parameterize this
             task_noise_corr = torch.randn(*batch_shape, self.tidcs.size(-1))
             self.register_parameter("task_noise_corr", torch.nn.Parameter(task_noise_corr))
             if task_correlation_prior is not None:
@@ -70,7 +71,9 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
         C = Cfac / Cfac.pow(2).sum(dim=-1, keepdim=True).sqrt()
         return C @ C.transpose(-1, -2)
 
-    def marginal(self, function_dist: MultitaskMultivariateNormal, *params, **kwargs) -> MultitaskMultivariateNormal:
+    def marginal(
+        self, function_dist: MultitaskMultivariateNormal, *params: Any, **kwargs: Any
+    ) -> MultitaskMultivariateNormal:  # pyre-ignore[14]
         r"""
         If :math:`\text{rank} = 0`, adds the task noises to the diagonal of the
         covariance matrix of the supplied
@@ -111,7 +114,7 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
         return function_dist.__class__(mean, covar, interleaved=function_dist._interleaved)
 
     def _shaped_noise_covar(
-        self, shape: torch.Size, add_noise: Optional[bool] = True, interleaved: bool = True, *params, **kwargs
+        self, shape: torch.Size, add_noise: Optional[bool] = True, interleaved: bool = True, *params: Any, **kwargs: Any
     ) -> LinearOperator:
         if not self.has_task_noise:
             noise = ConstantDiagLinearOperator(self.noise, diag_shape=shape[-2] * self.num_tasks)
@@ -131,7 +134,7 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
         eye_lt = ConstantDiagLinearOperator(
             torch.ones(*shape[:-2], 1, dtype=dtype, device=device), diag_shape=shape[-2]
         )
-        task_var_lt = task_var_lt.expand(*shape[:-2], *task_var_lt.matrix_shape)
+        task_var_lt = task_var_lt.expand(*shape[:-2], *task_var_lt.matrix_shape)  # pyre-ignore[6]
 
         # to add the latent noise we exploit the fact that
         # I \kron D_T + \sigma^2 I_{NT} = I \kron (D_T + \sigma^2 I)
@@ -148,7 +151,7 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
 
         return covar_kron_lt
 
-    def forward(self, function_samples: Tensor, *params: Any, **kwargs: Any) -> base_distributions.Normal:
+    def forward(self, function_samples: Tensor, *params: Any, **kwargs: Any) -> Normal:
         noise = self._shaped_noise_covar(function_samples.shape, *params, **kwargs).diagonal(dim1=-1, dim2=-2)
         noise = noise.reshape(*noise.shape[:-1], *function_samples.shape[-2:])
         return base_distributions.Independent(base_distributions.Normal(function_samples, noise.sqrt()), 1)
@@ -166,6 +169,9 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
     .. note::
         At least one of :attr:`has_global_noise` or :attr:`has_task_noise` should be specified.
 
+    .. note::
+        MultittaskGaussianLikelihood has an analytic marginal distribution.
+
     :param num_tasks: Number of tasks.
     :param noise_covar: A model for the noise covariance. This can be a simple homoskedastic noise model, or a GP
         that is to be fitted on the observed measurement errors.
@@ -177,20 +183,24 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
     :param has_global_noise: Whether to include a :math:`\sigma^2 \mathbf I_{nt}` term in the noise model.
     :param has_task_noise: Whether to include task-specific noise terms, which add
         :math:`\mathbf I_n \otimes \mathbf D_T` into the noise model.
+
+    :ivar torch.Tensor task_noise_covar: The inter-task noise covariance matrix
+    :ivar torch.Tensor task_noises: (Optional) task specific noise variances (added onto the `task_noise_covar`)
+    :ivar torch.Tensor noise: (Optional) global noise variance (added onto the `task_noise_covar`)
     """
 
     def __init__(
         self,
-        num_tasks,
-        rank=0,
-        task_prior=None,
-        batch_shape=torch.Size(),
-        noise_prior=None,
-        noise_constraint=None,
-        has_global_noise=True,
-        has_task_noise=True,
-    ):
-        super(Likelihood, self).__init__()
+        num_tasks: int,
+        rank: int = 0,
+        batch_shape: torch.Size = torch.Size(),
+        task_prior: Optional[Prior] = None,
+        noise_prior: Optional[Prior] = None,
+        noise_constraint: Optional[Interval] = None,
+        has_global_noise: bool = True,
+        has_task_noise: bool = True,
+    ) -> None:
+        super(Likelihood, self).__init__()  # pyre-ignore[20]
         if noise_constraint is None:
             noise_constraint = GreaterThan(1e-4)
 
@@ -230,31 +240,31 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
         self.has_task_noise = has_task_noise
 
     @property
-    def noise(self) -> Tensor:
+    def noise(self) -> Optional[Tensor]:
         return self.raw_noise_constraint.transform(self.raw_noise)
 
     @noise.setter
-    def noise(self, value: Union[float, Tensor]):
+    def noise(self, value: Union[float, Tensor]) -> None:
         self._set_noise(value)
 
     @property
-    def task_noises(self) -> Tensor:
+    def task_noises(self) -> Optional[Tensor]:
         if self.rank == 0:
             return self.raw_task_noises_constraint.transform(self.raw_task_noises)
         else:
             raise AttributeError("Cannot set diagonal task noises when covariance has ", self.rank, ">0")
 
     @task_noises.setter
-    def task_noises(self, value: Union[float, Tensor]):
+    def task_noises(self, value: Union[float, Tensor]) -> None:
         if self.rank == 0:
             self._set_task_noises(value)
         else:
             raise AttributeError("Cannot set diagonal task noises when covariance has ", self.rank, ">0")
 
-    def _set_noise(self, value: Union[float, Tensor]):
+    def _set_noise(self, value: Union[float, Tensor]) -> None:
         self.initialize(raw_noise=self.raw_noise_constraint.inverse_transform(value))
 
-    def _set_task_noises(self, value: Union[float, Tensor]):
+    def _set_task_noises(self, value: Union[float, Tensor]) -> None:
         self.initialize(raw_task_noises=self.raw_task_noises_constraint.inverse_transform(value))
 
     @property
@@ -265,7 +275,7 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
             raise AttributeError("Cannot retrieve task noises when covariance is diagonal.")
 
     @task_noise_covar.setter
-    def task_noise_covar(self, value: Union[float, Tensor]):
+    def task_noise_covar(self, value: Tensor) -> None:
         # internally uses a pivoted cholesky decomposition to construct a low rank
         # approximation of the covariance
         if self.rank > 0:
@@ -277,5 +287,13 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
     def _eval_covar_matrix(self) -> Tensor:
         covar_factor = self.task_noise_covar_factor
         noise = self.noise
-        D = noise * torch.eye(self.num_tasks, dtype=noise.dtype, device=noise.device)
+        D = noise * torch.eye(self.num_tasks, dtype=noise.dtype, device=noise.device)  # pyre-fixme[16]
         return covar_factor.matmul(covar_factor.transpose(-1, -2)) + D
+
+    def marginal(
+        self, function_dist: MultitaskMultivariateNormal, *args: Any, **kwargs: Any
+    ) -> MultitaskMultivariateNormal:
+        """
+        :return: Analytic marginal :math:`p(\mathbf y)`.
+        """
+        return super().marginal(function_dist, *args, **kwargs)

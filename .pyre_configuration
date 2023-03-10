@@ -1,0 +1,22 @@
+{
+  "site_package_search_strategy": "pep561",
+  "source_directories": [
+    "gpytorch/"
+  ],
+  "ignore_all_errors": [
+    "gpytorch/functions/*.py",
+    "gpytorch/lazy/*.py",
+    "gpytorch/test/*.py"
+  ],
+  "search_path": [
+    ".",
+    "../linear_operator",
+    {"site-package": "faiss"},
+    {"site-package": "linear_operator"},
+    {"site-package": "pykeops"},
+    {"site-package": "pyro"},
+    {"site-package": "scipy"},
+    {"site-package": "sklearn"}
+  ],
+  "strict": true
+}

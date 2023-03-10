@@ -5,10 +5,11 @@ import inspect
 import itertools
 import operator
 from collections import OrderedDict
+from typing import Union
 
 import torch
 from linear_operator.operators import LinearOperator
-from torch import nn
+from torch import nn, Tensor
 from torch.distributions import Distribution
 
 from .constraints import Interval
@@ -26,7 +27,7 @@ class Module(nn.Module):
 
         self._register_load_state_dict_pre_hook(self._load_state_hook_ignore_shapes)
 
-    def __call__(self, *inputs, **kwargs):
+    def __call__(self, *inputs, **kwargs) -> Union[Tensor, Distribution, LinearOperator]:
         outputs = self.forward(*inputs, **kwargs)
         if isinstance(outputs, list):
             return [_validate_module_outputs(output) for output in outputs]
@@ -56,7 +57,7 @@ class Module(nn.Module):
         for _, strategy in self.named_added_loss_terms():
             yield strategy
 
-    def forward(self, *inputs, **kwargs):
+    def forward(self, *inputs, **kwargs) -> Union[Tensor, Distribution, LinearOperator]:
         raise NotImplementedError
 
     def constraints(self):
@@ -169,7 +170,7 @@ class Module(nn.Module):
                 - a tuple of tuples (param, transform), one for each of the parameters associated with the prior
                 - the prior's transform to be called on the parameters
         """
-        return _extract_named_priors(module=self, memo=None, prefix="")
+        return _extract_named_priors(module=self, prefix="")
 
     def named_constraints(self, memo=None, prefix=""):
         return _extract_named_constraints(module=self, memo=None, prefix="")
@@ -523,20 +524,15 @@ def _extract_named_added_loss_terms(module, memo=None, prefix=""):
             yield name, strategy
 
 
-def _extract_named_priors(module, memo=None, prefix=""):
-    if memo is None:
-        memo = set()
+def _extract_named_priors(module, prefix=""):
     if hasattr(module, "_priors"):
         for name, (prior, closure, inv_closure) in module._priors.items():
-            if prior is not None and prior not in memo:
-                memo.add(prior)
+            if prior is not None:
                 full_name = ("." if prefix else "").join([prefix, name])
                 yield full_name, module, prior, closure, inv_closure
     for mname, module_ in module.named_children():
         submodule_prefix = prefix + ("." if prefix else "") + mname
-        for name, parent_module, prior, closure, inv_closure in _extract_named_priors(
-            module_, memo=memo, prefix=submodule_prefix
-        ):
+        for name, parent_module, prior, closure, inv_closure in _extract_named_priors(module_, prefix=submodule_prefix):
             yield name, parent_module, prior, closure, inv_closure
 
 

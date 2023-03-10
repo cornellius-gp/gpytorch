@@ -20,6 +20,9 @@ __pycache__/
 # C extensions
 *.so
 
+# Type checking
+.pyre/
+
 # Distribution / packaging
 .Python
 env/

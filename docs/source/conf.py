@@ -51,6 +51,8 @@ if os.path.exists(examples_dest):
     shutil.rmtree(examples_dest)
 os.mkdir(examples_dest)
 
+# Include examples in documentation
+# This adds a lot of time to the doc buiod; to bypass use the environment variable SKIP_EXAMPLES=true
 for root, dirs, files in os.walk(examples_source):
     for dr in dirs:
         os.mkdir(os.path.join(root.replace(examples_source, examples_dest), dr))
@@ -58,12 +60,24 @@ for root, dirs, files in os.walk(examples_source):
         if os.path.splitext(fil)[1] in [".ipynb", ".md", ".rst"]:
             source_filename = os.path.join(root, fil)
             dest_filename = source_filename.replace(examples_source, examples_dest)
-            shutil.copyfile(source_filename, dest_filename)
+
+            # If we're skipping examples, put a dummy file in place
+            if os.getenv("SKIP_EXAMPLES"):
+                if dest_filename.endswith("index.rst"):
+                    shutil.copyfile(source_filename, dest_filename)
+                else:
+                    with open(os.path.splitext(dest_filename)[0] + ".rst", "w") as f:
+                        basename = os.path.splitext(os.path.basename(dest_filename))[0]
+                        f.write(f"{basename}\n" + "=" * 80)
+
+            # Otherwise, copy over the real example files
+            else:
+                shutil.copyfile(source_filename, dest_filename)
 
 # -- Project information -----------------------------------------------------
 
 project = "GPyTorch"
-copyright = "2020, Cornellius GP"
+copyright = "2023, Cornellius GP"
 author = "Cornellius GP"
 
 # The short X.Y version
@@ -281,6 +295,10 @@ def _process(annotation, config):
     elif str(annotation).startswith("typing.List"):
         arg = annotation.__args__[0]
         res = "list(" + _process(arg, config) + ")"
+
+    # Convert any List[*A*] into "list(*A*)"
+    elif str(annotation).startswith("typing.Dict"):
+        res = str(annotation)
 
     # Convert any Iterable[*A*] into "iterable(*A*)"
     elif str(annotation).startswith("typing.Iterable"):

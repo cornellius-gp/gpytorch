@@ -2,14 +2,17 @@
 import math
 import warnings
 from copy import deepcopy
-from typing import Any, Optional
+from typing import Any, Optional, Tuple, Union
 
 import torch
-from linear_operator.operators import ZeroLinearOperator
+from linear_operator.operators import LinearOperator, ZeroLinearOperator
 from torch import Tensor
+from torch.distributions import Distribution, Normal
 
 from .. import settings
+from ..constraints import Interval
 from ..distributions import base_distributions, MultivariateNormal
+from ..priors import Prior
 from ..utils.warnings import GPInputWarning
 from .likelihood import Likelihood
 from .noise_models import FixedGaussianNoise, HomoskedasticNoise, Noise
@@ -18,8 +21,9 @@ from .noise_models import FixedGaussianNoise, HomoskedasticNoise, Noise
 class _GaussianLikelihoodBase(Likelihood):
     """Base class for Gaussian Likelihoods, supporting general heteroskedastic noise models."""
 
-    def __init__(self, noise_covar: Noise, **kwargs: Any) -> None:
+    has_analytic_marginal = True
 
+    def __init__(self, noise_covar: Union[Noise, FixedGaussianNoise], **kwargs: Any) -> None:
         super().__init__()
         param_transform = kwargs.get("param_transform")
         if param_transform is not None:
@@ -31,7 +35,7 @@ class _GaussianLikelihoodBase(Likelihood):
 
         self.noise_covar = noise_covar
 
-    def _shaped_noise_covar(self, base_shape: torch.Size, *params: Any, **kwargs: Any):
+    def _shaped_noise_covar(self, base_shape: torch.Size, *params: Any, **kwargs: Any) -> Union[Tensor, LinearOperator]:
         return self.noise_covar(*params, shape=base_shape, **kwargs)
 
     def expected_log_prob(self, target: Tensor, input: MultivariateNormal, *params: Any, **kwargs: Any) -> Tensor:
@@ -52,7 +56,7 @@ class _GaussianLikelihoodBase(Likelihood):
             target = settings.observation_nan_policy._fill_tensor(target)
 
         mean, variance = input.mean, input.variance
-        res = ((target - mean) ** 2 + variance) / noise + noise.log() + math.log(2 * math.pi)
+        res = ((target - mean).square() + variance) / noise + noise.log() + math.log(2 * math.pi)
         res = res.mul(-0.5)
 
         if nan_policy == "fill":
@@ -65,7 +69,7 @@ class _GaussianLikelihoodBase(Likelihood):
 
         return res
 
-    def forward(self, function_samples: Tensor, *params: Any, **kwargs: Any) -> base_distributions.Normal:
+    def forward(self, function_samples: Tensor, *params: Any, **kwargs: Any) -> Normal:
         noise = self._shaped_noise_covar(function_samples.shape, *params, **kwargs).diagonal(dim1=-1, dim2=-2)
         return base_distributions.Normal(function_samples, noise.sqrt())
 
@@ -117,17 +121,24 @@ class GaussianLikelihood(_GaussianLikelihoodBase):
     .. note::
         This likelihood can be used for exact or approximate inference.
 
-    :param noise_prior: Prior for noise parameter :math:`\sigma^2`.
-    :type noise_prior: ~gpytorch.priors.Prior, optional
-    :param noise_constraint: Constraint for noise parameter :math:`\sigma^2`.
-    :type noise_constraint: ~gpytorch.constraints.Interval, optional
-    :param batch_shape: The batch shape of the learned noise parameter (default: []).
-    :type batch_shape: torch.Size, optional
+    .. note::
+        GaussianLikelihood has an analytic marginal distribution.
 
-    :var torch.Tensor noise: :math:`\sigma^2` parameter (noise)
+    :param noise_prior: Prior for noise parameter :math:`\sigma^2`.
+    :param noise_constraint: Constraint for noise parameter :math:`\sigma^2`.
+    :param batch_shape: The batch shape of the learned noise parameter (default: []).
+    :param kwargs:
+
+    :ivar torch.Tensor noise: :math:`\sigma^2` parameter (noise)
     """
 
-    def __init__(self, noise_prior=None, noise_constraint=None, batch_shape=torch.Size(), **kwargs):
+    def __init__(
+        self,
+        noise_prior: Optional[Prior] = None,
+        noise_constraint: Optional[Interval] = None,
+        batch_shape: torch.Size = torch.Size(),
+        **kwargs: Any,
+    ) -> None:
         noise_covar = HomoskedasticNoise(
             noise_prior=noise_prior, noise_constraint=noise_constraint, batch_shape=batch_shape
         )
@@ -148,6 +159,12 @@ class GaussianLikelihood(_GaussianLikelihoodBase):
     @raw_noise.setter
     def raw_noise(self, value: Tensor) -> None:
         self.noise_covar.initialize(raw_noise=value)
+
+    def marginal(self, function_dist: MultivariateNormal, *args: Any, **kwargs: Any) -> MultivariateNormal:
+        """
+        :return: Analytic marginal :math:`p(\mathbf y)`.
+        """
+        return super().marginal(function_dist, *args, **kwargs)
 
 
 class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
@@ -172,6 +189,9 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
 
     :var torch.Tensor noise: :math:`\sigma^2` parameter (noise)
 
+    .. note::
+        FixedNoiseGaussianLikelihood has an analytic marginal distribution.
+
     Example:
         >>> train_x = torch.randn(55, 2)
         >>> noises = torch.ones(55) * 0.01
@@ -192,14 +212,13 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
     ) -> None:
         super().__init__(noise_covar=FixedGaussianNoise(noise=noise))
 
+        self.second_noise_covar: Optional[HomoskedasticNoise] = None
         if learn_additional_noise:
             noise_prior = kwargs.get("noise_prior", None)
             noise_constraint = kwargs.get("noise_constraint", None)
             self.second_noise_covar = HomoskedasticNoise(
                 noise_prior=noise_prior, noise_constraint=noise_constraint, batch_shape=batch_shape
             )
-        else:
-            self.second_noise_covar = None
 
     @property
     def noise(self) -> Tensor:
@@ -210,9 +229,9 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
         self.noise_covar.initialize(noise=value)
 
     @property
-    def second_noise(self) -> Tensor:
+    def second_noise(self) -> Union[float, Tensor]:
         if self.second_noise_covar is None:
-            return 0
+            return 0.0
         else:
             return self.second_noise_covar.noise
 
@@ -225,11 +244,11 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
             )
         self.second_noise_covar.initialize(noise=value)
 
-    def get_fantasy_likelihood(self, **kwargs):
+    def get_fantasy_likelihood(self, **kwargs: Any) -> "FixedNoiseGaussianLikelihood":
         if "noise" not in kwargs:
             raise RuntimeError("FixedNoiseGaussianLikelihood.fantasize requires a `noise` kwarg")
         old_noise_covar = self.noise_covar
-        self.noise_covar = None
+        self.noise_covar = None  # pyre-fixme[8]
         fantasy_liklihood = deepcopy(self)
         self.noise_covar = old_noise_covar
 
@@ -240,7 +259,7 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
         fantasy_liklihood.noise_covar = FixedGaussianNoise(noise=torch.cat([old_noise, new_noise], -1))
         return fantasy_liklihood
 
-    def _shaped_noise_covar(self, base_shape: torch.Size, *params: Any, **kwargs: Any):
+    def _shaped_noise_covar(self, base_shape: torch.Size, *params: Any, **kwargs: Any) -> Union[Tensor, LinearOperator]:
         if len(params) > 0:
             # we can infer the shape from the params
             shape = None
@@ -261,6 +280,12 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
 
         return res
 
+    def marginal(self, function_dist: MultivariateNormal, *args: Any, **kwargs: Any) -> MultivariateNormal:
+        """
+        :return: Analytic marginal :math:`p(\mathbf y)`.
+        """
+        return super().marginal(function_dist, *args, **kwargs)
+
 
 class DirichletClassificationLikelihood(FixedNoiseGaussianLikelihood):
     """
@@ -270,18 +295,18 @@ class DirichletClassificationLikelihood(FixedNoiseGaussianLikelihood):
     .. note::
         This likelihood can be used for exact or approximate inference.
 
-    :param targets: classification labels.
-    :type targets: torch.Tensor (N).
-    :param alpha_epsilon: tuning parameter for the scaling of the likeihood targets. We'd suggest 0.01 or setting
+    :param targets: (... x N) Classification labels.
+    :param alpha_epsilon: Tuning parameter for the scaling of the likeihood targets. We'd suggest 0.01 or setting
         via cross-validation.
-    :type alpha_epsilon: int.
-
     :param learn_additional_noise: Set to true if you additionally want to
         learn added diagonal noise, similar to GaussianLikelihood.
-    :type learn_additional_noise: bool, optional
     :param batch_shape: The batch shape of the learned noise parameter (default
         []) if :obj:`learn_additional_noise=True`.
-    :type batch_shape: torch.Size, optional
+
+    :ivar torch.Tensor noise: :math:`\sigma^2` parameter (noise)
+
+    .. note::
+        DirichletClassificationLikelihood has an analytic marginal distribution.
 
     Example:
         >>> train_x = torch.randn(55, 1)
@@ -294,7 +319,9 @@ class DirichletClassificationLikelihood(FixedNoiseGaussianLikelihood):
         >>> pred_y = likelihood(gp_model(test_x), targets=labels)
     """
 
-    def _prepare_targets(self, targets, alpha_epsilon=0.01, dtype=torch.float):
+    def _prepare_targets(
+        self, targets: Tensor, alpha_epsilon: float = 0.01, dtype: torch.dtype = torch.float
+    ) -> Tuple[Tensor, Tensor, int]:
         num_classes = int(targets.max() + 1)
         # set alpha = \alpha_\epsilon
         alpha = alpha_epsilon * torch.ones(targets.shape[-1], num_classes, device=targets.device, dtype=dtype)
@@ -303,7 +330,7 @@ class DirichletClassificationLikelihood(FixedNoiseGaussianLikelihood):
         alpha[torch.arange(len(targets)), targets] = alpha[torch.arange(len(targets)), targets] + 1.0
 
         # sigma^2 = log(1 / alpha + 1)
-        sigma2_i = torch.log(1 / alpha + 1.0)
+        sigma2_i = torch.log(alpha.reciprocal() + 1.0)
 
         # y = log(alpha) - 0.5 * sigma^2
         transformed_targets = alpha.log() - 0.5 * sigma2_i
@@ -313,12 +340,12 @@ class DirichletClassificationLikelihood(FixedNoiseGaussianLikelihood):
     def __init__(
         self,
         targets: Tensor,
-        alpha_epsilon: int = 0.01,
+        alpha_epsilon: float = 0.01,
         learn_additional_noise: Optional[bool] = False,
-        batch_shape: Optional[torch.Size] = torch.Size(),
-        dtype: Optional[torch.dtype] = torch.float,
-        **kwargs,
-    ):
+        batch_shape: torch.Size = torch.Size(),
+        dtype: torch.dtype = torch.float,
+        **kwargs: Any,
+    ) -> None:
         sigma2_labels, transformed_targets, num_classes = self._prepare_targets(
             targets, alpha_epsilon=alpha_epsilon, dtype=dtype
         )
@@ -328,19 +355,19 @@ class DirichletClassificationLikelihood(FixedNoiseGaussianLikelihood):
             batch_shape=torch.Size((num_classes,)),
             **kwargs,
         )
-        self.transformed_targets = transformed_targets.transpose(-2, -1)
-        self.num_classes = num_classes
-        self.targets = targets
-        self.alpha_epsilon = alpha_epsilon
+        self.transformed_targets: Tensor = transformed_targets.transpose(-2, -1)
+        self.num_classes: int = num_classes
+        self.targets: Tensor = targets
+        self.alpha_epsilon: float = alpha_epsilon
 
-    def get_fantasy_likelihood(self, **kwargs):
+    def get_fantasy_likelihood(self, **kwargs: Any) -> "DirichletClassificationLikelihood":
         # we assume that the number of classes does not change.
 
         if "targets" not in kwargs:
             raise RuntimeError("FixedNoiseGaussianLikelihood.fantasize requires a `targets` kwarg")
 
         old_noise_covar = self.noise_covar
-        self.noise_covar = None
+        self.noise_covar = None  # pyre-fixme[8]
         fantasy_liklihood = deepcopy(self)
         self.noise_covar = old_noise_covar
 
@@ -355,10 +382,16 @@ class DirichletClassificationLikelihood(FixedNoiseGaussianLikelihood):
         fantasy_liklihood.noise_covar = FixedGaussianNoise(noise=torch.cat([old_noise, new_noise], -1))
         return fantasy_liklihood
 
-    def __call__(self, *args, **kwargs):
+    def marginal(self, function_dist: MultivariateNormal, *args: Any, **kwargs: Any) -> MultivariateNormal:
+        """
+        :return: Analytic marginal :math:`p(\mathbf y)`.
+        """
+        return super().marginal(function_dist, *args, **kwargs)
+
+    def __call__(self, input: Union[Tensor, MultivariateNormal], *args: Any, **kwargs: Any) -> Distribution:
         if "targets" in kwargs:
             targets = kwargs.pop("targets")
             dtype = self.transformed_targets.dtype
             new_noise, _, _ = self._prepare_targets(targets, dtype=dtype)
             kwargs["noise"] = new_noise
-        return super().__call__(*args, **kwargs)
+        return super().__call__(input, *args, **kwargs)
