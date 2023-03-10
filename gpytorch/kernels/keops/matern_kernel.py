@@ -15,8 +15,7 @@ try:
         Implements the Matern kernel using KeOps as a driver for kernel matrix multiplies.
 
         This class can be used as a drop in replacement for gpytorch.kernels.MaternKernel in most cases, and supports
-        the same arguments. There are currently a few limitations, for example a lack of batch mode support. However,
-        most other features like ARD will work.
+        the same arguments.
         """
 
         has_lengthscale = True
