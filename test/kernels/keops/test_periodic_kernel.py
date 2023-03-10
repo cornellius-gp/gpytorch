@@ -29,10 +29,9 @@ try:
 
             with gpytorch.settings.max_cholesky_size(2):
 
-                x1 = torch.randn(100, 3)
-
-                kern1 = PeriodicKernel()
-                kern2 = GPeriodicKernel()
+                x1 = torch.randn(100, 3).cuda()
+                kern1 = PeriodicKernel().cuda()
+                kern2 = GPeriodicKernel().cuda()
 
                 k1 = kern1(x1, x1).to_dense()
                 k2 = kern2(x1, x1).to_dense()
@@ -45,11 +44,10 @@ try:
 
             with gpytorch.settings.max_cholesky_size(2):
 
-                x1 = torch.randn(100, 3)
-                x2 = torch.randn(100, 3)
-
-                kern1 = PeriodicKernel()
-                kern2 = GPeriodicKernel()
+                x1 = torch.randn(100, 3).cuda()
+                x2 = torch.randn(100, 3).cuda()
+                kern1 = PeriodicKernel().cuda()
+                kern2 = GPeriodicKernel().cuda()
 
                 k1 = kern1(x1, x2).to_dense()
                 k2 = kern2(x1, x2).to_dense()
@@ -62,11 +60,11 @@ try:
 
             with gpytorch.settings.max_cholesky_size(2):
 
-                x1 = torch.randn(3, 2, 100, 3)
-                kern1 = PeriodicKernel()
-                kern2 = GPeriodicKernel()
+                x1 = torch.randn(3, 2, 100, 3).cuda()
+                kern1 = PeriodicKernel().cuda()
+                kern2 = GPeriodicKernel().cuda()
+                rhs = torch.randn(3, 2, 100, 1).cuda()
 
-                rhs = torch.randn(3, 2, 100, 1)
                 res1 = kern1(x1, x1).matmul(rhs)
                 res2 = kern2(x1, x1).matmul(rhs)
 
@@ -79,10 +77,9 @@ try:
 
             with gpytorch.settings.max_cholesky_size(800):
 
-                x1 = torch.randn(100, 3)
-
-                kern1 = PeriodicKernel()
-                kern2 = GPeriodicKernel()
+                x1 = torch.randn(100, 3).cuda()
+                kern1 = PeriodicKernel().cuda()
+                kern2 = GPeriodicKernel().cuda()
 
                 k1 = kern1(x1, x1).to_dense()
                 k2 = kern2(x1, x1).to_dense()
@@ -95,12 +92,10 @@ try:
 
             with gpytorch.settings.max_cholesky_size(800):
 
-                x1 = torch.randn(100, 3)
-                x2 = torch.randn(100, 3)
-
-                kern1 = PeriodicKernel()
-                kern2 = GPeriodicKernel()
-
+                x1 = torch.randn(100, 3).cuda()
+                x2 = torch.randn(100, 3).cuda()
+                kern1 = PeriodicKernel().cuda()
+                kern2 = GPeriodicKernel().cuda()
                 k1 = kern1(x1, x2).to_dense()
                 k2 = kern2(x1, x2).to_dense()
 
@@ -112,11 +107,10 @@ try:
 
             with gpytorch.settings.max_cholesky_size(800):
 
-                x1 = torch.randn(3, 2, 100, 3)
-                kern1 = PeriodicKernel()
-                kern2 = GPeriodicKernel()
-
-                rhs = torch.randn(3, 2, 100, 1)
+                x1 = torch.randn(3, 2, 100, 3).cuda()
+                kern1 = PeriodicKernel().cuda()
+                kern2 = GPeriodicKernel().cuda()
+                rhs = torch.randn(3, 2, 100, 1).cuda()
                 res1 = kern1(x1, x1).matmul(rhs)
                 res2 = kern2(x1, x1).matmul(rhs)
 
