@@ -1,13 +1,14 @@
-import gpytorch
-import torch
 import unittest
+
+import torch
+
+import gpytorch
+from gpytorch.kernels import MaternKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean, LinearMean
-from gpytorch.kernels import ScaleKernel, MaternKernel
-from gpytorch.variational import VariationalStrategy
-from gpytorch.variational import MeanFieldVariationalDistribution
-from gpytorch.models.deep_gps.dspp import DSPPLayer, DSPP
+from gpytorch.models.deep_gps.dspp import DSPP, DSPPLayer
 from gpytorch.test.base_test_case import BaseTestCase
+from gpytorch.variational import MeanFieldVariationalDistribution, VariationalStrategy
 
 
 train_n = 20

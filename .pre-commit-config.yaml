@@ -17,19 +17,14 @@ repos:
     -   id: flake8
         args: [--config=setup.cfg]
         exclude: ^(examples/*)|(docs/*)
--   repo: https://github.com/ambv/black
-    rev: 22.3.0
+-   repo: https://github.com/omnilib/ufmt
+    rev: v2.0.0
     hooks:
-    -   id: black
+    -   id: ufmt
+        additional_dependencies:
+        - black == 22.3.0
+        - usort == 1.0.3
         exclude: ^(build/*)|(docs/*)|(examples/*)
-        args: [-l 120, --target-version=py37]
--   repo: https://github.com/pre-commit/mirrors-isort
-    rev: v5.10.1
-    hooks:
-    -   id: isort
-        language_version: python3
-        exclude: ^(build/*)|(docs/*)|(examples/*)
-        args: [-w120, -m3, --tc, --project=gpytorch]
 -   repo: https://github.com/jumanjihouse/pre-commit-hooks
     rev: 2.1.6
     hooks:

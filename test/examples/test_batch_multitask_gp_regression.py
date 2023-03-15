@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 
+import math
 import os
 import random
-import math
-import torch
 import unittest
 
-import gpytorch
+import torch
 from torch import optim
-from gpytorch.kernels import RBFKernel, MultitaskKernel
-from gpytorch.means import ConstantMean, MultitaskMean
-from gpytorch.likelihoods import MultitaskGaussianLikelihood
+
+import gpytorch
 from gpytorch.distributions import MultitaskMultivariateNormal
+from gpytorch.kernels import MultitaskKernel, RBFKernel
+from gpytorch.likelihoods import MultitaskGaussianLikelihood
+from gpytorch.means import ConstantMean, MultitaskMean
 
 
 # Batch training test: Let's learn hyperparameters on a sine dataset, but test on a sine dataset and a cosine dataset

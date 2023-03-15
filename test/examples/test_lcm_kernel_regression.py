@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 
 import math
-import torch
 import unittest
 
+import torch
+
 import gpytorch
-from gpytorch.kernels import RBFKernel, MultitaskKernel, LCMKernel
-from gpytorch.means import ConstantMean, MultitaskMean
-from gpytorch.likelihoods import MultitaskGaussianLikelihood
 from gpytorch.distributions import MultitaskMultivariateNormal
+from gpytorch.kernels import LCMKernel, MultitaskKernel, RBFKernel
+from gpytorch.likelihoods import MultitaskGaussianLikelihood
+from gpytorch.means import ConstantMean, MultitaskMean
 
 
 class MultitaskGPModel(gpytorch.models.ExactGP):

@@ -4,17 +4,18 @@ import unittest
 import warnings
 from math import exp, pi
 
-import gpytorch
 import torch
+from torch import optim
+
+import gpytorch
+from gpytorch.constraints import Positive
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.kernels import RBFKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior, UniformPrior
-from gpytorch.constraints import Positive
 from gpytorch.test.base_test_case import BaseTestCase
 from gpytorch.test.utils import least_used_cuda_device
-from torch import optim
 
 
 class ExactGPModel(gpytorch.models.ExactGP):
@@ -446,7 +447,7 @@ class TestSimpleGPRegression(BaseTestCase, unittest.TestCase):
     def test_pyro_sampling(self):
         try:
             import pyro  # noqa
-            from pyro.infer.mcmc import NUTS, MCMC
+            from pyro.infer.mcmc import MCMC, NUTS
         except ImportError:
             return
         train_x, test_x, train_y, test_y = self._get_data(cuda=False)

@@ -16,15 +16,20 @@ class CholeskyVariationalDistribution(_VariationalDistribution):
     matrix. In order to ensure that the covariance matrix remains positive definite, we only consider the lower
     triangle.
 
-    :param int num_inducing_points: Size of the variational distribution. This implies that the variational mean
+    :param num_inducing_points: Size of the variational distribution. This implies that the variational mean
         should be this size, and the variational covariance matrix should have this many rows and columns.
     :param batch_shape: Specifies an optional batch size
         for the variational parameters. This is useful for example when doing additive variational inference.
-    :type batch_shape: :obj:`torch.Size`, optional
-    :param float mean_init_std: (Default: 1e-3) Standard deviation of gaussian noise to add to the mean initialization.
+    :param mean_init_std: (Default: 1e-3) Standard deviation of gaussian noise to add to the mean initialization.
     """
 
-    def __init__(self, num_inducing_points, batch_shape=torch.Size([]), mean_init_std=1e-3, **kwargs):
+    def __init__(
+        self,
+        num_inducing_points: int,
+        batch_shape: torch.Size = torch.Size([]),
+        mean_init_std: float = 1e-3,
+        **kwargs,
+    ):
         super().__init__(num_inducing_points=num_inducing_points, batch_shape=batch_shape, mean_init_std=mean_init_std)
         mean_init = torch.zeros(num_inducing_points)
         covar_init = torch.eye(num_inducing_points, num_inducing_points)
@@ -34,7 +39,7 @@ class CholeskyVariationalDistribution(_VariationalDistribution):
         self.register_parameter(name="variational_mean", parameter=torch.nn.Parameter(mean_init))
         self.register_parameter(name="chol_variational_covar", parameter=torch.nn.Parameter(covar_init))
 
-    def forward(self):
+    def forward(self) -> MultivariateNormal:
         chol_variational_covar = self.chol_variational_covar
         dtype = chol_variational_covar.dtype
         device = chol_variational_covar.device
@@ -47,7 +52,7 @@ class CholeskyVariationalDistribution(_VariationalDistribution):
         variational_covar = CholLinearOperator(chol_variational_covar)
         return MultivariateNormal(self.variational_mean, variational_covar)
 
-    def initialize_variational_distribution(self, prior_dist):
+    def initialize_variational_distribution(self, prior_dist: MultivariateNormal) -> None:
         self.variational_mean.data.copy_(prior_dist.mean)
         self.variational_mean.data.add_(torch.randn_like(prior_dist.mean), alpha=self.mean_init_std)
         self.chol_variational_covar.data.copy_(prior_dist.lazy_covariance_matrix.cholesky().to_dense())

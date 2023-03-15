@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 
-from math import exp
-
 import os
 import random
-import torch
 import unittest
+from math import exp
+
+import torch
+from torch import optim
 
 import gpytorch
-from torch import optim
-from gpytorch.kernels import RBFKernel, ScaleKernel
-from gpytorch.means import ConstantMean
-from gpytorch.likelihoods import BernoulliLikelihood
-from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.distributions import MultivariateNormal
+from gpytorch.kernels import RBFKernel, ScaleKernel
+from gpytorch.likelihoods import BernoulliLikelihood
+from gpytorch.means import ConstantMean
+from gpytorch.priors import SmoothedBoxPrior
 
 n = 4
 train_x = torch.zeros(pow(n, 2), 2)

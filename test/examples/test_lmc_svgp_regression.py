@@ -5,8 +5,9 @@ import os
 import random
 import unittest
 
-import gpytorch
 import torch
+
+import gpytorch
 from gpytorch.likelihoods import GaussianLikelihood, MultitaskGaussianLikelihood
 
 

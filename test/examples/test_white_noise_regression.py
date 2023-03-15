@@ -6,16 +6,17 @@ import unittest
 import warnings
 from math import exp, pi
 
-import gpytorch
 import torch
+from torch import optim
+
+import gpytorch
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.kernels import RBFKernel, ScaleKernel
-from gpytorch.likelihoods import GaussianLikelihood, FixedNoiseGaussianLikelihood
+from gpytorch.likelihoods import FixedNoiseGaussianLikelihood, GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.test.utils import least_used_cuda_device
 from gpytorch.utils.warnings import GPInputWarning
-from torch import optim
 
 
 class ExactGPModel(gpytorch.models.ExactGP):

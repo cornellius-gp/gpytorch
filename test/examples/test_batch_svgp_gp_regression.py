@@ -5,13 +5,14 @@ import random
 import unittest
 from math import pi
 
-import gpytorch
 import torch
+from torch import optim
+
+import gpytorch
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.models import ApproximateGP
 from gpytorch.test.utils import least_used_cuda_device
 from gpytorch.variational import CholeskyVariationalDistribution, VariationalStrategy
-from torch import optim
 
 
 def train_data(cuda=False):
@@ -34,9 +35,7 @@ class SVGPRegressionModel(ApproximateGP):
             inducing_points.size(-2), batch_shape=torch.Size([2])
         )
         variational_strategy = VariationalStrategy(
-            self, inducing_points, variational_distribution,
-            learn_inducing_locations=True,
-            jitter_val=1e-3
+            self, inducing_points, variational_distribution, learn_inducing_locations=True, jitter_val=1e-3
         )
         super(SVGPRegressionModel, self).__init__(variational_strategy)
         self.mean_module = gpytorch.means.ConstantMean()

@@ -4,14 +4,14 @@ import math
 from numbers import Number
 
 import torch
-from torch.distributions import HalfCauchy, Normal, constraints
+from torch.distributions import constraints, HalfCauchy, Normal
 from torch.nn import Module as TModule
 
 from gpytorch.priors.prior import Prior
 
 
 class HorseshoePrior(Prior):
-    """Horseshoe prior.
+    r"""Horseshoe prior.
 
     There is no analytical form for the horeshoe prior's pdf, but it
     satisfies a tight bound of the form `lb(x) <= pdf(x) <= ub(x)`, where

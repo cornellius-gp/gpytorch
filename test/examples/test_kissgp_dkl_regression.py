@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 
-from math import exp, pi
-
 import os
 import random
-import torch
 import unittest
+from math import exp, pi
+
+import torch
+from torch import nn, optim
 
 import gpytorch
-from torch import optim, nn
-from gpytorch.kernels import RBFKernel, GridInterpolationKernel, ScaleKernel
+from gpytorch.distributions import MultivariateNormal
+from gpytorch.kernels import GridInterpolationKernel, RBFKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
-from gpytorch.distributions import MultivariateNormal
 
 
 # Simple training data: let's try to learn a sine function,
