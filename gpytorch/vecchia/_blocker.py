@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
-import torch
 import abc
+
+import math
 
 from typing import List
 
-import math
 import numpy as np
+import torch
 from matplotlib import pyplot as plt
 
 
@@ -21,6 +22,7 @@ class BaseBlocker(abc.ABC):
     @param set_blocks_kwargs: Dict of keyword arguments to be passed to child's set_blocks implementation.
     @param set_neighbors_kwargs: Dict of keyword arguments to be passed to child's set_neighbors implementation.
     """
+
     def __init__(self, set_blocks_kwargs: dict = None, set_neighbors_kwargs: dict = None):
 
         self._block_observations = None
@@ -45,8 +47,9 @@ class BaseBlocker(abc.ABC):
             self._block_observations = self.set_blocks(**self.set_blocks_kwargs)
 
         # create 1D tensors out of any 0D tensors
-        self._block_observations = [block.reshape(1) if block.dim() == 0 else block
-                                    for block in self._block_observations]
+        self._block_observations = [
+            block.reshape(1) if block.dim() == 0 else block for block in self._block_observations
+        ]
         self._create_ordered_neighbors()
 
     def _create_ordered_neighbors(self):
@@ -70,9 +73,11 @@ class BaseBlocker(abc.ABC):
                 inclusive_neighboring_observations.append(self._block_observations[i])
             else:
                 exclusive_neighboring_observations.append(
-                    torch.cat([self._block_observations[block] for block in self._neighboring_blocks[i]]))
+                    torch.cat([self._block_observations[block] for block in self._neighboring_blocks[i]])
+                )
                 inclusive_neighboring_observations.append(
-                    torch.cat([self._block_observations[i], exclusive_neighboring_observations[i]]))
+                    torch.cat([self._block_observations[i], exclusive_neighboring_observations[i]])
+                )
 
         self._exclusive_neighboring_observations = exclusive_neighboring_observations
         self._inclusive_neighboring_observations = inclusive_neighboring_observations
@@ -92,7 +97,7 @@ class BaseBlocker(abc.ABC):
     @abc.abstractmethod
     def set_blocks(self, **kwargs) -> List[torch.LongTensor]:
         """
-        Returns a list of length equal to the number of blocks, where the ith element is a tensor containing the
+        Creates a list of length equal to the number of blocks, where the ith element is a tensor containing the
         indices of the training set that belong to the ith block.
 
         @param kwargs: Keyword arguments to be passed to child's set_blocks implementation.
@@ -102,7 +107,7 @@ class BaseBlocker(abc.ABC):
     @abc.abstractmethod
     def set_neighbors(self, **kwargs) -> List[torch.LongTensor]:
         """
-        Returns a list of length equal to the number of blocks, where the ith element is a tensor containing the
+        Creates a list of length equal to the number of blocks, where the ith element is a tensor containing the
         indices of the blocks that neighbor the ith block.
 
         @param kwargs: Keyword arguments to be passed to child's set_neighbors implementation.
@@ -112,7 +117,7 @@ class BaseBlocker(abc.ABC):
     @abc.abstractmethod
     def set_test_blocks(self, *args, **kwargs) -> List[torch.LongTensor]:
         """
-        Returns a list of length equal to the number of blocks, where the ith element is a tensor containing the
+        Creates a list of length equal to the number of blocks, where the ith element is a tensor containing the
         indices of the testing set that belong to the ith block.
 
         @param args: Positional arguments to be passed to child's set_test_blocks implementation.
@@ -198,8 +203,9 @@ class BaseBlocker(abc.ABC):
         ordered_y = torch.cat([y[self._block_observations[i]] for i in range(len(self._block_observations))]).numpy()
 
         unique_color_vals = np.linspace(0, 1, len(self._block_observations))
-        unique_colors = np.array([(unique_color_vals[i], 0, unique_color_vals[i])
-                                  for i in range(len(unique_color_vals))])
+        unique_colors = np.array(
+            [(unique_color_vals[i], 0, unique_color_vals[i]) for i in range(len(unique_color_vals))]
+        )
         colors = np.repeat(unique_colors, [len(block) for block in self._block_observations], axis=0)
 
         plt.figure(figsize=(15, 10))
@@ -219,22 +225,35 @@ class BaseBlocker(abc.ABC):
         plt.subplot(2, 2, 3)
         plt.scatter(ordered_x[:, 0], ordered_x[:, 1], c="grey", alpha=0.25)
         for sampled_block in sampled_blocks:
-            plt.scatter(x[self._block_observations[sampled_block], 0].numpy(),
-                        x[self._block_observations[sampled_block], 1].numpy(), c="blue", s=50)
-            plt.scatter(x[self._exclusive_neighboring_observations[sampled_block], 0].numpy(),
-                        x[self._exclusive_neighboring_observations[sampled_block], 1].numpy(),
-                        c="deepskyblue", alpha=0.5)
+            plt.scatter(
+                x[self._block_observations[sampled_block], 0].numpy(),
+                x[self._block_observations[sampled_block], 1].numpy(),
+                c="blue",
+                s=50,
+            )
+            plt.scatter(
+                x[self._exclusive_neighboring_observations[sampled_block], 0].numpy(),
+                x[self._exclusive_neighboring_observations[sampled_block], 1].numpy(),
+                c="deepskyblue",
+                alpha=0.5,
+            )
         plt.title("Ordered Neighbors")
 
         plt.subplot(2, 2, 4)
         plt.scatter(ordered_x[:, 0], ordered_x[:, 1], c="grey", alpha=0.25)
         for sampled_block in sampled_blocks:
-            plt.scatter(x[self._block_observations[sampled_block], 0].numpy(),
-                        x[self._block_observations[sampled_block], 1].numpy(),
-                        c=y[self._block_observations[sampled_block]].numpy(),
-                        vmin=torch.min(y), vmax=torch.max(y))
-            plt.scatter(x[self._exclusive_neighboring_observations[sampled_block], 0].numpy(),
-                        x[self._exclusive_neighboring_observations[sampled_block], 1].numpy(),
-                        c=y[self._exclusive_neighboring_observations[sampled_block]].numpy(),
-                        vmin=torch.min(y), vmax=torch.max(y))
+            plt.scatter(
+                x[self._block_observations[sampled_block], 0].numpy(),
+                x[self._block_observations[sampled_block], 1].numpy(),
+                c=y[self._block_observations[sampled_block]].numpy(),
+                vmin=torch.min(y),
+                vmax=torch.max(y),
+            )
+            plt.scatter(
+                x[self._exclusive_neighboring_observations[sampled_block], 0].numpy(),
+                x[self._exclusive_neighboring_observations[sampled_block], 1].numpy(),
+                c=y[self._exclusive_neighboring_observations[sampled_block]].numpy(),
+                vmin=torch.min(y),
+                vmax=torch.max(y),
+            )
         plt.title("Corresponding Response Values")
