@@ -47,21 +47,19 @@ class BaseBlocker(abc.ABC):
         # create 1D tensors out of any 0D tensors
         self._block_observations = [block.reshape(1) if block.dim() == 0 else block
                                     for block in self._block_observations]
-        self._create_ordered_neighbors(self.set_neighbors_kwargs)
+        self._create_ordered_neighbors()
 
-    def _create_ordered_neighbors(self, set_neighbors_kwargs: dict):
+    def _create_ordered_neighbors(self):
         """
         Calculates neighboring relationships based on the order defined by self._block_observations, using the algorithm
         defined by self.set_neighbors(). This is the meat of the template method defined above. Since the results of
         these calculations implicitly depend on the order of self._block_observations, we wrap these steps in a separate
         function, so we can recalculate if the order of self._block_observations changes via a call to self.reorder().
-
-        @param set_neighbors_kwargs: Dict of keyword arguments to be passed to child's set_neighbors implementation.
         """
-        if set_neighbors_kwargs is None:
+        if self.set_neighbors_kwargs is None:
             self._neighboring_blocks = self.set_neighbors()
         else:
-            self._neighboring_blocks = self.set_neighbors(**set_neighbors_kwargs)
+            self._neighboring_blocks = self.set_neighbors(**self.set_neighbors_kwargs)
 
         exclusive_neighboring_observations = []
         inclusive_neighboring_observations = []
@@ -89,10 +87,10 @@ class BaseBlocker(abc.ABC):
         # blocks get reordered here directly
         self._block_observations = [self._block_observations[idx] for idx in new_order]
         # neighboring blocks get recomputed here based on new ordering, so we do not have to explicitly reorder them
-        self._create_ordered_neighbors(self.set_neighbors_kwargs)
+        self._create_ordered_neighbors()
 
     @abc.abstractmethod
-    def set_blocks(self, *args, **kwargs) -> List[torch.LongTensor]:
+    def set_blocks(self, **kwargs) -> List[torch.LongTensor]:
         """
         Returns a list of length equal to the number of blocks, where the ith element is a tensor containing the
         indices of the training set that belong to the ith block.
@@ -102,7 +100,7 @@ class BaseBlocker(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def set_neighbors(self, *args, **kwargs) -> List[torch.LongTensor]:
+    def set_neighbors(self, **kwargs) -> List[torch.LongTensor]:
         """
         Returns a list of length equal to the number of blocks, where the ith element is a tensor containing the
         indices of the blocks that neighbor the ith block.
@@ -126,14 +124,14 @@ class BaseBlocker(abc.ABC):
     def reorder(self, *args, **kwargs):
         """
         In-place operation that defines a new ordering of blocks (new_order) in terms of their indices, reorders any
-        order-dependent quantities that the child class defines, and calls super().__reorder__(new_order).
+        order-dependent quantities that the child class defines, and calls super()._reorder(new_order).
         """
         ...
 
     @property
     def blocks(self):
         """
-        List of tensors where the ith element contains the indices of the training set points belonging to block i.
+        List of tensors where the ith tensor contains the indices of the training set points belonging to block i.
         """
         return self._block_observations
 
