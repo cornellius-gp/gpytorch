@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import torch
+
 from .gp import GP
 from .pyro import _PyroMixin  # This will only contain functions if Pyro is installed
 
@@ -40,6 +42,11 @@ class ApproximateGP(GP, _PyroMixin):
         >>> # test_x = ...;
         >>> model(test_x)  # Returns the approximate GP latent function at test_x
         >>> likelihood(model(test_x))  # Returns the (approximate) predictive posterior distribution at test_x
+
+    :ivar torch.Size batch_shape: The batch shape of the model. This is a batch shape from an I/O perspective,
+        independent of the internal representation of the model. For a model with `(m)` outputs, a
+        `test_batch_shape x q x d`-shaped input to the model in eval mode returns a
+        distribution of shape `broadcast(test_batch_shape, model.batch_shape) x q x (m)`.
     """
 
     def __init__(self, variational_strategy):
@@ -48,6 +55,17 @@ class ApproximateGP(GP, _PyroMixin):
 
     def forward(self, x):
         raise NotImplementedError
+
+    @property
+    def batch_shape(self) -> torch.Size:
+        r"""The batch shape of the model.
+
+        This is a batch shape from an I/O perspective, independent of the internal
+        representation of the model. For a model with `(m)` outputs, a
+        `test_batch_shape x q x d`-shaped input to the model in eval mode returns a
+        distribution of shape `broadcast(test_batch_shape, model.batch_shape) x q x (m)`.
+        """
+        return self.variational_strategy.batch_shape
 
     def pyro_guide(self, input, beta=1.0, name_prefix=""):
         r"""

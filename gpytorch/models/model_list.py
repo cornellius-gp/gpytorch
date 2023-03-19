@@ -31,6 +31,24 @@ class IndependentModelList(AbstractModelList):
                 )
         self.likelihood = LikelihoodList(*[m.likelihood for m in models])
 
+    @property
+    def batch_shape(self) -> torch.Size:
+        r"""The batch shape of the model.
+
+        This is a batch shape from an I/O perspective, independent of the internal
+        representation of the model. For a model with `(m)` outputs, a
+        `test_batch_shape x q x d`-shaped input to the model in eval mode returns a
+        distribution of shape `broadcast(test_batch_shape, model.batch_shape) x q x (m)`.
+        """
+        batch_shape = self.models[0].batch_shape
+        if all(batch_shape == m.batch_shape for m in self.models[1:]):
+            return batch_shape
+        # TODO: Allow broadcasting of model batch shapes
+        raise NotImplementedError(
+            f"`{self.__class__.__name__}.batch_shape` is only supported if all "
+            "constituent models have the same `batch_shape`."
+        )
+
     def forward_i(self, i, *args, **kwargs):
         return self.models[i].forward(*args, **kwargs)
 

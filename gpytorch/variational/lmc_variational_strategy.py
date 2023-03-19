@@ -116,26 +116,24 @@ class LMCVariationalStrategy(_VariationalStrategy):
         Module.__init__(self)
         self.base_variational_strategy = base_variational_strategy
         self.num_tasks = num_tasks
-        batch_shape = self.base_variational_strategy._variational_distribution.batch_shape
+        vdist_batch_shape = self.base_variational_strategy._variational_distribution.batch_shape
 
         # Check if no functions
         if latent_dim >= 0:
             raise RuntimeError(f"latent_dim must be a negative indexed batch dimension: got {latent_dim}.")
-        if not (batch_shape[latent_dim] == num_latents or batch_shape[latent_dim] == 1):
+        if not (vdist_batch_shape[latent_dim] == num_latents or vdist_batch_shape[latent_dim] == 1):
             raise RuntimeError(
-                f"Mismatch in num_latents: got a variational distribution of batch shape {batch_shape}, "
+                f"Mismatch in num_latents: got a variational distribution of batch shape {vdist_batch_shape}, "
                 f"expected the function dim {latent_dim} to be {num_latents}."
             )
         self.num_latents = num_latents
         self.latent_dim = latent_dim
 
         # Make the batch_shape
-        self.batch_shape = list(batch_shape)
-        del self.batch_shape[self.latent_dim]
-        self.batch_shape = torch.Size(self.batch_shape)
+        self._batch_shape = vdist_batch_shape[: self.latent_dim] + vdist_batch_shape[self.latent_dim + 1 :]
 
         # LCM coefficients
-        lmc_coefficients = torch.randn(*batch_shape, self.num_tasks)
+        lmc_coefficients = torch.randn(*vdist_batch_shape, self.num_tasks)
         self.register_parameter("lmc_coefficients", torch.nn.Parameter(lmc_coefficients))
 
         if jitter_val is None:
@@ -144,6 +142,11 @@ class LMCVariationalStrategy(_VariationalStrategy):
             )
         else:
             self.jitter_val = jitter_val
+
+    @property
+    def batch_shape(self) -> torch.Size:
+        r"""The batch shape of the variational strategy."""
+        return self._batch_shape
 
     @property
     def prior_distribution(self) -> MultivariateNormal:

@@ -106,6 +106,10 @@ class TestExactGP(BaseModelTestCase, unittest.TestCase):
         batch_data = self.create_batch_test_data()
         likelihood, labels = self.create_batch_likelihood_and_labels()
         model = self.create_model(batch_data, labels, likelihood)
+
+        # test batch_shape property
+        self.assertEqual(model.batch_shape, batch_data.shape[:-2])
+
         model.eval()
         output = model(batch_data)
 

@@ -32,6 +32,7 @@ class BaseModelTestCase(object):
         data = self.create_test_data()
         likelihood, labels = self.create_likelihood_and_labels()
         model = self.create_model(data, labels, likelihood)
+        self.assertEqual(model.batch_shape, data.shape[:-2])  # test batch_shape property
         model.train()
         output = model(data)
         self.assertTrue(output.lazy_covariance_matrix.dim() == 2)
@@ -42,6 +43,7 @@ class BaseModelTestCase(object):
         batch_data = self.create_batch_test_data()
         likelihood, labels = self.create_batch_likelihood_and_labels()
         model = self.create_model(batch_data, labels, likelihood)
+        self.assertEqual(model.batch_shape, batch_data.shape[:-2])  # test batch_shape property
         model.train()
         output = model(batch_data)
         self.assertTrue(output.lazy_covariance_matrix.dim() == 3)
@@ -52,6 +54,7 @@ class BaseModelTestCase(object):
         batch_data = self.create_batch_test_data(batch_shape=torch.Size([2, 3]))
         likelihood, labels = self.create_batch_likelihood_and_labels(batch_shape=torch.Size([2, 3]))
         model = self.create_model(batch_data, labels, likelihood)
+        self.assertEqual(model.batch_shape, batch_data.shape[:-2])  # test batch_shape property
         model.train()
         output = model(batch_data)
         self.assertTrue(output.lazy_covariance_matrix.dim() == 4)
