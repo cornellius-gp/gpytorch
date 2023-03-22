@@ -12,6 +12,8 @@ from linear_operator.operators import (
     LinearOperator,
     RootLinearOperator,
 )
+from linops.operators import Diagonal
+from linops.operators import Kronecker
 from torch import Tensor
 
 from ..constraints import GreaterThan
@@ -119,30 +121,34 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
 
         if self.rank == 0:
             task_noises = self.raw_task_noises_constraint.transform(self.raw_task_noises)
-            task_var_lt = DiagLinearOperator(task_noises)
+            # task_var_lt = DiagLinearOperator(task_noises)
+            task_var_lt = Diagonal(task_noises)
             dtype, device = task_noises.dtype, task_noises.device
-            ckl_init = KroneckerProductDiagLinearOperator
+            # ckl_init = KroneckerProductDiagLinearOperator
+            ckl_init = Kronecker
         else:
             task_noise_covar_factor = self.task_noise_covar_factor
             task_var_lt = RootLinearOperator(task_noise_covar_factor)
             dtype, device = task_noise_covar_factor.dtype, task_noise_covar_factor.device
             ckl_init = KroneckerProductLinearOperator
 
-        eye_lt = ConstantDiagLinearOperator(
-            torch.ones(*shape[:-2], 1, dtype=dtype, device=device), diag_shape=shape[-2]
-        )
-        task_var_lt = task_var_lt.expand(*shape[:-2], *task_var_lt.matrix_shape)
+        eye_lt = Diagonal(torch.ones(shape[-2], dtype=dtype, device=device))
+        # eye_lt = ConstantDiagLinearOperator(
+        #     torch.ones(*shape[:-2], 1, dtype=dtype, device=device), diag_shape=shape[-2]
+        # )
+        # task_var_lt = task_var_lt.expand(*shape[:-2], *task_var_lt.matrix_shape)
 
         # to add the latent noise we exploit the fact that
         # I \kron D_T + \sigma^2 I_{NT} = I \kron (D_T + \sigma^2 I)
         # which allows us to move the latent noise inside the task dependent noise
         # thereby allowing exploitation of Kronecker structure in this likelihood.
         if add_noise and self.has_global_noise:
-            noise = ConstantDiagLinearOperator(self.noise, diag_shape=task_var_lt.shape[-1])
+            # noise = ConstantDiagLinearOperator(self.noise, diag_shape=task_var_lt.shape[-1])
+            noise = Diagonal(self.noise * torch.ones(task_var_lt.shape[-2]))
             task_var_lt = task_var_lt + noise
 
         if interleaved:
-            covar_kron_lt = ckl_init(eye_lt, task_var_lt)
+            covar_kron_lt = ckl_init((eye_lt, task_var_lt))
         else:
             covar_kron_lt = ckl_init(task_var_lt, eye_lt)
 
