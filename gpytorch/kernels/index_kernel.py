@@ -11,6 +11,7 @@ from linear_operator.operators import (
 )
 from linops.linear_algebra import lazify
 from linops.operators import Diagonal, Sum, Product, Sliced, Dense, Transpose
+from linops.operators import RootOp
 
 from ..constraints import Interval, Positive
 from ..priors import Prior
@@ -99,9 +100,8 @@ class IndexKernel(Kernel):
     def covar_matrix(self):
         var = self.var
         # res = PsdSumLinearOperator(RootLinearOperator(self.covar_factor), DiagLinearOperator(var))
-        RootOp = Dense(self.covar_factor)
-        TRootOp = Dense(self.covar_factor.T)
-        res = Sum(Ms=(Product(Ms=(RootOp, TRootOp)), Diagonal(var)))
+        root = RootOp(self.covar_factor)
+        res = Sum((root, Diagonal(var)))
         return res
 
     def forward(self, i1, i2, **params):

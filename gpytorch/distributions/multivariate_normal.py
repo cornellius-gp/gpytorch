@@ -202,7 +202,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         op_args, unflatten = covar.flatten()
         xnp = covar.ops
         x0 = xnp.zeros_like(diff.unsqueeze(-1))
-        tol, P, max_iters, pbar = 1e-6, I_like(covar), 5_000, False
+        tol, P, max_iters, pbar = 1e-0, I_like(covar), 1_000, False
         cg_args = (x0, max_iters, tol, P, pbar)
         inv_quad = InvQuad.apply(unflatten, diff.unsqueeze(-1), cg_args, *op_args)
         inv_quad = inv_quad.sum()

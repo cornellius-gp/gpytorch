@@ -13,7 +13,9 @@ from linear_operator.operators import (
     RootLinearOperator,
 )
 from linops.operators import Diagonal
+from linops.operators import ConstantDiag
 from linops.operators import Kronecker
+from linops.operators import Sum
 from torch import Tensor
 
 from ..constraints import GreaterThan
@@ -132,7 +134,7 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
             dtype, device = task_noise_covar_factor.dtype, task_noise_covar_factor.device
             ckl_init = KroneckerProductLinearOperator
 
-        eye_lt = Diagonal(torch.ones(shape[-2], dtype=dtype, device=device))
+        eye_lt = ConstantDiag(torch.tensor([1.], dtype=dtype), diag_size=shape[-2])
         # eye_lt = ConstantDiagLinearOperator(
         #     torch.ones(*shape[:-2], 1, dtype=dtype, device=device), diag_shape=shape[-2]
         # )
@@ -143,9 +145,10 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
         # which allows us to move the latent noise inside the task dependent noise
         # thereby allowing exploitation of Kronecker structure in this likelihood.
         if add_noise and self.has_global_noise:
-            # noise = ConstantDiagLinearOperator(self.noise, diag_shape=task_var_lt.shape[-1])
-            noise = Diagonal(self.noise * torch.ones(task_var_lt.shape[-2]))
-            task_var_lt = task_var_lt + noise
+            # noise = ConstantDiag(self.noise, diag_size=task_var_lt.shape[-2])
+            # task_var_lt = task_var_lt + noise
+            # task_var_lt = Sum((task_var_lt, noise))
+            task_var_lt = Diagonal(task_noises + self.noise)
 
         if interleaved:
             covar_kron_lt = ckl_init((eye_lt, task_var_lt))
