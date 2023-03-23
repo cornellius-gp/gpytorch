@@ -14,7 +14,7 @@ from linear_operator.operators import (
 )
 from linops.operators import Diagonal
 from linops.operators import ConstantDiag
-from linops.operators import Kronecker
+from linops.operators import KroneckerConsDiag
 from linops.operators import Sum
 from torch import Tensor
 
@@ -127,7 +127,8 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
             task_var_lt = Diagonal(task_noises)
             dtype, device = task_noises.dtype, task_noises.device
             # ckl_init = KroneckerProductDiagLinearOperator
-            ckl_init = Kronecker
+            # ckl_init = Kronecker
+            ckl_init = KroneckerConsDiag
         else:
             task_noise_covar_factor = self.task_noise_covar_factor
             task_var_lt = RootLinearOperator(task_noise_covar_factor)
