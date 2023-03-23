@@ -202,13 +202,10 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         op_args, unflatten = covar.flatten()
         xnp = covar.ops
         x0 = xnp.zeros_like(diff.unsqueeze(-1))
-        tol, P, max_iters, pbar = 1e-0, I_like(covar), 1_000, False
+        tol, P, max_iters, pbar = 1e-6, I_like(covar), 100, False
         cg_args = (x0, max_iters, tol, P, pbar)
         inv_quad = InvQuad.apply(unflatten, diff.unsqueeze(-1), cg_args, *op_args)
         inv_quad = inv_quad.sum()
-
-        # inv_quad.backward()
-        # breakpoint()
 
         logdet = torch.logdet(covar.to_dense())
         # inv_quad, logdet = covar.inv_quad_logdet(inv_quad_rhs=diff.unsqueeze(-1), logdet=True)
