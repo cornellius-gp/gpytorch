@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
-from scipy.spatial import Voronoi as scipyVoronoi
-import torch
-import numpy as np
 from typing import List
+
+import numpy as np
+import torch
+from scipy.spatial import Voronoi as scipyVoronoi
 
 from ._blocker import BaseBlocker
 
@@ -123,7 +124,8 @@ class VoronoiBlocker(BaseBlocker):
     @param n_blocks: Number of desired polygons. Note that this does not guarantee similarly-sized clusters.
     @param n_neighbors: Number of neighboring polygons per polygon.
     """
-    def __init__(self, data: torch.tensor, n_blocks: int, n_neighbors: int, distance_metric):
+
+    def __init__(self, data: torch.tensor, n_blocks: int, n_neighbors: int, distance_metric, seed: int = None):
 
         self.n_blocks = n_blocks
         self.n_neighbors = n_neighbors
@@ -134,7 +136,7 @@ class VoronoiBlocker(BaseBlocker):
         self.vertices = None
 
         # this call executes set_blocks and set_neighbors, then superclass computes all dependent quantities
-        super(VoronoiBlocker, self).__init__(set_blocks_kwargs={"data": data}, set_neighbors_kwargs={})
+        super(VoronoiBlocker, self).__init__(set_blocks_kwargs={"data": data, "seed": seed}, set_neighbors_kwargs={})
 
     def _get_cluster_membership(self, data: torch.tensor) -> List[torch.LongTensor]:
         """
@@ -161,9 +163,11 @@ class VoronoiBlocker(BaseBlocker):
 
         return blocks
 
-    def set_blocks(self, data: torch.tensor) -> List[torch.LongTensor]:
+    def set_blocks(self, data: torch.tensor, seed: int) -> List[torch.LongTensor]:
+        if seed is not None:
+            torch.manual_seed(seed)
         # randomly sample points for constructing voronoi diagram and create diagram
-        self.inducing_points = data[torch.randperm(len(data))[0:self.n_blocks]]
+        self.inducing_points = data[torch.randperm(len(data))[0 : self.n_blocks]]
         vor = scipyVoronoi(self.inducing_points, incremental=False)
 
         # pass scipy voronoi through method to make all regions finite
@@ -180,7 +184,7 @@ class VoronoiBlocker(BaseBlocker):
         else:
             # get distance matrix and find ordered distances
             sorter = self.distance_metric(self.inducing_points, self.inducing_points).argsort().long()
-            return [sorter[i][sorter[i] < i][0:self.n_neighbors] for i in range(0, len(sorter))]
+            return [sorter[i][sorter[i] < i][0 : self.n_neighbors] for i in range(0, len(sorter))]
 
     def set_test_blocks(self, new_data: torch.tensor) -> List[torch.LongTensor]:
         # determine indices of new data points that belong to each voronoi region and return

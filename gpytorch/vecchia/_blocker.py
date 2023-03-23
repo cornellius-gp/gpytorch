@@ -50,6 +50,8 @@ class BaseBlocker(abc.ABC):
         self._block_observations = [
             block.reshape(1) if block.dim() == 0 else block for block in self._block_observations
         ]
+
+        # complete template method by creating ordered neighbors
         self._create_ordered_neighbors()
 
     def _create_ordered_neighbors(self):
@@ -69,7 +71,7 @@ class BaseBlocker(abc.ABC):
 
         for i in range(0, len(self._neighboring_blocks)):
             if len(self._neighboring_blocks[i]) == 0:
-                exclusive_neighboring_observations.append(torch.tensor([]))
+                exclusive_neighboring_observations.append(torch.LongTensor([]))
                 inclusive_neighboring_observations.append(self._block_observations[i])
             else:
                 exclusive_neighboring_observations.append(
@@ -179,7 +181,12 @@ class BaseBlocker(abc.ABC):
         """
         Calls the set_test_blocks method defined by the child class.
         """
-        self._test_block_observations = self.set_test_blocks(*args, **kwargs)
+        test_block_observations = self.set_test_blocks(*args, **kwargs)
+
+        # create 1D tensors out of any 0D tensors
+        self._test_block_observations = [
+            block.reshape(1) if block.dim() == 0 else block for block in test_block_observations
+        ]
 
     def plot(self, x: torch.tensor, y: torch.tensor, n_blocks: int = None, seed: int = 0):
         """
