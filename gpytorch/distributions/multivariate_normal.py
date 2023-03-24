@@ -14,6 +14,7 @@ from linops.operator_base import LinearOperator
 from linops.operators import I_like
 from linops.gp_fns import InvQuad
 from linops.gp_fns import log_determinant
+from linops.gp_fns import LogDet
 from torch import Tensor
 from torch.distributions import MultivariateNormal as TMultivariateNormal
 from torch.distributions.kl import register_kl
@@ -208,7 +209,8 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         inv_quad = inv_quad.sum()
 
         # logdet = torch.logdet(covar.to_dense())
-        logdet = log_determinant(covar)
+        # logdet = log_determinant(covar)
+        logdet = LogDet.apply(unflatten, cg_args, *op_args)
         # inv_quad, logdet = covar.inv_quad_logdet(inv_quad_rhs=diff.unsqueeze(-1), logdet=True)
 
         res = -0.5 * sum([inv_quad, logdet, diff.size(-1) * math.log(2 * math.pi)])
