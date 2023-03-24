@@ -9,6 +9,7 @@ import gpytorch
 from gpytorch.kernels import MaternKernel as GMaternKernel
 from gpytorch.kernels.keops import MaternKernel
 from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
+from gpytorch.test.base_keops_test_case import BaseKeOpsTestCase
 
 try:
     import pykeops  # noqa
@@ -20,125 +21,33 @@ try:
         def create_kernel_ard(self, num_dims, **kwargs):
             return MaternKernel(nu=2.5, ard_num_dims=num_dims, **kwargs)
 
-    class TestMaternKeOpsKernel(unittest.TestCase):
+    class TestMaternKeOpsKernel(unittest.TestCase, BaseKeOpsTestCase):
 
-        # keops tests
-        def forward_x1_eq_x2(self, nu):
-            if not torch.cuda.is_available():
-                return
+        @property
+        def k1(self):
+            return MaternKernel
 
-            with gpytorch.settings.max_cholesky_size(2):
-
-                x1 = torch.randn(100, 3).cuda()
-
-                kern1 = MaternKernel(nu=nu).cuda()
-                kern2 = GMaternKernel(nu=nu).cuda()
-
-                k1 = kern1(x1, x1).to_dense()
-                k2 = kern2(x1, x1).to_dense()
-
-                self.assertLess(torch.norm(k1 - k2), 1e-4)
-
-        def forward_x1_neq_x2(self, nu):
-            if not torch.cuda.is_available():
-                return
-
-            with gpytorch.settings.max_cholesky_size(2):
-
-                x1 = torch.randn(100, 3).cuda()
-                x2 = torch.randn(50, 3).cuda()
-
-                kern1 = MaternKernel(nu=nu).cuda()
-                kern2 = GMaternKernel(nu=nu).cuda()
-
-                k1 = kern1(x1, x2).to_dense()
-                k2 = kern2(x1, x2).to_dense()
-
-                self.assertLess(torch.norm(k1 - k2), 1e-4)
-
-        def test_batch_matmul(self):
-            if not torch.cuda.is_available():
-                return
-
-            with gpytorch.settings.max_cholesky_size(2):
-
-                x1 = torch.randn(3, 2, 100, 3).cuda()
-                kern1 = MaternKernel(nu=2.5).cuda()
-                kern2 = GMaternKernel(nu=2.5).cuda()
-
-                rhs = torch.randn(3, 2, 100, 1).cuda()
-                res1 = kern1(x1, x1).matmul(rhs)
-                res2 = kern2(x1, x1).matmul(rhs)
-
-                self.assertLess(torch.norm(res1 - res2), 1e-4)
+        @property
+        def k2(self):
+            return GMaternKernel
 
         def test_forward_nu25_x1_eq_x2(self):
-            return self.forward_x1_eq_x2(nu=2.5)
+            return self.test_forward_x1_eq_x2(nu=2.5)
 
         def test_forward_nu25_x1_neq_x2(self):
-            return self.forward_x1_neq_x2(nu=2.5)
+            return self.test_forward_x1_neq_x2(nu=2.5)
 
         def test_forward_nu15_x1_eq_x2(self):
-            return self.forward_x1_eq_x2(nu=1.5)
+            return self.test_forward_x1_eq_x2(nu=1.5)
 
         def test_forward_nu15_x1_neq_x2(self):
-            return self.forward_x1_neq_x2(nu=1.5)
+            return self.test_forward_x1_neq_x2(nu=1.5)
 
         def test_forward_nu05_x1_eq_x2(self):
-            return self.forward_x1_eq_x2(nu=0.5)
+            return self.test_forward_x1_eq_x2(nu=0.5)
 
         def test_forward_nu05_x1_neq_x2(self):
-            return self.forward_x1_neq_x2(nu=0.5)
-
-        # nonkeops tests
-        def forward_x1_eq_x2_nonkeops(self, nu):
-            if not torch.cuda.is_available():
-                return
-
-            with gpytorch.settings.max_cholesky_size(800):
-
-                x1 = torch.randn(100, 3).cuda()
-
-                kern1 = MaternKernel(nu=nu).cuda()
-                kern2 = GMaternKernel(nu=nu).cuda()
-
-                k1 = kern1(x1, x1).to_dense()
-                k2 = kern2(x1, x1).to_dense()
-
-                self.assertLess(torch.norm(k1 - k2), 1e-4)
-
-        def forward_x1_neq_x2_nonkeops(self, nu):
-            if not torch.cuda.is_available():
-                return
-
-            with gpytorch.settings.max_cholesky_size(800):
-
-                x1 = torch.randn(100, 3).cuda()
-                x2 = torch.randn(50, 3).cuda()
-
-                kern1 = MaternKernel(nu=nu).cuda()
-                kern2 = GMaternKernel(nu=nu).cuda()
-
-                k1 = kern1(x1, x2).to_dense()
-                k2 = kern2(x1, x2).to_dense()
-
-                self.assertLess(torch.norm(k1 - k2), 1e-4)
-
-        def test_batch_matmul_nonkeops(self):
-            if not torch.cuda.is_available():
-                return
-
-            with gpytorch.settings.max_cholesky_size(800):
-
-                x1 = torch.randn(3, 2, 100, 3).cuda()
-                kern1 = MaternKernel(nu=2.5).cuda()
-                kern2 = GMaternKernel(nu=2.5).cuda()
-
-                rhs = torch.randn(3, 2, 100, 1).cuda()
-                res1 = kern1(x1, x1).matmul(rhs)
-                res2 = kern2(x1, x1).matmul(rhs)
-
-                self.assertLess(torch.norm(res1 - res2), 1e-4)
+            return self.test_forward_x1_neq_x2(nu=0.5)
 
 except ImportError:
     pass
