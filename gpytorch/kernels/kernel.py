@@ -523,8 +523,12 @@ class Kernel(Module):
 
         else:
             if settings.lazily_evaluate_kernels.on():
-                res = LazyEvaluatedKernelTensor(
-                    x1_, x2_, kernel=self, last_dim_is_batch=last_dim_is_batch, **params)
+                # res = LazyEvaluatedKernelTensor(
+                #     x1_, x2_, kernel=self, last_dim_is_batch=last_dim_is_batch, **params)
+                res = lazify(
+                    super(Kernel, self).__call__(
+                        x1_, x2_, last_dim_is_batch=last_dim_is_batch, **params)
+                )
             else:
                 # res = to_linear_operator(
                 #     super(Kernel, self).__call__(x1_, x2_, last_dim_is_batch=last_dim_is_batch, **params)

@@ -40,18 +40,21 @@ class LazyEvaluatedKernelTensor(LinearOperator):
             return "x1 must be a tensor. Got {}".format(x1.__class__.__name__)
 
     def __init__(self, x1, x2, kernel, last_dim_is_batch=False, **params):
-        shape = (x1.shape[0] * kernel.num_tasks, x2.shape[0] * kernel.num_tasks)
-        super().__init__(
-            dtype=torch.float32, shape=shape
-        )
-        def dim(): return 2
-        self.dim = dim
+        if hasattr(kernel, "num_tasks"):
+            shape = (x1.shape[0] * kernel.num_tasks, x2.shape[0] * kernel.num_tasks)
+        else:
+            shape = (x1.shape[0], x2.shape[0])
+        super().__init__(dtype=torch.float32, shape=shape)
         self.kernel = kernel
         self.x1 = x1
         self.x2 = x2
         self.last_dim_is_batch = last_dim_is_batch
         self.params = params
         self._is_grad_enabled = torch.is_grad_enabled()  # records grad state at instantiation
+
+    @property
+    def dim(self):
+        return 2
 
     @property
     def expand(self):

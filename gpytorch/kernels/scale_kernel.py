@@ -3,7 +3,7 @@
 from typing import Optional
 
 import torch
-from linear_operator.operators import to_dense
+from linops.linear_algebra import lazify
 
 from ..constraints import Interval, Positive
 from ..priors import Prior
@@ -112,7 +112,7 @@ class ScaleKernel(Kernel):
             outputscales = outputscales.unsqueeze(-1)
         if diag:
             outputscales = outputscales.unsqueeze(-1)
-            return to_dense(orig_output) * outputscales
+            return lazify(orig_output) * outputscales
         else:
             outputscales = outputscales.view(*outputscales.shape, 1, 1)
             return orig_output.mul(outputscales)
