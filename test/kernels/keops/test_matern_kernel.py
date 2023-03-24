@@ -2,14 +2,10 @@
 
 import unittest
 
-import torch
-
-import gpytorch
-
 from gpytorch.kernels import MaternKernel as GMaternKernel
 from gpytorch.kernels.keops import MaternKernel
-from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
 from gpytorch.test.base_keops_test_case import BaseKeOpsTestCase
+from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
 
 try:
     import pykeops  # noqa
@@ -22,7 +18,6 @@ try:
             return MaternKernel(nu=2.5, ard_num_dims=num_dims, **kwargs)
 
     class TestMaternKeOpsKernel(unittest.TestCase, BaseKeOpsTestCase):
-
         @property
         def k1(self):
             return MaternKernel

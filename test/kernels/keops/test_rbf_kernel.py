@@ -2,13 +2,10 @@
 
 import unittest
 
-import torch
-
-import gpytorch
 from gpytorch.kernels import RBFKernel as GRBFKernel
 from gpytorch.kernels.keops import RBFKernel
-from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
 from gpytorch.test.base_keops_test_case import BaseKeOpsTestCase
+from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
 
 try:
     import pykeops  # noqa
@@ -21,7 +18,6 @@ try:
             return RBFKernel(ard_num_dims=num_dims, **kwargs)
 
     class TestRBFKeOpsKernel(unittest.TestCase, BaseKeOpsTestCase):
-
         @property
         def k1(self):
             return RBFKernel

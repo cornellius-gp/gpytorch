@@ -2,14 +2,11 @@
 
 import unittest
 
-import torch
-
-import gpytorch
 from gpytorch.kernels import PeriodicKernel as GPeriodicKernel
 from gpytorch.kernels.keops import PeriodicKernel
 from gpytorch.priors import NormalPrior
-from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
 from gpytorch.test.base_keops_test_case import BaseKeOpsTestCase
+from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
 
 try:
     import pykeops  # noqa
@@ -22,7 +19,6 @@ try:
             return PeriodicKernel(ard_num_dims=num_dims, **kwargs)
 
     class TestPeriodicKeOpsKernel(unittest.TestCase, BaseKeOpsTestCase):
-
         @property
         def k1(self):
             return PeriodicKernel

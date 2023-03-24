@@ -1,20 +1,23 @@
-import gpytorch
-import torch
 from abc import ABC, abstractmethod
 
-class BaseKeOpsTestCase(ABC):
+import torch
 
+import gpytorch
+
+
+class BaseKeOpsTestCase(ABC):
     @abstractmethod
     def k1(self):
-        """ Returns first kernel class"""
+        """Returns first kernel class"""
         pass
 
     @abstractmethod
     def k2(self):
-        """ Returns second kernel class"""
+        """Returns second kernel class"""
         pass
 
         # tests the keops implementation
+
     def test_forward_x1_eq_x2(self, **kwargs):
 
         with gpytorch.settings.max_cholesky_size(2):
