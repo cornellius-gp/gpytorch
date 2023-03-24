@@ -12,19 +12,19 @@ __all__ = [
     "EuclideanDistance",
     "ManhattanDistance",
     "DistanceMetrics",
-
     "AbstractOrderingStrategy",
     "CoordinateOrdering",
     "NormOrdering",
     "OrderingStrategies",
-
     "BaseBlocker",
     "KMeansBlocker",
-    "VoronoiBlocker"
+    "VoronoiBlocker",
 ]
 
 
 # TODO: Where to put this???
+# this function uses a blocker to compute block mean and covariance for a Vecchia-style GP. Until we have a more
+# concrete vecchia module, I do not know where to put this.
 def compute_mean_covar(blocks, x1, x2, y, mean_module, covar_module, training):
 
     # extract relevant info from blocks
@@ -58,8 +58,9 @@ def compute_mean_covar(blocks, x1, x2, y, mean_module, covar_module, training):
                 l_inv = c_neighbors.cholesky().inverse()
                 # compute mean
                 b = c_between @ l_inv.t() @ l_inv
-                mean = mean_module(x1[blocks.blocks[i]]) + \
-                       b @ (y[blocks.neighbors[i]] - mean_module(x2[blocks.neighbors[i]]))
+                mean = mean_module(x1[blocks.blocks[i]]) + b @ (
+                    y[blocks.neighbors[i]] - mean_module(x2[blocks.neighbors[i]])
+                )
                 # compute covariance
                 f = c_within - (c_between @ l_inv.t() @ l_inv @ c_between.t())
 
@@ -76,8 +77,9 @@ def compute_mean_covar(blocks, x1, x2, y, mean_module, covar_module, training):
             l_inv = c_neighbors.cholesky().inverse()
             # compute mean
             b = c_between @ l_inv.t() @ l_inv
-            mean = mean_module(x1[blocks.test_blocks[i]]) + \
-                   b @ (y[blocks.test_neighbors[i]] - mean_module(x2[blocks.test_neighbors[i]]))
+            mean = mean_module(x1[blocks.test_blocks[i]]) + b @ (
+                y[blocks.test_neighbors[i]] - mean_module(x2[blocks.test_neighbors[i]])
+            )
             # compute covariance
             f = c_within - (c_between @ l_inv.t() @ l_inv @ c_between.t())
 
