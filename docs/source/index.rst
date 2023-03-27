@@ -36,6 +36,7 @@ GPyTorch's documentation
    distributions
    priors
    variational
+   vecchia
    optim
 
 .. toctree::
