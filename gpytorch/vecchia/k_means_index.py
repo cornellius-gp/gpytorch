@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
 
-import faiss
-import torch
-import numpy as np
 from typing import List
 
-from ._blocker import BaseBlocker
-from .distance_metrics import AbstractDistanceMetric
+import faiss
+import numpy as np
+import torch
+
+from ._index import BaseIndex
 
 
-class KMeansBlocker(BaseBlocker):
+class KMeansIndex(BaseIndex):
     """
-    This blocker performs K-Means clustering on a given feature set, computes neighboring blocks, enables
-    evaluating block membership for test points, and enables reordering of the blocks based on block centroids.
-`
-    @param data: Features to cluster via K-Means, typically an n x 2 tensor of spatial lat-long coordinates.
-    @param n_blocks: Number of desired clusters. Note that this does not guarantee similarly-sized clusters.
-    @param n_neighbors: Number of neighboring clusters per cluster.
+        This index performs K-Means clustering on a given feature set, computes neighboring blocks, enables
+        evaluating block membership for test points, and enables reordering of the blocks based on block centroids.
+    `
+        @param data: Features to cluster via K-Means, typically an n x 2 tensor of spatial lat-long coordinates.
+        @param n_blocks: Number of desired clusters. Note that this does not guarantee similarly-sized clusters.
+        @param n_neighbors: Number of neighboring clusters per cluster.
     """
 
     def __init__(self, data: torch.tensor, n_blocks: int, n_neighbors: int, distance_metric):
@@ -26,7 +26,7 @@ class KMeansBlocker(BaseBlocker):
         self.centroids = None
 
         # this call executes set_blocks and set_neighbors, then superclass computes all dependent quantities
-        super(KMeansBlocker, self).__init__(set_blocks_kwargs={"data": data}, set_neighbors_kwargs={})
+        super(KMeansIndex, self).__init__(set_blocks_kwargs={"data": data}, set_neighbors_kwargs={})
 
     def _get_cluster_membership(self, data: torch.tensor) -> List[torch.LongTensor]:
         """
@@ -66,7 +66,7 @@ class KMeansBlocker(BaseBlocker):
         else:
             # get distance matrix and find ordered distances
             sorter = self.distance_metric(self.centroids, self.centroids).argsort().long()
-            return [sorter[i][sorter[i] < i][0:self.n_neighbors] for i in range(0, len(sorter))]
+            return [sorter[i][sorter[i] < i][0 : self.n_neighbors] for i in range(0, len(sorter))]
 
     def set_test_blocks(self, new_data: torch.tensor) -> List[torch.LongTensor]:
         # determine indices of new data points that belong to each cluster block and return

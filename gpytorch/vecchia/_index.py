@@ -11,7 +11,7 @@ import torch
 from matplotlib import pyplot as plt
 
 
-class BaseBlocker(abc.ABC):
+class BaseIndex(abc.ABC):
     """
     Provides a base interface for blocking data and establishing neighbor relationships.
     Cannot be directly instantiated and must be subclassed before use.

@@ -2,11 +2,11 @@ import unittest
 
 import torch
 
-from blocker_testing_data import data, new_orders, test_data
-from test_blocker import TestBaseBlocker
+from index_testing_data import data, new_orders, test_data
+from test_index import TestBaseIndex
 from torch import tensor
 
-from gpytorch.vecchia import KMeansBlocker
+from gpytorch.vecchia import KMeansIndex
 
 
 # copy of the euclidean distance metric in the DistanceMetrics module
@@ -24,12 +24,12 @@ test_names = [
 ]
 
 test_inputs = [
-    KMeansBlocker(data, n_blocks=10, n_neighbors=0, distance_metric=distance_metric()),
-    KMeansBlocker(data, n_blocks=10, n_neighbors=3, distance_metric=distance_metric()),
-    KMeansBlocker(data, n_blocks=10, n_neighbors=9, distance_metric=distance_metric()),
-    KMeansBlocker(data, n_blocks=100, n_neighbors=0, distance_metric=distance_metric()),
-    KMeansBlocker(data, n_blocks=100, n_neighbors=20, distance_metric=distance_metric()),
-    KMeansBlocker(data, n_blocks=100, n_neighbors=99, distance_metric=distance_metric()),
+    KMeansIndex(data, n_blocks=10, n_neighbors=0, distance_metric=distance_metric()),
+    KMeansIndex(data, n_blocks=10, n_neighbors=3, distance_metric=distance_metric()),
+    KMeansIndex(data, n_blocks=10, n_neighbors=9, distance_metric=distance_metric()),
+    KMeansIndex(data, n_blocks=100, n_neighbors=0, distance_metric=distance_metric()),
+    KMeansIndex(data, n_blocks=100, n_neighbors=20, distance_metric=distance_metric()),
+    KMeansIndex(data, n_blocks=100, n_neighbors=99, distance_metric=distance_metric()),
 ]
 
 expected_outputs = [
@@ -6841,7 +6841,7 @@ expected_outputs = [
 ]
 
 
-class TestKMeansBlocker(TestBaseBlocker, unittest.TestCase):
+class TestKMeansIndex(TestBaseIndex, unittest.TestCase):
     test_names = test_names
     test_inputs = test_inputs
     expected_outputs = expected_outputs

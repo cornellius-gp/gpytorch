@@ -6,7 +6,7 @@ import numpy as np
 import torch
 from scipy.spatial import Voronoi as scipyVoronoi
 
-from ._blocker import BaseBlocker
+from ._index import BaseIndex
 
 
 def voronoi_finite_polygons_2d(vor: scipyVoronoi, radius: float = None) -> (List[torch.tensor], torch.tensor):
@@ -114,9 +114,9 @@ def is_inside(polygon: torch.tensor, points: torch.tensor) -> torch.tensor:
     return intersections % 2
 
 
-class VoronoiBlocker(BaseBlocker):
+class VoronoiIndex(BaseIndex):
     """
-    This blocker constructs a Voronoi diagram from a given feature set, computes neighboring blocks, enables
+    This index constructs a Voronoi diagram from a given feature set, computes neighboring blocks, enables
     evaluating block membership for test points, and enables reordering of the blocks based on the inducing points
     used to construct the diagram.
 
@@ -136,7 +136,7 @@ class VoronoiBlocker(BaseBlocker):
         self.vertices = None
 
         # this call executes set_blocks and set_neighbors, then superclass computes all dependent quantities
-        super(VoronoiBlocker, self).__init__(set_blocks_kwargs={"data": data, "seed": seed}, set_neighbors_kwargs={})
+        super(VoronoiIndex, self).__init__(set_blocks_kwargs={"data": data, "seed": seed}, set_neighbors_kwargs={})
 
     def _get_cluster_membership(self, data: torch.tensor) -> List[torch.LongTensor]:
         """

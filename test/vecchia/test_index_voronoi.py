@@ -2,11 +2,11 @@ import unittest
 
 import torch
 
-from blocker_testing_data import data, new_orders, test_data
-from test_blocker import TestBaseBlocker
+from index_testing_data import data, new_orders, test_data
+from test_index import TestBaseIndex
 from torch import tensor
 
-from gpytorch.vecchia import VoronoiBlocker
+from gpytorch.vecchia import VoronoiIndex
 
 
 # copy of the euclidean distance metric in the DistanceMetrics module
@@ -24,12 +24,12 @@ test_names = [
 ]
 
 test_inputs = [
-    VoronoiBlocker(data, n_blocks=10, n_neighbors=0, distance_metric=distance_metric(), seed=0),
-    VoronoiBlocker(data, n_blocks=10, n_neighbors=3, distance_metric=distance_metric(), seed=0),
-    VoronoiBlocker(data, n_blocks=10, n_neighbors=9, distance_metric=distance_metric(), seed=0),
-    VoronoiBlocker(data, n_blocks=100, n_neighbors=0, distance_metric=distance_metric(), seed=0),
-    VoronoiBlocker(data, n_blocks=100, n_neighbors=20, distance_metric=distance_metric(), seed=0),
-    VoronoiBlocker(data, n_blocks=100, n_neighbors=99, distance_metric=distance_metric(), seed=0),
+    VoronoiIndex(data, n_blocks=10, n_neighbors=0, distance_metric=distance_metric(), seed=0),
+    VoronoiIndex(data, n_blocks=10, n_neighbors=3, distance_metric=distance_metric(), seed=0),
+    VoronoiIndex(data, n_blocks=10, n_neighbors=9, distance_metric=distance_metric(), seed=0),
+    VoronoiIndex(data, n_blocks=100, n_neighbors=0, distance_metric=distance_metric(), seed=0),
+    VoronoiIndex(data, n_blocks=100, n_neighbors=20, distance_metric=distance_metric(), seed=0),
+    VoronoiIndex(data, n_blocks=100, n_neighbors=99, distance_metric=distance_metric(), seed=0),
 ]
 
 expected_outputs = [
@@ -7346,7 +7346,7 @@ expected_outputs = [
 ]
 
 
-class TestVoronoiBlocker(TestBaseBlocker, unittest.TestCase):
+class TestVoronoiIndex(TestBaseIndex, unittest.TestCase):
     test_names = test_names
     test_inputs = test_inputs
     expected_outputs = expected_outputs

@@ -4,10 +4,10 @@ import copy
 import torch
 
 
-class TestBaseBlocker(object):
+class TestBaseIndex(object):
     """
-    This base testing class for every blocker object provides some basic sanity checks on the parent class that all
-    blockers must inherit from. It includes abstract methods for testing child-specific behavior that child test cases
+    This base testing class for every index provides some basic sanity checks on the parent class that all
+    indexes must inherit from. It includes abstract methods for testing child-specific behavior that child test cases
     must implement.
     """
 
