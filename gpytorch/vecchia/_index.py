@@ -19,8 +19,8 @@ class BaseIndex(abc.ABC):
     Subclasses must implement the set_blocks, set_neighbors, and set_test_blocks methods. Use help() to learn more
     about what these methods must return.
 
-    @param set_blocks_kwargs: Dict of keyword arguments to be passed to child's set_blocks implementation.
-    @param set_neighbors_kwargs: Dict of keyword arguments to be passed to child's set_neighbors implementation.
+    :param set_blocks_kwargs: Dict of keyword arguments to be passed to child's set_blocks implementation.
+    :param set_neighbors_kwargs: Dict of keyword arguments to be passed to child's set_neighbors implementation.
     """
 
     def __init__(self, set_blocks_kwargs: dict = None, set_neighbors_kwargs: dict = None):
@@ -89,7 +89,7 @@ class BaseIndex(abc.ABC):
         Reorders self._block_observations to the order specified by new_order. The ordered neighbors are recalculated,
         and all the relevant lists are modified in place.
 
-        @param new_order: Tensor where the ith element contains the index of the block to be moved to index i.
+        :param new_order: Tensor where the ith element contains the index of the block to be moved to index i.
         """
         # blocks get reordered here directly
         self._block_observations = [self._block_observations[idx] for idx in new_order]
@@ -102,7 +102,7 @@ class BaseIndex(abc.ABC):
         Creates a list of length equal to the number of blocks, where the ith element is a tensor containing the
         indices of the training set that belong to the ith block.
 
-        @param kwargs: Keyword arguments to be passed to child's set_blocks implementation.
+        :param kwargs: Keyword arguments to be passed to child's set_blocks implementation.
         """
         ...
 
@@ -112,7 +112,7 @@ class BaseIndex(abc.ABC):
         Creates a list of length equal to the number of blocks, where the ith element is a tensor containing the
         indices of the blocks that neighbor the ith block.
 
-        @param kwargs: Keyword arguments to be passed to child's set_neighbors implementation.
+        :param kwargs: Keyword arguments to be passed to child's set_neighbors implementation.
         """
         ...
 
@@ -122,8 +122,8 @@ class BaseIndex(abc.ABC):
         Creates a list of length equal to the number of blocks, where the ith element is a tensor containing the
         indices of the testing set that belong to the ith block.
 
-        @param args: Positional arguments to be passed to child's set_test_blocks implementation.
-        @param kwargs: Keyword arguments to be passed to child's set_test_blocks implementation.
+        :param args: Positional arguments to be passed to child's set_test_blocks implementation.
+        :param kwargs: Keyword arguments to be passed to child's set_test_blocks implementation.
         """
         ...
 
@@ -192,10 +192,10 @@ class BaseIndex(abc.ABC):
         """
         Useful visualization for this object and the ordering of the blocks, only implemented for 2D features.
 
-        @param x: Spatial coordinates to plot. This must be the same tensor that was used to construct the blocks.
-        @param y: Response values corresponding to each spatial coordinate in x.
-        @param n_blocks: Number of blocks to sample for the plot.
-        @param seed: RNG seed to change which blocks get randomly sampled.
+        :param x: Spatial coordinates to plot. This must be the same tensor that was used to construct the blocks.
+        :param y: Response values corresponding to each spatial coordinate in x.
+        :param n_blocks: Number of blocks to sample for the plot.
+        :param seed: RNG seed to change which blocks get randomly sampled.
         """
 
         np.random.seed(seed)

@@ -5,7 +5,7 @@ from .ordering_strategies import *
 
 from ._index import BaseIndex
 from .k_means_index import KMeansIndex
-from .voronoi_blocker import VoronoiIndex
+from .voronoi_index import VoronoiIndex
 
 __all__ = [
     "DistanceMetrics",

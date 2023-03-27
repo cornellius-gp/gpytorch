@@ -16,11 +16,11 @@ def voronoi_finite_polygons_2d(vor: scipyVoronoi, radius: float = None) -> (List
     Reconstruct infinite voronoi regions in a 2D diagram to finite regions. Returns regions in the order of the input
     points, rather than the order of the regions in vor.
 
-    @param vor: scipy.spatial.Voronoi instance
-    @param radius: Distance to 'points at infinity'.
+    :param vor: scipy.spatial.Voronoi instance
+    :param radius: Distance to 'points at infinity'.
 
-    @return regions: List of tensors, where the ith tensor contains the indices of the ith finite Voronoi region.
-    @return vertices: Tensor of shape (m,2) containing the coordinates of each vertex of the Voronoi diagram.
+    :return regions: List of tensors, where the ith tensor contains the indices of the ith finite Voronoi region.
+    :return vertices: Tensor of shape (m,2) containing the coordinates of each vertex of the Voronoi diagram.
     """
 
     if vor.points.shape[1] != 2:
@@ -120,9 +120,10 @@ class VoronoiIndex(BaseIndex):
     evaluating block membership for test points, and enables reordering of the blocks based on the inducing points
     used to construct the diagram.
 
-    @param data: Features to use for Voronoi diagram, typically an (n,2) tensor of spatial lat-long coordinates.
-    @param n_blocks: Number of desired polygons. Note that this does not guarantee similarly-sized clusters.
-    @param n_neighbors: Number of neighboring polygons per polygon.
+    :param data: Features to use for Voronoi diagram, typically an (n,2) tensor of spatial lat-long coordinates.
+    :param n_blocks: Number of desired polygons. Note that this does not guarantee similarly-sized clusters.
+    :param n_neighbors: Number of neighboring polygons per polygon.
+    :param seed: Seed for randomly selected inducing points from training points.
     """
 
     def __init__(self, data: torch.tensor, n_blocks: int, n_neighbors: int, distance_metric, seed: int = None):
@@ -142,10 +143,10 @@ class VoronoiIndex(BaseIndex):
         """
         Determines which Voronoi region each point in the provided data belongs to.
 
-        @param data: Tensor for which to evaluate Voronoi region membership. If any of these points are outside the
+        :param data: Tensor for which to evaluate Voronoi region membership. If any of these points are outside the
             domain of the points that the Voronoi diagram was constructed with, you may get nonsensical results.
 
-        @return: List of tensors, where the ith tensor contains the indices of the points in data that belong to the
+        :return: List of tensors, where the ith tensor contains the indices of the points in data that belong to the
             ith Voronoi region.
         """
         blocks = []

@@ -11,12 +11,12 @@ from ._index import BaseIndex
 
 class KMeansIndex(BaseIndex):
     """
-        This index performs K-Means clustering on a given feature set, computes neighboring blocks, enables
-        evaluating block membership for test points, and enables reordering of the blocks based on block centroids.
-    `
-        @param data: Features to cluster via K-Means, typically an n x 2 tensor of spatial lat-long coordinates.
-        @param n_blocks: Number of desired clusters. Note that this does not guarantee similarly-sized clusters.
-        @param n_neighbors: Number of neighboring clusters per cluster.
+    This index performs K-Means clustering on a given feature set, computes neighboring blocks, enables
+    evaluating block membership for test points, and enables reordering of the blocks based on block centroids.
+
+    :param data: Features to cluster via K-Means, typically an n x 2 tensor of spatial lat-long coordinates.
+    :param n_blocks: Number of desired clusters. Note that this does not guarantee similarly-sized clusters.
+    :param n_neighbors: Number of neighboring clusters per cluster.
     """
 
     def __init__(self, data: torch.tensor, n_blocks: int, n_neighbors: int, distance_metric):
@@ -32,10 +32,10 @@ class KMeansIndex(BaseIndex):
         """
         Determines which K-Means cluster each point in the provided data belongs to.
 
-        @param data: Tensor for which to evaluate cluster membership. If any of these points are outside the domain
+        :param data: Tensor for which to evaluate cluster membership. If any of these points are outside the domain
             of the points used to train the K-Means clusters, you may get nonsensical results.
 
-        @return: List of tensors, where the ith tensor contains the indices of the points in data that belong to the
+        :return: List of tensors, where the ith tensor contains the indices of the points in data that belong to the
             ith K-Means cluster.
         """
         blocks = []
