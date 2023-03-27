@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
 
 import abc
-
-import math
-
 from typing import List
 
-import numpy as np
 import torch
-from matplotlib import pyplot as plt
+
+# from matplotlib import pyplot as plt
 
 
 class BaseIndex(abc.ABC):
@@ -188,79 +185,81 @@ class BaseIndex(abc.ABC):
             block.reshape(1) if block.dim() == 0 else block for block in test_block_observations
         ]
 
-    def plot(self, x: torch.tensor, y: torch.tensor, n_blocks: int = None, seed: int = 0):
-        """
-        Useful visualization for this object and the ordering of the blocks, only implemented for 2D features.
-
-        :param x: Spatial coordinates to plot. This must be the same tensor that was used to construct the blocks.
-        :param y: Response values corresponding to each spatial coordinate in x.
-        :param n_blocks: Number of blocks to sample for the plot.
-        :param seed: RNG seed to change which blocks get randomly sampled.
-        """
-
-        np.random.seed(seed)
-
-        if n_blocks is not None:
-            if n_blocks > len(self._block_observations):
-                raise ValueError("Number of blocks to plot must not exceed total number of blocks.")
-        else:
-            n_blocks = math.ceil(math.log(len(self._block_observations)))
-
-        ordered_x = torch.cat([x[self._block_observations[i], :] for i in range(len(self._block_observations))]).numpy()
-        ordered_y = torch.cat([y[self._block_observations[i]] for i in range(len(self._block_observations))]).numpy()
-
-        unique_color_vals = np.linspace(0, 1, len(self._block_observations))
-        unique_colors = np.array(
-            [(unique_color_vals[i], 0, unique_color_vals[i]) for i in range(len(unique_color_vals))]
-        )
-        colors = np.repeat(unique_colors, [len(block) for block in self._block_observations], axis=0)
-
-        plt.figure(figsize=(15, 10))
-
-        plt.subplot(2, 2, 1)
-        plt.scatter(ordered_x[:, 0], ordered_x[:, 1], c=colors)
-        plt.title("Ordered Features")
-
-        plt.subplot(2, 2, 2)
-        plt.scatter(ordered_x[:, 0], ordered_x[:, 1], c=ordered_y)
-        plt.title("Response Values")
-
-        # for a fixed sample of indices, this will always yield the same sampled_blocks regardless of reordering
-        invariant_block_idx = torch.argsort(torch.stack([torch.max(block) for block in self._block_observations]))
-        sampled_blocks = invariant_block_idx[np.random.permutation(len(self._block_observations))[:n_blocks]]
-
-        plt.subplot(2, 2, 3)
-        plt.scatter(ordered_x[:, 0], ordered_x[:, 1], c="grey", alpha=0.25)
-        for sampled_block in sampled_blocks:
-            plt.scatter(
-                x[self._block_observations[sampled_block], 0].numpy(),
-                x[self._block_observations[sampled_block], 1].numpy(),
-                c="blue",
-                s=50,
-            )
-            plt.scatter(
-                x[self._exclusive_neighboring_observations[sampled_block], 0].numpy(),
-                x[self._exclusive_neighboring_observations[sampled_block], 1].numpy(),
-                c="deepskyblue",
-                alpha=0.5,
-            )
-        plt.title("Ordered Neighbors")
-
-        plt.subplot(2, 2, 4)
-        plt.scatter(ordered_x[:, 0], ordered_x[:, 1], c="grey", alpha=0.25)
-        for sampled_block in sampled_blocks:
-            plt.scatter(
-                x[self._block_observations[sampled_block], 0].numpy(),
-                x[self._block_observations[sampled_block], 1].numpy(),
-                c=y[self._block_observations[sampled_block]].numpy(),
-                vmin=torch.min(y),
-                vmax=torch.max(y),
-            )
-            plt.scatter(
-                x[self._exclusive_neighboring_observations[sampled_block], 0].numpy(),
-                x[self._exclusive_neighboring_observations[sampled_block], 1].numpy(),
-                c=y[self._exclusive_neighboring_observations[sampled_block]].numpy(),
-                vmin=torch.min(y),
-                vmax=torch.max(y),
-            )
-        plt.title("Corresponding Response Values")
+    # commented this out because matplotlib is not included with GPyTorch
+    # def plot(self, x: torch.tensor, y: torch.tensor, n_blocks: int = None, seed: int = 0):
+    #     """
+    #     Useful visualization for this object and the ordering of the blocks, only implemented for 2D features.
+    #
+    #     :param x: Spatial coordinates to plot. This must be the same tensor that was used to construct the blocks.
+    #     :param y: Response values corresponding to each spatial coordinate in x.
+    #     :param n_blocks: Number of blocks to sample for the plot.
+    #     :param seed: RNG seed to change which blocks get randomly sampled.
+    #     """
+    #
+    #     np.random.seed(seed)
+    #
+    #     if n_blocks is not None:
+    #         if n_blocks > len(self._block_observations):
+    #             raise ValueError("Number of blocks to plot must not exceed total number of blocks.")
+    #     else:
+    #         n_blocks = math.ceil(math.log(len(self._block_observations)))
+    #
+    #     ordered_x = torch.cat([x[self._block_observations[i], :]
+    #       for i in range(len(self._block_observations))]).numpy()
+    #     ordered_y = torch.cat([y[self._block_observations[i]] for i in range(len(self._block_observations))]).numpy()
+    #
+    #     unique_color_vals = np.linspace(0, 1, len(self._block_observations))
+    #     unique_colors = np.array(
+    #         [(unique_color_vals[i], 0, unique_color_vals[i]) for i in range(len(unique_color_vals))]
+    #     )
+    #     colors = np.repeat(unique_colors, [len(block) for block in self._block_observations], axis=0)
+    #
+    #     plt.figure(figsize=(15, 10))
+    #
+    #     plt.subplot(2, 2, 1)
+    #     plt.scatter(ordered_x[:, 0], ordered_x[:, 1], c=colors)
+    #     plt.title("Ordered Features")
+    #
+    #     plt.subplot(2, 2, 2)
+    #     plt.scatter(ordered_x[:, 0], ordered_x[:, 1], c=ordered_y)
+    #     plt.title("Response Values")
+    #
+    #     # for a fixed sample of indices, this will always yield the same sampled_blocks regardless of reordering
+    #     invariant_block_idx = torch.argsort(torch.stack([torch.max(block) for block in self._block_observations]))
+    #     sampled_blocks = invariant_block_idx[np.random.permutation(len(self._block_observations))[:n_blocks]]
+    #
+    #     plt.subplot(2, 2, 3)
+    #     plt.scatter(ordered_x[:, 0], ordered_x[:, 1], c="grey", alpha=0.25)
+    #     for sampled_block in sampled_blocks:
+    #         plt.scatter(
+    #             x[self._block_observations[sampled_block], 0].numpy(),
+    #             x[self._block_observations[sampled_block], 1].numpy(),
+    #             c="blue",
+    #             s=50,
+    #         )
+    #         plt.scatter(
+    #             x[self._exclusive_neighboring_observations[sampled_block], 0].numpy(),
+    #             x[self._exclusive_neighboring_observations[sampled_block], 1].numpy(),
+    #             c="deepskyblue",
+    #             alpha=0.5,
+    #         )
+    #     plt.title("Ordered Neighbors")
+    #
+    #     plt.subplot(2, 2, 4)
+    #     plt.scatter(ordered_x[:, 0], ordered_x[:, 1], c="grey", alpha=0.25)
+    #     for sampled_block in sampled_blocks:
+    #         plt.scatter(
+    #             x[self._block_observations[sampled_block], 0].numpy(),
+    #             x[self._block_observations[sampled_block], 1].numpy(),
+    #             c=y[self._block_observations[sampled_block]].numpy(),
+    #             vmin=torch.min(y),
+    #             vmax=torch.max(y),
+    #         )
+    #         plt.scatter(
+    #             x[self._exclusive_neighboring_observations[sampled_block], 0].numpy(),
+    #             x[self._exclusive_neighboring_observations[sampled_block], 1].numpy(),
+    #             c=y[self._exclusive_neighboring_observations[sampled_block]].numpy(),
+    #             vmin=torch.min(y),
+    #             vmax=torch.max(y),
+    #         )
+    #     plt.title("Corresponding Response Values")
