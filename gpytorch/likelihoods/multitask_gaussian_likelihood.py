@@ -14,8 +14,8 @@ from linear_operator.operators import (
 )
 from linops.operators import Diagonal
 from linops.operators import ConstantDiag
-from linops.operators import KroneckerConsDiag
 from linops.operators import Sum
+from linops.linear_algebra import kron
 from torch import Tensor
 
 from ..constraints import GreaterThan
@@ -128,13 +128,14 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
             dtype, device = task_noises.dtype, task_noises.device
             # ckl_init = KroneckerProductDiagLinearOperator
             # ckl_init = Kronecker
-            ckl_init = KroneckerConsDiag
+            ckl_init = kron
         else:
             task_noise_covar_factor = self.task_noise_covar_factor
             task_var_lt = RootLinearOperator(task_noise_covar_factor)
             dtype, device = task_noise_covar_factor.dtype, task_noise_covar_factor.device
             ckl_init = KroneckerProductLinearOperator
 
+        # eye_lt = torch.tensor([1.], dtype=dtype) * Identity(dtype=dtype, shape=(shape[-2], shape[-2]))
         eye_lt = ConstantDiag(torch.tensor([1.], dtype=dtype), diag_size=shape[-2])
         # eye_lt = ConstantDiagLinearOperator(
         #     torch.ones(*shape[:-2], 1, dtype=dtype, device=device), diag_shape=shape[-2]
@@ -152,7 +153,7 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
             task_var_lt = Diagonal(task_noises + self.noise)
 
         if interleaved:
-            covar_kron_lt = ckl_init((eye_lt, task_var_lt))
+            covar_kron_lt = ckl_init(eye_lt, task_var_lt)
         else:
             covar_kron_lt = ckl_init(task_var_lt, eye_lt)
 
