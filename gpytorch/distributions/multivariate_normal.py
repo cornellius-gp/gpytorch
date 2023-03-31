@@ -12,8 +12,9 @@ from linear_operator import to_dense, to_linear_operator
 from linear_operator.operators import DiagLinearOperator, RootLinearOperator
 from linops.operator_base import LinearOperator
 from linops.operators import I_like
+# from linops.algorithms.preconditioners import NystromPrecond
 from linops.gp_fns import InvQuad
-from linops.gp_fns import log_determinant
+# from linops.gp_fns import log_determinant
 from linops.gp_fns import LogDet
 from torch import Tensor
 from torch.distributions import MultivariateNormal as TMultivariateNormal
@@ -204,6 +205,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         xnp = covar.ops
         x0 = xnp.zeros_like(diff.unsqueeze(-1))
         tol, P, max_iters, pbar = 1e-6, I_like(covar), 100, False
+        # tol, P, max_iters, pbar = 1e-6, NystromPrecond(covar, rank=10, adjust_mu=False), 100, False
         cg_args = (x0, max_iters, tol, P, pbar)
         inv_quad = InvQuad.apply(unflatten, diff.unsqueeze(-1), cg_args, *op_args)
         inv_quad = inv_quad.sum()
