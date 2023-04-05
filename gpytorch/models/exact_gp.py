@@ -317,7 +317,7 @@ class ExactGP(GP):
             if settings.debug().on():
                 if not isinstance(full_output, MultivariateNormal):
                     raise RuntimeError("ExactGP.forward must return a MultivariateNormal")
-            full_mean, full_covar = full_output.mean, full_output.lazy_covariance_matrix
+            full_mean, full_covar = full_output.loc, full_output.lazy_covariance_matrix
 
             # Determine the shape of the joint distribution
             batch_shape = full_output.batch_shape

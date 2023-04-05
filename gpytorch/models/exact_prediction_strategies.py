@@ -151,6 +151,7 @@ class DefaultPredictionStrategy(object):
             num_tasks = full_output.event_shape[-1]
             full_mean = full_mean.view(*batch_shape, -1, num_tasks)
             fant_mean = full_mean[..., (num_train // num_tasks) :, :]
+            full_targets = full_targets.view(*target_batch_shape, -1)
         else:
             full_mean = full_mean.view(*batch_shape, -1)
             fant_mean = full_mean[..., num_train:]
@@ -210,8 +211,6 @@ class DefaultPredictionStrategy(object):
         new_lt = self.lik_train_train_covar.cat_rows(fant_train_covar, fant_fant_covar)
         new_root = new_lt.root_decomposition().root.to_dense()
         new_covar_cache = new_lt.root_inv_decomposition().root.to_dense()
-
-        full_targets = full_targets.view(*target_batch_shape, -1)
 
         # Expand inputs accordingly if necessary (for fantasies at the same points)
         if full_inputs[0].dim() <= full_targets.dim():
@@ -276,11 +275,7 @@ class DefaultPredictionStrategy(object):
 
     def exact_prediction(self, joint_mean, joint_covar):
         # Find the components of the distribution that contain test data
-        if not isinstance(self.train_prior_dist, MultitaskMultivariateNormal):
-            test_mean = joint_mean[..., self.num_train :]
-        else:
-            num_tasks = joint_mean.shape[-1]
-            test_mean = joint_mean[..., (self.num_train // num_tasks) :, :]
+        test_mean = joint_mean[..., self.num_train :]
         # For efficiency - we can make things more efficient
         if joint_covar.size(-1) <= settings.max_eager_kernel_size.value():
             test_covar = joint_covar[..., self.num_train :, :].to_dense()
@@ -307,10 +302,11 @@ class DefaultPredictionStrategy(object):
         # NOTE TO FUTURE SELF:
         # You **cannot* use addmv here, because test_train_covar may not actually be a non lazy tensor even for an exact
         # GP, and using addmv requires you to to_dense test_train_covar, which is obviously a huge no-no!
-        if not isinstance(self.train_prior_dist, MultitaskMultivariateNormal):
-            res = (test_train_covar @ self.mean_cache.unsqueeze(-1)).squeeze(-1)
+
+        if len(self.mean_cache.shape) == 4:
+            res = (test_train_covar @ self.mean_cache.squeeze(1).unsqueeze(-1)).squeeze(-1)
         else:
-            res = (test_train_covar.unsqueeze(1) @ self.mean_cache.unsqueeze(-1)).squeeze(-1)
+            res = (test_train_covar @ self.mean_cache.unsqueeze(-1)).squeeze(-1)
         res = res + test_mean
 
         return res
