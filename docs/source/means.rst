@@ -55,7 +55,7 @@ Specialty Means
 :hidden:`ConstantMeanGradGrad`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: ConstantMeanGrad
+.. autoclass:: ConstantMeanGradGrad
    :members:
 
 :hidden:`LinearMeanGrad`
