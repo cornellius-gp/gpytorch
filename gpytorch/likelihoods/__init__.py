@@ -3,16 +3,16 @@
 from .bernoulli_likelihood import BernoulliLikelihood
 from .beta_likelihood import BetaLikelihood
 from .gaussian_likelihood import (
+    _GaussianLikelihoodBase,
     DirichletClassificationLikelihood,
     FixedNoiseGaussianLikelihood,
     GaussianLikelihood,
     GaussianLikelihoodWithMissingObs,
-    _GaussianLikelihoodBase,
 )
 from .laplace_likelihood import LaplaceLikelihood
-from .likelihood import Likelihood, _OneDimensionalLikelihood
+from .likelihood import _OneDimensionalLikelihood, Likelihood
 from .likelihood_list import LikelihoodList
-from .multitask_gaussian_likelihood import MultitaskGaussianLikelihood, _MultitaskGaussianLikelihoodBase
+from .multitask_gaussian_likelihood import _MultitaskGaussianLikelihoodBase, MultitaskGaussianLikelihood
 from .noise_models import HeteroskedasticNoise
 from .softmax_likelihood import SoftmaxLikelihood
 from .student_t_likelihood import StudentTLikelihood

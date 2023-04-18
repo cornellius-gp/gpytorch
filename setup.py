@@ -40,7 +40,7 @@ readme = open("README.md").read()
 torch_min = "1.11"
 install_requires = [
     "scikit-learn",
-    "linear_operator>=0.2.0",
+    "linear_operator>=0.4.0",
 ]
 # if recent dev version of PyTorch is installed, no need to install stable
 try:
@@ -61,18 +61,18 @@ setup(
     long_description_content_type="text/markdown",
     author="Jake Gardner, Geoff Pleiss",
     url="https://gpytorch.ai",
-    author_email="jrg365@cornell.edu, gpleiss@gmail.com",
+    author_email="gpleiss@gmail.com",
     project_urls={
         "Documentation": "https://gpytorch.readthedocs.io",
         "Source": "https://github.com/cornellius-gp/gpytorch/",
     },
     license="MIT",
-    classifiers=["Development Status :: 4 - Beta", "Programming Language :: Python :: 3"],
+    classifiers=["Development Status :: 5 - Production/Stable", "Programming Language :: Python :: 3"],
     packages=find_packages(exclude=["test", "test.*"]),
     python_requires=">=3.8",
     install_requires=install_requires,
     extras_require={
-        "dev": ["black", "twine", "pre-commit"],
+        "dev": ["ufmt", "twine", "pre-commit"],
         "examples": ["ipython", "jupyter", "matplotlib", "scipy", "torchvision", "tqdm"],
         "pyro": ["pyro-ppl>=1.8"],
         "keops": ["pykeops>=1.1.1"],

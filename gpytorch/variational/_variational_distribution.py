@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 
 import torch
 
+from ..distributions import Distribution, MultivariateNormal
 from ..module import Module
 
 
@@ -15,21 +16,21 @@ class _VariationalDistribution(Module, ABC):
     :ivar torch.dtype device: The device of the VariationalDistribution parameters
     """
 
-    def __init__(self, num_inducing_points, batch_shape=torch.Size([]), mean_init_std=1e-3):
+    def __init__(self, num_inducing_points: int, batch_shape: torch.Size = torch.Size([]), mean_init_std: float = 1e-3):
         super().__init__()
         self.num_inducing_points = num_inducing_points
         self.batch_shape = batch_shape
         self.mean_init_std = mean_init_std
 
     @property
-    def device(self):
+    def device(self) -> torch.device:
         return next(self.parameters()).device
 
     @property
-    def dtype(self):
+    def dtype(self) -> torch.dtype:
         return next(self.parameters()).dtype
 
-    def forward(self):
+    def forward(self) -> Distribution:
         r"""
         Constructs and returns the variational distribution
 
@@ -46,7 +47,7 @@ class _VariationalDistribution(Module, ABC):
         return torch.Size([*self.batch_shape, self.num_inducing_points])
 
     @abstractmethod
-    def initialize_variational_distribution(self, prior_dist):
+    def initialize_variational_distribution(self, prior_dist: MultivariateNormal) -> None:
         r"""
         Method for initializing the variational distribution, based on the prior distribution.
 
@@ -54,5 +55,5 @@ class _VariationalDistribution(Module, ABC):
         """
         raise NotImplementedError
 
-    def __call__(self):
+    def __call__(self) -> Distribution:
         return self.forward()

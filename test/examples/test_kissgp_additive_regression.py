@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 
-import random
 import os
-import torch
+import random
 import unittest
 
-import gpytorch
+import torch
 from torch import optim
-from gpytorch.kernels import RBFKernel, AdditiveStructureKernel, GridInterpolationKernel, ScaleKernel
+
+import gpytorch
+from gpytorch.distributions import MultivariateNormal
+from gpytorch.kernels import AdditiveStructureKernel, GridInterpolationKernel, RBFKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ZeroMean
-from gpytorch.distributions import MultivariateNormal
 
 n = 20
 train_x = torch.zeros(pow(n, 2), 2)

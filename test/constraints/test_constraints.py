@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import math
 import unittest
 
 import torch
@@ -68,6 +69,13 @@ class TestInterval(unittest.TestCase, BaseTestCase):
         constraint = gpytorch.constraints.Interval(1.0, 5.0, transform=None, initial_value=3.0)
         lkhd = gpytorch.likelihoods.GaussianLikelihood(noise_constraint=constraint)
         self.assertEqual(lkhd.noise.item(), 3.0)
+
+    def test_error_on_infinite(self):
+        err_msg = "Cannot make an Interval directly with non-finite bounds"
+        with self.assertRaisesRegex(ValueError, err_msg):
+            gpytorch.constraints.Interval(0.0, math.inf)
+        with self.assertRaisesRegex(ValueError, err_msg):
+            gpytorch.constraints.Interval(-math.inf, 0.0)
 
 
 class TestGreaterThan(unittest.TestCase, BaseTestCase):

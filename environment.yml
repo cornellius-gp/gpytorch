@@ -1,8 +1,0 @@
-name: gpytorch
-channels:
-  - pytorch
-  - gpytorch
-dependencies:
-  - pytorch
-  - scikit-learn
-  - linear_operator>=0.2.0

@@ -6,8 +6,10 @@ import unittest
 import warnings
 from math import exp, pi
 
-import gpytorch
 import torch
+from torch import optim
+
+import gpytorch
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.kernels import GridInterpolationKernel, RBFKernel, ScaleKernel
 from gpytorch.likelihoods import FixedNoiseGaussianLikelihood
@@ -15,7 +17,6 @@ from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.test.utils import least_used_cuda_device
 from gpytorch.utils.warnings import GPInputWarning
-from torch import optim
 
 
 # Simple training data: let's try to learn a sine function,

@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 
-import torch
+from typing import Any, Optional
 
-from ..constraints import GreaterThan, Positive
+import torch
+from torch import Tensor
+from torch.distributions import StudentT
+
+from ..constraints import GreaterThan, Interval, Positive
 from ..distributions import base_distributions
+from ..priors import Prior
 from .likelihood import _OneDimensionalLikelihood
 
 
@@ -14,15 +19,10 @@ class StudentTLikelihood(_OneDimensionalLikelihood):
     :math:`\sigma^2` - the noise
 
     :param batch_shape: The batch shape of the learned noise parameter (default: []).
-    :type batch_shape: torch.Size, optional
     :param noise_prior: Prior for noise parameter :math:`\sigma^2`.
-    :type noise_prior: ~gpytorch.priors.Prior, optional
     :param noise_constraint: Constraint for noise parameter :math:`\sigma^2`.
-    :type noise_constraint: ~gpytorch.constraints.Interval, optional
     :param deg_free_prior: Prior for deg_free parameter :math:`\nu`.
-    :type deg_free_prior: ~gpytorch.priors.Prior, optional
     :param deg_free_constraint: Constraint for deg_free parameter :math:`\nu`.
-    :type deg_free_constraint: ~gpytorch.constraints.Interval, optional
 
     :var torch.Tensor deg_free: :math:`\nu` parameter (degrees of freedom)
     :var torch.Tensor noise: :math:`\sigma^2` parameter (noise)
@@ -31,11 +31,11 @@ class StudentTLikelihood(_OneDimensionalLikelihood):
     def __init__(
         self,
         batch_shape: torch.Size = torch.Size([]),
-        deg_free_prior=None,
-        deg_free_constraint=None,
-        noise_prior=None,
-        noise_constraint=None,
-    ):
+        deg_free_prior: Optional[Prior] = None,
+        deg_free_constraint: Optional[Interval] = None,
+        noise_prior: Optional[Prior] = None,
+        noise_constraint: Optional[Interval] = None,
+    ) -> None:
         super().__init__()
 
         if deg_free_constraint is None:
@@ -61,30 +61,30 @@ class StudentTLikelihood(_OneDimensionalLikelihood):
         self.initialize(deg_free=7)
 
     @property
-    def deg_free(self):
+    def deg_free(self) -> Tensor:
         return self.raw_deg_free_constraint.transform(self.raw_deg_free)
 
     @deg_free.setter
-    def deg_free(self, value):
+    def deg_free(self, value: Tensor) -> None:
         self._set_deg_free(value)
 
-    def _set_deg_free(self, value):
+    def _set_deg_free(self, value: Tensor) -> None:
         if not torch.is_tensor(value):
             value = torch.as_tensor(value).to(self.raw_deg_free)
         self.initialize(raw_deg_free=self.raw_deg_free_constraint.inverse_transform(value))
 
     @property
-    def noise(self):
+    def noise(self) -> Tensor:
         return self.raw_noise_constraint.transform(self.raw_noise)
 
     @noise.setter
-    def noise(self, value):
+    def noise(self, value: Tensor) -> None:
         self._set_noise(value)
 
-    def _set_noise(self, value):
+    def _set_noise(self, value: Tensor) -> None:
         if not torch.is_tensor(value):
             value = torch.as_tensor(value).to(self.raw_noise)
         self.initialize(raw_noise=self.raw_noise_constraint.inverse_transform(value))
 
-    def forward(self, function_samples, **kwargs):
+    def forward(self, function_samples: Tensor, *args: Any, **kwargs: Any) -> StudentT:
         return base_distributions.StudentT(df=self.deg_free, loc=function_samples, scale=self.noise.sqrt())

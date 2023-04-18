@@ -1,24 +1,24 @@
 #!/usr/bin/env python3
 
-from math import exp
-
 import os
 import random
-import torch
 import unittest
+from math import exp
+
+import torch
+from torch import optim
 
 import gpytorch
-from torch import optim
+from gpytorch.distributions import MultivariateNormal
 from gpytorch.kernels import RBFKernel, ScaleKernel
 from gpytorch.likelihoods import BernoulliLikelihood
 from gpytorch.means import ConstantMean
-from gpytorch.priors import SmoothedBoxPrior
-from gpytorch.distributions import MultivariateNormal
 from gpytorch.models import ApproximateGP
+from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.variational import AdditiveGridInterpolationVariationalStrategy, CholeskyVariationalDistribution
 
 n = 64
-train_x = torch.zeros(n ** 2, 2)
+train_x = torch.zeros(n**2, 2)
 train_x[:, 0].copy_(torch.linspace(-1, 1, n).repeat(n))
 train_x[:, 1].copy_(torch.linspace(-1, 1, n).unsqueeze(1).repeat(1, n).view(-1))
 train_y = train_x[:, 0].abs().lt(0.5).float()
