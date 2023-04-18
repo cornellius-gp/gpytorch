@@ -3,7 +3,7 @@
 import torch
 from linear_operator.operators import KroneckerProductLinearOperator
 
-from .rbf_kernel import RBFKernel, postprocess_rbf
+from .rbf_kernel import postprocess_rbf, RBFKernel
 
 
 class RBFKernelGradGrad(RBFKernel):
@@ -19,24 +19,23 @@ class RBFKernelGradGrad(RBFKernel):
         This kernel does not have an `outputscale` parameter. To add a scaling parameter,
         decorate this kernel with a :class:`gpytorch.kernels.ScaleKernel`.
 
-    Args:
-        :attr:`batch_shape` (torch.Size, optional):
-            Set this if you want a separate lengthscale for each
-             batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `torch.Size([])`.
-        :attr:`active_dims` (tuple of ints, optional):
-            Set this if you want to compute the covariance of only a few input dimensions. The ints
-            corresponds to the indices of the dimensions. Default: `None`.
-        :attr:`lengthscale_prior` (Prior, optional):
-            Set this if you want to apply a prior to the lengthscale parameter.  Default: `None`.
-        :attr:`lengthscale_constraint` (Constraint, optional):
-            Set this if you want to apply a constraint to the lengthscale parameter. Default: `Positive`.
-        :attr:`eps` (float):
-            The minimum value that the lengthscale can take (prevents divide by zero errors). Default: `1e-6`.
+    :param ard_num_dims: Set this if you want a separate lengthscale for each input
+        dimension. It should be `d` if x1 is a `n x d` matrix. (Default: `None`.)
+    :param batch_shape: Set this if you want a separate lengthscale for each batch of input
+        data. It should be :math:`B_1 \times \ldots \times B_k` if :math:`\mathbf x1` is
+        a :math:`B_1 \times \ldots \times B_k \times N \times D` tensor.
+    :param active_dims: Set this if you want to compute the covariance of only
+        a few input dimensions. The ints corresponds to the indices of the
+        dimensions. (Default: `None`.)
+    :param lengthscale_prior: Set this if you want to apply a prior to the
+        lengthscale parameter. (Default: `None`)
+    :param lengthscale_constraint: Set this if you want to apply a constraint
+        to the lengthscale parameter. (Default: `Positive`.)
+    :param eps: The minimum value that the lengthscale can take (prevents
+        divide by zero errors). (Default: `1e-6`.)
 
-    Attributes:
-        :attr:`lengthscale` (Tensor):
-            The lengthscale parameter. Size/shape of parameter depends on the
-            :attr:`ard_num_dims` and :attr:`batch_shape` arguments.
+    :ivar torch.Tensor lengthscale: The lengthscale parameter. Size/shape of parameter depends on the
+        ard_num_dims and batch_shape arguments.
 
     Example:
         >>> x = torch.randn(10, 5)

@@ -1,12 +1,39 @@
 #!/usr/bin/env python3
 
+from typing import Any, Optional
+
 import torch
 
+from ..priors import Prior
 from .mean import Mean
 
 
 class ConstantMeanGradGrad(Mean):
-    def __init__(self, prior=None, batch_shape=torch.Size(), **kwargs):
+    r"""
+    A (non-zero) constant prior mean function and its first and second derivatives, i.e.:
+
+    .. math::
+
+        \mu(\mathbf x) &= C \\
+        \Grad \mu(\mathbf x) &= \mathbf 0 \\
+        \Grad^2 \mu(\mathbf x) &= \mathbf 0
+
+    where :math:`C` is a learned constant.
+
+    :param prior: Prior for constant parameter :math:`C`.
+    :type prior: ~gpytorch.priors.Prior, optional
+    :param batch_shape: The batch shape of the learned constant(s) (default: []).
+    :type batch_shape: torch.Size, optional
+
+    :var torch.Tensor constant: :math:`C` parameter
+    """
+
+    def __init__(
+        self,
+        prior: Optional[Prior] = None,
+        batch_shape: torch.Size = torch.Size(),
+        **kwargs: Any,
+    ):
         super(ConstantMeanGradGrad, self).__init__()
         self.batch_shape = batch_shape
         self.register_parameter(name="constant", parameter=torch.nn.Parameter(torch.zeros(*batch_shape, 1)))
