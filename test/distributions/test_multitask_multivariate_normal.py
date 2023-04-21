@@ -333,6 +333,13 @@ class TestMultiTaskMultivariateNormal(BaseTestCase, unittest.TestCase):
         self.assertAllClose(part.mean, mean[1, -1])
         self.assertAllClose(part.covariance_matrix, covar[1, -1])
 
+        part = distribution[1, 0, ...]
+        self.assertIsInstance(part, MultitaskMultivariateNormal)
+        self.assertEqual(part.batch_shape, torch.Size(()))
+        self.assertEqual(part.event_shape, torch.Size((3, 2)))
+        self.assertAllClose(part.mean, mean[1, 0])
+        self.assertAllClose(part.covariance_matrix, covar[1, 0])
+
         part = distribution[..., 2, 1]
         self.assertFalse(isinstance(part, MultitaskMultivariateNormal))
         self.assertIsInstance(part, MultivariateNormal)
