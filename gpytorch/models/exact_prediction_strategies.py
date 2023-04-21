@@ -2,6 +2,7 @@
 
 import functools
 import string
+import warnings
 
 import torch
 from linear_operator import to_dense, to_linear_operator
@@ -254,6 +255,10 @@ class DefaultPredictionStrategy(object):
             # Fill all rows and columns in the kernel matrix corresponding to the missing observations with 0.
             # Don't touch the corresponding diagonal elements to ensure a unique solution.
             # This ensures that missing data is ignored during solving.
+            warnings.warn(
+                "Observation NaN policy 'fill' makes the kernel matrix dense during exact prediction.",
+                RuntimeWarning,
+            )
             kernel = train_train_covar.evaluate_kernel()
             missing = torch.isnan(self.train_labels)
             kernel_mask = (~missing).to(torch.float)
