@@ -40,7 +40,7 @@ readme = open("README.md").read()
 torch_min = "1.11"
 install_requires = [
     "scikit-learn",
-    "linear_operator>=0.2.0",
+    "linear_operator>=0.4.0",
 ]
 # if recent dev version of PyTorch is installed, no need to install stable
 try:
