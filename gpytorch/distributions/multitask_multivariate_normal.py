@@ -364,6 +364,18 @@ class MultitaskMultivariateNormal(MultivariateNormal):
                 new_slice = slice(row_idx.start + col_idx, row_idx.stop * num_cols + col_idx, row_idx.step * num_cols)
                 new_cov = self.lazy_covariance_matrix[batch_idx + (new_slice, new_slice)]
                 return MultivariateNormal(mean=new_mean, covariance_matrix=new_cov)
+            elif (
+                isinstance(row_idx, slice)
+                and isinstance(col_idx, slice)
+                and row_idx == col_idx == slice(None, None, None)
+            ):
+                new_cov = self.lazy_covariance_matrix[batch_idx]
+                return MultitaskMultivariateNormal(
+                    mean=new_mean,
+                    covariance_matrix=new_cov,
+                    interleaved=self._interleaved,
+                    validate_args=False,
+                )
             elif isinstance(row_idx, slice) or isinstance(col_idx, slice):
                 # slice x slice or indices x slice or slice x indices
                 if isinstance(row_idx, slice):
