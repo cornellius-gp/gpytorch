@@ -192,7 +192,7 @@ class GaussianLikelihoodWithMissingObs(GaussianLikelihood):
 
     def __init__(self, **kwargs: Any) -> None:
         warnings.warn(
-            "ExactMarginalLogLikelihood is replaced by gpytorch.settings.observation_nan_policy('fill').",
+            "GaussianLikelihoodWithMissingObs is replaced by gpytorch.settings.observation_nan_policy('fill').",
             DeprecationWarning,
         )
         super().__init__(**kwargs)
