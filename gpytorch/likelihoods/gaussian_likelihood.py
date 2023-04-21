@@ -171,12 +171,19 @@ class GaussianLikelihoodWithMissingObs(GaussianLikelihood):
     r"""
     The standard likelihood for regression with support for missing values.
     Assumes a standard homoskedastic noise model:
+
     .. math::
         p(y \mid f) = f + \epsilon, \quad \epsilon \sim \mathcal N (0, \sigma^2)
+
     where :math:`\sigma^2` is a noise parameter. Values of y that are nan do
     not impact the likelihood calculation.
+
     .. note::
         This likelihood can be used for exact or approximate inference.
+
+    .. warning::
+        This likelihood is deprecated in favor of :class:`gpytorch.settings.observation_nan_policy`.
+
     :param noise_prior: Prior for noise parameter :math:`\sigma^2`.
     :type noise_prior: ~gpytorch.priors.Prior, optional
     :param noise_constraint: Constraint for noise parameter :math:`\sigma^2`.
@@ -184,6 +191,7 @@ class GaussianLikelihoodWithMissingObs(GaussianLikelihood):
     :param batch_shape: The batch shape of the learned noise parameter (default: []).
     :type batch_shape: torch.Size, optional
     :var torch.Tensor noise: :math:`\sigma^2` parameter (noise)
+
     .. note::
         GaussianLikelihoodWithMissingObs has an analytic marginal distribution.
     """
