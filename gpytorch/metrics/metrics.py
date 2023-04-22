@@ -84,7 +84,7 @@ def mean_standardized_log_loss(
         loss_trivial_model = (
             0.5 * torch.log(2 * pi * data_var) + torch.square(test_y - data_mean) / (2 * data_var)
         ).mean(dim=combine_dim)
-        res -= loss_trivial_model
+        res = res - loss_trivial_model
 
     return res
 
