@@ -143,7 +143,7 @@ class HammingIMQKernel(Kernel):
         return self._imq(dist)
 
 
-def hamming_dist(x1: Tensor, x2: Tensor, x1_eq_x2: Tensor) -> Tensor:
+def hamming_dist(x1: Tensor, x2: Tensor, x1_eq_x2: bool) -> Tensor:
     res = x1.size(-2) - (x1.unsqueeze(-3) * x2.unsqueeze(-4)).sum(dim=(-1, -2))
     if x1_eq_x2 and not x1.requires_grad and not x2.requires_grad:
         res.diagonal(dim1=-2, dim2=-1).fill_(0)
