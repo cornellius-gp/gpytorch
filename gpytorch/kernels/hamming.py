@@ -3,9 +3,9 @@ from typing import Optional
 import torch
 from torch import nn, Tensor
 
-from ..constraints import Interval, Positive
-from ..kernels import Kernel
-from ..priors import Prior
+from gpytorch.constraints.constraints import Interval, Positive
+from gpytorch.kernels.kernel import Kernel
+from gpytorch.priors.prior import Prior
 
 
 EMPTY_SIZE = torch.Size([])
