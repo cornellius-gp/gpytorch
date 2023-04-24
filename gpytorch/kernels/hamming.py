@@ -1,16 +1,14 @@
+from typing import Optional
+
 import torch
 from torch import nn, Tensor
 
-from gpytorch.constraints.constraints import GreaterThan, Interval, Positive
+from gpytorch.constraints.constraints import Interval, Positive
 from gpytorch.kernels import Kernel
 from gpytorch.priors import Prior
-from gpytorch.priors.torch_priors import GammaPrior
+
 
 EMPTY_SIZE = torch.Size([])
-DEFAULT_ALPHA_PRIOR = GammaPrior(2.0, 0.15)
-DEFAULT_ALPHA_CONSTRAINT = GreaterThan(1e-4)
-DEFAULT_BETA_PRIOR = GammaPrior(3.0, 6.0)
-DEFAULT_BETA_CONSTRAINT = GreaterThan(1e-4)
 
 
 class HammingIMQKernel(Kernel):
@@ -35,23 +33,23 @@ class HammingIMQKernel(Kernel):
         data. It should be :math:`B_1 \times \ldots \times B_k` if :math:`\mathbf{x_1}` is
         a :math:`B_1 \times \ldots \times B_k \times N \times D` tensor.
     :param alpha_prior: Set this if you want to apply a prior to the
-        alpha parameter. (Default: `GammaPrior(2.0, 0.15)`)
+        alpha parameter.
     :param: alpha_constraint: Set this if you want to apply a constraint
-        to the alpha parameter. (Default: `GreaterThan(1e-4)`.)
+        to the alpha parameter. If None is passed, the default is `Positive()`.
     :param beta_prior: Set this if you want to apply a prior to the
-        beta parameter. (Default: `GammaPrior(3.0, 6.0)`)
+        beta parameter.
     :param beta_constraint: Set this if you want to apply a constraint
-        to the beta parameter. (Default: `GreaterThan(1e-4)`.)
+        to the beta parameter. If None is passed, the default is `Positive()`.
     """
 
     def __init__(
         self,
         vocab_size: int,
         batch_shape: torch.Size = EMPTY_SIZE,
-        alpha_prior: Prior = DEFAULT_ALPHA_PRIOR,
-        alpha_constraint: Interval = DEFAULT_ALPHA_CONSTRAINT,
-        beta_prior: Prior = DEFAULT_BETA_PRIOR,
-        beta_constraint: Interval = DEFAULT_BETA_CONSTRAINT,
+        alpha_prior: Optional[Prior] = None,
+        alpha_constraint: Optional[Interval] = None,
+        beta_prior: Optional[Prior] = None,
+        beta_constraint: Optional[Interval] = None,
     ):
         super().__init__(batch_shape=batch_shape)
         self.vocab_size = vocab_size
