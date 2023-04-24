@@ -20,13 +20,14 @@ class HammingIMQKernel(Kernel):
 
     .. math::
        \begin{equation*}
-            k_{\text{H-IMQ}}(\mathbf{x_1}, \mathbf{x_2}) = \left( \frac{1 + \alpha}{\alpha + d(x1, x2)} \right)^\beta
+            k_{\text{H-IMQ}}(\mathbf{x_1}, \mathbf{x_2}) =
+            \left( \frac{1 + \alpha}{\alpha + d_{\text{Hamming}}(x1, x2)} \right)^\beta
        \end{equation*}
     where :math:`\alpha` and :math:`\beta` are strictly positive scale parameters.
 
     This kernel is meant to be used for fixed-length one-hot encoded discrete sequences.
     Because GPyTorch is particular about dimensions, the one-hot sequence encoding should be flattened
-    to a vector with length :math:`T x V`, where :math:`T` is the sequence length and :math:`V` is the
+    to a vector with length :math:`T \times V`, where :math:`T` is the sequence length and :math:`V` is the
     vocabulary size.
 
     :param vocab_size: The size of the vocabulary.
@@ -126,7 +127,7 @@ class HammingIMQKernel(Kernel):
         x1 = x1.view(*x1.shape[:-1], -1, self.vocab_size)
         x2 = x2.view(*x2.shape[:-1], -1, self.vocab_size)
 
-        x1_eq_x2 = torch.equal(x1, x2)
+        x1_eq_x2 = x1 is x2
 
         if diag:
             if x1_eq_x2:
