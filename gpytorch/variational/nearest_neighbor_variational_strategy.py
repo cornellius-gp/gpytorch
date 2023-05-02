@@ -293,7 +293,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
 
         # compute interp_term
         cov = self.model.covar_module.forward(nearest_neighbors, nearest_neighbors)
-        cross_cov = self.model.covar_module.forward(nearest_neighbors, inducing_points.unsqueeze(-2))
+        cross_cov = to_dense(self.model.covar_module.forward(nearest_neighbors, inducing_points.unsqueeze(-2)))
         interp_term = torch.linalg.solve(
             cov + self.jitter_val * torch.eye(self.k, device=self.inducing_points.device), cross_cov
         ).squeeze(-1)
