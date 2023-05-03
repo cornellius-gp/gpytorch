@@ -315,6 +315,14 @@ class TestMultiTaskMultivariateNormal(BaseTestCase, unittest.TestCase):
             covar = _covar @ _covar.transpose(-1, -2)
             MultitaskMultivariateNormal(mean, covar)
 
+    def test_repr(self):
+        mean = torch.randn(5, 1, 3)
+        _covar = torch.randn(6, 6)
+        covar = _covar @ _covar.transpose(-1, -2)
+        dist = MultitaskMultivariateNormal(mean, covar)
+        dist_repr = str(dist)
+        self.assertEqual(dist_repr, "MultitaskMultivariateNormal(mean: torch.Size([5, 2, 3]))")
+
 
 if __name__ == "__main__":
     unittest.main()
