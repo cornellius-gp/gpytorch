@@ -22,6 +22,8 @@ class HammingIMQKernel(Kernel):
             \left( \frac{1 + \alpha}{\alpha + d_{\text{Hamming}}(x1, x2)} \right)^\beta
        \end{equation*}
     where :math:`\alpha` and :math:`\beta` are strictly positive scale parameters.
+    This kernel was proposed in `Biological Sequence Kernels with Guaranteed Flexibility`.
+    See http://arxiv.org/abs/2304.03775 for more details.
 
     This kernel is meant to be used for fixed-length one-hot encoded discrete sequences.
     Because GPyTorch is particular about dimensions, the one-hot sequence encoding should be flattened
