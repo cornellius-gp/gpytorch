@@ -40,6 +40,14 @@ class HammingIMQKernel(Kernel):
         beta parameter.
     :param beta_constraint: Set this if you want to apply a constraint
         to the beta parameter. If None is passed, the default is `Positive()`.
+
+    Example:
+        >>> vocab_size = 8
+        >>> x_cat = torch.tensor([[7, 7, 7, 7], [5, 7, 3, 4]])  # batch_size x seq_length
+        >>> x_one_hot = F.one_hot(x_cat, num_classes=vocab_size)  # batch_size x seq_length x vocab_size
+        >>> x_flat = x_one_hot.view(*x_cat.shape[:-1], -1)  # batch_size x (seq_length * vocab_size)
+        >>> covar_module = gpytorch.kernels.HammingIMQKernel(vocab_size=vocab_size)
+        >>> covar = covar_module(x_flat)  # Output: LinearOperator of size (2 x 2)
     """
 
     def __init__(
@@ -125,7 +133,7 @@ class HammingIMQKernel(Kernel):
         x1 = x1.view(*x1.shape[:-1], -1, self.vocab_size)
         x2 = x2.view(*x2.shape[:-1], -1, self.vocab_size)
 
-        x1_eq_x2 = x1 is x2
+        x1_eq_x2 = torch.equal(x1, x2)
 
         if diag:
             if x1_eq_x2:
