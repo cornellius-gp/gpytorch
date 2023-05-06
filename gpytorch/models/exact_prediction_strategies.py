@@ -19,7 +19,8 @@ from linear_operator.operators import (
 )
 from linear_operator.utils.cholesky import psd_safe_cholesky
 from linear_operator.utils.interpolation import left_interp, left_t_interp
-from linops.linalg.solve_linear import solve_symmetric
+# from linops.linalg.solve_linear import solve_symmetric
+from linops.linalg.inverse import inverse
 from linops.linear_algebra import lazify
 from torch import Tensor
 
@@ -247,7 +248,8 @@ class DefaultPredictionStrategy(object):
 
         train_labels_offset = (self.train_labels - train_mean).unsqueeze(-1)
         # mean_cache = train_train_covar.evaluate_kernel().solve(train_labels_offset).squeeze(-1)
-        mean_cache = solve_symmetric(train_train_covar, train_labels_offset[:, 0])
+        # mean_cache = solve_symmetric(train_train_covar, train_labels_offset[:, 0])
+        mean_cache = inverse(train_train_covar) @ train_labels_offset[:, 0]
 
         if settings.detach_test_caches.on():
             mean_cache = mean_cache.detach()

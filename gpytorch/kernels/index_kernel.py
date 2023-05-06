@@ -101,7 +101,8 @@ class IndexKernel(Kernel):
         # res = PsdSumLinearOperator(RootLinearOperator(self.covar_factor), DiagLinearOperator(var))
         # root = RootOp(self.covar_factor)
         root = lazify(self.covar_factor) @ lazify(self.covar_factor.T)
-        res = Sum((root, Diagonal(var)))
+        res = root + Diagonal(var)
+        # res = Sum((root, Diagonal(var)))
         return res
 
     def forward(self, i1, i2, **params):
