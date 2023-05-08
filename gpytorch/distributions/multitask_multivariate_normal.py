@@ -277,4 +277,4 @@ class MultitaskMultivariateNormal(MultivariateNormal):
         return var.view(self._output_shape)
 
     def __repr__(self) -> str:
-        return f"MultitaskMultivariateNormal(mean: {self._output_shape})"
+        return f"MultitaskMultivariateNormal(mean shape: {self._output_shape})"
