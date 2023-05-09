@@ -215,7 +215,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         :param sample_shape: The number of samples to generate. (Default: `torch.Size([])`.)
         :param base_samples: The `*sample_shape x *batch_shape x N` tensor of
             i.i.d. (or approximately i.i.d.) standard Normal samples to
-            reparameterize. (Defualt: None.)
+            reparameterize. (Default: None.)
         :return: A `*sample_shape x *batch_shape x N` tensor of i.i.d. reparameterized samples.
         """
         covar = self.lazy_covariance_matrix
@@ -274,7 +274,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         :param sample_shape: The number of samples to generate. (Default: `torch.Size([])`.)
         :param base_samples: The `*sample_shape x *batch_shape x N` tensor of
             i.i.d. (or approximately i.i.d.) standard Normal samples to
-            reparameterize. (Defualt: None.)
+            reparameterize. (Default: None.)
         :return: A `*sample_shape x *batch_shape x N` tensor of i.i.d. samples.
         """
         with torch.no_grad():
