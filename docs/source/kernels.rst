@@ -147,6 +147,11 @@ Specialty Kernels
 .. autoclass:: ArcKernel
    :members:
 
+:hidden:`HammingIMQKernel`
+
+..autoclass:: HammingIMQKernel
+  :members:
+
 :hidden:`IndexKernel`
 ~~~~~~~~~~~~~~~~~~~~~~
 
