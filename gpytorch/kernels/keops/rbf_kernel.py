@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 import torch
-from linear_operator.operators import KeOpsLinearOperator
+
+# from linear_operator.operators import KeOpsLinearOperator
+from linear_operator.operators import KernelLinearOperator
 
 from ... import settings
 from ..rbf_kernel import postprocess_rbf
@@ -20,10 +22,10 @@ try:
 
         has_lengthscale = True
 
-        def _nonkeops_covar_func(self, x1, x2, diag=False):
+        def _nonkeops_covar_func(self, x1, x2, diag=False, **params):
             return postprocess_rbf(self.covar_dist(x1, x2, square_dist=True, diag=diag))
 
-        def covar_func(self, x1, x2, diag=False):
+        def covar_func(self, x1, x2, diag=False, **params):
             # We only should use KeOps on big kernel matrices
             # If we would otherwise be performing Cholesky inference, (or when just computing a kernel matrix diag)
             # then don't apply KeOps
@@ -45,15 +47,11 @@ try:
                 return K
 
         def forward(self, x1, x2, diag=False, **params):
-            x1_ = x1.div(self.lengthscale)
-            x2_ = x2.div(self.lengthscale)
 
-            covar_func = lambda x1, x2, diag=diag: self.covar_func(x1, x2, diag)
+            x1_ = x1 / self.lengthscale
+            x2_ = x2 / self.lengthscale
 
-            if diag:
-                return covar_func(x1_, x2_, diag=True)
-
-            return KeOpsLinearOperator(x1_, x2_, covar_func)
+            return KernelLinearOperator(x1_, x2_, covar_func=self.covar_func, diag=diag, **params)
 
 except ImportError:
 

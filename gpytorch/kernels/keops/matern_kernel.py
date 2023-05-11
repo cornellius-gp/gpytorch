@@ -2,7 +2,7 @@
 import math
 
 import torch
-from linear_operator.operators import KeOpsLinearOperator
+from linear_operator.operators import KernelLinearOperator
 
 from ... import settings
 from .keops_kernel import KeOpsKernel
@@ -38,7 +38,7 @@ try:
                 constant_component = (math.sqrt(5) * distance).add(1).add(5.0 / 3.0 * distance**2)
             return constant_component * exp_component
 
-        def covar_func(self, x1, x2, diag=False):
+        def covar_func(self, x1, x2, diag=False, **params):
             # We only should use KeOps on big kernel matrices
             # If we would otherwise be performing Cholesky inference, (or when just computing a kernel matrix diag)
             # then don't apply KeOps
@@ -82,16 +82,12 @@ try:
                     return constant_component * exp_component
 
         def forward(self, x1, x2, diag=False, **params):
+
             mean = x1.reshape(-1, x1.size(-1)).mean(0)[(None,) * (x1.dim() - 1)]
+            x1_ = (x1 - mean) / self.lengthscale
+            x2_ = (x2 - mean) / self.lengthscale
 
-            x1_ = (x1 - mean).div(self.lengthscale)
-            x2_ = (x2 - mean).div(self.lengthscale)
-
-            if diag:
-                return self.covar_func(x1_, x2_, diag=True)
-
-            covar_func = lambda x1, x2, diag=False: self.covar_func(x1, x2, diag)
-            return KeOpsLinearOperator(x1_, x2_, covar_func)
+            return KernelLinearOperator(x1_, x2_, covar_func=self.covar_func, diag=diag, **params)
 
 except ImportError:
 
