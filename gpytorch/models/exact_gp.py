@@ -6,7 +6,7 @@ from copy import deepcopy
 import torch
 
 from .. import settings
-from ..distributions import MultivariateNormal
+from ..distributions import MultitaskMultivariateNormal, MultivariateNormal
 from ..likelihoods import _GaussianLikelihoodBase
 from ..utils.generic import length_safe_zip
 from ..utils.warnings import GPInputWarning
@@ -162,15 +162,17 @@ class ExactGP(GP):
 
         model_batch_shape = self.train_inputs[0].shape[:-2]
 
-        if self.train_targets.dim() > len(model_batch_shape) + 1:
-            raise RuntimeError("Cannot yet add fantasy observations to multitask GPs, but this is coming soon!")
-
         if not isinstance(inputs, list):
             inputs = [inputs]
 
         inputs = [i.unsqueeze(-1) if i.ndimension() == 1 else i for i in inputs]
 
-        target_batch_shape = targets.shape[:-1]
+        if not isinstance(self.prediction_strategy.train_prior_dist, MultitaskMultivariateNormal):
+            data_dim_start = -1
+        else:
+            data_dim_start = -2
+
+        target_batch_shape = targets.shape[:data_dim_start]
         input_batch_shape = inputs[0].shape[:-2]
         tbdim, ibdim = len(target_batch_shape), len(input_batch_shape)
 
@@ -198,7 +200,7 @@ class ExactGP(GP):
         # computing the covariance for each element of the batch. Therefore we don't expand the inputs to the
         # size of the fantasy model here - this is done below, after the evaluation and fast fantasy update
         train_inputs = [tin.expand(input_batch_shape + tin.shape[-2:]) for tin in self.train_inputs]
-        train_targets = self.train_targets.expand(target_batch_shape + self.train_targets.shape[-1:])
+        train_targets = self.train_targets.expand(target_batch_shape + self.train_targets.shape[data_dim_start:])
 
         full_inputs = [
             torch.cat(
@@ -208,8 +210,7 @@ class ExactGP(GP):
             for train_input, input in length_safe_zip(train_inputs, inputs)
         ]
         full_targets = torch.cat(
-            [train_targets, targets.expand(target_batch_shape + targets.shape[-1:])],
-            dim=-1,
+            [train_targets, targets.expand(target_batch_shape + targets.shape[data_dim_start:])], dim=data_dim_start
         )
 
         try:
