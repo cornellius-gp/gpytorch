@@ -110,6 +110,9 @@ class BaseKeOpsTestCase(BaseTestCase):
 
             self.assertAllClose(grad_s1, grad_s2, rtol=1e-4, atol=1e-5)
 
+    def test_gradient_ard(self):
+        return self.test_gradient(ard=True)
+
     # tests the nonkeops implementation (_nonkeops_covar_func)
 
     def test_forward_x1_eq_x2_nonkeops(self):
