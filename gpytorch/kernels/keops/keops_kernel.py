@@ -10,6 +10,9 @@ try:
     class KeOpsKernel(Kernel):
         @abstractmethod
         def covar_func(self, x1: torch.Tensor, x2: torch.Tensor) -> KEOLazyTensor:
+            # We only should use KeOps on big kernel matrices
+            # If we would otherwise be performing Cholesky inference, (or when just computing a kernel matrix diag)
+            # then don't apply KeOps
             raise NotImplementedError("KeOpsKernels must define a covar_func method")
 
         def __call__(self, *args, **kwargs):
