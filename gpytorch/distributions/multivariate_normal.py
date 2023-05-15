@@ -14,6 +14,7 @@ from linops.operator_base import LinearOperator
 from linops.operators import I_like
 # from linops.algorithms.preconditioners import NystromPrecond
 from linops.gp_fns import InvQuad
+from linops.algorithms.cg import run_cg
 # from linops.gp_fns import log_determinant
 from linops.gp_fns import LogDet
 from torch import Tensor
@@ -207,7 +208,11 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         tol, P, max_iters, pbar = 1e-6, I_like(covar), 100, False
         # tol, P, max_iters, pbar = 1e-6, NystromPrecond(covar, rank=10, adjust_mu=False), 100, False
         cg_args = (x0, max_iters, tol, P, pbar)
-        inv_quad = InvQuad.apply(unflatten, diff.unsqueeze(-1), cg_args, *op_args)
+        # inv_quad = InvQuad.apply(unflatten, diff.unsqueeze(-1), cg_args, *op_args)
+        # inv_quad = inv_quad.sum()
+        inv_rhs = diff.unsqueeze(-1)
+        soln, *_ = run_cg(covar, inv_rhs, *cg_args)
+        inv_quad = (soln * inv_rhs).sum(-2)
         inv_quad = inv_quad.sum()
 
         # logdet = torch.logdet(covar.to_dense())
