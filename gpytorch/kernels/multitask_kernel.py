@@ -56,7 +56,8 @@ class MultitaskKernel(Kernel):
         # covar_x = to_linear_operator(self.data_covar_module.forward(x1, x2, **params))
         # res = KroneckerProductLinearOperator(covar_x, covar_i)
         covar_x = lazify(self.data_covar_module.forward(x1, x2, **params))
-        res = SelfAdjoint(kron(SelfAdjoint(covar_x), SelfAdjoint(covar_i)))
+        # res = SelfAdjoint(kron(SelfAdjoint(covar_x), SelfAdjoint(covar_i)))
+        res = kron(SelfAdjoint(covar_x), SelfAdjoint(covar_i))
         return res.diagonal(dim1=-1, dim2=-2) if diag else res
 
     def num_outputs_per_input(self, x1, x2):
