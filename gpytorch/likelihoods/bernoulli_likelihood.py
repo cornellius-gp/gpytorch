@@ -47,7 +47,7 @@ class BernoulliLikelihood(_OneDimensionalLikelihood):
         return marginal.log_prob(observations)
 
     def marginal(self, function_dist: MultivariateNormal, *args: Any, **kwargs: Any) -> Bernoulli:
-        """
+        r"""
         :return: Analytic marginal :math:`p(\mathbf y)`.
         """
         mean = function_dist.mean
