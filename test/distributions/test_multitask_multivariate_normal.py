@@ -320,7 +320,7 @@ class TestMultiTaskMultivariateNormal(BaseTestCase, unittest.TestCase):
         covar = torch.eye(6)
         dist = MultitaskMultivariateNormal(mean, covar)
         dist_repr = str(dist)
-        self.assertEqual(dist_repr, "MultitaskMultivariateNormal(mean: torch.Size([5, 2, 3]))")
+        self.assertEqual(dist_repr, "MultitaskMultivariateNormal(mean shape: torch.Size([5, 2, 3]))")
 
 
 if __name__ == "__main__":
