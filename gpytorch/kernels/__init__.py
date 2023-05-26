@@ -8,6 +8,7 @@ from .distributional_input_kernel import DistributionalInputKernel
 from .gaussian_symmetrized_kl_kernel import GaussianSymmetrizedKLKernel
 from .grid_interpolation_kernel import GridInterpolationKernel
 from .grid_kernel import GridKernel
+from .hamming_kernel import HammingIMQKernel
 from .index_kernel import IndexKernel
 from .inducing_point_kernel import InducingPointKernel
 from .kernel import AdditiveKernel, Kernel, ProductKernel
@@ -44,6 +45,7 @@ __all__ = [
     "GaussianSymmetrizedKLKernel",
     "GridKernel",
     "GridInterpolationKernel",
+    "HammingIMQKernel",
     "IndexKernel",
     "InducingPointKernel",
     "LCMKernel",

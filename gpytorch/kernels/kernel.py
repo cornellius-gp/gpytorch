@@ -24,6 +24,7 @@ from ..priors import Prior
 
 
 def sq_dist(x1, x2, x1_eq_x2=False):
+    """Equivalent to the square of `torch.cdist` with p=2."""
     # TODO: use torch squared cdist once implemented: https://github.com/pytorch/pytorch/pull/25799
     adjustment = x1.mean(-2, keepdim=True)
     x1 = x1 - adjustment
@@ -49,7 +50,12 @@ def sq_dist(x1, x2, x1_eq_x2=False):
 
 
 def dist(x1, x2, x1_eq_x2=False):
-    # TODO: use torch cdist once implementation is improved: https://github.com/pytorch/pytorch/pull/25799
+    """
+    Equivalent to `torch.cdist` with p=2, but clamps the minimum element to 1e-15.
+    """
+    if not x1_eq_x2:
+        res = torch.cdist(x1, x2)
+        return res.clamp_min(1e-15)
     res = sq_dist(x1, x2, x1_eq_x2=x1_eq_x2)
     return res.clamp_min_(1e-30).sqrt_()
 

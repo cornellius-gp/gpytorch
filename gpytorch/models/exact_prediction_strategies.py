@@ -22,6 +22,8 @@ from linear_operator.utils.interpolation import left_interp, left_t_interp
 from torch import Tensor
 
 from .. import settings
+
+from ..distributions import MultitaskMultivariateNormal
 from ..lazy import LazyEvaluatedKernelTensor
 from ..utils.memoize import add_to_cache, cached, clear_cache_hook, pop_from_cache
 
@@ -134,16 +136,28 @@ class DefaultPredictionStrategy(object):
             A `DefaultPredictionStrategy` model with `n + m` training examples, where the `m` fantasy examples have
             been added and all test-time caches have been updated.
         """
+        if not isinstance(full_output, MultitaskMultivariateNormal):
+            target_batch_shape = targets.shape[:-1]
+        else:
+            target_batch_shape = targets.shape[:-2]
+
         full_mean, full_covar = full_output.mean, full_output.lazy_covariance_matrix
 
         batch_shape = full_inputs[0].shape[:-2]
 
-        full_mean = full_mean.view(*batch_shape, -1)
         num_train = self.num_train
+
+        if isinstance(full_output, MultitaskMultivariateNormal):
+            num_tasks = full_output.event_shape[-1]
+            full_mean = full_mean.view(*batch_shape, -1, num_tasks)
+            fant_mean = full_mean[..., (num_train // num_tasks) :, :]
+            full_targets = full_targets.view(*target_batch_shape, -1)
+        else:
+            full_mean = full_mean.view(*batch_shape, -1)
+            fant_mean = full_mean[..., num_train:]
 
         # Evaluate fant x train and fant x fant covariance matrices, leave train x train unevaluated.
         fant_fant_covar = full_covar[..., num_train:, num_train:]
-        fant_mean = full_mean[..., num_train:]
         mvn = self.train_prior_dist.__class__(fant_mean, fant_fant_covar)
         fant_likelihood = self.likelihood.get_fantasy_likelihood(**kwargs)
         mvn_obs = fant_likelihood(mvn, inputs, **kwargs)
@@ -208,6 +222,9 @@ class DefaultPredictionStrategy(object):
             full_covar = BatchRepeatLinearOperator(full_covar, repeat_shape)
             new_root = BatchRepeatLinearOperator(DenseLinearOperator(new_root), repeat_shape)
             # no need to repeat the covar cache, broadcasting will do the right thing
+
+        if isinstance(full_output, MultitaskMultivariateNormal):
+            full_mean = full_mean.view(*target_batch_shape, -1, num_tasks).contiguous()
 
         # Create new DefaultPredictionStrategy object
         fant_strat = self.__class__(
@@ -285,7 +302,11 @@ class DefaultPredictionStrategy(object):
         # NOTE TO FUTURE SELF:
         # You **cannot* use addmv here, because test_train_covar may not actually be a non lazy tensor even for an exact
         # GP, and using addmv requires you to to_dense test_train_covar, which is obviously a huge no-no!
-        res = (test_train_covar @ self.mean_cache.unsqueeze(-1)).squeeze(-1)
+
+        if len(self.mean_cache.shape) == 4:
+            res = (test_train_covar @ self.mean_cache.squeeze(1).unsqueeze(-1)).squeeze(-1)
+        else:
+            res = (test_train_covar @ self.mean_cache.unsqueeze(-1)).squeeze(-1)
         res = res + test_mean
 
         return res

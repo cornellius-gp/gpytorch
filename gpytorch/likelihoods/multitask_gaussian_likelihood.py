@@ -293,7 +293,7 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
     def marginal(
         self, function_dist: MultitaskMultivariateNormal, *args: Any, **kwargs: Any
     ) -> MultitaskMultivariateNormal:
-        """
+        r"""
         :return: Analytic marginal :math:`p(\mathbf y)`.
         """
         return super().marginal(function_dist, *args, **kwargs)
