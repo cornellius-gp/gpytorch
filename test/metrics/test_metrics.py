@@ -14,6 +14,7 @@ from gpytorch.metrics import (  # average_coverage_error,
     mean_standardized_log_loss,
     negative_log_predictive_density,
     quantile_coverage_error,
+    standardized_mean_squared_error,
 )
 from gpytorch.models import ExactGP
 
@@ -125,6 +126,9 @@ class TestMetricsSingleTask(unittest.TestCase):
 
     def test_mean_standardized_log_loss(self):
         self._test_metric(mean_standardized_log_loss)
+
+    def test_standardized_mean_squared_error(self):
+        self._test_metric(standardized_mean_squared_error)
 
     def test_quantile_coverage_error(self):
         self._test_metric(

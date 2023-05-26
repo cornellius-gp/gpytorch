@@ -275,3 +275,6 @@ class MultitaskMultivariateNormal(MultivariateNormal):
             new_shape = self._output_shape[:-2] + self._output_shape[:-3:-1]
             return var.view(new_shape).transpose(-1, -2).contiguous()
         return var.view(self._output_shape)
+
+    def __repr__(self) -> str:
+        return f"MultitaskMultivariateNormal(mean shape: {self._output_shape})"

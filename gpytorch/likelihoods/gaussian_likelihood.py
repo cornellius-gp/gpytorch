@@ -130,7 +130,7 @@ class GaussianLikelihood(_GaussianLikelihoodBase):
         self.noise_covar.initialize(raw_noise=value)
 
     def marginal(self, function_dist: MultivariateNormal, *args: Any, **kwargs: Any) -> MultivariateNormal:
-        """
+        r"""
         :return: Analytic marginal :math:`p(\mathbf y)`.
         """
         return super().marginal(function_dist, *args, **kwargs)
@@ -186,7 +186,7 @@ class GaussianLikelihoodWithMissingObs(GaussianLikelihood):
         return res * ~missing_idx
 
     def marginal(self, function_dist: MultivariateNormal, *args: Any, **kwargs: Any) -> MultivariateNormal:
-        """
+        r"""
         :return: Analytic marginal :math:`p(\mathbf y)`.
         """
         return super().marginal(function_dist, *args, **kwargs)
@@ -306,14 +306,14 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
         return res
 
     def marginal(self, function_dist: MultivariateNormal, *args: Any, **kwargs: Any) -> MultivariateNormal:
-        """
+        r"""
         :return: Analytic marginal :math:`p(\mathbf y)`.
         """
         return super().marginal(function_dist, *args, **kwargs)
 
 
 class DirichletClassificationLikelihood(FixedNoiseGaussianLikelihood):
-    """
+    r"""
     A classification likelihood that treats the labels as regression targets with fixed heteroscedastic noise.
     From Milios et al, NeurIPS, 2018 [https://arxiv.org/abs/1805.10915].
 
@@ -408,7 +408,7 @@ class DirichletClassificationLikelihood(FixedNoiseGaussianLikelihood):
         return fantasy_liklihood
 
     def marginal(self, function_dist: MultivariateNormal, *args: Any, **kwargs: Any) -> MultivariateNormal:
-        """
+        r"""
         :return: Analytic marginal :math:`p(\mathbf y)`.
         """
         return super().marginal(function_dist, *args, **kwargs)
