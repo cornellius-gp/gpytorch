@@ -8,6 +8,7 @@ from .distributional_input_kernel import DistributionalInputKernel
 from .gaussian_symmetrized_kl_kernel import GaussianSymmetrizedKLKernel
 from .grid_interpolation_kernel import GridInterpolationKernel
 from .grid_kernel import GridKernel
+from .hamming_kernel import HammingIMQKernel
 from .index_kernel import IndexKernel
 from .inducing_point_kernel import InducingPointKernel
 from .kernel import AdditiveKernel, Kernel, ProductKernel
@@ -24,6 +25,7 @@ from .polynomial_kernel_grad import PolynomialKernelGrad
 from .product_structure_kernel import ProductStructureKernel
 from .rbf_kernel import RBFKernel
 from .rbf_kernel_grad import RBFKernelGrad
+from .rbf_kernel_gradgrad import RBFKernelGradGrad
 from .rff_kernel import RFFKernel
 from .rq_kernel import RQKernel
 from .scale_kernel import ScaleKernel
@@ -43,6 +45,7 @@ __all__ = [
     "GaussianSymmetrizedKLKernel",
     "GridKernel",
     "GridInterpolationKernel",
+    "HammingIMQKernel",
     "IndexKernel",
     "InducingPointKernel",
     "LCMKernel",
@@ -59,6 +62,7 @@ __all__ = [
     "RBFKernel",
     "RFFKernel",
     "RBFKernelGrad",
+    "RBFKernelGradGrad",
     "RQKernel",
     "ScaleKernel",
     "SpectralDeltaKernel",
