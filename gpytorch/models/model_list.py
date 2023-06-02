@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-from abc import ABC, abstractproperty
+from abc import ABC
 
 import torch
 from torch.nn import ModuleList
@@ -11,17 +11,12 @@ from gpytorch.utils.generic import length_safe_zip
 
 
 class AbstractModelList(GP, ABC):
-    @abstractproperty
-    def num_outputs(self):
-        """The model's number of outputs"""
-        pass
-
     def forward_i(self, i, *args, **kwargs):
-        """Forward restricted to the i-th output only"""
+        """Forward restricted to the i-th model only."""
         raise NotImplementedError
 
     def likelihood_i(self, i, *args, **kwargs):
-        """Evaluate likelihood of the i-th output only"""
+        """Evaluate likelihood of the i-th model only."""
         raise NotImplementedError
 
 
@@ -35,10 +30,6 @@ class IndependentModelList(AbstractModelList):
                     "IndependentModelList currently only supports models that have a likelihood (e.g. ExactGPs)"
                 )
         self.likelihood = LikelihoodList(*[m.likelihood for m in models])
-
-    @property
-    def num_outputs(self):
-        return len(self.models)
 
     def forward_i(self, i, *args, **kwargs):
         return self.models[i].forward(*args, **kwargs)
