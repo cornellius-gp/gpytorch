@@ -44,8 +44,6 @@ class GridKernel(Kernel):
         http://www.cs.cmu.edu/~andrewgw/manet.pdf
     """
 
-    is_stationary = True
-
     def __init__(
         self,
         base_kernel: Kernel,
@@ -65,6 +63,15 @@ class GridKernel(Kernel):
         self.register_buffer_list("grid", grid)
         if not self.interpolation_mode:
             self.register_buffer("full_grid", create_data_from_grid(grid))
+
+    @property
+    def _lazily_evaluate(self) -> bool:
+        # Toeplitz structure is very efficient; no need to lazily evaluate
+        return False
+
+    @property
+    def is_stationary(self) -> bool:
+        return True
 
     def _clear_cache(self):
         if hasattr(self, "_cached_kernel_mat"):

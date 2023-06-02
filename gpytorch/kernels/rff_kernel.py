@@ -98,6 +98,12 @@ class RFFKernel(Kernel):
         if num_dims is not None:
             self._init_weights(num_dims, num_samples)
 
+    @property
+    def _lazily_evaluate(self) -> bool:
+        # RFF kernels should not lazily evaluate; to use the Woodbury formula,
+        # we want the Kernel to return a LowRankLinearOperator, not a KernelLinaerOperator.
+        return False
+
     def _init_weights(
         self, num_dims: Optional[int] = None, num_samples: Optional[int] = None, randn_weights: Optional[Tensor] = None
     ):

@@ -54,13 +54,6 @@ class ScaleKernel(Kernel):
         >>> covar = scaled_covar_module(x)  # Output: LinearOperator of size (10 x 10)
     """
 
-    @property
-    def is_stationary(self) -> bool:
-        """
-        Kernel is stationary if base kernel is stationary.
-        """
-        return self.base_kernel.is_stationary
-
     def __init__(
         self,
         base_kernel: Kernel,
@@ -85,6 +78,17 @@ class ScaleKernel(Kernel):
             )
 
         self.register_constraint("raw_outputscale", outputscale_constraint)
+
+    @property
+    def _lazily_evaluate(self) -> bool:
+        return self.base_kernel._lazily_evaluate
+
+    @property
+    def is_stationary(self) -> bool:
+        """
+        Kernel is stationary if base kernel is stationary.
+        """
+        return self.base_kernel.is_stationary
 
     def _outputscale_param(self, m):
         return m.outputscale

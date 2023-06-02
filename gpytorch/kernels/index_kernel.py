@@ -77,6 +77,12 @@ class IndexKernel(Kernel):
         self.register_constraint("raw_var", var_constraint)
 
     @property
+    def _lazily_evaluate(self) -> bool:
+        # IndexKernel does not need lazy evaluation, since the complete BB^T + D_v` is always
+        # computed regardless of x1 and x2
+        return False
+
+    @property
     def var(self):
         return self.raw_var_constraint.transform(self.raw_var)
 

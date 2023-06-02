@@ -2,7 +2,7 @@
 import math
 
 import torch
-from linear_operator.operators import KeOpsLinearOperator
+from linear_operator.operators import KernelLinearOperator
 
 from ... import settings
 from .keops_kernel import KeOpsKernel
@@ -92,7 +92,7 @@ try:
                 return self.covar_func(x1_, x2_, diag=True)
 
             covar_func = lambda x1, x2, diag=False: self.covar_func(x1, x2, diag)
-            return KeOpsLinearOperator(x1_, x2_, covar_func)
+            return KernelLinearOperator(x1_, x2_, covar_func=covar_func)
 
 except ImportError:
 

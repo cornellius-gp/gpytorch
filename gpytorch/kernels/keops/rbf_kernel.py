@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import torch
-from linear_operator.operators import KeOpsLinearOperator
+from linear_operator.operators import KernelLinearOperator
 
 from ... import settings
 from ..rbf_kernel import postprocess_rbf
@@ -54,7 +54,7 @@ try:
             if diag:
                 return covar_func(x1_, x2_, diag=True)
 
-            return KeOpsLinearOperator(x1_, x2_, covar_func)
+            return KernelLinearOperator(x1_, x2_, covar_func=covar_func)
 
 except ImportError:
 

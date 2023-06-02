@@ -19,8 +19,8 @@ class TestRBFKernel(unittest.TestCase, BaseKernelTestCase):
         return RBFKernel(ard_num_dims=num_dims, **kwargs)
 
     def test_ard(self):
-        a = torch.tensor([[1, 2], [2, 4]], dtype=torch.float)
-        b = torch.tensor([[1, 3], [0, 4]], dtype=torch.float)
+        a = torch.tensor([[1, 2], [2, 4], [1, 2]], dtype=torch.float)
+        b = torch.tensor([[1, 3], [0, 4], [0, 3]], dtype=torch.float)
         lengthscales = torch.tensor([1, 2], dtype=torch.float).view(1, 2)
 
         kernel = RBFKernel(ard_num_dims=2)

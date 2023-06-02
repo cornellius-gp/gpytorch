@@ -41,13 +41,6 @@ class ProductStructureKernel(Kernel):
         https://arxiv.org/pdf/1802.08903
     """
 
-    @property
-    def is_stationary(self) -> bool:
-        """
-        Kernel is stationary if the base kernel is stationary.
-        """
-        return self.base_kernel.is_stationary
-
     def __init__(
         self,
         base_kernel: Kernel,
@@ -57,6 +50,25 @@ class ProductStructureKernel(Kernel):
         super(ProductStructureKernel, self).__init__(active_dims=active_dims)
         self.base_kernel = base_kernel
         self.num_dims = num_dims
+
+    @property
+    def _lazily_evaluate(self) -> bool:
+        # We cannot lazily evaluate actual kernel calls when using SKIP, because we
+        # cannot root decompose rectangular matrices.
+        # Because we slice in to the kernel during prediction to get the test x train
+        # covar before calling evaluate_kernel, the order of operations would mean we
+        # would get a MulLinearOperator representing a rectangular matrix, which we
+        # cannot matmul with because we cannot root decompose it. Thus, SKIP actually
+        # *requires* that we work with the full (train + test) x (train + test)
+        # kernel matrix.
+        return False
+
+    @property
+    def is_stationary(self) -> bool:
+        """
+        Kernel is stationary if the base kernel is stationary.
+        """
+        return self.base_kernel.is_stationary
 
     def forward(self, x1, x2, diag=False, last_dim_is_batch=False, **params):
         if last_dim_is_batch:
