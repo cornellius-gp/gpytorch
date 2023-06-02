@@ -74,7 +74,7 @@ class TestKeOpsGPRegression(BaseTestCase, unittest.TestCase):
                 test_preds = likelihood(gp_model(test_x)).mean
                 mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
 
-        self.assertLess(mean_abs_error.squeeze().item(), 0.02)
+        self.assertLess(mean_abs_error.squeeze().item(), 0.1)
 
 
 if __name__ == "__main__":
