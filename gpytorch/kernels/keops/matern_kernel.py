@@ -4,11 +4,27 @@ import math
 import torch
 from linear_operator.operators import KernelLinearOperator
 
-from ... import settings
+from ..matern_kernel import MaternKernel as GMaternKernel
 from .keops_kernel import KeOpsKernel
 
 try:
     from pykeops.torch import LazyTensor as KEOLazyTensor
+
+    def _covar_func(x1, x2, nu=2.5, **params):
+        x1_ = KEOLazyTensor(x1[..., :, None, :])
+        x2_ = KEOLazyTensor(x2[..., None, :, :])
+
+        distance = ((x1_ - x2_) ** 2).sum(-1).sqrt()
+        exp_component = (-math.sqrt(nu * 2) * distance).exp()
+
+        if nu == 0.5:
+            constant_component = 1
+        elif nu == 1.5:
+            constant_component = (math.sqrt(3) * distance) + 1
+        elif nu == 2.5:
+            constant_component = (math.sqrt(5) * distance) + (1 + 5.0 / 3.0 * (distance**2))
+
+        return constant_component * exp_component
 
     class MaternKernel(KeOpsKernel):
         """
@@ -47,8 +63,12 @@ try:
             super(MaternKernel, self).__init__(**kwargs)
             self.nu = nu
 
-        def _nonkeops_covar_func(self, x1, x2, diag=False):
-            distance = self.covar_dist(x1, x2, diag=diag)
+        def _nonkeops_forward(self, x1, x2, diag=False, **kwargs):
+            mean = x1.reshape(-1, x1.size(-1)).mean(0)[(None,) * (x1.dim() - 1)]
+            x1_ = (x1 - mean) / self.lengthscale
+            x2_ = (x2 - mean) / self.lengthscale
+
+            distance = self.covar_dist(x1_, x2_, diag=diag, **kwargs)
             exp_component = torch.exp(-math.sqrt(self.nu * 2) * distance)
 
             if self.nu == 0.5:
@@ -59,39 +79,14 @@ try:
                 constant_component = (math.sqrt(5) * distance).add(1).add(5.0 / 3.0 * distance**2)
             return constant_component * exp_component
 
-        def covar_func(self, x1, x2, **params):
-            if x1.size(-2) < settings.max_cholesky_size.value() or x2.size(-2) < settings.max_cholesky_size.value():
-                return self._nonkeops_covar_func(x1, x2)
-
-            x1_ = KEOLazyTensor(x1[..., :, None, :])
-            x2_ = KEOLazyTensor(x2[..., None, :, :])
-
-            distance = ((x1_ - x2_) ** 2).sum(-1).sqrt()
-            exp_component = (-math.sqrt(self.nu * 2) * distance).exp()
-
-            if self.nu == 0.5:
-                constant_component = 1
-            elif self.nu == 1.5:
-                constant_component = (math.sqrt(3) * distance) + 1
-            elif self.nu == 2.5:
-                constant_component = (math.sqrt(5) * distance) + (1 + 5.0 / 3.0 * distance**2)
-
-            return constant_component * exp_component
-
-        def forward(self, x1, x2, diag=False, **kwargs):
-
+        def _keops_forward(self, x1, x2, **kwargs):
             mean = x1.reshape(-1, x1.size(-1)).mean(0)[(None,) * (x1.dim() - 1)]
             x1_ = (x1 - mean) / self.lengthscale
             x2_ = (x2 - mean) / self.lengthscale
-
-            if diag:
-                return self._nonkeops_covar_func(x1_, x2_, diag=diag)
-
             # return KernelLinearOperator inst only when calculating the whole covariance matrix
-            return KernelLinearOperator(x1_, x2_, covar_func=self.covar_func, **kwargs)
+            return KernelLinearOperator(x1_, x2_, covar_func=_covar_func, nu=self.nu, **kwargs)
 
 except ImportError:
 
-    class MaternKernel(KeOpsKernel):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
+    class MaternKernel(GMaternKernel):
+        pass
