@@ -429,15 +429,6 @@ class Module(nn.Module):
         for _, param in self.named_variational_parameters():
             yield param
 
-    def __getattr__(self, name):
-        try:
-            return super().__getattr__(name)
-        except AttributeError as e:
-            try:
-                return super().__getattribute__(name)
-            except AttributeError:
-                raise e
-
 
 def _validate_module_outputs(outputs):
     if isinstance(outputs, tuple):
