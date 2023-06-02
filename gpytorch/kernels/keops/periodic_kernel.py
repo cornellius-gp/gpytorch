@@ -55,7 +55,6 @@ try:
             return K
 
         def forward(self, x1, x2, diag=False, **kwargs):
-
             x1_ = x1.div(self.period_length / math.pi)
             x2_ = x2.div(self.period_length / math.pi)
 
@@ -64,7 +63,7 @@ try:
 
             # return KernelLinearOperator inst only when calculating the whole covariance matrix
             # pass any parameters which are used inside _covar_func as *args to get gradients computed for them
-            return KernelLinearOperator(x1_, x2_, self.lengthscale, covar_func=self.covar_func, **kwargs)
+            return KernelLinearOperator(x1_, x2_, lengthscale=self.lengthscale, covar_func=self.covar_func, **kwargs)
 
 except ImportError:
 

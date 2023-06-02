@@ -114,31 +114,23 @@ class BaseKeOpsTestCase(BaseTestCase):
         return self.test_gradient(ard=True)
 
     # tests the nonkeops implementation (_nonkeops_covar_func)
-
     def test_forward_x1_eq_x2_nonkeops(self):
-
         self.test_forward_x1_eq_x2(max_cholesky_size=CHOLESKY_SIZE_NONKEOPS)
 
     def test_forward_x1_eq_x2_nonkeops_ard(self):
-
         self.test_forward_x1_eq_x2(max_cholesky_size=CHOLESKY_SIZE_NONKEOPS, ard=True)
 
     def test_forward_x1_neq_x2_nonkeops(self):
-
         self.test_forward_x1_neq_x2(max_cholesky_size=CHOLESKY_SIZE_NONKEOPS)
 
     def test_forward_x1_neq_x2_nonkeops_ard(self):
-
         self.test_forward_x1_neq_x2(max_cholesky_size=CHOLESKY_SIZE_NONKEOPS, ard=True)
 
     def test_batch_matmul_nonkeops(self):
-
         self.test_batch_matmul(max_cholesky_size=CHOLESKY_SIZE_NONKEOPS)
 
     def test_gradient_nonkeops(self):
-
         self.test_gradient(max_cholesky_size=CHOLESKY_SIZE_NONKEOPS)
 
     def test_gradient_nonkeops_ard(self):
-
         self.test_gradient(max_cholesky_size=CHOLESKY_SIZE_NONKEOPS, ard=True)
