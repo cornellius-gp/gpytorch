@@ -1,7 +1,7 @@
 setuptools_scm<=7.1.0
 ipython<=8.6.0
 ipykernel<=6.17.1
-linear_operator>=0.4.0
+linear_operator>=0.5.0
 m2r2<=0.3.3.post2
 nbclient<=0.7.3
 nbformat<=5.8.0
