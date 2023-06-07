@@ -13,6 +13,7 @@ from .. import settings
 from ..constraints import Interval
 from ..distributions import base_distributions, MultivariateNormal
 from ..priors import Prior
+from ..utils.masked_linear_operator import MaskedLinearOperator
 from ..utils.warnings import GPInputWarning
 from .likelihood import Likelihood
 from .noise_models import FixedGaussianNoise, HomoskedasticNoise, Noise
@@ -48,9 +49,14 @@ class _GaussianLikelihoodBase(Likelihood):
         nan_policy = settings.observation_nan_policy.value()
         if nan_policy == "mask":
             observed = settings.observation_nan_policy._get_observed(target, input.event_shape)
-            input = input[(...,) + observed]
-            noise = noise[(...,) + observed]
-            target = target[(...,) + observed]
+            input = MultivariateNormal(
+                mean=input.mean[..., observed],
+                covariance_matrix=MaskedLinearOperator(
+                    input.lazy_covariance_matrix, observed.reshape(-1), observed.reshape(-1)
+                ),
+            )
+            noise = noise[..., observed]
+            target = target[..., observed]
         elif nan_policy == "fill":
             missing = torch.isnan(target)
             target = settings.observation_nan_policy._fill_tensor(target)
@@ -82,8 +88,13 @@ class _GaussianLikelihoodBase(Likelihood):
         nan_policy = settings.observation_nan_policy.value()
         if nan_policy == "mask":
             observed = settings.observation_nan_policy._get_observed(observations, marginal.event_shape)
-            marginal = marginal[(...,) + observed]
-            observations = observations[(...,) + observed]
+            marginal = MultivariateNormal(
+                mean=marginal.mean[..., observed],
+                covariance_matrix=MaskedLinearOperator(
+                    marginal.lazy_covariance_matrix, observed.reshape(-1), observed.reshape(-1)
+                ),
+            )
+            observations = observations[..., observed]
         elif nan_policy == "fill":
             missing = torch.isnan(observations)
             observations = settings.observation_nan_policy._fill_tensor(observations)

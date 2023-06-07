@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from typing import Tuple
 
 import torch
 from linear_operator.settings import (
@@ -407,9 +406,9 @@ class observation_nan_policy(_value_context):
     """
     NaN handling policy for observations.
 
-    * ``ignore``: Do not check for NaN values.
-    * ``mask``: Mask out NaN values during calculation. If an output is NaN in a single batch element, this output is
-      masked for the complete batch.
+    * ``ignore``: Do not check for NaN values (the default).
+    * ``mask``: Mask out NaN values during calculation. If an output is NaN in a single batch element, this output
+      is masked for the complete batch. This strategy likely is a good choice if you have NaN values.
     * ``fill``: Fill in NaN values with a dummy value, perform computations and filter them later.
       Not supported by :class:`gpytorch.mlls.ExactMarginalLogLikelihood`.
       Does not support lazy covariance matrices during prediction.
@@ -424,20 +423,18 @@ class observation_nan_policy(_value_context):
         super().__init__(value)
 
     @staticmethod
-    def _get_observed(observations, event_shape) -> Tuple[Tensor, ...]:
+    def _get_observed(observations, event_shape) -> Tensor:
         """
-        Constructs an index that masks out all elements in the event shape of the tensor which contain a NaN value in
+        Constructs a tensor that masks out all elements in the event shape of the tensor which contain a NaN value in
         any batch element. Applying this index flattens the event_shape, as the task structure cannot be retained.
         This function is used if observation_nan_policy is set to 'mask'.
 
         :param Tensor observations: The observations to search for NaN values in.
         :param torch.Size event_shape: The shape of a single event, i.e. the shape of observations without batch
             dimensions.
-        :return: The index to the event dimensions of the observations.
+        :return: The mask to the event dimensions of the observations.
         """
-        missing = torch.any(torch.isnan(observations.reshape(-1, *event_shape)), dim=0)
-        index = torch.nonzero(~missing, as_tuple=True)
-        return index
+        return ~torch.any(torch.isnan(observations.reshape(-1, *event_shape)), dim=0)
 
     @classmethod
     def _fill_tensor(cls, observations) -> Tensor:

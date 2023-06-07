@@ -24,6 +24,7 @@ from torch import Tensor
 
 from .. import settings
 from ..lazy import LazyEvaluatedKernelTensor
+from ..utils.masked_linear_operator import MaskedLinearOperator
 from ..utils.memoize import add_to_cache, cached, clear_cache_hook, pop_from_cache
 
 
@@ -244,12 +245,14 @@ class DefaultPredictionStrategy(object):
         if nan_policy == "ignore":
             mean_cache = train_train_covar.evaluate_kernel().solve(train_labels_offset).squeeze(-1)
         elif nan_policy == "mask":
-            # Restrict solving to the outputs observed in every batch element.
+            # Mask all rows and columns in the kernel matrix corresponding to the missing observations.
             observed = settings.observation_nan_policy._get_observed(
                 self.train_labels, torch.Size((self.train_labels.shape[-1],))
-            )[0]
+            )
             mean_cache = torch.full_like(self.train_labels, torch.nan)
-            kernel = train_train_covar[..., observed, :][..., :, observed].evaluate_kernel()
+            kernel = MaskedLinearOperator(
+                train_train_covar.evaluate_kernel(), observed.reshape(-1), observed.reshape(-1)
+            )
             mean_cache[..., observed] = kernel.solve(train_labels_offset[..., observed, :]).squeeze(-1)
         else:  # 'fill'
             # Fill all rows and columns in the kernel matrix corresponding to the missing observations with 0.
@@ -322,8 +325,10 @@ class DefaultPredictionStrategy(object):
             # Restrict train dimension to observed values
             observed = settings.observation_nan_policy._get_observed(
                 self.mean_cache, torch.Size((self.mean_cache.shape[-1],))
-            )[0]
-            res = (test_train_covar[..., observed] @ self.mean_cache[..., observed].unsqueeze(-1)).squeeze(-1)
+            )
+            full_mask = torch.ones(test_mean.shape[-1], dtype=torch.bool, device=test_mean.device)
+            test_train_covar = MaskedLinearOperator(test_train_covar, full_mask, observed.reshape(-1))
+            res = (test_train_covar @ self.mean_cache[..., observed].unsqueeze(-1)).squeeze(-1)
         else:  # 'fill'
             # Set the columns corresponding to missing observations to 0 to ignore them during matmul.
             mask = (~torch.isnan(self.mean_cache)).to(torch.float)[..., None, :]

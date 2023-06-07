@@ -68,6 +68,7 @@ class MultitaskVariationalGPModel(VariationalGP):
 
 class TestMissingData(BaseTestCase, unittest.TestCase):
     seed = 20
+    warning = "Observation NaN policy 'fill' makes the kernel matrix dense during exact prediction."
 
     def _check(
         self,
@@ -112,7 +113,7 @@ class TestMissingData(BaseTestCase, unittest.TestCase):
 
         clear_cache_hook(model.prediction_strategy)
 
-        with settings.observation_nan_policy("fill"):
+        with settings.observation_nan_policy("fill"), self.assertWarns(RuntimeWarning, msg=self.warning):
             prediction = model(test_x)
             self._check_prediction(prediction, test_y, atol)
 
@@ -120,13 +121,13 @@ class TestMissingData(BaseTestCase, unittest.TestCase):
 
         with settings.observation_nan_policy("mask"):
             model(test_x)
-        with settings.observation_nan_policy("fill"):
+        with settings.observation_nan_policy("fill"), self.assertWarns(RuntimeWarning, msg=self.warning):
             prediction = model(test_x)
             self._check_prediction(prediction, test_y, atol)
 
         clear_cache_hook(model.prediction_strategy)
 
-        with settings.observation_nan_policy("fill"):
+        with settings.observation_nan_policy("fill"), self.assertWarns(RuntimeWarning, msg=self.warning):
             model(test_x)
         with settings.observation_nan_policy("mask"):
             prediction = model(test_x)
