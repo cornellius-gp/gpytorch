@@ -23,6 +23,8 @@ from linear_operator.utils.interpolation import left_interp, left_t_interp
 from torch import Tensor
 
 from .. import settings
+
+from ..distributions import MultitaskMultivariateNormal
 from ..lazy import LazyEvaluatedKernelTensor
 from ..utils.masked_linear_operator import MaskedLinearOperator
 from ..utils.memoize import add_to_cache, cached, clear_cache_hook, pop_from_cache
@@ -136,16 +138,28 @@ class DefaultPredictionStrategy(object):
             A `DefaultPredictionStrategy` model with `n + m` training examples, where the `m` fantasy examples have
             been added and all test-time caches have been updated.
         """
+        if not isinstance(full_output, MultitaskMultivariateNormal):
+            target_batch_shape = targets.shape[:-1]
+        else:
+            target_batch_shape = targets.shape[:-2]
+
         full_mean, full_covar = full_output.mean, full_output.lazy_covariance_matrix
 
         batch_shape = full_inputs[0].shape[:-2]
 
-        full_mean = full_mean.view(*batch_shape, -1)
         num_train = self.num_train
+
+        if isinstance(full_output, MultitaskMultivariateNormal):
+            num_tasks = full_output.event_shape[-1]
+            full_mean = full_mean.view(*batch_shape, -1, num_tasks)
+            fant_mean = full_mean[..., (num_train // num_tasks) :, :]
+            full_targets = full_targets.view(*target_batch_shape, -1)
+        else:
+            full_mean = full_mean.view(*batch_shape, -1)
+            fant_mean = full_mean[..., num_train:]
 
         # Evaluate fant x train and fant x fant covariance matrices, leave train x train unevaluated.
         fant_fant_covar = full_covar[..., num_train:, num_train:]
-        fant_mean = full_mean[..., num_train:]
         mvn = self.train_prior_dist.__class__(fant_mean, fant_fant_covar)
         fant_likelihood = self.likelihood.get_fantasy_likelihood(**kwargs)
         mvn_obs = fant_likelihood(mvn, inputs, **kwargs)
@@ -210,6 +224,9 @@ class DefaultPredictionStrategy(object):
             full_covar = BatchRepeatLinearOperator(full_covar, repeat_shape)
             new_root = BatchRepeatLinearOperator(DenseLinearOperator(new_root), repeat_shape)
             # no need to repeat the covar cache, broadcasting will do the right thing
+
+        if isinstance(full_output, MultitaskMultivariateNormal):
+            full_mean = full_mean.view(*target_batch_shape, -1, num_tasks).contiguous()
 
         # Create new DefaultPredictionStrategy object
         fant_strat = self.__class__(
@@ -318,22 +335,27 @@ class DefaultPredictionStrategy(object):
         # NOTE TO FUTURE SELF:
         # You **cannot* use addmv here, because test_train_covar may not actually be a non lazy tensor even for an exact
         # GP, and using addmv requires you to to_dense test_train_covar, which is obviously a huge no-no!
+
+        # see https://github.com/cornellius-gp/gpytorch/pull/2317#discussion_r1157994719
+        mean_cache = self.mean_cache
+        if len(mean_cache.shape) == 4:
+            mean_cache = mean_cache.squeeze(1)
+
+        # Handle NaNs
         nan_policy = settings.observation_nan_policy.value()
         if nan_policy == "ignore":
-            res = (test_train_covar @ self.mean_cache.unsqueeze(-1)).squeeze(-1)
+            res = (test_train_covar @ mean_cache.unsqueeze(-1)).squeeze(-1)
         elif nan_policy == "mask":
             # Restrict train dimension to observed values
-            observed = settings.observation_nan_policy._get_observed(
-                self.mean_cache, torch.Size((self.mean_cache.shape[-1],))
-            )
+            observed = settings.observation_nan_policy._get_observed(mean_cache, torch.Size((mean_cache.shape[-1],)))
             full_mask = torch.ones(test_mean.shape[-1], dtype=torch.bool, device=test_mean.device)
             test_train_covar = MaskedLinearOperator(test_train_covar, full_mask, observed.reshape(-1))
-            res = (test_train_covar @ self.mean_cache[..., observed].unsqueeze(-1)).squeeze(-1)
+            res = (test_train_covar @ mean_cache[..., observed].unsqueeze(-1)).squeeze(-1)
         else:  # 'fill'
             # Set the columns corresponding to missing observations to 0 to ignore them during matmul.
-            mask = (~torch.isnan(self.mean_cache)).to(torch.float)[..., None, :]
+            mask = (~torch.isnan(mean_cache)).to(torch.float)[..., None, :]
             test_train_covar = test_train_covar * mask
-            mean = settings.observation_nan_policy._fill_tensor(self.mean_cache)
+            mean = settings.observation_nan_policy._fill_tensor(mean_cache)
             res = (test_train_covar @ mean.unsqueeze(-1)).squeeze(-1)
         res = res + test_mean
 

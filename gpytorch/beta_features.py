@@ -39,6 +39,16 @@ class checkpoint_kernel(_value_context):
 
     _global_value = 0
 
+    def __enter__(self, *args, **kwargs):
+        warnings.warn(
+            "The checkpointing feature is deprecated and will be removed in the next version. "
+            "If your data cannot fit on a single GPU, we recommend using the GPyTorch KeOps integration. "
+            "(The KeOps integration accomplishes the same thing that our checkpointing feature did, but better!) "
+            "See the KeOps example in the GPyTorch documentation at docs.gpytorch.ai",
+            DeprecationWarning,
+        )
+        return super().__enter__(*args, **kwargs)
+
 
 class default_preconditioner(_feature_flag):
     """

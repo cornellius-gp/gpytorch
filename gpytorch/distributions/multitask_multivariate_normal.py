@@ -397,6 +397,9 @@ class MultitaskMultivariateNormal(MultivariateNormal):
                     covariance_matrix=new_cov,
                 )
 
+    def __repr__(self) -> str:
+        return f"MultitaskMultivariateNormal(mean shape: {self._output_shape})"
+
 
 def _normalize_index(i: int, dim_size: int) -> int:
     if i < 0:

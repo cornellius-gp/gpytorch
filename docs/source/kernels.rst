@@ -147,6 +147,11 @@ Specialty Kernels
 .. autoclass:: ArcKernel
    :members:
 
+:hidden:`HammingIMQKernel`
+
+..autoclass:: HammingIMQKernel
+  :members:
+
 :hidden:`IndexKernel`
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -169,6 +174,12 @@ Specialty Kernels
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: RBFKernelGrad
+   :members:
+
+:hidden:`RBFKernelGradGrad`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: RBFKernelGradGrad
    :members:
 
 
