@@ -30,7 +30,14 @@ class IndependentModelList(AbstractModelList):
                     "IndependentModelList currently only supports models that have a likelihood (e.g. ExactGPs)"
                 )
         self.likelihood = LikelihoodList(*[m.likelihood for m in models])
-        batch_shapes = [m.batch_shape for m in self.models]
+        try:
+            batch_shapes = [m.batch_shape for m in self.models]
+        except RuntimeError:
+            # Some models may not have a batch shape, e.g. those for which it is only known
+            # after fitting the model. In this case, we skip the batch shape validation.
+            return
+        # If we know the batch shapes of the models, we can validate that the batch shapes
+        # are compatible (i.e., that we can broadcast the batch dimensions).
         try:
             self._batch_shape = torch.broadcast_shapes(*batch_shapes)
         except RuntimeError:
