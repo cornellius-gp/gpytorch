@@ -139,7 +139,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
         if x is not None:
             assert self.inducing_points.shape[:-2] == x.shape[:-2], (
                 f"x batch shape must matches inducing points batch shape, "
-                f"but got train data batch shape = {x.shape[:-2]}, "
+                f"but got x batch shape = {x.shape[:-2]}, "
                 f"inducing points batch shape = {self.inducing_points.shape[:-2]}."
             )
 
@@ -212,6 +212,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
             nn_indices = self.nn_util.find_nn_idx(x.float())
 
             x_batch_shape = x.shape[:-2]
+            batch_shape = torch.broadcast_shapes(self._model_batch_shape, x_batch_shape)
             x_bsz = x.shape[-2]
             assert nn_indices.shape == (*x_batch_shape, x_bsz, self.k), nn_indices.shape
 
@@ -222,7 +223,6 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
             assert inducing_points.shape == (*x_batch_shape, x_bsz, self.k, self.D)
 
             # get variational mean and covar for nearest neighbors
-            batch_shape = torch.broadcast_shapes(self._model_batch_shape, x_batch_shape)
             inducing_values = self._variational_distribution.variational_mean
             expanded_inducing_values = inducing_values.unsqueeze(-1).expand(*batch_shape, self.M, self.k)
             expanded_nn_indices = nn_indices.expand(*batch_shape, x_bsz, self.k)
@@ -240,16 +240,20 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
             # Make everything batch mode
             x = x.unsqueeze(-2)
             assert x.shape == (*x_batch_shape, x_bsz, 1, self.D)
+            x = x.expand(*batch_shape, x_bsz, 1, self.D)
 
             # Compute forward mode in the standard way
-            _x_batch_dims = tuple(range(len(x_batch_shape)))
-            _x = x.permute((-3,) + _x_batch_dims + (-2, -1))
-            _inducing_points = inducing_points.permute((-3,) + _x_batch_dims + (-2, -1))
-            _inducing_values = inducing_values.permute((-2,) + _x_batch_dims + (-1,))
-            _variational_inducing_covar = variational_inducing_covar.permute((-3,) + _x_batch_dims + (-2, -1))
+            _batch_dims = tuple(range(len(batch_shape)))
+            _x = x.permute((-3,) + _batch_dims + (-2, -1))  # (x_bsz, *batch_shape, 1, D)
+
+            # inducing_points.shape (*x_batch_shape, x_bsz, self.k, self.D)
+            inducing_points = inducing_points.expand(*batch_shape, x_bsz, self.k, self.D)
+            _inducing_points = inducing_points.permute((-3,) + _batch_dims + (-2, -1))  # (x_bsz, *batch_shape, k, D)
+            _inducing_values = inducing_values.permute((-2,) + _batch_dims + (-1,))
+            _variational_inducing_covar = variational_inducing_covar.permute((-3,) + _batch_dims + (-2, -1))
             dist = super().forward(_x, _inducing_points, _inducing_values, _variational_inducing_covar, **kwargs)
 
-            _x_batch_dims = tuple(range(1, 1 + len(x_batch_shape)))
+            _x_batch_dims = tuple(range(1, 1 + len(batch_shape)))
             predictive_mean = dist.mean  # (x_bsz, *x_batch_shape, 1)
             predictive_covar = dist.covariance_matrix  # (x_bsz, *x_batch_shape, 1, 1)
             predictive_mean = predictive_mean.permute(_x_batch_dims + (0, -1))

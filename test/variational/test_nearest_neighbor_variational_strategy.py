@@ -113,7 +113,7 @@ class TestVNNGP(VariationalTestCase, unittest.TestCase):
         return output, loss
 
     def _eval_iter(self, model, cuda=False):
-        inducing_batch_shape = model.variational_strategy.inducing_points.shape[:-2]
+        inducing_batch_shape = model.variational_strategy._inducing_batch_shape
         test_x = torch.randn(*inducing_batch_shape, 32, 2).clamp(-2.5, 2.5)
         if cuda:
             test_x = test_x.cuda()
