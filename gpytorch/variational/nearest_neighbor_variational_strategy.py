@@ -155,7 +155,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
                     torch.randn_like(prior_dist.mean), alpha=self._variational_distribution.mean_init_std
                 )
                 # initialize with a small variational stddev for quicker conv. of kl divergence
-                self._variational_distribution._variational_stddev.data.copy_(1e-2)
+                self._variational_distribution._variational_stddev.data.copy_(torch.tensor(1e-2))
                 self.variational_params_initialized.fill_(1)
 
             return self.forward(
