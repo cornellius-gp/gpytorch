@@ -170,12 +170,12 @@ class LazyEvaluatedKernelTensor(LinearOperator):
             # outputs per input that we have
             row_start, row_end, row_step = (
                 row_index.start if row_index.start is not None else 0,
-                row_index.stop if row_index.stop is not None else self.kernel.shape[-2],
+                row_index.stop if row_index.stop is not None else self.shape[-2],
                 row_index.step,
             )
             col_start, col_end, col_step = (
                 col_index.start if col_index.start is not None else 0,
-                col_index.stop if col_index.stop is not None else self.kernel.shape[-1],
+                col_index.stop if col_index.stop is not None else self.shape[-1],
                 col_index.step,
             )
             if row_step is not None or col_step is not None:
