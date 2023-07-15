@@ -13,7 +13,7 @@ class MaternCovariance(torch.autograd.Function):
         # Subtract mean for numerical stability. Won't affect computations
         # because covariance matrix is stationary.
         needs_grad = any(ctx.needs_input_grad)
-        mean = x1.reshape(-1, x1.size(-1)).mean(0)[(None,) * (x1.dim() - 1)]
+        mean = x1.mean(dim=-2, keepdim=True)
         x1_ = (x1 - mean).div(lengthscale)
         x2_ = (x2 - mean).div(lengthscale)
         scaled_unitless_dist = dist_func(x1_, x2_).mul_(math.sqrt(2 * nu))
