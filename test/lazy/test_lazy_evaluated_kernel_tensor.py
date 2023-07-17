@@ -122,6 +122,18 @@ class TestLazyEvaluatedKernelTensorBatch(LinearOperatorTestCase, unittest.TestCa
         self.assertEqual(k.size(), torch.Size([2, 5, 5]))
         self.assertEqual(k[..., :4, :3].size(), torch.Size([2, 4, 3]))
 
+    def test_batch_getitem_multioutput(self):
+        """Ensure slicing is efficient when using a multioutput kernel"""
+        x1 = torch.randn(5, 6)
+        x2 = torch.randn(5, 6)
+        kern = gpytorch.kernels.RBFKernelGrad(batch_shape=torch.Size([2]))
+        k = kern(x1, x2)
+        k.evaluate_kernel = MagicMock(name='evaluate_kernel')
+        k_sliced = k[..., :7, :14]
+        self.assertFalse(k.evaluate_kernel.called)
+        self.assertEqual(k.size(), torch.Size([2, 35, 35]))
+        self.assertEqual(k_sliced.size(), torch.Size([2, 7, 14]))
+
     def test_getitem_tensor_index(self):
         # Not supported a.t.m. with LazyEvaluatedKernelTensors
         pass
