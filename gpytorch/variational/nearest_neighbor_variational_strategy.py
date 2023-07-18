@@ -9,7 +9,8 @@ from linear_operator.utils.cholesky import psd_safe_cholesky
 from torch import LongTensor, Tensor
 
 from ..distributions import MultivariateNormal
-from ..models import ApproximateGP
+from ..models import ApproximateGP, ExactGP
+from ..module import Module
 from ..utils.errors import CachingError
 from ..utils.memoize import add_to_cache, cached, pop_from_cache
 from ..utils.nearest_neighbors import NNUtil
@@ -237,6 +238,19 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
 
             # Return the distribution
             return MultivariateNormal(predictive_mean, DiagLinearOperator(predictive_var))
+
+    def get_fantasy_model(
+        self,
+        inputs: Tensor,
+        targets: Tensor,
+        mean_module: Optional[Module] = None,
+        covar_module: Optional[Module] = None,
+        **kwargs,
+    ) -> ExactGP:
+        raise NotImplementedError(
+            f"No fantasy model support for {self.__class__.__name__}. "
+            "Only VariationalStrategy and UnwhitenedVariationalStrategy are currently supported."
+        )
 
     def _set_training_iterator(self) -> None:
         self._training_indices_iter = 0
