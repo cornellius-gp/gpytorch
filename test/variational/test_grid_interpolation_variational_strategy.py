@@ -76,7 +76,7 @@ class TestGridVariationalGP(VariationalTestCase, unittest.TestCase):
         self.assertFalse(ciq_mock.called)
 
     def test_fantasy_call(self, *args, **kwargs):
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(NotImplementedError):
             super().test_fantasy_call(*args, **kwargs)
 
 

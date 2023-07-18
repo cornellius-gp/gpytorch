@@ -42,15 +42,13 @@ class TestVNNGP(VariationalTestCase, unittest.TestCase):
         distribution_cls=gpytorch.variational.MeanFieldVariationalDistribution,
         constant_mean=True,
     ):
-        class _VNNGPRegressionModel(gpytorch.models.GP):
+        class _VNNGPRegressionModel(gpytorch.models.ApproximateGP):
             def __init__(self, inducing_points, k, training_batch_size):
-                super(_VNNGPRegressionModel, self).__init__()
-
                 variational_distribution = distribution_cls(num_inducing, batch_shape=batch_shape)
-
-                self.variational_strategy = strategy_cls(
+                variational_strategy = strategy_cls(
                     self, inducing_points, variational_distribution, k=k, training_batch_size=training_batch_size
                 )
+                super().__init__(variational_strategy)
 
                 if constant_mean:
                     self.mean_module = gpytorch.means.ConstantMean()
@@ -252,7 +250,7 @@ class TestVNNGP(VariationalTestCase, unittest.TestCase):
         )
 
     def test_fantasy_call(self, *args, **kwargs):
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(NotImplementedError):
             super().test_fantasy_call(*args, **kwargs)
 
 
