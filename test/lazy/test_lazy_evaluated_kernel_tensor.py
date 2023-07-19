@@ -128,7 +128,7 @@ class TestLazyEvaluatedKernelTensorBatch(LinearOperatorTestCase, unittest.TestCa
         x2 = torch.randn(5, 6)
         kern = gpytorch.kernels.RBFKernelGrad(batch_shape=torch.Size([2]))
         k = kern(x1, x2)
-        k.evaluate_kernel = MagicMock(name='evaluate_kernel')
+        k.evaluate_kernel = MagicMock(name="evaluate_kernel")
         k_sliced = k[..., :7, :14]
         self.assertFalse(k.evaluate_kernel.called)
         self.assertEqual(k.size(), torch.Size([2, 35, 35]))
