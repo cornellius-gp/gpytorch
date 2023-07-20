@@ -90,10 +90,15 @@ class _VariationalStrategy(Module, ABC):
         """
         Pre-processing step in __call__ to make x the same batch_shape as the inducing points
         """
-        batch_shape = torch.broadcast_shapes(inducing_points.shape[:-2], x.shape[:-2])
+        batch_shape = torch.broadcast_shapes(self.batch_shape, x.shape[:-2])
         inducing_points = inducing_points.expand(*batch_shape, *inducing_points.shape[-2:])
         x = x.expand(*batch_shape, *x.shape[-2:])
         return x, inducing_points
+
+    @property
+    def batch_shape(self) -> torch.Size:
+        r"""The batch shape of the variational strategy."""
+        return self.inducing_points.shape[:-2]
 
     @property
     def jitter_val(self) -> float:

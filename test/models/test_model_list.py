@@ -19,6 +19,24 @@ class TestModelListGP(unittest.TestCase):
             likelihood = FixedNoiseGaussianLikelihood(noise)
         return TestExactGP.create_model(self, data, labels, likelihood)
 
+    def create_batch_model(self, batch_shape, fixed_noise=False):
+        data = TestExactGP.create_batch_test_data(self, batch_shape=batch_shape)
+        likelihood, labels = TestExactGP.create_batch_likelihood_and_labels(self, batch_shape=batch_shape)
+        if fixed_noise:
+            noise = 0.1 + 0.2 * torch.rand_like(labels)
+            likelihood = FixedNoiseGaussianLikelihood(noise)
+        return TestExactGP.create_model(self, data, labels, likelihood)
+
+    def test_batch_shape(self):
+        model = self.create_model()
+        self.assertEqual(model.batch_shape, torch.Size([]))
+        model_batch = self.create_batch_model(batch_shape=torch.Size([2]))
+        model_list = IndependentModelList(model, model_batch)
+        self.assertEqual(model_list.batch_shape, torch.Size([2]))
+        model_batch_2 = self.create_batch_model(batch_shape=torch.Size([3]))
+        with self.assertRaisesRegex(RuntimeError, "Model batch shapes are not broadcastable"):
+            IndependentModelList(model_batch, model_batch_2)
+
     def test_forward_eval(self):
         models = [self.create_model() for _ in range(2)]
         model = IndependentModelList(*models)

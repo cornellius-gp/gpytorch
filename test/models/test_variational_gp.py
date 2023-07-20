@@ -12,8 +12,9 @@ from gpytorch.variational import CholeskyVariationalDistribution, VariationalStr
 
 class GPClassificationModel(ApproximateGP):
     def __init__(self, train_x, use_inducing=False):
-        variational_distribution = CholeskyVariationalDistribution(train_x.size(-2), batch_shape=train_x.shape[:-2])
-        inducing_points = torch.randn(50, train_x.size(-1)) if use_inducing else train_x
+        batch_shape = train_x.shape[:-2]
+        variational_distribution = CholeskyVariationalDistribution(train_x.size(-2), batch_shape=batch_shape)
+        inducing_points = torch.randn(*batch_shape, 50, train_x.size(-1)) if use_inducing else train_x
         strategy_cls = VariationalStrategy
         variational_strategy = strategy_cls(
             self, inducing_points, variational_distribution, learn_inducing_locations=use_inducing
