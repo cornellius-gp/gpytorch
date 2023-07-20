@@ -125,13 +125,15 @@ class HeteroskedasticNoise(Noise):
         if noise is not None:
             return DiagLinearOperator(noise)
         training = self.noise_model.training  # keep track of mode
-        self.noise_model.eval()  # we want the posterior prediction of the noise model
-        with settings.detach_test_caches(False), settings.debug(False):
-            if len(params) == 1 and not torch.is_tensor(params[0]):
-                output = self.noise_model(*params[0])
-            else:
-                output = self.noise_model(*params)
-        self.noise_model.train(training)
+        try:
+            self.noise_model.eval()  # we want the posterior prediction of the noise model
+            with settings.detach_test_caches(False), settings.debug(False):
+                if len(params) == 1 and not torch.is_tensor(params[0]):
+                    output = self.noise_model(*params[0])
+                else:
+                    output = self.noise_model(*params)
+        finally:
+            self.noise_model.train(training)
         if not isinstance(output, MultivariateNormal):
             raise NotImplementedError("Currently only noise models that return a MultivariateNormal are supported")
         # note: this also works with MultitaskMultivariateNormal, where this
