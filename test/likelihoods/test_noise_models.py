@@ -28,8 +28,11 @@ class TestNoiseModels(unittest.TestCase):
     def test_heteroskedasticnoise_error(self):
         noise_model = NumericallyUnstableModelExample().to(torch.double)
         likelihood = HeteroskedasticNoise(noise_model)
-        assert noise_model.training and likelihood.training
+        self.assertEqual(noise_model.training, True)
+        self.assertEqual(likelihood.training, True)
         noise_model.fail_arithmetic = True
         test_x = torch.tensor([[3.0]])
-        self.assertRaises(ArithmeticError, likelihood, test_x)
+        with self.assertRaises(ArithmeticError):
+            likelihood(test_x)
+        self.assertEqual(likelihood.training, True)
         likelihood(test_x)
