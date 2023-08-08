@@ -5,7 +5,7 @@ from copy import deepcopy
 from typing import Any, Optional, Tuple, Union
 
 import torch
-from linear_operator.operators import LinearOperator, ZeroLinearOperator
+from linear_operator.operators import LinearOperator, MaskedLinearOperator, ZeroLinearOperator
 from torch import Tensor
 from torch.distributions import Distribution, Normal
 
@@ -13,7 +13,6 @@ from .. import settings
 from ..constraints import Interval
 from ..distributions import base_distributions, MultivariateNormal
 from ..priors import Prior
-from ..utils.masked_linear_operator import MaskedLinearOperator
 from ..utils.warnings import GPInputWarning
 from .likelihood import Likelihood
 from .noise_models import FixedGaussianNoise, HomoskedasticNoise, Noise

@@ -14,6 +14,7 @@ from linear_operator.operators import (
     InterpolatedLinearOperator,
     LinearOperator,
     LowRankRootAddedDiagLinearOperator,
+    MaskedLinearOperator,
     MatmulLinearOperator,
     RootLinearOperator,
     ZeroLinearOperator,
@@ -26,7 +27,6 @@ from .. import settings
 
 from ..distributions import MultitaskMultivariateNormal
 from ..lazy import LazyEvaluatedKernelTensor
-from ..utils.masked_linear_operator import MaskedLinearOperator
 from ..utils.memoize import add_to_cache, cached, clear_cache_hook, pop_from_cache
 
 
@@ -349,7 +349,9 @@ class DefaultPredictionStrategy(object):
             # Restrict train dimension to observed values
             observed = settings.observation_nan_policy._get_observed(mean_cache, torch.Size((mean_cache.shape[-1],)))
             full_mask = torch.ones(test_mean.shape[-1], dtype=torch.bool, device=test_mean.device)
-            test_train_covar = MaskedLinearOperator(test_train_covar, full_mask, observed.reshape(-1))
+            test_train_covar = MaskedLinearOperator(
+                to_linear_operator(test_train_covar), full_mask, observed.reshape(-1)
+            )
             res = (test_train_covar @ mean_cache[..., observed].unsqueeze(-1)).squeeze(-1)
         else:  # 'fill'
             # Set the columns corresponding to missing observations to 0 to ignore them during matmul.

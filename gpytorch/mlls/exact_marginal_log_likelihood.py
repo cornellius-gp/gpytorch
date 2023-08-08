@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
+from linear_operator.operators import MaskedLinearOperator
+
 from .. import settings
 from ..distributions import MultivariateNormal
 from ..likelihoods import _GaussianLikelihoodBase
-from ..utils.masked_linear_operator import MaskedLinearOperator
 from .marginal_log_likelihood import MarginalLogLikelihood
 
 
