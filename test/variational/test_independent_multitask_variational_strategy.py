@@ -61,7 +61,7 @@ class TestMultitaskVariationalGP(VariationalTestCase, unittest.TestCase):
         super().test_eval_iteration(*args, expected_batch_shape=expected_batch_shape, **kwargs)
 
     def test_fantasy_call(self, *args, **kwargs):
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(NotImplementedError):
             super().test_fantasy_call(*args, **kwargs)
 
 

@@ -57,9 +57,9 @@ class RBFKernelGrad(RBFKernel):
         n1, d = x1.shape[-2:]
         n2 = x2.shape[-2]
 
-        K = torch.zeros(*batch_shape, n1 * (d + 1), n2 * (d + 1), device=x1.device, dtype=x1.dtype)
-
         if not diag:
+            K = torch.zeros(*batch_shape, n1 * (d + 1), n2 * (d + 1), device=x1.device, dtype=x1.dtype)
+
             # Scale the inputs by the lengthscale (for stability)
             x1_ = x1.div(self.lengthscale)
             x2_ = x2.div(self.lengthscale)

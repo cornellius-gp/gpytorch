@@ -92,7 +92,7 @@ class MaternKernel(Kernel):
             or params.get("last_dim_is_batch", False)
             or trace_mode.on()
         ):
-            mean = x1.reshape(-1, x1.size(-1)).mean(0)[(None,) * (x1.dim() - 1)]
+            mean = x1.mean(dim=-2, keepdim=True)
 
             x1_ = (x1 - mean).div(self.lengthscale)
             x2_ = (x2 - mean).div(self.lengthscale)
