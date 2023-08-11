@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 
+from typing import Any, Optional
+
+from torch import Tensor
+
+from ..distributions import MultivariateNormal
+from .exact_gp import ExactGP
+
 from .gp import GP
 from .pyro import _PyroMixin  # This will only contain functions if Pyro is installed
 
@@ -44,38 +51,38 @@ class ApproximateGP(GP, _PyroMixin):
 
     def __init__(self, variational_strategy):
         super().__init__()
+
         self.variational_strategy = variational_strategy
 
-    def forward(self, x):
+    def forward(self, x: Tensor):
         raise NotImplementedError
 
-    def pyro_guide(self, input, beta=1.0, name_prefix=""):
+    def pyro_guide(self, input: Tensor, beta: float = 1.0, name_prefix: str = ""):
         r"""
         (For Pyro integration only). The component of a `pyro.guide` that
         corresponds to drawing samples from the latent GP function.
 
-        :param torch.Tensor input: The inputs :math:`\mathbf X`.
-        :param float beta: (default=1.) How much to scale the :math:`\text{KL} [ q(\mathbf f) \Vert p(\mathbf f) ]`
+        :param input: The inputs :math:`\mathbf X`.
+        :param beta: (default=1.) How much to scale the :math:`\text{KL} [ q(\mathbf f) \Vert p(\mathbf f) ]`
             term by.
-        :param str name_prefix: (default="") A name prefix to prepend to pyro sample sites.
+        :param name_prefix: (default="") A name prefix to prepend to pyro sample sites.
         """
         return super().pyro_guide(input, beta=beta, name_prefix=name_prefix)
 
-    def pyro_model(self, input, beta=1.0, name_prefix=""):
+    def pyro_model(self, input: Tensor, beta: float = 1.0, name_prefix: str = "") -> Tensor:
         r"""
         (For Pyro integration only). The component of a `pyro.model` that
         corresponds to drawing samples from the latent GP function.
 
-        :param torch.Tensor input: The inputs :math:`\mathbf X`.
-        :param float beta: (default=1.) How much to scale the :math:`\text{KL} [ q(\mathbf f) \Vert p(\mathbf f) ]`
+        :param input: The inputs :math:`\mathbf X`.
+        :param beta: (default=1.) How much to scale the :math:`\text{KL} [ q(\mathbf f) \Vert p(\mathbf f) ]`
             term by.
-        :param str name_prefix: (default="") A name prefix to prepend to pyro sample sites.
+        :param name_prefix: (default="") A name prefix to prepend to pyro sample sites.
         :return: samples from :math:`q(\mathbf f)`
-        :rtype: torch.Tensor
         """
         return super().pyro_model(input, beta=beta, name_prefix=name_prefix)
 
-    def get_fantasy_model(self, inputs, targets, **kwargs):
+    def get_fantasy_model(self, inputs: Tensor, targets: Tensor, **kwargs: Any) -> ExactGP:
         r"""
         Returns a new GP model that incorporates the specified inputs and targets as new training data using
         online variational conditioning (OVC).
@@ -88,12 +95,11 @@ class ApproximateGP(GP, _PyroMixin):
             If `inputs` is of the same (or lesser) dimension as `targets`, then it is assumed that the fantasy points
             are the same for each target batch.
 
-        :param torch.Tensor inputs: (`b1 x ... x bk x m x d` or `f x b1 x ... x bk x m x d`) Locations of fantasy
+        :param inputs: (`b1 x ... x bk x m x d` or `f x b1 x ... x bk x m x d`) Locations of fantasy
             observations.
-        :param torch.Tensor targets: (`b1 x ... x bk x m` or `f x b1 x ... x bk x m`) Labels of fantasy observations.
+        :param targets: (`b1 x ... x bk x m` or `f x b1 x ... x bk x m`) Labels of fantasy observations.
         :return: An `ExactGP` model with `n + m` training examples, where the `m` fantasy examples have been added
             and all test-time caches have been updated.
-        :rtype: ~gpytorch.models.ExactGP
 
         Reference: "Conditioning Sparse Variational Gaussian Processes for Online Decision-Making,"
             Maddox, Stanton, Wilson, NeurIPS, '21
@@ -102,7 +108,7 @@ class ApproximateGP(GP, _PyroMixin):
         """
         return self.variational_strategy.get_fantasy_model(inputs=inputs, targets=targets, **kwargs)
 
-    def __call__(self, inputs, prior=False, **kwargs):
-        if inputs.dim() == 1:
+    def __call__(self, inputs: Optional[Tensor], prior: bool = False, **kwargs) -> MultivariateNormal:
+        if inputs is not None and inputs.dim() == 1:
             inputs = inputs.unsqueeze(-1)
         return self.variational_strategy(inputs, prior=prior, **kwargs)
