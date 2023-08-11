@@ -141,6 +141,9 @@ class TestLazyEvaluatedKernelTensorBatch(LinearOperatorTestCase, unittest.TestCa
     def test_bilinear_derivative(self):
         pass
 
+    def test_t_matmul_matrix(self):
+        pass
+
     def test_half(self):
         # many transform operations aren't supported in half so we overwrite
         # this test
