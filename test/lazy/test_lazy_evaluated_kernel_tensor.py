@@ -161,10 +161,6 @@ class TestLazyEvaluatedKernelTensorBatch(LinearOperatorTestCase, unittest.TestCa
             lazy_tensor = k(X)
         self.assertFalse(lazy_tensor.to_dense().requires_grad)
 
-    def test_t_matmul_matrix(self):
-        # Not supported without checkpointing, and checkpointing is deprecated. (#2361)
-        pass
-
 
 class TestLazyEvaluatedKernelTensorMultitaskBatch(TestLazyEvaluatedKernelTensorBatch):
     seed = 0
