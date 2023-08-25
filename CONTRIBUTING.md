@@ -9,8 +9,7 @@ linting, testing, and building the documentation, run the following:
 ```bash
 git clone https://github.com/cornellius-gp/gpytorch.git
 cd gpytorch
-pip install -e .[dev,examples,pyro,keops,test]  # keops and pyro are optional
-pip install -r docs/requirements.txt
+pip install -e .[dev,docs,examples,keops,pyro,test]  # keops and pyro are optional
 pre-commit install
 ```
 
