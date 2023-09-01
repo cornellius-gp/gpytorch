@@ -3,6 +3,7 @@
 import torch
 from linear_operator import LinearOperator, to_linear_operator
 from linear_operator.operators import BlockDiagLinearOperator, BlockInterleavedLinearOperator, CatLinearOperator
+from torch import Tensor
 
 from .multivariate_normal import MultivariateNormal
 
@@ -24,7 +25,9 @@ class MultitaskMultivariateNormal(MultivariateNormal):
         w.r.t. inter-observation covariance for each task.
     """
 
-    def __init__(self, mean, covariance_matrix, validate_args=False, interleaved=True):
+    def __init__(
+        self, mean: Tensor, covariance_matrix: LinearOperator, validate_args: bool = False, interleaved: bool = True
+    ):
         if not torch.is_tensor(mean) and not isinstance(mean, LinearOperator):
             raise RuntimeError("The mean of a MultitaskMultivariateNormal must be a Tensor or LinearOperator")
 

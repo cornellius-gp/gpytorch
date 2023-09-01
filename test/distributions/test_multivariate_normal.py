@@ -47,6 +47,20 @@ class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
             self.assertTrue(mvn.sample(torch.Size([2])).shape == torch.Size([2, 3]))
             self.assertTrue(mvn.sample(torch.Size([2, 4])).shape == torch.Size([2, 4, 3]))
 
+            # testing with semi-definite input
+            A = torch.randn(len(mean), 1)
+            covmat = A @ A.T
+            handles_psd = False
+            try:
+                # the regular call fails:
+                # mvn = TMultivariateNormal(loc=mean, covariance_matrix=covmat, validate_args=True)
+                mvn = MultivariateNormal(mean=mean, covariance_matrix=covmat, validate_args=True)
+                mvn.sample()
+                handles_psd = True
+            except ValueError:
+                handles_psd = False
+            self.assertTrue(handles_psd)
+
     def test_multivariate_normal_non_lazy_cuda(self):
         if torch.cuda.is_available():
             with least_used_cuda_device():
