@@ -10,8 +10,10 @@ build:
   tools:
     python: "3.8"
   jobs:
+    pre_install:  # Lock version of torch at 1.11
+      - pip install torch==1.11.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
     pre_build:
-      - python -m setuptools_scm
+      - python -m setuptools_scm  # Get correct version number
 
 # Build documentation in the docs/ directory with Sphinx
 sphinx:
@@ -25,4 +27,8 @@ sphinx:
 # Optionally set the version of Python and requirements required to build your docs
 python:
   install:
-    - requirements: docs/requirements.txt
+    - method: pip
+      path: .
+      extra_requirements:
+        - docs
+        - pyro
