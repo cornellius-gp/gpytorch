@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+from linear_operator.operators import MaskedLinearOperator
+
+from .. import settings
 from ..distributions import MultivariateNormal
 from ..likelihoods import _GaussianLikelihoodBase
 from .marginal_log_likelihood import MarginalLogLikelihood
@@ -59,8 +62,23 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
         if not isinstance(function_dist, MultivariateNormal):
             raise RuntimeError("ExactMarginalLogLikelihood can only operate on Gaussian random variables")
 
-        # Get the log prob of the marginal distribution
+        # Determine output likelihood
         output = self.likelihood(function_dist, *params)
+
+        # Remove NaN values if enabled
+        if settings.observation_nan_policy.value() == "mask":
+            observed = settings.observation_nan_policy._get_observed(target, output.event_shape)
+            output = MultivariateNormal(
+                mean=output.mean[..., observed],
+                covariance_matrix=MaskedLinearOperator(
+                    output.lazy_covariance_matrix, observed.reshape(-1), observed.reshape(-1)
+                ),
+            )
+            target = target[..., observed]
+        elif settings.observation_nan_policy.value() == "fill":
+            raise ValueError("NaN observation policy 'fill' is not supported by ExactMarginalLogLikelihood!")
+
+        # Get the log prob of the marginal distribution
         res = output.log_prob(target)
         res = self._add_other_terms(res, params)
 
