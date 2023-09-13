@@ -12,8 +12,8 @@ class LinearMeanGradGrad(Mean):
     .. math::
 
         \mu(\mathbf x) &= \mathbf W \cdot \mathbf x + B \\
-        \Grad \mu(\mathbf x) &= \mathbf W \\
-        \Grad^2 \mu(\mathbf x) &= \mathbf 0 \\
+        \nabla \mu(\mathbf x) &= \mathbf W \\
+        \nabla^2 \mu(\mathbf x) &= \mathbf 0 \\
 
     where :math:`\mathbf W` and :math:`B` are learned constants.
 

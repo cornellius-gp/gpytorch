@@ -12,7 +12,7 @@ class LinearMeanGrad(Mean):
     .. math::
 
         \mu(\mathbf x) &= \mathbf W \cdot \mathbf x + B \\
-        \Grad \mu(\mathbf x) &= \mathbf W
+        \nabla \mu(\mathbf x) &= \mathbf W
 
     where :math:`\mathbf W` and :math:`B` are learned constants.
 
