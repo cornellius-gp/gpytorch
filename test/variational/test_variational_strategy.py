@@ -42,7 +42,7 @@ class TestVariationalGP(VariationalTestCase, unittest.TestCase):
         if self.distribution_cls is gpytorch.variational.CholeskyVariationalDistribution:
             return super().test_fantasy_call(*args, **kwargs)
 
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(NotImplementedError):
             super().test_fantasy_call(*args, **kwargs)
 
 

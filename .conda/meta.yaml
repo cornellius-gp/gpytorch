@@ -18,7 +18,7 @@ requirements:
   run:
     - pytorch>=1.11
     - scikit-learn
-    - linear_operator>=0.4.0
+    - linear_operator>=0.5.2
 
 test:
   imports:

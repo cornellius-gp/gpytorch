@@ -112,29 +112,6 @@ class TestLazyEvaluatedKernelTensorBatch(LinearOperatorTestCase, unittest.TestCa
             else:
                 self.assertFalse(linear_cg_mock.called)
 
-    def test_inv_matmul_matrix_with_checkpointing(self):
-        # Add one checkpointing test
-        lazy_tensor = self.create_linear_op().requires_grad_(True)
-        lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
-        evaluated = self.evaluate_linear_op(lazy_tensor_copy)
-
-        test_vector = torch.randn(2, 5, 6)
-        test_vector_copy = test_vector.clone()
-        with gpytorch.beta_features.checkpoint_kernel(2):
-            res = lazy_tensor.solve(test_vector)
-            actual = evaluated.inverse().matmul(test_vector_copy)
-            self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 3e-1)
-
-            grad = torch.randn_like(res)
-            res.backward(gradient=grad)
-            actual.backward(gradient=grad)
-
-        for param, param_copy in zip(lazy_tensor.kernel.parameters(), lazy_tensor_copy.kernel.parameters()):
-            self.assertAllClose(param.grad, param_copy.grad, rtol=1e-3)
-        self.assertAllClose(
-            lazy_tensor.x1.grad + lazy_tensor.x2.grad, lazy_tensor_copy.x1.grad + lazy_tensor_copy.x2.grad, rtol=1e-3
-        )
-
     def test_batch_getitem(self):
         """Indexing was wrong when the kernel had more batch dimensions than the
         data"""
@@ -145,11 +122,26 @@ class TestLazyEvaluatedKernelTensorBatch(LinearOperatorTestCase, unittest.TestCa
         self.assertEqual(k.size(), torch.Size([2, 5, 5]))
         self.assertEqual(k[..., :4, :3].size(), torch.Size([2, 4, 3]))
 
+    def test_batch_getitem_multioutput(self):
+        """Ensure slicing is efficient when using a multioutput kernel"""
+        x1 = torch.randn(5, 6)
+        x2 = torch.randn(5, 6)
+        kern = gpytorch.kernels.RBFKernelGrad(batch_shape=torch.Size([2]))
+        k = kern(x1, x2)
+        k.evaluate_kernel = MagicMock(name="evaluate_kernel")
+        k_sliced = k[..., :7, :14]
+        self.assertFalse(k.evaluate_kernel.called)
+        self.assertEqual(k.size(), torch.Size([2, 35, 35]))
+        self.assertEqual(k_sliced.size(), torch.Size([2, 7, 14]))
+
     def test_getitem_tensor_index(self):
         # Not supported a.t.m. with LazyEvaluatedKernelTensors
         pass
 
     def test_bilinear_derivative(self):
+        pass
+
+    def test_t_matmul_matrix(self):
         pass
 
     def test_half(self):

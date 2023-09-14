@@ -299,6 +299,10 @@ class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
         assert torch.equal(d.mean, dist.mean[1, 2, 2, :])
         self.assertAllClose(d.covariance_matrix, dist_cov[1, 2, 2, :, :])
 
+        d = dist[0, 1, ..., 2, 1]
+        assert torch.equal(d.mean, dist.mean[0, 1, 2, 1])
+        self.assertAllClose(d.covariance_matrix, dist_cov[0, 1, 2, 1, 1])
+
     def test_base_sample_shape(self):
         a = torch.randn(5, 10)
         lazy_square_a = RootLinearOperator(to_linear_operator(a))

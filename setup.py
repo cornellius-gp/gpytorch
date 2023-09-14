@@ -40,7 +40,8 @@ readme = open("README.md").read()
 torch_min = "1.11"
 install_requires = [
     "scikit-learn",
-    "linear_operator>=0.4.0",
+    "scipy",
+    "linear_operator>=0.5.2",
 ]
 # if recent dev version of PyTorch is installed, no need to install stable
 try:
@@ -72,10 +73,23 @@ setup(
     python_requires=">=3.8",
     install_requires=install_requires,
     extras_require={
-        "dev": ["ufmt", "twine", "pre-commit"],
+        "dev": ["pre-commit", "setuptools_scm", "twine", "ufmt"],
+        "docs": [
+            "ipykernel<=6.17.1",
+            "ipython<=8.6.0",
+            "m2r2<=0.3.3.post2",
+            "nbclient<=0.7.3",
+            "nbformat<=5.8.0",
+            "nbsphinx<=0.9.1",
+            "platformdirs<=3.2.0",
+            "setuptools_scm<=7.1.0",
+            "sphinx<=6.2.1",
+            "sphinx_autodoc_typehints<=1.23.0",
+            "sphinx_rtd_theme<0.5",
+        ],
         "examples": ["ipython", "jupyter", "matplotlib", "scipy", "torchvision", "tqdm"],
-        "pyro": ["pyro-ppl>=1.8"],
         "keops": ["pykeops>=1.1.1"],
+        "pyro": ["pyro-ppl>=1.8"],
         "test": ["flake8==4.0.1", "flake8-print==4.0.0", "pytest", "nbval"],
     },
     test_suite="test",

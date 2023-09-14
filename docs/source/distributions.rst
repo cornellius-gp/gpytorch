@@ -44,6 +44,7 @@ MultitaskMultivariateNormal
 
 .. autoclass:: MultitaskMultivariateNormal
    :members:
+   :special-members: __getitem__
 
 
 Delta

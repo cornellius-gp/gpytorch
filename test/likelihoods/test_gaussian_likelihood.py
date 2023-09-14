@@ -8,12 +8,7 @@ from linear_operator.operators import DiagLinearOperator
 
 from gpytorch import settings
 from gpytorch.distributions import MultivariateNormal
-from gpytorch.likelihoods import (
-    DirichletClassificationLikelihood,
-    FixedNoiseGaussianLikelihood,
-    GaussianLikelihood,
-    GaussianLikelihoodWithMissingObs,
-)
+from gpytorch.likelihoods import DirichletClassificationLikelihood, FixedNoiseGaussianLikelihood, GaussianLikelihood
 from gpytorch.likelihoods.noise_models import FixedGaussianNoise
 from gpytorch.priors import GammaPrior
 from gpytorch.test.base_likelihood_test_case import BaseLikelihoodTestCase
@@ -164,13 +159,13 @@ class TestDirichletClassificationLikelihood(BaseLikelihoodTestCase, unittest.Tes
             self.assertTrue(torch.allclose(out.variance, 1.0 + obs_targets))
 
 
-class TestGaussianLikelihoodwithMissingObs(BaseLikelihoodTestCase, unittest.TestCase):
+class TestGaussianLikelihoodWithMissingObs(BaseLikelihoodTestCase, unittest.TestCase):
     seed = 42
 
     def create_likelihood(self):
-        return GaussianLikelihoodWithMissingObs()
+        return GaussianLikelihood()
 
-    def test_missing_value_inference(self):
+    def test_missing_value_inference_fill(self):
         """
         samples = mvn samples + noise samples
         In this test, we try to recover noise parameters when some elements in
@@ -179,43 +174,56 @@ class TestGaussianLikelihoodwithMissingObs(BaseLikelihoodTestCase, unittest.Test
 
         torch.manual_seed(self.seed)
 
+        mvn, samples = self._make_data()
+
+        missing_probability = 0.33
+        missing_idx = torch.distributions.Binomial(1, missing_probability).sample(samples.shape).bool()
+        samples[missing_idx] = float("nan")
+
+        # check that the correct noise sd is recovered
+
+        with settings.observation_nan_policy("fill"):
+            self._check_recovery(mvn, samples)
+
+    def test_missing_value_inference_mask(self):
+        """
+        samples = mvn samples + noise samples
+        In this test, we try to recover noise parameters when some elements in
+        'samples' are missing at random.
+        """
+
+        torch.manual_seed(self.seed)
+
+        mvn, samples = self._make_data()
+
+        missing_prop = 0.33
+        missing_idx = torch.distributions.Binomial(1, missing_prop).sample(samples.shape[1:]).bool()
+        samples[1, missing_idx] = float("nan")
+
+        # check that the correct noise sd is recovered
+
+        with settings.observation_nan_policy("fill"):
+            self._check_recovery(mvn, samples)
+
+    def _make_data(self):
         mu = torch.zeros(2, 3)
         sigma = torch.tensor([[[1, 0.999, -0.999], [0.999, 1, -0.999], [-0.999, -0.999, 1]]] * 2).float()
         mvn = MultivariateNormal(mu, sigma)
         samples = mvn.sample(torch.Size([10000]))  # mvn samples
-
         noise_sd = 0.5
         noise_dist = torch.distributions.Normal(0, noise_sd)
         samples += noise_dist.sample(samples.shape)  # noise
+        return mvn, samples
 
-        missing_prop = 0.33
-        missing_idx = torch.distributions.Binomial(1, missing_prop).sample(samples.shape).bool()
-        samples[missing_idx] = float("nan")
-
-        likelihood = GaussianLikelihoodWithMissingObs()
-
-        # check that the missing value fill doesn't impact the likelihood
-
-        likelihood.MISSING_VALUE_FILL = 999.0
-        like_init_plus = likelihood.log_marginal(samples, mvn).sum().data
-
-        likelihood.MISSING_VALUE_FILL = -999.0
-        like_init_minus = likelihood.log_marginal(samples, mvn).sum().data
-
-        torch.testing.assert_close(like_init_plus, like_init_minus)
-
-        # check that the correct noise sd is recovered
-
+    def _check_recovery(self, mvn, samples):
+        likelihood = GaussianLikelihood()
         opt = torch.optim.Adam(likelihood.parameters(), lr=0.05)
-
         for _ in range(100):
             opt.zero_grad()
             loss = -likelihood.log_marginal(samples, mvn).sum()
             loss.backward()
             opt.step()
-
-        assert abs(float(likelihood.noise.sqrt()) - 0.5) < 0.02
-
+        self.assertTrue(abs(float(likelihood.noise.sqrt()) - 0.5) < 0.02)
         # Check log marginal works
         likelihood.log_marginal(samples[0], mvn)
 

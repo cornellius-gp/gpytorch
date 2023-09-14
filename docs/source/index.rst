@@ -29,6 +29,7 @@ GPyTorch's documentation
    models
    likelihoods
    kernels
+   keops_kernels
    means
    marginal_log_likelihoods
    metrics

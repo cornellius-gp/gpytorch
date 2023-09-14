@@ -161,7 +161,7 @@ class LazyEvaluatedKernelTensor(LinearOperator):
         # However - if we have multiple outputs per input, then the indices won't directly
         # correspond to the entries of row/col. We'll have to do a little pre-processing
         if num_outs_per_in_rows != 1 or num_outs_per_in_cols != 1:
-            if not isinstance(x1, slice) or not isinstance(x2, slice):
+            if not isinstance(row_index, slice) or not isinstance(col_index, slice):
                 # It's too complicated to deal with tensor indices in this case - we'll use the super method
                 return self.evaluate_kernel()._getitem(row_index, col_index, *batch_indices)
 
@@ -169,13 +169,13 @@ class LazyEvaluatedKernelTensor(LinearOperator):
             # Let's make sure that the slice dimensions perfectly correspond with the number of
             # outputs per input that we have
             row_start, row_end, row_step = (
-                row_index.start,
-                row_index.stop,
+                row_index.start or 0,
+                row_index.stop or self.shape[-2],
                 row_index.step,
             )
             col_start, col_end, col_step = (
-                col_index.start,
-                col_index.stop,
+                col_index.start or 0,
+                col_index.stop or self.shape[-1],
                 col_index.step,
             )
             if row_step is not None or col_step is not None:

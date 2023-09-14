@@ -38,7 +38,7 @@ class TestCiqVariationalGP(VariationalTestCase, unittest.TestCase):
         self.assertEqual(ciq_mock.call_count, 2)  # One for each evaluation call
 
     def test_fantasy_call(self, *args, **kwargs):
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(NotImplementedError):
             super().test_fantasy_call(*args, **kwargs)
 
 

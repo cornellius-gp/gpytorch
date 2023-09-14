@@ -264,15 +264,21 @@ class _VariationalStrategy(Module, ABC):
         # whitened / unwhitened variational strategies
         if not self.has_fantasy_strategy:
             raise NotImplementedError(
-                "No fantasy model support for ",
-                self.__name__,
-                ". Only VariationalStrategy and UnwhitenedVariationalStrategy are currently supported.",
+                f"No fantasy model support for {self.__class__.__name__}. "
+                "Only VariationalStrategy and UnwhitenedVariationalStrategy are currently supported."
             )
+        else:
+            from . import CholeskyVariationalDistribution  # Circular import otherwise
+
+            if not isinstance(self._variational_distribution, CholeskyVariationalDistribution):
+                raise NotImplementedError(
+                    "Fantasy models are only support for variational models with CholeskyVariationalDistribution."
+                )
+
         if not isinstance(self.model.likelihood, GaussianLikelihood):
             raise NotImplementedError(
-                "No fantasy model support for ",
-                self.model.likelihood,
-                ". Only GaussianLikelihoods are currently supported.",
+                f"No fantasy model support for {self.model.likelihood.__class__.__name__}. "
+                "Only GaussianLikelihoods are currently supported."
             )
         # we assume that either the user has given the model a mean_module and a covar_module
         # or that it will be passed into the get_fantasy_model function. we check for these.
@@ -280,16 +286,16 @@ class _VariationalStrategy(Module, ABC):
             mean_module = getattr(self.model, "mean_module", None)
             if mean_module is None:
                 raise ModuleNotFoundError(
-                    "Either you must provide a mean_module as input to get_fantasy_model",
-                    "or it must be an attribute of the model called mean_module.",
+                    "Either you must provide a mean_module as input to get_fantasy_model "
+                    "or it must be an attribute of the model called mean_module."
                 )
         if covar_module is None:
             covar_module = getattr(self.model, "covar_module", None)
             if covar_module is None:
                 # raise an error
                 raise ModuleNotFoundError(
-                    "Either you must provide a covar_module as input to get_fantasy_model",
-                    "or it must be an attribute of the model called covar_module.",
+                    "Either you must provide a covar_module as input to get_fantasy_model "
+                    "or it must be an attribute of the model called covar_module."
                 )
 
         # first we construct an exact model over the inducing points with the inducing covariance

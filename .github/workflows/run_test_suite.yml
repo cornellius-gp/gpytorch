@@ -55,6 +55,7 @@ jobs:
         pip install -e .
         if [[ ${{ matrix.extras }} == "with-extras" ]]; then
           pip install "pyro-ppl>=1.8";
+          pip install pykeops;
           pip install faiss-cpu;  # Unofficial pip release: https://pypi.org/project/faiss-cpu/#history
         fi
     - name: Run unit tests
@@ -75,7 +76,8 @@ jobs:
         pip install pytest nbval jupyter tqdm matplotlib torchvision scipy
         pip install -e .
         pip install "pyro-ppl>=1.8";
-          pip install faiss-cpu;  # Unofficial pip release: https://pypi.org/project/faiss-cpu/#history
+        pip install pykeops;
+        pip install faiss-cpu;  # Unofficial pip release: https://pypi.org/project/faiss-cpu/#history
     - name: Run example notebooks
       run: |
         grep -l smoke_test examples/**/*.ipynb | xargs grep -L 'smoke_test = False' | CI=true xargs pytest --nbval-lax --current-env
