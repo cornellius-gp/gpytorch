@@ -6,7 +6,7 @@ from index_testing_data import data, new_orders, test_data
 from test_index import TestBaseIndex
 from torch import tensor
 
-from gpytorch.vecchia import KMeansIndex
+from gpytorch.nearest_neighbors import KMeansIndex
 
 
 # copy of the euclidean distance metric in the DistanceMetrics module

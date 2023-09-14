@@ -18,7 +18,7 @@ __all__ = [
 
 # TODO: Where to put this???
 # this function uses an index to compute block mean and covariance for a Vecchia-style GP. Until we have a more
-# concrete vecchia module, I do not know where to put this.
+# concrete nearest_neighbors module, I do not know where to put this.
 def compute_mean_covar(index, x1, x2, y, mean_module, covar_module, training):
 
     # extract relevant info from index
