@@ -671,7 +671,7 @@ class LazyTensor(ABC):
         return inv_roots
 
     def _solve(self, rhs, preconditioner, num_tridiag=0):
-        if True:
+        if settings.use_alternating_projection.on():
             from .added_diag_lazy_tensor import AddedDiagLazyTensor
             assert isinstance(self, AddedDiagLazyTensor)
 
@@ -684,8 +684,8 @@ class LazyTensor(ABC):
             return utils.alternating_projection(
                 train_x, covar_module, noise,
                 rhs,
-                batch=1000,
-                maxiter=200,
+                batch=settings.altproj_batch_size.value(),
+                maxiter=settings.max_cg_iterations.value(),
                 tracker=None,
             )
         else:

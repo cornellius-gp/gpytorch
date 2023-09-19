@@ -762,6 +762,18 @@ class tridiagonal_jitter(_value_context):
     _global_value = 1e-6
 
 
+class use_alternating_projection(_feature_flag):
+    """
+    Whether or not to use alternating projection to solve linear systems.
+    """
+    _default = False
+
+
+class altproj_batch_size(_value_context):
+
+    _global_value = 1000
+
+
 class use_toeplitz(_feature_flag):
     """
     Whether or not to use Toeplitz math with gridded data, grid inducing point modules
