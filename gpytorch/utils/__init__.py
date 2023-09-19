@@ -9,6 +9,8 @@ from .pinverse import stable_pinverse
 from .qr import stable_qr
 from .stochastic_lq import StochasticLQ
 
+from .alternating_projection import alternating_projection
+
 
 def prod(items):
     """ """

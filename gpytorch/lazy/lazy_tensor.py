@@ -671,14 +671,32 @@ class LazyTensor(ABC):
         return inv_roots
 
     def _solve(self, rhs, preconditioner, num_tridiag=0):
-        return utils.linear_cg(
-            self._matmul,
-            rhs,
-            n_tridiag=num_tridiag,
-            max_iter=settings.max_cg_iterations.value(),
-            max_tridiag_iter=settings.max_lanczos_quadrature_iterations.value(),
-            preconditioner=preconditioner,
-        )
+        if True:
+            from .added_diag_lazy_tensor import AddedDiagLazyTensor
+            assert isinstance(self, AddedDiagLazyTensor)
+
+            representation = self.representation()
+
+            train_x = representation[0]
+            noise = representation[3].item()
+            covar_module = self.lazy_tensors[0]._kwargs['covar_module']
+
+            return utils.alternating_projection(
+                train_x, covar_module, noise,
+                rhs,
+                batch=1000,
+                maxiter=200,
+                tracker=None,
+            )
+        else:
+            return utils.linear_cg(
+                self._matmul,
+                rhs,
+                n_tridiag=num_tridiag,
+                max_iter=settings.max_cg_iterations.value(),
+                max_tridiag_iter=settings.max_lanczos_quadrature_iterations.value(),
+                preconditioner=preconditioner,
+            )
 
     def _sum_batch(self, dim):
         """

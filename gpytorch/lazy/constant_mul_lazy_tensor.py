@@ -57,11 +57,11 @@ class ConstantMulLazyTensor(LazyTensor):
         >>> #   [ 2, 1.5, 1 ]]]
     """
 
-    def __init__(self, base_lazy_tensor, constant):
+    def __init__(self, base_lazy_tensor, constant, **kwargs):
         if not torch.is_tensor(constant):
             constant = torch.tensor(constant, device=base_lazy_tensor.device, dtype=base_lazy_tensor.dtype)
 
-        super(ConstantMulLazyTensor, self).__init__(base_lazy_tensor, constant)
+        super(ConstantMulLazyTensor, self).__init__(base_lazy_tensor, constant, **kwargs)
         self.base_lazy_tensor = base_lazy_tensor
         self._constant = constant
 

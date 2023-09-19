@@ -346,7 +346,9 @@ class LazyEvaluatedKernelTensor(LazyTensor):
                     "This is likely a bug in GPyTorch."
                 )
 
-        return lazify(res)
+        res = lazify(res)
+        res._kwargs['covar_module'] = self.kernel
+        return res
 
     @cached
     def evaluate(self):
