@@ -76,6 +76,7 @@ def alternating_projection(
             tracker.log({'residual': avg_residual_norm})
 
         if i >= 10 and avg_residual_norm < tolerance:
+            print("total epochs {:d}".format(i))
             break
 
     return weights * rhs.norm(dim=-2, keepdim=True)

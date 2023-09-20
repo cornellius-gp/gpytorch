@@ -330,6 +330,8 @@ def linear_cg(
     if is_vector:
         result = result.squeeze(-1)
 
+    print("total iterations {:d}".format(k))
+
     if n_tridiag:
         t_mat = t_mat[: last_tridiag_iter + 1, : last_tridiag_iter + 1]
         return result, t_mat.permute(-1, *range(2, 2 + len(batch_shape)), 0, 1).contiguous()
