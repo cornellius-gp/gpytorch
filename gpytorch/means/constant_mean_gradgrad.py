@@ -15,8 +15,8 @@ class ConstantMeanGradGrad(Mean):
     .. math::
 
         \mu(\mathbf x) &= C \\
-        \Grad \mu(\mathbf x) &= \mathbf 0 \\
-        \Grad^2 \mu(\mathbf x) &= \mathbf 0
+        \nabla \mu(\mathbf x) &= \mathbf 0 \\
+        \nabla^2 \mu(\mathbf x) &= \mathbf 0
 
     where :math:`C` is a learned constant.
 
