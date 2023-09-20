@@ -282,6 +282,12 @@ def linear_cg(
         residual_norm.masked_fill_(rhs_is_zero, 0)
         torch.lt(residual_norm, stop_updating_after, out=has_converged)
 
+        if settings.verbose.on():
+            print(
+                "iter {:4d},".format(k),
+                "avg residual norm {:.4f}".format(residual_norm.mean().item()),
+            )
+
         if (
             k >= min(10, max_iter - 1)
             and bool(residual_norm.mean() < tolerance)
@@ -329,8 +335,6 @@ def linear_cg(
 
     if is_vector:
         result = result.squeeze(-1)
-
-    print("total iterations {:d}".format(k))
 
     if n_tridiag:
         t_mat = t_mat[: last_tridiag_iter + 1, : last_tridiag_iter + 1]

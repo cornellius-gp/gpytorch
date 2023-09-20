@@ -774,6 +774,18 @@ class altproj_batch_size(_value_context):
     _global_value = 1000
 
 
+class record_residual(_feature_flag):
+
+    _default = True
+
+    lst_residual_norm = []
+
+
+class verbose(_feature_flag):
+
+    _default = False
+
+
 class use_toeplitz(_feature_flag):
     """
     Whether or not to use Toeplitz math with gridded data, grid inducing point modules

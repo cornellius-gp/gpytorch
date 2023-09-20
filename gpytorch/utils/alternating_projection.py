@@ -70,13 +70,14 @@ def alternating_projection(
 
         # record residual
         avg_residual_norm = torch.linalg.norm(r, dim=-2).mean().item()
-        print("iter {:4d}, rel err {:f}".format(i, avg_residual_norm))
 
         if tracker is not None:
             tracker.log({'residual': avg_residual_norm})
 
+        if settings.record_residual.on():
+            settings.record_residual.lst_residual_norm.append(avg_residual_norm)
+
         if i >= 10 and avg_residual_norm < tolerance:
-            print("total epochs {:d}".format(i))
             break
 
     return weights * rhs.norm(dim=-2, keepdim=True)
