@@ -282,6 +282,8 @@ def linear_cg(
         residual_norm.masked_fill_(rhs_is_zero, 0)
         torch.lt(residual_norm, stop_updating_after, out=has_converged)
 
+        settings.record_residual.lst_residual_norm.append(residual_norm.mean().item())
+
         if settings.verbose.on():
             print(
                 "iter {:4d},".format(k),
