@@ -677,7 +677,7 @@ class LazyTensor(ABC):
 
             representation = self.representation()
 
-            train_x = representation[0]
+            train_x = self.lazy_tensors[0]._kwargs['train_x']
             noise = representation[3].item()
             covar_module = self.lazy_tensors[0]._kwargs['covar_module']
 

@@ -348,6 +348,8 @@ class LazyEvaluatedKernelTensor(LazyTensor):
 
         res = lazify(res)
         res._kwargs['covar_module'] = self.kernel
+        res._kwargs['train_x'] = self.x1
+
         return res
 
     @cached
