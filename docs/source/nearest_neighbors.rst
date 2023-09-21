@@ -1,16 +1,16 @@
 .. role:: hidden
     :class: hidden-section
 
-gpytorch.vecchia
+gpytorch.nearest_neighbors
 ===================================
 
 These modules provide a set of interfaces for partitioning datasets and establishing
 neighborhood structures between partitions. This kind of partitioning is required for
-Vecchia-style Gaussian Process models, and we ensure behind the scenes that Vecchia models
+nearest-neighbor-style Gaussian Process models, and we ensure behind the scenes that nearest-neighbor models
 based on these partitions still form valid joint density functions.
 
-.. automodule:: gpytorch.vecchia
-.. currentmodule:: gpytorch.vecchia
+.. automodule:: gpytorch.nearest_neighbors
+.. currentmodule:: gpytorch.nearest_neighbors
 
 
 Indexes
@@ -53,7 +53,7 @@ functions that take in vectors of observations and return the distance matrix fo
 Ordering Strategies
 -----------------------------
 
-Because Vecchia approximations depend on the ordering of the data they're trained on, we need a way
+Because nearest-neighbor approximations depend on the ordering of the data they're trained on, we need a way
 to order the dataset by different metrics to find the best ordering strategy for a given problem.
 The OrderingStrategies class includes methods for ordering the data by a given coordinate or by an
 :math:`L_p` norm. Custom ordering strategies can be implemented here and must return a function that
