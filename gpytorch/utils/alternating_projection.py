@@ -74,6 +74,9 @@ def alternating_projection(
         if tracker is not None:
             tracker.log({'residual': avg_residual_norm})
 
+        if settings.verbose.on():
+            print("iter {:4d}, avg residual {:f}".format(i, avg_residual_norm))
+
         if settings.record_residual.on():
             settings.record_residual.lst_residual_norm.append(avg_residual_norm)
 
