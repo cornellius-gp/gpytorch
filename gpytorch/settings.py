@@ -779,6 +779,7 @@ class record_residual(_feature_flag):
     _default = True
 
     lst_residual_norm = []
+    lst_residual_norm_each_rhs = []
 
 
 class verbose(_feature_flag):

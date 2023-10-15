@@ -284,10 +284,20 @@ def linear_cg(
 
         settings.record_residual.lst_residual_norm.append(residual_norm.mean().item())
 
+        residual_each_rhs = list(residual_norm[0].cpu().numpy())
+        settings.record_residual.lst_residual_norm_each_rhs.append(
+            residual_each_rhs
+        )
+
         if settings.verbose.on():
+            # import ipdb; ipdb.set_trace()
+            if len(residual_each_rhs) > 5:
+                residual_each_rhs = residual_each_rhs[:5]
+
             print(
                 "iter {:4d},".format(k),
-                "avg residual norm {:.4f}".format(residual_norm.mean().item()),
+                "avg residual norm {:.4f},".format(residual_norm.mean().item()),
+                *residual_each_rhs,
             )
 
         if (

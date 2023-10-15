@@ -75,10 +75,19 @@ def alternating_projection(
             tracker.log({'residual': avg_residual_norm})
 
         if settings.verbose.on():
-            print("iter {:4d}, avg residual {:f}".format(i, avg_residual_norm))
+            # import ipdb; ipdb.set_trace()
+            print(
+                "iter {:4d}, avg residual {:f}".format(i, avg_residual_norm),
+                *list(torch.linalg.norm(r, dim=-2).cpu().numpy())
+            )
 
         if settings.record_residual.on():
             settings.record_residual.lst_residual_norm.append(avg_residual_norm)
+
+            residual_each_rhs = list(torch.linalg.norm(r, dim=-2).cpu().numpy())
+            settings.record_residual.lst_residual_norm_each_rhs.append(
+                residual_each_rhs
+            )
 
         if i >= 10 and avg_residual_norm < tolerance:
             break
