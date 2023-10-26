@@ -8,6 +8,7 @@ from .linear_mean_grad import LinearMeanGrad
 from .linear_mean_gradgrad import LinearMeanGradGrad
 from .mean import Mean
 from .multitask_mean import MultitaskMean
+from .quadratic_mean import QuadraticMean
 from .zero_mean import ZeroMean
 
 __all__ = [
@@ -18,6 +19,7 @@ __all__ = [
     "LinearMean",
     "LinearMeanGrad",
     "LinearMeanGradGrad",
+    "QuadraticMean",
     "MultitaskMean",
     "ZeroMean",
 ]
