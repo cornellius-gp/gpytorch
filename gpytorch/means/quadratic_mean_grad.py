@@ -5,13 +5,14 @@ import torch
 from .mean import Mean
 
 
-class QuadraticMean(Mean):
+class QuadraticMeanGrad(Mean):
     r"""
     A quadratic prior mean function and its first derivative, i.e.:
 
     .. math::
 
-        \mu(\mathbf x) &= \frac12 \mathbf x^\top \cdot A \cdot \mathbf x
+        \mu(\mathbf x) &= \frac12 \mathbf x^\top \cdot A \cdot \mathbf x \\
+        \nabla \mu(\mathbf x) &= \mathbf x \cdot A
 
     where :math:`A = L L^\top` and L a lower triangular matrix.
 
@@ -38,4 +39,9 @@ class QuadraticMean(Mean):
                 for k in range(j, self.dim):
                     xl[..., i, j] += self.cholesky[..., k * (k + 1) // 2 + j] * x[..., i, k]
         res = xl.pow(2).sum(-1).div(2)
-        return res
+        dres = torch.zeros(*x.shape, device=x.device)
+        for i in range(x.shape[-2]):
+            for j in range(self.dim):
+                for k in range(j + 1):
+                    dres[..., i, j] = self.cholesky[..., j * (j + 1) // 2 + k] * xl[..., i, k]
+        return torch.cat((res.unsqueeze(-1), dres), -1)
