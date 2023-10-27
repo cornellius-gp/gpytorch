@@ -34,7 +34,7 @@ class TestQuadraticMeanGrad(BaseMeanTestCase, unittest.TestCase):
         )
         res = mean(test_x)
         xl = test_x.matmul(L)
-        true_res = torch.cat((xl.pow(2).sum(-1).div(2).unsqueeze(-1), xl.matmul(L.transpose(-2, -1))), -1)
+        true_res = torch.cat((xl.pow(2).sum(-1).div(2).unsqueeze(-1), xl.matmul(L.T)), -1)
         self.assertAllClose(res, true_res)
 
     def test_forward_vec(self):

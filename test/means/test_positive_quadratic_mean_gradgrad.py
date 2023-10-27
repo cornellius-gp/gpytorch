@@ -33,7 +33,7 @@ class TestQuadraticMeanGrad(BaseMeanTestCase, unittest.TestCase):
             ]
         )
         res = mean(test_x)
-        A = L.matmul(L.transpose(-2, -1))
+        A = L.matmul(L.T)
         true_res = torch.cat(
             (
                 test_x.matmul(L).pow(2).sum(-1).div(2).unsqueeze(-1),
