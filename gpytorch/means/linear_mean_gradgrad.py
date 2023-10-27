@@ -43,4 +43,5 @@ class LinearMeanGradGrad(Mean):
             res = res + self.bias.unsqueeze(-1)
         dres = self.weights.expand(x.transpose(-1, -2).shape).transpose(-1, -2)
         ddres = torch.zeros_like(dres)
+        print(res.shape, dres.shape, ddres.shape)
         return torch.cat((res, dres, ddres), -1)
