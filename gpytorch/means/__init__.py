@@ -11,6 +11,7 @@ from .multitask_mean import MultitaskMean
 from .positive_quadratic_mean import PositiveQuadraticMean
 from .positive_quadratic_mean_grad import PositiveQuadraticMeanGrad
 from .positive_quadratic_mean_gradgrad import PositiveQuadraticMeanGradGrad
+from .quadratic_mean import QuadraticMean
 from .zero_mean import ZeroMean
 
 __all__ = [
@@ -21,6 +22,7 @@ __all__ = [
     "LinearMean",
     "LinearMeanGrad",
     "LinearMeanGradGrad",
+    "QuadraticMean",
     "PositiveQuadraticMean",
     "PositiveQuadraticMeanGrad",
     "PositiveQuadraticMeanGradGrad",
