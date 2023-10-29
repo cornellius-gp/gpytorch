@@ -5,13 +5,14 @@ import torch
 from .mean import Mean
 
 
-class QuadraticMean(Mean):
+class QuadraticMeanGrad(Mean):
     r"""
-    A quadratic prior mean function, i.e.:
+    A quadratic prior mean function and its first derivative, i.e.:
 
     .. math::
 
-        \mu(\mathbf x) &= \frac12 \mathbf x^\top \cdot A \cdot \mathbf x
+        \mu(\mathbf x) &= \frac12 \mathbf x^\top \cdot A \cdot \mathbf x \\
+        \nabla \mu(\mathbf x) &= \frac12 \mathbf x \cdot ( A + A^\top )
 
     where :math:`A` and L a square matrix.
 
@@ -32,10 +33,12 @@ class QuadraticMean(Mean):
 
     def forward(self, x):
         res = torch.zeros(*x.shape[:-1], device=x.device)
+        dres = torch.zeros(*x.shape, device=x.device)
         for i in range(x.shape[-2]):
             for j in range(self.dim):
                 s = 0.0
                 for k in range(self.dim):
                     s += x[..., i, k] * self.A[..., k, j]
+                    dres[..., i, j] += x[..., i, k] * (self.A[..., j, k] + self.A[..., k, j])
                 res[..., i] += x[..., i, j] * s
-        return res.div(2)
+        return torch.cat((res.div(2).unsqueeze(-1), dres.div(2)), -1)
