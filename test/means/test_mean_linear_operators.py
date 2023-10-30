@@ -94,7 +94,7 @@ class TestAdditiveAndSubstractiveMeans(BaseTestCase, unittest.TestCase):
     def test_gradgrad(self):
         mean_mod1 = LinearMeanGradGrad(2).initialize(weights=w, bias=b)
         mean_mod2 = PositiveQuadraticMeanGradGrad(2).initialize(cholesky=torch.tensor([L[0, 0], L[1, 0], L[1, 1]]))
-        mean_module = mean_mod1 + mean_mod2
+        mean_module = mean_mod1 + 2 * mean_mod2
         x = torch.tensor(
             [
                 [1.0, 0.0],
@@ -109,9 +109,9 @@ class TestAdditiveAndSubstractiveMeans(BaseTestCase, unittest.TestCase):
                 [
                     torch.cat(
                         [
-                            (b + x.matmul(w).squeeze() + x.matmul(L).pow(2).sum(-1).div(2)).unsqueeze(-1),
-                            w.squeeze().expand_as(x) + x.matmul(A),
-                            A.diag().expand_as(x),
+                            (b + x.matmul(w).squeeze() + x.matmul(L).pow(2).sum(-1)).unsqueeze(-1),
+                            w.squeeze().expand_as(x) + 2 * x.matmul(A),
+                            2 * A.diag().expand_as(x),
                         ],
                         -1,
                     ),
@@ -129,6 +129,23 @@ class TestAdditiveAndSubstractiveMeans(BaseTestCase, unittest.TestCase):
                             (b + x.matmul(w).squeeze() - x.matmul(L).pow(2).sum(-1).div(2)).unsqueeze(-1),
                             w.squeeze().expand_as(x) - x.matmul(A),
                             -A.diag().expand_as(x),
+                        ],
+                        -1,
+                    ),
+                ],
+                -1,
+            ),
+        )
+        mean_module_neg = -mean_mod1
+        self.assertAllClose(
+            mean_module_neg(x),
+            torch.cat(
+                [
+                    torch.cat(
+                        [
+                            -(b + x.matmul(w).squeeze()).unsqueeze(-1),
+                            -w.squeeze().expand_as(x),
+                            torch.zeros_like(x),
                         ],
                         -1,
                     ),

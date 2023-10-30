@@ -42,6 +42,18 @@ class Mean(Module):
         negative_means += other.means if isinstance(other, AdditiveMean) else [other]
         return AdditiveMean(*means, negative_means=negative_means)
 
+    def __mul__(self, other: Union[float, int]) -> "Mean":
+        if isinstance(other, Union[float, int]):
+            return HometetiaMean(self, other)
+        else:
+            raise NotImplementedError(f"Multiplication between 'Mean' and '{type(other)}' is not supported.")
+
+    def __rmul__(self, other: Union[float, int, "Mean"]) -> "Mean":
+        return self.__mul__(other)
+
+    def __neg__(self) -> "Mean":
+        return HometetiaMean(self, -1.0)
+
 
 class AdditiveMean(Mean):
     """
@@ -69,3 +81,25 @@ class AdditiveMean(Mean):
             for mean in self.negative_means:
                 res -= mean(x)
         return res
+
+
+class HometetiaMean(Mean):
+    """
+    A Mean multiplied with a constant.
+
+    Example:
+        >>> mean_module = (-2) * PositiveQuadraticMean(2)
+        >>> x1 = torch.randn(50, 2)
+        >>> additive_mean_vector = mean_module(x1)
+
+    :param mean: Mean module.
+    :param c: Coefficient to multiply with the mean module.
+    """
+
+    def __init__(self, mean: Mean, coefficient: float):
+        super(HometetiaMean, self).__init__()
+        self.mean = mean
+        self.c = coefficient
+
+    def forward(self, x: Tensor) -> Tensor:
+        return self.c * self.mean(x)
