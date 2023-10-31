@@ -92,7 +92,7 @@ See the contributing guidelines [CONTRIBUTING.md](https://github.com/cornellius-
 for information on submitting issues and pull requests.
 
 
-## The Team
+## Our Team
 
 GPyTorch is primarily maintained by:
 - [Jake Gardner](https://www.cis.upenn.edu/~jacobrg/index.html) (University of Pennsylvania)
