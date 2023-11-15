@@ -25,6 +25,7 @@ Here we provide some examples which highlight some of the common use cases:
 - **Variational inference with natural gradient descent** (for faster/better optimization): see the `ngd example`_.
 - **Variational inference with contour integral quadrature** (for large numbers of inducing points): see the `ciq example`_.
 - **Variational inference with nearest neighbor approximation** (for large numbers of inducing points): see the `vnngp example`_.
+- **Customizing nearest-neighbor approximations** for alternative to variational inference: see the `nearest neighbors introduction notebook`_.
 - **Variational distribution options** for different scalability/expressiveness: see the `strategy/distribution comparison`_.
 - **Alternative optimization objectives** for the GP's predictive distribution: see the `approximate GP objective functions notebook`_.
   This example compares and contrasts the variational ELBO with the predictive log likelihood of Jankowiak et al., 2020.
@@ -78,5 +79,5 @@ Here we provide some examples which highlight some of the common use cases:
 .. _GPs with uncertain inputs example:
   ./GP_Regression_with_Uncertain_Inputs.ipynb
 
-.. _Getting Started with Nearest Neighbors:
+.. _nearest neighbors introduction notebook::
   ./Getting_Started_with_Nearest_Neighbors.ipynb
