@@ -79,5 +79,5 @@ Here we provide some examples which highlight some of the common use cases:
 .. _GPs with uncertain inputs example:
   ./GP_Regression_with_Uncertain_Inputs.ipynb
 
-.. _nearest neighbors introduction notebook::
+.. _nearest neighbors introduction notebook:
   ./Getting_Started_with_Nearest_Neighbors.ipynb
