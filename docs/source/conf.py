@@ -259,7 +259,7 @@ def _process(annotation, config):
     # For any linear_operator class, the format will be e.g. "~linear_operator.operators.TriangularLinearOperator"
     # For any internal class, the format will be e.g. "~gpytorch.kernels.RBFKernel"
     elif hasattr(annotation, "__name__"):
-        module = annotation.__module__ + "."
+        module = str(annotation.__module__) + "."
         if module.split(".")[0] == "linear_operator":
             if annotation.__name__.endswith("LinearOperator"):
                 module = "~linear_operator."

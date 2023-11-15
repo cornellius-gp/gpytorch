@@ -88,7 +88,7 @@ def is_inside(polygon: torch.tensor, points: torch.tensor) -> torch.tensor:
     """
     Ray tracing algorithm to determine which of an array of points is contained within a polygon.
 
-    @param polygon: Tensor where the first n rows correspond to n vertices in the polygon,
+    @param polygon: Tensor of size ((n+1), 2) where the first n rows correspond to n vertices in the polygon,
         and the final row contains a duplicate of the first vertex to complete the polygon.
     @param points: Tensor of size (m, 2) representing the points of interest.
 
