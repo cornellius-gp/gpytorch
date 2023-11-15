@@ -75,7 +75,7 @@ setup(
     extras_require={
         "dev": ["pre-commit", "setuptools_scm", "twine", "ufmt"],
         "docs": [
-            "faiss>=1.7.0",
+            "faiss<=1.7.4",
             "ipykernel<=6.17.1",
             "ipython<=8.6.0",
             "m2r2<=0.3.3.post2",
