@@ -46,6 +46,7 @@ Here we provide some examples which highlight some of the common use cases:
    PolyaGamma_Binary_Classification.ipynb
    SVGP_Multitask_GP_Regression.ipynb
    GP_Regression_with_Uncertain_Inputs.ipynb
+   Getting_Started_with_Nearest_Neighbors.ipynb
 
 .. _strategy/distribution comparison:
   ./Modifying_the_variational_strategy_and_distribution.ipynb
@@ -76,3 +77,6 @@ Here we provide some examples which highlight some of the common use cases:
 
 .. _GPs with uncertain inputs example:
   ./GP_Regression_with_Uncertain_Inputs.ipynb
+
+.. _Getting Started with Nearest Neighbors:
+  ./Getting_Started_with_Nearest_Neighbors.ipynb
