@@ -66,11 +66,12 @@ __all__ = [
 
 
 def __getattr__(name: str) -> Any:
-    warnings.warn(
-        "GPyTorch will be replacing all LazyTensor functionality with the linear operator package. "
-        "Replace all references to gpytorch.lazy.*LazyTensor with linear_operator.operators.*LinearOperator.",
-        DeprecationWarning,
-    )
+    if not name.startswith("_"):
+        warnings.warn(
+            "GPyTorch will be replacing all LazyTensor functionality with the linear operator package. "
+            "Replace all references to gpytorch.lazy.*LazyTensor with linear_operator.operators.*LinearOperator.",
+            DeprecationWarning,
+        )
     if name == "LazyTensor":
         from .lazy_tensor import LazyTensor
 
