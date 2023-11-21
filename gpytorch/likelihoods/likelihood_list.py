@@ -2,9 +2,10 @@
 
 from torch.nn import ModuleList
 
-from gpytorch.likelihoods import Likelihood
-from gpytorch.utils.generic import length_safe_zip
-
+# from gpytorch.likelihoods import Likelihood
+# from gpytorch.utils.generic import length_safe_zip
+from .likelihood import Likelihood
+from ..utils.generic import length_safe_zip
 
 def _get_tuple_args_(*args):
     for arg in args:
