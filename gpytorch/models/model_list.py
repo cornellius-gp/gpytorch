@@ -5,10 +5,12 @@ from abc import ABC
 import torch
 from torch.nn import ModuleList
 
-from gpytorch.likelihoods import LikelihoodList
-from gpytorch.models import GP
-from gpytorch.utils.generic import length_safe_zip
-
+# from gpytorch.likelihoods import LikelihoodList
+# from gpytorch.models import GP
+# from gpytorch.utils.generic import length_safe_zip
+from ..likelihoods import LikelihoodList
+from .gp import GP 
+from ..utils.generic import length_safe_zip
 
 class AbstractModelList(GP, ABC):
     def forward_i(self, i, *args, **kwargs):
