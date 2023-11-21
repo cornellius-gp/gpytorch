@@ -18,8 +18,10 @@ from linear_operator.utils.cholesky import psd_safe_cholesky
 from linear_operator.utils.errors import NotPSDError
 from torch import Tensor
 
-from gpytorch.variational._variational_strategy import _VariationalStrategy
-from gpytorch.variational.cholesky_variational_distribution import CholeskyVariationalDistribution
+# from gpytorch.variational._variational_strategy import _VariationalStrategy
+# from gpytorch.variational.cholesky_variational_distribution import CholeskyVariationalDistribution
+from ._variational_strategy import _VariationalStrategy
+from .cholesky_variational_distribution import CholeskyVariationalDistribution
 
 from ..distributions import MultivariateNormal
 from ..models import ApproximateGP
