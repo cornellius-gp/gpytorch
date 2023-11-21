@@ -7,7 +7,8 @@ import torch
 from torch.distributions import constraints, HalfCauchy, Normal
 from torch.nn import Module as TModule
 
-from gpytorch.priors.prior import Prior
+# from gpytorch.priors.prior import Prior
+from .prior import Prior
 
 
 class HorseshoePrior(Prior):
