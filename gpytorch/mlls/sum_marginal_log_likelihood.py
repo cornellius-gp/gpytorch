@@ -2,9 +2,11 @@
 
 from torch.nn import ModuleList
 
-from gpytorch.mlls import ExactMarginalLogLikelihood, MarginalLogLikelihood
-from gpytorch.utils.generic import length_safe_zip
-
+# from gpytorch.mlls import ExactMarginalLogLikelihood, MarginalLogLikelihood
+# from gpytorch.utils.generic import length_safe_zip
+from .exact_marginal_log_likelihood import ExactMarginalLogLikelihood
+from .marginal_log_likelihood import MarginalLogLikelihood
+from ..utils.generic import length_safe_zip
 
 class SumMarginalLogLikelihood(MarginalLogLikelihood):
     """Sum of marginal log likelihoods, to be used with Multi-Output models.
