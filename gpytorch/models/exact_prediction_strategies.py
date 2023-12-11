@@ -900,7 +900,9 @@ class ComputationAwarePredictionStrategy(DefaultPredictionStrategy):
             train_labels_offset = self.train_labels - train_mean
 
             with torch.no_grad():  # Ensure gradients are not taken through the solve
-                self._solver_state = linear_solver.solve(train_train_covar.evaluate_kernel(), train_labels_offset)
+                self._solver_state = linear_solver.solve(
+                    train_train_covar.evaluate_kernel(), train_labels_offset  # TODO: should this evaluate the kernel?
+                )
         else:
             self._solver_state = solver_state
 
@@ -914,56 +916,59 @@ class ComputationAwarePredictionStrategy(DefaultPredictionStrategy):
         """State of the linear solver solving for the representer weights."""
         return self._solver_state
 
+    def exact_prediction(self, joint_mean, joint_covar):
+        # Find the components of the distribution that contain test data
+        test_mean = joint_mean[..., self.num_train :]
+        # For efficiency - we can make things more efficient
+        if joint_covar.size(-1) <= settings.max_eager_kernel_size.value():
+            test_covar = joint_covar[..., self.num_train :, :].to_dense()
+            test_test_covar = test_covar[..., self.num_train :]
+            test_train_covar = test_covar[..., : self.num_train]
+        else:
+            test_test_covar = joint_covar[..., self.num_train :, self.num_train :]
+            test_train_covar = joint_covar[..., self.num_train :, : self.num_train]
+
+        # Precompute K(X_*, X) S
+        covar_test_train_actions = test_train_covar @ self.solver_state.cache["actions"]
+
+        return (
+            self.predictive_mean(test_mean, covar_test_train_actions),
+            self.predictive_covar(test_test_covar, covar_test_train_actions),
+        )
+
     @property
     @cached(name="mean_cache")
     def mean_cache(self) -> torch.Tensor:
         """Compute the representer weights."""
-        mean_cache = self._solver_state.solution.squeeze(-1)
+        raise NotImplementedError  # Note: Want to avoid quadratic cost of multiplying with representer weights.
 
-        if settings.detach_test_caches.on():
-            mean_cache = mean_cache.detach()
-
-        return mean_cache
-
-    def exact_predictive_mean(self, test_mean: Tensor, test_train_covar: LinearOperator) -> Tensor:
+    def predictive_mean(self, test_mean: Tensor, covar_test_train_actions: torch.Tensor) -> Tensor:
         """
-        Computes the posterior predictive covariance of a GP
+        Computes the posterior predictive mean.
 
         :param Tensor test_mean: The test prior mean
-        :param ~linear_operator.operators.LinearOperator test_train_covar:
-            Covariance matrix between test and train inputs
+        :param Tensor covar_test_train_actions: Kernel evaluated at test and train points, multiplied by the
+        actions: :math:`K_{X_*, X} S`.
+
         :return: The predictive posterior mean of the test points
         """
-        # NOTE TO FUTURE SELF:
-        # You **cannot* use addmv here, because test_train_covar may not actually be a non lazy tensor even for an exact
-        # GP, and using addmv requires you to to_dense test_train_covar, which is obviously a huge no-no!
-
-        # TODO: We need to overwrite this to avoid doing a O(n_* n) operation!!!
-        res = (test_train_covar @ self.mean_cache.unsqueeze(-1)).squeeze(-1)
-        res = res + test_mean
-
-        return res
+        return test_mean + covar_test_train_actions @ self.solver_state.cache["compressed_solution"]
 
     @property
     @cached(name="covar_cache")
     def covar_cache(self):
         raise NotImplementedError
 
-    def _exact_predictive_covar_inv_quad_form_root(self, test_train_covar):
+    def _exact_predictive_covar_inv_quad_form_root(self, covar_test_train_actions: torch.Tensor):
         r"""
-        Computes :math:`K_{X^{*}X} S L^{-T}`.
+        Computes :math:`K_{X_*, X} S L^{-T}`.
 
-        Args:
-            actions: Performed solver actions S
-            gram_cholfac: Cholesky factor of the gram matrix of the solver LL' = S'Khat S
-            test_train_covar: Kernel evaluated at test and train points.
+        :param Tensor covar_test_train_actions: Kernel evaluated at test and train points, multiplied by the
+        actions: :math:`K_{X_*, X} S`.
 
         Returns
-            :obj:`~linear_operator.operators.LinearOperator`: :math:`K_{X^{*}X} S L^{-T}`
+            :obj:`~linear_operator.operators.LinearOperator`: :math:`K_{X_*, X} S L^{-T}`
         """
-        # Compute k(X_*, X)S
-        covar_test_train_actions = test_train_covar @ self.solver_state.cache["actions"]
-
         # Compute a triangular solve to obtain k(X_*, X)S L^{-T}
         return torch.linalg.solve_triangular(
             self.solver_state.cache["cholfac_gram"],
@@ -972,7 +977,8 @@ class ComputationAwarePredictionStrategy(DefaultPredictionStrategy):
             left=True,
         ).mT
 
-    def exact_predictive_covar(self, test_test_covar: LinearOperator, test_train_covar: LinearOperator):
+    def predictive_covar(self, test_test_covar: LinearOperator, test_train_covar: LinearOperator):
+        """Computes the posterior predictive covariance."""
         if settings.skip_posterior_variances.on():
             return ZeroLinearOperator(*test_test_covar.size())
 
