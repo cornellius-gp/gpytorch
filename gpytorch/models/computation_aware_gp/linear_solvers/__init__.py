@@ -8,6 +8,6 @@ PLS = ProbabilisticLinearSolver
 
 __all__ = [
     "LinearSolver",
-    LinearSolverState,
+    "LinearSolverState",
     "ProbabilisticLinearSolver",
 ]
