@@ -90,14 +90,12 @@ class ProbabilisticLinearSolver(LinearSolver):
             logdet=logdet,
             iteration=0,
             cache={
-                "search_dir_sq_Anorms": [],
+                "schur_complements": [],
                 "rhs_norm": torch.linalg.vector_norm(rhs, ord=2),
                 "action": None,
                 "actions": None,
-                "linear_op_actions": None,
+                # "linear_op_actions": None,
                 "observation": None,
-                "search_dir": None,
-                "step_size": None,
                 "compressed_solution": None,
             },
         )
@@ -122,6 +120,7 @@ class ProbabilisticLinearSolver(LinearSolver):
                 linear_op_action = linear_op @ action
 
                 if solver_state.cache["actions"] is not None:
+                    # TODO: operation is not yet sparse, so it costs O(ni) per iteration => O(ni^2) unnecessary cost
                     prev_actions_linear_op_action = solver_state.cache["actions"].mT @ linear_op_action
                 else:
                     prev_actions_linear_op_action = None
@@ -142,11 +141,8 @@ class ProbabilisticLinearSolver(LinearSolver):
                     ).reshape(-1)
 
                     schur_complement = schur_complement - torch.inner(prev_actions_linear_op_action, gram_inv_tilde_z)
-                    # schur_complement = torch.inner(
-                    #     linear_op_action, action - solver_state.cache["actions"] @ gram_inv_tilde_z
-                    # )  # TODO: second formulation, more costly: O(ni), but maybe more stable? -> Doesnt seem like it.
 
-                solver_state.cache["search_dir_sq_Anorms"].append(schur_complement)
+                solver_state.cache["schur_complements"].append(schur_complement)
 
                 if schur_complement <= 0:
                     if settings.verbose_linalg.on():
@@ -156,16 +152,13 @@ class ProbabilisticLinearSolver(LinearSolver):
                         )
                     break
 
-                # Step size
-                step_size = observ / schur_complement  # TODO: obsolete
-
             if solver_state.cache["actions"] is None:
                 # Matrix of previous actions
                 solver_state.cache["actions"] = torch.reshape(action, (-1, 1))
 
                 with torch.no_grad():
-                    # Matrix of previous actions applied to the kernel matrix
-                    solver_state.cache["linear_op_actions"] = torch.reshape(linear_op_action, (-1, 1))
+                    # # Matrix of previous actions applied to the kernel matrix
+                    # solver_state.cache["linear_op_actions"] = torch.reshape(linear_op_action, (-1, 1))
 
                     # Initialize Cholesky factor
                     solver_state.cache["cholfac_gram"] = torch.sqrt(action_linear_op_action).reshape(1, 1)
@@ -204,42 +197,40 @@ class ProbabilisticLinearSolver(LinearSolver):
                 # Matrix of actions
                 solver_state.cache["actions"] = torch.hstack((solver_state.cache["actions"], action.reshape(-1, 1)))
 
-                with torch.no_grad():
-                    # Matrix of actions applied to the kernel matrix
-                    solver_state.cache["linear_op_actions"] = torch.hstack(
-                        (
-                            solver_state.cache["linear_op_actions"],
-                            linear_op_action.reshape(-1, 1),
-                        )
-                    )
-
-                    # TODO: Should we explicitly recompute the Cholesky factor per loop or at convergence for stability?
-                    # solver_state.cache["cholfac_gram"] = torch.linalg.cholesky(
-                    #     solver_state.cache["linear_op_actions"].mT @ solver_state.cache["actions"],
-                    #     upper=False,
-                    # )
+                # with torch.no_grad():
+                #     # Matrix of actions applied to the kernel matrix
+                #     solver_state.cache["linear_op_actions"] = torch.hstack(
+                #         (
+                #             solver_state.cache["linear_op_actions"],
+                #             linear_op_action.reshape(-1, 1),
+                #         )
+                #     )
 
             with torch.no_grad():
                 # Update compressed solution estimate
                 solver_state.cache["compressed_solution"] = torch.cholesky_solve(
+                    # TODO: operation is not yet sparse, so it costs O(ni) per iteration => O(ni^2) unnecessary cost
                     (solver_state.cache["actions"].mT @ rhs).reshape(-1, 1),
                     solver_state.cache["cholfac_gram"],
                     upper=False,
                 ).reshape(-1)
 
                 # Update solution estimate
-                solver_state.solution = solver_state.cache["actions"] @ solver_state.cache["compressed_solution"]
+                # solver_state.solution = solver_state.cache["actions"] @ solver_state.cache["compressed_solution"]
 
                 # Update residual
-                solver_state.cache["linear_op_actions_compressed_solution"] = (
-                    solver_state.cache["linear_op_actions"] @ solver_state.cache["compressed_solution"]
+                solver_state.residual = (
+                    solver_state.residual - linear_op_action * solver_state.cache["compressed_solution"][-1]
                 )
 
-                # TODO: Compute residual iteratively to avoid O(ni) memory during solve
-                solver_state.residual = (
-                    solver_state.problem.b - solver_state.cache["linear_op_actions_compressed_solution"]
-                )
-                # Explicitly recomputing the residual improves stability a bit (for CG)
+                # # Compute residual
+                # solver_state.cache["linear_op_actions_compressed_solution"] = (
+                #     solver_state.cache["linear_op_actions"] @ solver_state.cache["compressed_solution"]
+                # )
+                # solver_state.residual = (
+                #     solver_state.problem.b - solver_state.cache["linear_op_actions_compressed_solution"]
+                # )
+                # # Explicitly recomputing the residual improves stability a bit (for CG)
                 #
                 # solver_state.residual = (
                 #     solver_state.problem.b - solver_state.problem.A @ solver_state.solution
@@ -260,7 +251,6 @@ class ProbabilisticLinearSolver(LinearSolver):
                 # Update solver state cache
                 solver_state.cache["action"] = action
                 solver_state.cache["observation"] = observ
-                solver_state.cache["step_size"] = step_size
 
                 yield solver_state
 

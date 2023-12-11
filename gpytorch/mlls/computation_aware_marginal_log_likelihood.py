@@ -43,7 +43,6 @@ class ComputationAwareMarginalLogLikelihood(MarginalLogLikelihood):
         cholfac_gram = solver_state.cache["cholfac_gram"]
         logdet_estimate = solver_state.logdet
         residual = solver_state.residual
-        linear_op_actions = solver_state.cache["linear_op_actions"]
         policy_hyperparams = list(self.model.linear_solver.policy.parameters())
 
         if len(policy_hyperparams) > 1:
@@ -64,7 +63,6 @@ class ComputationAwareMarginalLogLikelihood(MarginalLogLikelihood):
             cholfac_gram,
             logdet_estimate,
             residual,
-            linear_op_actions,
             policy_hyperparams,
             *Khat.representation(),
         )
@@ -83,7 +81,6 @@ class _ComputationAwareMarginalLogLikelihoodFunction(torch.autograd.Function):
         cholfac_gram: torch.Tensor,
         logdet_estimate: torch.Tensor,
         residual: torch.Tensor,
-        linear_op_actions: torch.Tensor,
         policy_hyperparams: torch.Tensor,
         *linear_op_representation: Tuple[torch.Tensor],
     ):
@@ -106,7 +103,6 @@ class _ComputationAwareMarginalLogLikelihoodFunction(torch.autograd.Function):
         ctx.actions = actions
         ctx.cholfac_gram = cholfac_gram
         ctx.residual = residual
-        ctx.linear_op_actions = linear_op_actions
         ctx.policy_hyperparams = policy_hyperparams
 
         normalized_lml = lml.div(num_actions)
@@ -123,13 +119,12 @@ class _ComputationAwareMarginalLogLikelihoodFunction(torch.autograd.Function):
             None,
             None,
             None,
-            None,
             _custom_gradient_wrt_policy_hyperparameters(
+                Khat=ctx.Khat,
                 policy_hyperparams=ctx.policy_hyperparams,
                 actions=ctx.actions,
                 compressed_repr_weights=ctx.compressed_repr_weights,
                 residual=ctx.residual,
-                linear_op_actions=ctx.linear_op_actions,
                 cholfac_gram=ctx.cholfac_gram,
             ),
             *_custom_gradient_wrt_kernel_hyperparameters(
@@ -142,11 +137,11 @@ class _ComputationAwareMarginalLogLikelihoodFunction(torch.autograd.Function):
 
 
 def _custom_gradient_wrt_policy_hyperparameters(
+    Khat: operators.LinearOperator,
     policy_hyperparams: torch.Tensor,
     actions: torch.Tensor,
     compressed_repr_weights: torch.Tensor,
     residual: torch.Tensor,
-    linear_op_actions: torch.Tensor,
     cholfac_gram: torch.Tensor,
 ) -> Union[None, torch.Tensor]:
     # No gradients required
@@ -156,6 +151,9 @@ def _custom_gradient_wrt_policy_hyperparameters(
         return None
 
     # Gradient of negative LML with respect to policy hyperparameters
+    with torch.no_grad():
+        linear_op_actions = Khat @ actions
+
     with torch.set_grad_enabled(True):
         # Explicit gradient with S instead of dS/dparams that is linear in S
         gradient_helper = -torch.sum(  # TODO: should there be a minus here?
