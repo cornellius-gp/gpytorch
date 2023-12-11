@@ -881,7 +881,7 @@ class ComputationAwarePredictionStrategy(DefaultPredictionStrategy):
         train_labels,
         likelihood,
         linear_solver: LinearSolver,
-        solver_state,
+        solver_state: LinearSolverState,
     ):
         super().__init__(
             train_inputs,
