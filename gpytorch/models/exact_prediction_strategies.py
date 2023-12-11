@@ -28,6 +28,7 @@ from .. import settings
 from ..distributions import MultitaskMultivariateNormal
 from ..lazy import LazyEvaluatedKernelTensor
 from ..utils.memoize import add_to_cache, cached, clear_cache_hook, pop_from_cache
+from .computation_aware_gp.linear_solvers import LinearSolver, LinearSolverState
 
 
 def prediction_strategy(train_inputs, train_prior_dist, train_labels, likelihood):
@@ -868,3 +869,124 @@ class SGPRPredictionStrategy(DefaultPredictionStrategy):
 
         res = test_test_covar - (L @ (covar_cache @ L.transpose(-1, -2)))
         return res
+
+
+class ComputationAwarePredictionStrategy(DefaultPredictionStrategy):
+    """A Gaussian process prediction strategy which considers the performed computation."""
+
+    def __init__(
+        self,
+        train_inputs,
+        train_prior_dist,
+        train_labels,
+        likelihood,
+        linear_solver: LinearSolver,
+        solver_state,
+    ):
+        super().__init__(
+            train_inputs,
+            train_prior_dist,
+            train_labels,
+            likelihood,
+            root=None,
+            inv_root=None,
+        )
+
+        if solver_state is None:
+            # Compute the representer weights
+            mvn = self.likelihood(self.train_prior_dist, self.train_inputs)
+            train_mean, train_train_covar = mvn.loc, mvn.lazy_covariance_matrix
+
+            train_labels_offset = self.train_labels - train_mean
+
+            with torch.no_grad():  # Ensure gradients are not taken through the solve
+                self._solver_state = linear_solver.solve(train_train_covar.evaluate_kernel(), train_labels_offset)
+        else:
+            self._solver_state = solver_state
+
+    def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output, **kwargs):
+        raise NotImplementedError(
+            "Fantasy observation updates not (yet) supported for computation-aware Gaussian processes."
+        )
+
+    @property
+    def solver_state(self) -> LinearSolverState:
+        """State of the linear solver solving for the representer weights."""
+        return self._solver_state
+
+    @property
+    @cached(name="mean_cache")
+    def mean_cache(self) -> torch.Tensor:
+        """Compute the representer weights."""
+        mean_cache = self._solver_state.solution.squeeze(-1)
+
+        if settings.detach_test_caches.on():
+            mean_cache = mean_cache.detach()
+
+        return mean_cache
+
+    def exact_predictive_mean(self, test_mean: Tensor, test_train_covar: LinearOperator) -> Tensor:
+        """
+        Computes the posterior predictive covariance of a GP
+
+        :param Tensor test_mean: The test prior mean
+        :param ~linear_operator.operators.LinearOperator test_train_covar:
+            Covariance matrix between test and train inputs
+        :return: The predictive posterior mean of the test points
+        """
+        # NOTE TO FUTURE SELF:
+        # You **cannot* use addmv here, because test_train_covar may not actually be a non lazy tensor even for an exact
+        # GP, and using addmv requires you to to_dense test_train_covar, which is obviously a huge no-no!
+
+        # TODO: We need to overwrite this to avoid doing a O(n_* n) operation!!!
+        res = (test_train_covar @ self.mean_cache.unsqueeze(-1)).squeeze(-1)
+        res = res + test_mean
+
+        return res
+
+    @property
+    @cached(name="covar_cache")
+    def covar_cache(self):
+        raise NotImplementedError
+
+    def _exact_predictive_covar_inv_quad_form_root(self, test_train_covar):
+        r"""
+        Computes :math:`K_{X^{*}X} S L^{-T}`.
+
+        Args:
+            actions: Performed solver actions S
+            gram_cholfac: Cholesky factor of the gram matrix of the solver LL' = S'Khat S
+            test_train_covar: Kernel evaluated at test and train points.
+
+        Returns
+            :obj:`~linear_operator.operators.LinearOperator`: :math:`K_{X^{*}X} S L^{-T}`
+        """
+        # Compute k(X_*, X)S
+        covar_test_train_actions = test_train_covar @ self.solver_state.cache["actions"]
+
+        # Compute a triangular solve to obtain k(X_*, X)S L^{-T}
+        return torch.linalg.solve_triangular(
+            self.solver_state.cache["cholfac_gram"],
+            covar_test_train_actions.mT,
+            upper=False,
+            left=True,
+        ).mT
+
+    def exact_predictive_covar(self, test_test_covar: LinearOperator, test_train_covar: LinearOperator):
+        if settings.skip_posterior_variances.on():
+            return ZeroLinearOperator(*test_test_covar.size())
+
+        covar_inv_quad_form_root = self._exact_predictive_covar_inv_quad_form_root(test_train_covar)
+        if torch.is_tensor(test_test_covar):
+            return to_linear_operator(
+                torch.add(
+                    test_test_covar,
+                    covar_inv_quad_form_root @ covar_inv_quad_form_root.transpose(-1, -2),
+                    alpha=-1,
+                )
+            )
+        else:
+            return test_test_covar + MatmulLinearOperator(
+                covar_inv_quad_form_root,
+                covar_inv_quad_form_root.transpose(-1, -2).mul(-1),
+            )
