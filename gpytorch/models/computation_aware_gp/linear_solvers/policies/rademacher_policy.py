@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Optional
 
 import torch
+from linear_operator.operators import BlockSparseLinearOperator
 
 from .linear_solver_policy import LinearSolverPolicy
 
@@ -48,6 +49,11 @@ class RademacherPolicy(LinearSolverPolicy):
             perm = torch.randperm(solver_state.problem.A.shape[0])
             idcs = perm[0:num_nonzero]
 
-            action[idcs] = rademacher_vec
+            if self.num_nonzero is None:
+                action[idcs] = rademacher_vec
+            else:
+                action = BlockSparseLinearOperator(
+                    non_zero_idcs=idcs, blocks=rademacher_vec, size_sparse_dim=solver_state.problem.A.shape[0]
+                )
 
         return action

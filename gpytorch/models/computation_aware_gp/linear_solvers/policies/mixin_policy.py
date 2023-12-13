@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import torch
+from linear_operator.operators import BlockSparseLinearOperator
 
 from .linear_solver_policy import LinearSolverPolicy
 
@@ -35,9 +36,36 @@ class MixinPolicy(LinearSolverPolicy):
         base_action = self.base_policy(solver_state)
         mixin_action = self.mixin_policy(solver_state)
 
-        action = (1.0 - self.mixin_coeff) * base_action + self.mixin_coeff * mixin_action
-        action.requires_grad_(self._mixin_coeff_logit_transformed.requires_grad)
+        if isinstance(base_action, torch.Tensor) and isinstance(mixin_action, torch.Tensor):
+            action = (1.0 - self.mixin_coeff) * base_action + self.mixin_coeff * mixin_action
+        elif isinstance(base_action, BlockSparseLinearOperator) and isinstance(mixin_action, BlockSparseLinearOperator):
+            intersection_mask = base_action.non_zero_idcs.view(1, -1) == mixin_action.non_zero_idcs.view(-1, 1)
+            intersection_mask_base_action = (intersection_mask).any(dim=0)
+            intersection_mask_mixin_action = (intersection_mask).any(dim=1)
 
+            non_zero_idcs = torch.concat(
+                (
+                    base_action.non_zero_idcs[~intersection_mask_base_action],
+                    mixin_action.non_zero_idcs[~intersection_mask_mixin_action],
+                    base_action.non_zero_idcs[intersection_mask_base_action],
+                )
+            )
+            blocks = torch.concat(
+                (
+                    (1.0 - self.mixin_coeff) * base_action.blocks[~intersection_mask_base_action],
+                    self.mixin_coeff * mixin_action.blocks[~intersection_mask_mixin_action],
+                    (1.0 - self.mixin_coeff) * base_action.blocks[intersection_mask_base_action]
+                    + self.mixin_coeff * mixin_action.blocks[intersection_mask_mixin_action],
+                )
+            )
+
+            action = BlockSparseLinearOperator(
+                non_zero_idcs=non_zero_idcs, blocks=blocks, size_sparse_dim=base_action.size_sparse_dim
+            )
+        else:
+            raise NotImplementedError
+
+        action.requires_grad_(self._mixin_coeff_logit_transformed.requires_grad)
         return action
 
     @property

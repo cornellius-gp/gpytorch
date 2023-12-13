@@ -39,7 +39,7 @@ class ComputationAwareMarginalLogLikelihood(MarginalLogLikelihood):
             self.model._solver_state = solver_state
 
         compressed_repr_weights = solver_state.cache["compressed_solution"]
-        actions = solver_state.cache["actions"]
+        actions_op = solver_state.cache["actions_op"]
         cholfac_gram = solver_state.cache["cholfac_gram"]
         logdet_estimate = solver_state.logdet
         residual = solver_state.residual
@@ -59,7 +59,7 @@ class ComputationAwareMarginalLogLikelihood(MarginalLogLikelihood):
             Khat.representation_tree(),
             target,
             compressed_repr_weights,
-            actions,
+            actions_op,
             cholfac_gram,
             logdet_estimate,
             residual,
@@ -77,7 +77,7 @@ class _ComputationAwareMarginalLogLikelihoodFunction(torch.autograd.Function):
         Khat_representation_tree,
         target: torch.Tensor,
         compressed_repr_weights: torch.Tensor,
-        actions: torch.Tensor,
+        actions_op: Union[operators.LinearOperator, torch.Tensor],
         cholfac_gram: torch.Tensor,
         logdet_estimate: torch.Tensor,
         residual: torch.Tensor,
@@ -88,19 +88,19 @@ class _ComputationAwareMarginalLogLikelihoodFunction(torch.autograd.Function):
         Khat = Khat_representation_tree(*linear_op_representation)
 
         # Log marginal likelihood
-        num_actions = actions.shape[-1]
+        num_actions = compressed_repr_weights.shape[0]
 
-        # TODO: Avoid the O(ki) operation here
+        # TODO: Avoid the O(ik) operation here
         # Instead: Cache S'y in the linear solver state and compute y'S @ compr_repr_weights
         lml = -0.5 * (
-            torch.inner(target @ actions, compressed_repr_weights)
+            torch.inner(actions_op @ target, compressed_repr_weights)
             + logdet_estimate
             + num_actions * math.log(2 * math.pi)
         )
 
         ctx.Khat = Khat
         ctx.compressed_repr_weights = compressed_repr_weights
-        ctx.actions = actions
+        ctx.actions_op = actions_op
         ctx.cholfac_gram = cholfac_gram
         ctx.residual = residual
         ctx.policy_hyperparams = policy_hyperparams
@@ -122,14 +122,14 @@ class _ComputationAwareMarginalLogLikelihoodFunction(torch.autograd.Function):
             _custom_gradient_wrt_policy_hyperparameters(
                 Khat=ctx.Khat,
                 policy_hyperparams=ctx.policy_hyperparams,
-                actions=ctx.actions,
+                actions_op=ctx.actions_op,
                 compressed_repr_weights=ctx.compressed_repr_weights,
                 residual=ctx.residual,
                 cholfac_gram=ctx.cholfac_gram,
             ),
             *_custom_gradient_wrt_kernel_hyperparameters(
                 Khat=ctx.Khat,
-                actions=ctx.actions,
+                actions_op=ctx.actions_op,
                 compressed_repr_weights=ctx.compressed_repr_weights,
                 cholfac_gram=ctx.cholfac_gram,
             ),
@@ -139,7 +139,7 @@ class _ComputationAwareMarginalLogLikelihoodFunction(torch.autograd.Function):
 def _custom_gradient_wrt_policy_hyperparameters(
     Khat: operators.LinearOperator,
     policy_hyperparams: torch.Tensor,
-    actions: torch.Tensor,
+    actions_op: Union[operators.LinearOperator, torch.Tensor],
     compressed_repr_weights: torch.Tensor,
     residual: torch.Tensor,
     cholfac_gram: torch.Tensor,
@@ -152,7 +152,11 @@ def _custom_gradient_wrt_policy_hyperparameters(
 
     # Gradient of negative LML with respect to policy hyperparameters
     with torch.no_grad():
-        linear_op_actions = Khat @ actions
+        linear_op_actions = (
+            actions_op._matmul(Khat).mT
+            if isinstance(actions_op, operators.BlockSparseLinearOperator)
+            else Khat @ actions_op.mT
+        )
 
     with torch.set_grad_enabled(True):
         # Explicit gradient with S instead of dS/dparams that is linear in S
@@ -161,7 +165,7 @@ def _custom_gradient_wrt_policy_hyperparameters(
                 torch.outer(residual, compressed_repr_weights)
                 + torch.cholesky_solve(linear_op_actions.mT, cholfac_gram, upper=False).mT
             )
-            * actions
+            * actions_op.mT
         )
 
     # Take gradient of the helper function to get overall gradient of LML with respect to policy hyperparameters
@@ -172,7 +176,7 @@ def _custom_gradient_wrt_policy_hyperparameters(
 
 def _custom_gradient_wrt_kernel_hyperparameters(
     Khat: operators.LinearOperator,
-    actions: torch.Tensor,
+    actions_op: Union[operators.LinearOperator, torch.Tensor],
     compressed_repr_weights: torch.Tensor,
     cholfac_gram: torch.Tensor,
 ) -> Tuple[torch.Tensor, ...]:
@@ -191,15 +195,21 @@ def _custom_gradient_wrt_kernel_hyperparameters(
         the gradient can be taken by taking the gradient of this function with respect to theta.
         """
         lin_op_copy = Khat.representation_tree()(*representation)
-        gram_SKS = actions.mT @ (lin_op_copy._matmul(actions))
-
+        gram_SKS = (
+            actions_op._matmul(
+                (actions_op._matmul(lin_op_copy._linear_op) + actions_op._matmul(lin_op_copy._diag_tensor)).mT
+            )  # Workaround for gradient bug when using BlockSparseLinearOperator
+            # TODO: we can do better here by pulling the diagonal matrix out: S'diag S, which avoids extra O(ni) memory
+            if isinstance(actions_op, operators.BlockSparseLinearOperator)
+            else actions_op @ (actions_op @ lin_op_copy).mT
+        )
         # Data fit term "gradient" with K instead of dK/dtheta
         quadratic_loss_term = torch.inner(compressed_repr_weights, gram_SKS @ compressed_repr_weights)
 
         # Complexity term "gradient" with K instead of dK/dtheta
         complexity_term = torch.trace(torch.cholesky_solve(gram_SKS, cholfac_gram, upper=False))
 
-        return -0.5 * (quadratic_loss_term - complexity_term).div(actions.shape[-1])
+        return -0.5 * (quadratic_loss_term - complexity_term).div(compressed_repr_weights.shape[0])
 
     # Compute gradient of LML with respect to kernel hyperparameters
     actual_grads = deque(torch.autograd.functional.vjp(_neg_normalized_lml_gradient_helper, Khat.representation())[1])

@@ -7,7 +7,7 @@ from typing import Generator, Optional
 import torch
 
 from linear_operator import settings
-from linear_operator.operators import LinearOperator, to_linear_operator, ZeroLinearOperator
+from linear_operator.operators import BlockSparseLinearOperator, LinearOperator, to_linear_operator, ZeroLinearOperator
 from torch import Tensor
 
 from .linear_solver import LinearSolver, LinearSolverState, LinearSystem
@@ -93,7 +93,7 @@ class ProbabilisticLinearSolver(LinearSolver):
                 "schur_complements": [],
                 "rhs_norm": torch.linalg.vector_norm(rhs, ord=2),
                 "action": None,
-                "actions": None,
+                "actions_op": None,
                 # "linear_op_actions": None,
                 "observation": None,
                 "compressed_solution": None,
@@ -117,23 +117,25 @@ class ProbabilisticLinearSolver(LinearSolver):
                 action = self.policy(solver_state)
 
             with torch.no_grad():  # Saves 2x compute since we don't need gradients through the solve.
-                linear_op_action = linear_op @ action
+                linear_op_action = (
+                    (action._matmul(linear_op)) if isinstance(action, BlockSparseLinearOperator) else linear_op @ action
+                )
 
-                if solver_state.cache["actions"] is not None:
+                if solver_state.cache["actions_op"] is not None:
                     # TODO: operation is not yet sparse, so it costs O(ni) per iteration => O(ni^2) unnecessary cost
-                    prev_actions_linear_op_action = solver_state.cache["actions"].mT @ linear_op_action
+                    prev_actions_linear_op_action = solver_state.cache["actions_op"] @ linear_op_action
                 else:
                     prev_actions_linear_op_action = None
 
                 # Observation
-                observ = torch.inner(action, solver_state.residual)
+                observ = action @ solver_state.residual
 
                 # Schur complement / Squared linop-norm of search direction
-                action_linear_op_action = torch.inner(linear_op_action, action)
+                action_linear_op_action = action @ linear_op_action
 
                 schur_complement = action_linear_op_action
 
-                if solver_state.cache["actions"] is not None:
+                if solver_state.cache["actions_op"] is not None:
                     gram_inv_tilde_z = torch.cholesky_solve(
                         prev_actions_linear_op_action.reshape(-1, 1),
                         solver_state.cache["cholfac_gram"],
@@ -152,9 +154,11 @@ class ProbabilisticLinearSolver(LinearSolver):
                         )
                     break
 
-            if solver_state.cache["actions"] is None:
+            if solver_state.cache["actions_op"] is None:
                 # Matrix of previous actions
-                solver_state.cache["actions"] = torch.reshape(action, (-1, 1))
+                solver_state.cache["actions_op"] = (
+                    action if isinstance(action, BlockSparseLinearOperator) else torch.reshape(action, (1, -1))
+                )
 
                 with torch.no_grad():
                     # # Matrix of previous actions applied to the kernel matrix
@@ -195,7 +199,18 @@ class ProbabilisticLinearSolver(LinearSolver):
                     )
 
                 # Matrix of actions
-                solver_state.cache["actions"] = torch.hstack((solver_state.cache["actions"], action.reshape(-1, 1)))
+                if isinstance(action, BlockSparseLinearOperator):
+                    solver_state.cache["actions_op"] = BlockSparseLinearOperator(
+                        non_zero_idcs=torch.vstack(
+                            (solver_state.cache["actions_op"].non_zero_idcs, action.non_zero_idcs)
+                        ),
+                        blocks=torch.vstack((solver_state.cache["actions_op"].blocks, action.blocks)),
+                        size_sparse_dim=solver_state.problem.A.shape[0],
+                    )
+                else:
+                    solver_state.cache["actions_op"] = torch.vstack(
+                        (solver_state.cache["actions_op"], action.reshape(1, -1))
+                    )
 
                 # with torch.no_grad():
                 #     # Matrix of actions applied to the kernel matrix
@@ -210,13 +225,13 @@ class ProbabilisticLinearSolver(LinearSolver):
                 # Update compressed solution estimate
                 solver_state.cache["compressed_solution"] = torch.cholesky_solve(
                     # TODO: operation is not yet sparse, so it costs O(ni) per iteration => O(ni^2) unnecessary cost
-                    (solver_state.cache["actions"].mT @ rhs).reshape(-1, 1),
+                    (solver_state.cache["actions_op"] @ rhs).reshape(-1, 1),
                     solver_state.cache["cholfac_gram"],
                     upper=False,
                 ).reshape(-1)
 
                 # Update solution estimate
-                # solver_state.solution = solver_state.cache["actions"] @ solver_state.cache["compressed_solution"]
+                # solver_state.solution = solver_state.cache["actions_op"] @ solver_state.cache["compressed_solution"]
 
                 # Update residual
                 solver_state.residual = (
