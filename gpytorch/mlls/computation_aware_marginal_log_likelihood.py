@@ -198,7 +198,7 @@ def _custom_gradient_wrt_kernel_hyperparameters(
         gram_SKS = (
             actions_op._matmul(
                 (actions_op._matmul(lin_op_copy._linear_op) + actions_op._matmul(lin_op_copy._diag_tensor)).mT
-            )  # Workaround for gradient bug when using BlockSparseLinearOperator
+            )  # Workaround for bug with DiagLinearOperator when using BlockSparseLinearOperator
             # TODO: we can do better here by pulling the diagonal matrix out: S'diag S, which avoids extra O(ni) memory
             if isinstance(actions_op, operators.BlockSparseLinearOperator)
             else actions_op @ (actions_op @ lin_op_copy).mT

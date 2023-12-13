@@ -3,7 +3,7 @@
 from typing import Optional
 
 import torch
-from linear_operator.operators import to_dense
+from linear_operator.operators import KernelLinearOperator
 
 from ..constraints import Interval, Positive
 from ..priors import Prior
@@ -112,7 +112,12 @@ class ScaleKernel(Kernel):
             outputscales = outputscales.unsqueeze(-1)
         if diag:
             outputscales = outputscales.unsqueeze(-1)
-            return to_dense(orig_output) * outputscales
+            if isinstance(orig_output, KernelLinearOperator):
+                return (
+                    orig_output.diagonal() * outputscales
+                )  # TODO: Hotfix for KeOps kernels. Necessary, likely due to an upstream bug.
+            else:
+                return orig_output * outputscales
         else:
             outputscales = outputscales.view(*outputscales.shape, 1, 1)
             return orig_output.mul(outputscales)
