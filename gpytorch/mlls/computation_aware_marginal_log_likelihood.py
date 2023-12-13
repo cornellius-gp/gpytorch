@@ -152,20 +152,26 @@ def _custom_gradient_wrt_policy_hyperparameters(
 
     # Gradient of negative LML with respect to policy hyperparameters
     with torch.no_grad():
-        linear_op_actions = (
-            actions_op._matmul(Khat).mT
+        actions_linear_op = (
+            (
+                actions_op._matmul(Khat._linear_op) + actions_op._matmul(Khat._diag_tensor)
+            )  # Workaround for bug with DiagLinearOperator when using BlockSparseLinearOperator
             if isinstance(actions_op, operators.BlockSparseLinearOperator)
-            else Khat @ actions_op.mT
+            else actions_op @ Khat
         )
 
     with torch.set_grad_enabled(True):
         # Explicit gradient with S instead of dS/dparams that is linear in S
         gradient_helper = -torch.sum(  # TODO: should there be a minus here?
             (
-                torch.outer(residual, compressed_repr_weights)
-                + torch.cholesky_solve(linear_op_actions.mT, cholfac_gram, upper=False).mT
+                torch.outer(residual, compressed_repr_weights).mT
+                + torch.cholesky_solve(actions_linear_op, cholfac_gram, upper=False)
             )
-            * actions_op.mT
+            * (
+                actions_op.to_dense()
+                if isinstance(actions_op, operators.BlockSparseLinearOperator)  # TODO:  Allocates unnecessary memory
+                else actions_op
+            )
         )
 
     # Take gradient of the helper function to get overall gradient of LML with respect to policy hyperparameters

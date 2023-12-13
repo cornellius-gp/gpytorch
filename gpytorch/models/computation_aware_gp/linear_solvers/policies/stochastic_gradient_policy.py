@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import torch
+from linear_operator.operators import BlockSparseLinearOperator
 
 from .linear_solver_policy import LinearSolverPolicy
 
@@ -10,11 +11,9 @@ from .linear_solver_policy import LinearSolverPolicy
 class StochasticGradientPolicy(LinearSolverPolicy):
     """Policy choosing stochastic gradients / residuals :math:`Pr_i = P(b - Ax_i)` as actions."""
 
-    def __init__(
-        self,
-        num_non_zero: int = 64,
-    ) -> None:
-        self.num_nonzero = num_non_zero
+    def __init__(self, batch_size: int = 64, dense: bool = False) -> None:
+        self.num_nonzero = batch_size
+        self.dense = dense
 
         super().__init__()
 
@@ -24,11 +23,18 @@ class StochasticGradientPolicy(LinearSolverPolicy):
             perm = torch.randperm(solver_state.residual.shape[0])
             non_zero_idcs = perm[0 : self.num_nonzero]
 
-            # Stochastic gradient (residual)
-            action = torch.zeros(
-                solver_state.residual.shape[0], dtype=solver_state.residual.dtype, device=solver_state.residual.device
-            )
+            if self.dense:
+                # Stochastic gradient (residual)
+                action = torch.zeros(
+                    solver_state.residual.shape[0],
+                    dtype=solver_state.residual.dtype,
+                    device=solver_state.residual.device,
+                )
+                # TODO: Use a BlockSparseLinearOperator here
+                action[non_zero_idcs] = solver_state.residual[non_zero_idcs]
+                return action
 
-            action[non_zero_idcs] = solver_state.residual[non_zero_idcs]
-
-            return action
+            else:
+                return BlockSparseLinearOperator(
+                    non_zero_idcs=non_zero_idcs, blocks=solver_state.residual[non_zero_idcs], size_sparse_dim=len(perm)
+                )
