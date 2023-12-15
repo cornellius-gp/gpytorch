@@ -119,7 +119,7 @@ class ProbabilisticLinearSolver(LinearSolver):
             with torch.no_grad():  # Saves 2x compute since we don't need gradients through the solve.
                 linear_op_action = (
                     (action._matmul(linear_op)) if isinstance(action, BlockSparseLinearOperator) else linear_op @ action
-                )
+                ).squeeze()
 
                 if solver_state.cache["actions_op"] is not None:
                     # TODO: operation is not yet sparse, so it costs O(ni) per iteration => O(ni^2) unnecessary cost
@@ -201,10 +201,10 @@ class ProbabilisticLinearSolver(LinearSolver):
                 # Matrix of actions
                 if isinstance(action, BlockSparseLinearOperator):
                     solver_state.cache["actions_op"] = BlockSparseLinearOperator(
-                        non_zero_idcs=torch.vstack(
-                            (solver_state.cache["actions_op"].non_zero_idcs, action.non_zero_idcs)
+                        non_zero_idcs=torch.cat(
+                            (solver_state.cache["actions_op"].non_zero_idcs, action.non_zero_idcs), dim=0
                         ),
-                        blocks=torch.vstack((solver_state.cache["actions_op"].blocks, action.blocks)),
+                        blocks=torch.cat((solver_state.cache["actions_op"].blocks, action.blocks), dim=0),
                         size_sparse_dim=solver_state.problem.A.shape[0],
                     )
                 else:

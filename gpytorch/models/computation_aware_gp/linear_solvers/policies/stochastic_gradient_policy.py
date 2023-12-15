@@ -30,7 +30,6 @@ class StochasticGradientPolicy(LinearSolverPolicy):
                     dtype=solver_state.residual.dtype,
                     device=solver_state.residual.device,
                 )
-                # TODO: Use a BlockSparseLinearOperator here
                 action[non_zero_idcs] = solver_state.residual[non_zero_idcs]
                 return action
 

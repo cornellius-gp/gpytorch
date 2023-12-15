@@ -153,9 +153,7 @@ def _custom_gradient_wrt_policy_hyperparameters(
     # Gradient of negative LML with respect to policy hyperparameters
     with torch.no_grad():
         actions_linear_op = (
-            (
-                actions_op._matmul(Khat._linear_op) + actions_op._matmul(Khat._diag_tensor)
-            )  # Workaround for bug with DiagLinearOperator when using BlockSparseLinearOperator
+            actions_op._matmul(Khat)
             if isinstance(actions_op, operators.BlockSparseLinearOperator)
             else actions_op @ Khat
         )
@@ -202,10 +200,9 @@ def _custom_gradient_wrt_kernel_hyperparameters(
         """
         lin_op_copy = Khat.representation_tree()(*representation)
         gram_SKS = (
-            actions_op._matmul(
-                (actions_op._matmul(lin_op_copy._linear_op) + actions_op._matmul(lin_op_copy._diag_tensor)).mT
-            )  # Workaround for bug with DiagLinearOperator when using BlockSparseLinearOperator
-            # TODO: we can do better here by pulling the diagonal matrix out: S'diag S, which avoids extra O(ni) memory
+            actions_op._matmul(actions_op._matmul(lin_op_copy).mT)
+            # TODO: we can possibly do better here by pulling the diagonal matrix out: S'diag S
+            # => avoids extra O(ni) memory
             if isinstance(actions_op, operators.BlockSparseLinearOperator)
             else actions_op @ (actions_op @ lin_op_copy).mT
         )
