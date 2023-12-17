@@ -12,6 +12,56 @@ from ..likelihoods import _GaussianLikelihoodBase, GaussianLikelihood
 from .marginal_log_likelihood import MarginalLogLikelihood
 
 
+class ComputationAwareMarginalLogLikelihoodAutoDiff(MarginalLogLikelihood):
+    """Computation-aware marginal log-likelihood with gradients via automatic differentiation."""
+
+    def __init__(self, likelihood: GaussianLikelihood, model: "ComputationAwareGP"):
+        if not isinstance(likelihood, _GaussianLikelihoodBase):
+            raise RuntimeError("Likelihood must be Gaussian for exact inference.")
+        super().__init__(likelihood, model)
+
+    def forward(self, output: torch.Tensor, target: torch.Tensor, **kwargs):
+        # Kernel linear operator
+        Khat = self.likelihood(output).lazy_covariance_matrix.evaluate_kernel()
+
+        # Linear solve
+        solver_state = self.model.linear_solver.solve(Khat, target)
+        if self.model.prediction_strategy is None:
+            self.model._solver_state = solver_state
+
+        # Compute the log marginal likelihood
+        actions_op = solver_state.cache["actions_op"]
+        num_actions = actions_op.shape[0]
+
+        # Gramian S'KS
+        # TODO: Can we accelerate this by just caching SKS during the solver run *with gradients* and then using it?
+        # Or even cholfac_gram directly? => would also avoid Cholesky throwing an error about the leading minor being not positive-definite
+        # Should avoid an extra O(ni^2) operation
+        gram_SKS = (
+            actions_op._matmul(actions_op._matmul(Khat).mT)
+            if isinstance(actions_op, operators.BlockSparseLinearOperator)
+            else actions_op @ (actions_op @ Khat).mT
+        )
+        cholfac_gram = torch.linalg.cholesky(gram_SKS + torch.eye(num_actions) * 1e-5, upper=False)
+
+        # Compressed representer weights
+        actions_target = actions_op @ target
+        compressed_repr_weights = torch.cholesky_solve(actions_target.unsqueeze(1), cholfac_gram, upper=False).squeeze()
+
+        # TODO: Avoid the O(ik) operation here
+        # Instead: Cache S'y in the linear solver state and compute y'S @ compr_repr_weights
+        lml = -(
+            0.5 * torch.inner(actions_target, compressed_repr_weights)
+            + torch.sum(torch.log(cholfac_gram.diagonal()))
+            + 0.5 * num_actions * math.log(2 * math.pi)
+        )
+
+        # Normalize log-marginal likelihood
+        normalized_lml = lml.div(num_actions)
+
+        return normalized_lml
+
+
 class ComputationAwareMarginalLogLikelihood(MarginalLogLikelihood):
     """
     Computation-aware marginal log-likelihood for a Gaussian process with a computation-aware Gaussian likelihood.

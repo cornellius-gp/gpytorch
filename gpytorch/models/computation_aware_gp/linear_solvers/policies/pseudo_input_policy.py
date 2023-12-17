@@ -28,11 +28,17 @@ class PseudoInputPolicy(LinearSolverPolicy):
         sparsification_threshold: float = 0.0,
         num_non_zero: Optional[int] = None,
         optimize_pseudo_inputs: bool = True,
+        kernel_hyperparams_as_policy_hyperparams: bool = False,
     ) -> None:
         super().__init__()
         self.kernel = kernel
         self.kernel.to(device=train_data.device, dtype=train_data.dtype)
         self.train_data = train_data
+
+        # Register kernel hyperparameters as policy parameters
+        if kernel_hyperparams_as_policy_hyperparams:
+            for kernel_hyperparam_name, kernel_hyperparam in self.kernel.named_parameters():
+                self.register_parameter(kernel_hyperparam_name, kernel_hyperparam)
 
         if optimize_pseudo_inputs:
             self.pseudo_inputs = torch.nn.Parameter(pseudo_inputs.clone())
