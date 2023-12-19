@@ -248,7 +248,7 @@ class TestRBFKernel(unittest.TestCase, BaseKernelTestCase):
         I = 2
         x1 = torch.randn(2, 1, M, D).requires_grad_(True)
         x2 = torch.randn(4, N, D).requires_grad_(True)
-        Sv1 = torch.randn(2, 4, K, I).requires_grad_(True)
+        Sv1 = torch.randn(4, K, I).requires_grad_(True)
         Si1 = torch.stack([torch.randperm(M) for _ in range(I)], dim=-1)[..., :K, :]
         Sv2 = torch.randn(2, 1, K, I).requires_grad_(True)
         Si2 = torch.stack([torch.randperm(N) for _ in range(I)], dim=-1)[..., :K, :]
@@ -277,6 +277,8 @@ class TestRBFKernel(unittest.TestCase, BaseKernelTestCase):
         S1T_K_S2_custom.backward(gradient=V)
         self.assertAllClose(x1.grad, x1_clone.grad)
         self.assertAllClose(x2.grad, x2_clone.grad)
+        self.assertAllClose(Sv1.grad, Sv1_clone.grad)
+        self.assertAllClose(Sv2.grad, Sv2_clone.grad)
 
 
 if __name__ == "__main__":
