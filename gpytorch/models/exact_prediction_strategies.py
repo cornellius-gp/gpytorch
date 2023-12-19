@@ -901,9 +901,7 @@ class ComputationAwarePredictionStrategy(DefaultPredictionStrategy):
             train_labels_offset = self.train_labels - train_mean
 
             with torch.no_grad():  # Ensure gradients are not taken through the solve
-                self._solver_state = linear_solver.solve(
-                    train_train_covar.evaluate_kernel(), train_labels_offset  # TODO: should this evaluate the kernel?
-                )
+                self._solver_state = linear_solver.solve(train_train_covar.evaluate_kernel(), train_labels_offset)
         else:
             self._solver_state = solver_state
 

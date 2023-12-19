@@ -2,6 +2,7 @@
 import math
 
 import torch
+from linear_operator import operators
 from torch import Tensor
 
 from ..distributions import MultivariateNormal
@@ -122,18 +123,30 @@ class LeaveOneActionOutPseudoLikelihood(MarginalLogLikelihood):
             if self.model.prediction_strategy is None:
                 self.model._solver_state = solver_state
 
-        actions = solver_state.cache["actions"]
+        actions_op = solver_state.cache["actions_op"]
 
         # Naive implementation
         loocv_objective = torch.zeros(())
         jitter = 1e-6  # TODO: do we really need this?
 
-        Khat_actions = Khat @ actions
-        actions_Khat_actions = Khat_actions.T @ actions
-        actions_K_actions = actions_Khat_actions - self.likelihood.noise.item() * actions.T @ actions
-        prior_mean = torch.zeros_like(target)  # TODO: assumes zero prior mean
-        actions_targets_minus_mean = actions.T @ (target - prior_mean)
-        num_actions = actions.shape[1]
+        actions_Khat_actions = (
+            actions_op._matmul(actions_op._matmul(Khat).mT)
+            if isinstance(actions_op, operators.BlockSparseLinearOperator)
+            else actions_op @ (actions_op @ Khat).mT
+        )
+        actions_actions = (
+            actions_op.to_dense() @ (actions_op.to_dense()).mT
+            if isinstance(actions_op, operators.BlockSparseLinearOperator)
+            else actions_op @ actions_op.mT
+        )
+        actions_K_actions = actions_Khat_actions - self.likelihood.noise.item() * actions_actions
+        prior_mean = function_dist.mean
+        actions_targets_minus_mean = (
+            actions_op._matmul((target - prior_mean).reshape(-1, 1)).squeeze()
+            if isinstance(actions_op, operators.BlockSparseLinearOperator)
+            else actions_op @ (target - prior_mean)
+        )
+        num_actions = actions_op.shape[0]
 
         for j in range(num_actions):
             idcs_loo = torch.ones(num_actions).type(torch.bool)

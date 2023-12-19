@@ -4,7 +4,9 @@ from .adverserial_policy import AdverserialPolicy
 from .combined_policy import CombinedPolicy
 from .custom_gradient_policy import CustomGradientPolicy
 from .gradient_policy import GradientPolicy
+from .kernel_jacobian_policy import KernelJacobianPolicy
 from .lanczos_policy import FullLanczosPolicy, LanczosPolicy, SubsetLanczosPolicy
+from .learned_policy import LearnedPolicy
 from .linear_solver_policy import LinearSolverPolicy
 from .mixin_policy import MixinPolicy
 from .pseudo_input_policy import PseudoInputPolicy
@@ -20,6 +22,7 @@ __all__ = [
     "FullLanczosPolicy",
     "GradientPolicy",
     "LanczosPolicy",
+    "LearnedPolicy",
     "LinearSolverPolicy",
     "MixinPolicy",
     "PseudoInputPolicy",
@@ -28,4 +31,5 @@ __all__ = [
     "StochasticGradientPolicy",
     "SubsetLanczosPolicy",
     "UnitVectorPolicy",
+    "KernelJacobianPolicy",
 ]

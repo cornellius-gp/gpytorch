@@ -14,17 +14,20 @@ class SpectralPolicy(LinearSolverPolicy):
         super().__init__()
 
     def __call__(self, solver_state: "LinearSolverState") -> torch.Tensor:
-        if solver_state.iteration == 0:
-            # Compute eigenvectors
-            with torch.no_grad():
-                eigvals, eigvecs = torch.linalg.eigh(solver_state.problem.A.to_dense())
+        with torch.no_grad():
+            if solver_state.iteration == 0:
+                # Compute eigenvectors
+                with torch.no_grad():
+                    eigvals, eigvecs = torch.linalg.eigh(
+                        solver_state.problem.A.to_dense() + 1e-3 * torch.eye(solver_state.problem.A.shape[0])
+                    )
 
-            # Cache eigenvectors
-            solver_state.cache["eigvals"], idcs = torch.sort(eigvals, descending=self.descending)
-            solver_state.cache["eigvecs"] = eigvecs[:, idcs]
+                # Cache eigenvectors
+                solver_state.cache["eigvals"], idcs = torch.sort(eigvals, descending=self.descending)
+                solver_state.cache["eigvecs"] = eigvecs[:, idcs]
 
-        # Return approximate eigenvectors according to strategy
-        if solver_state.iteration < solver_state.cache["eigvecs"].shape[1]:
-            return solver_state.cache["eigvecs"][:, solver_state.iteration]
-        else:
-            return solver_state.residual
+            # Return approximate eigenvectors according to strategy
+            if solver_state.iteration < solver_state.cache["eigvecs"].shape[1]:
+                return solver_state.cache["eigvecs"][:, solver_state.iteration]
+            else:
+                return solver_state.residual

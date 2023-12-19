@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+import warnings
 from collections import deque
 from typing import Tuple, Union
 
@@ -25,9 +26,11 @@ class ComputationAwareMarginalLogLikelihoodAutoDiff(MarginalLogLikelihood):
         Khat = self.likelihood(output).lazy_covariance_matrix.evaluate_kernel()
 
         # Linear solve
-        solver_state = self.model.linear_solver.solve(Khat, target)
+        solver_state = self.model.linear_solver.solve(Khat, target)  # TODO: do we need to subtract output.mean here?
         if self.model.prediction_strategy is None:
             self.model._solver_state = solver_state
+        else:
+            warnings.warn("MLL does not set solver_state during its computation. This could cause undefined behavior.")
 
         # Compute the log marginal likelihood
         actions_op = solver_state.cache["actions_op"]
@@ -35,14 +38,17 @@ class ComputationAwareMarginalLogLikelihoodAutoDiff(MarginalLogLikelihood):
 
         # Gramian S'KS
         # TODO: Can we accelerate this by just caching SKS during the solver run *with gradients* and then using it?
-        # Or even cholfac_gram directly? => would also avoid Cholesky throwing an error about the leading minor being not positive-definite
+        # Or even cholfac_gram directly? => would also avoid Cholesky throwing an error about the leading minor being
+        # not positive-definite
         # Should avoid an extra O(ni^2) operation
         gram_SKS = (
             actions_op._matmul(actions_op._matmul(Khat).mT)
             if isinstance(actions_op, operators.BlockSparseLinearOperator)
             else actions_op @ (actions_op @ Khat).mT
         )
-        cholfac_gram = torch.linalg.cholesky(gram_SKS + torch.eye(num_actions) * 1e-5, upper=False)
+        cholfac_gram = torch.linalg.cholesky(
+            gram_SKS + torch.eye(num_actions) * 1e-5, upper=False
+        )  # TODO: do we really need the nugget here?
 
         # Compressed representer weights
         actions_target = actions_op @ target
@@ -84,7 +90,7 @@ class ComputationAwareMarginalLogLikelihood(MarginalLogLikelihood):
         Khat = self.likelihood(output).lazy_covariance_matrix.evaluate_kernel()
 
         # with torch.no_grad():
-        solver_state = self.model.linear_solver.solve(Khat, target)
+        solver_state = self.model.linear_solver.solve(Khat, target)  # TODO: do we need to subtract output.mean here?
         if self.model.prediction_strategy is None:
             self.model._solver_state = solver_state
 

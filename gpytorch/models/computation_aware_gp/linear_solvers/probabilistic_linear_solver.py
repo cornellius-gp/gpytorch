@@ -72,7 +72,7 @@ class ProbabilisticLinearSolver(LinearSolver):
             x = x.reshape(-1)
 
         if x is None:
-            x = torch.zeros_like(rhs, requires_grad=True)
+            x = None
             inverse_op = ZeroLinearOperator(*linear_op.shape, dtype=linear_op.dtype, device=linear_op.device)
             residual = rhs
             logdet = torch.zeros((), requires_grad=True)
