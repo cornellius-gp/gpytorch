@@ -37,15 +37,25 @@ class ComputationAwareMarginalLogLikelihoodAutoDiff(MarginalLogLikelihood):
         num_actions = actions_op.shape[0]
 
         # Gramian S'KS
-        # TODO: Can we accelerate this by just caching SKS during the solver run *with gradients* and then using it?
-        # Or even cholfac_gram directly? => would also avoid Cholesky throwing an error about the leading minor being
-        # not positive-definite
-        # Should avoid an extra O(ni^2) operation
-        gram_SKS = (
-            actions_op._matmul(actions_op._matmul(Khat).mT)
-            if isinstance(actions_op, operators.BlockSparseLinearOperator)
-            else actions_op @ (actions_op @ Khat).mT
-        )
+        if self.model.linear_solver.subset_mode:
+            Khat_subset = Khat[
+                solver_state.cache["actions_op"].non_zero_idcs[:, :, None, None],
+                solver_state.cache["actions_op"].non_zero_idcs[None, None, :, :],
+            ]
+            gram_SKS = (
+                solver_state.cache["actions_op"].blocks
+                * (Khat_subset * solver_state.cache["actions_op"].blocks).sum((-2, -1))
+            ).sum(-1)
+        else:
+            # TODO: Can we accelerate this by just caching SKS during the solver run *with gradients* and then using it?
+            # Or even cholfac_gram directly? => would also avoid Cholesky throwing an error about the leading minor being
+            # not positive-definite
+            # Should avoid an extra O(nik) operation
+            gram_SKS = (
+                actions_op._matmul(actions_op._matmul(Khat).mT)
+                if isinstance(actions_op, operators.BlockSparseLinearOperator)
+                else actions_op @ (actions_op @ Khat).mT
+            )
         cholfac_gram = torch.linalg.cholesky(
             gram_SKS + torch.eye(num_actions) * 1e-5, upper=False
         )  # TODO: do we really need the nugget here?
