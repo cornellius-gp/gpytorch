@@ -13,6 +13,7 @@ from .pseudo_input_policy import PseudoInputPolicy
 from .rademacher_policy import RademacherPolicy
 from .spectral_policy import SpectralPolicy
 from .stochastic_gradient_policy import StochasticGradientPolicy
+from .switching_policy import SwitchingPolicy
 from .unit_vector_policy import UnitVectorPolicy
 
 __all__ = [
@@ -30,6 +31,7 @@ __all__ = [
     "SpectralPolicy",
     "StochasticGradientPolicy",
     "SubsetLanczosPolicy",
+    "SwitchingPolicy",
     "UnitVectorPolicy",
     "KernelJacobianPolicy",
 ]
