@@ -296,7 +296,6 @@ class ProbabilisticLinearSolver(LinearSolver):
         if x is None:
             x = None
             inverse_op = ZeroLinearOperator(*linear_op.shape, dtype=linear_op.dtype, device=linear_op.device)
-            residual = rhs
             logdet = torch.zeros((), requires_grad=True)
         else:
             raise NotImplementedError("Currently we do not support initializing with a given solution x.")
@@ -307,13 +306,13 @@ class ProbabilisticLinearSolver(LinearSolver):
             solution=x,
             forward_op=None,
             inverse_op=inverse_op,
-            residual=residual,
-            residual_norm=torch.linalg.vector_norm(residual, ord=2),
+            residual=None,
+            residual_norm=torch.inf,
             logdet=logdet,
             iteration=0,
             cache={
                 "schur_complements": [],
-                "rhs_norm": torch.linalg.vector_norm(rhs, ord=2),
+                "rhs_norm": 0.0,
                 "action": None,
                 "actions_op": None,
                 # "linear_op_actions": None,
