@@ -82,19 +82,19 @@ def rbf_vjp(
 
 def _compress_gradients(
     X: Float[Tensor, "... N D"],
-    X_grads_unreduced: Float[Tensor, "*batch K I I D"],
-    Si: Long[LongTensor, "*batch K I I"],
+    X_grads_unreduced: Float[Tensor, "*batch K I1 I2 D"],
+    Si: Long[LongTensor, "*batch K I1 I2"],
 ):
     batch_shape = X_grads_unreduced.shape[:-4]
     N, D = X.shape[-2:]
-    K, I = X_grads_unreduced.shape[-4:-2]
+    K, I1, I2 = X_grads_unreduced.shape[-4:-1]
 
     # Prepare X_grads_unreduced and Si for a vmap
-    X_grads_unreduced = X_grads_unreduced.reshape(*batch_shape, K * I * I, D)  # *batch x KI^2 x D
+    X_grads_unreduced = X_grads_unreduced.reshape(*batch_shape, K * I1 * I2, D)  # *batch x KI^2 x D
     Si = Si.reshape(*batch_shape, -1)  # *batch x KI^2
 
     # Function to reduce X_grads_unreduced
-    def reduce_grad(X_grads_unreduced_sub: Float[Tensor, "... K*I*I"]):
+    def reduce_grad(X_grads_unreduced_sub: Float[Tensor, "... K*I1*I2"]):
         res = torch.zeros(*batch_shape, N)
         res = torch.scatter_reduce(res, -1, Si, X_grads_unreduced_sub, reduce="sum")
         return res
@@ -134,12 +134,11 @@ class SparseQuadForm(torch.autograd.Function):
     @staticmethod
     def forward(
         ctx,
-        X1: Float[Tensor, "... M D"],
-        X2: Float[Tensor, "... N D"],
-        Sv1: Float[Tensor, "... K I"],
-        Sv2: Float[Tensor, "... K I"],
-        Si1: Long[LongTensor, "... K I"],
-        Si2: Long[LongTensor, "... K I"],
+        X: Float[Tensor, "... N D"],
+        Sv1: Float[Tensor, "... K1 I1"],
+        Sv2: Float[Tensor, "... K2 I2"],
+        Si1: Long[LongTensor, "... K1 I1"],
+        Si2: Long[LongTensor, "... K2 I2"],
         kernel_forward: Callable[[Float[Tensor, "... M D"], Float[Tensor, "... N D"]], Float[Tensor, "... M N"]],
         kernel_vjp: Optional[
             Callable[
@@ -147,23 +146,23 @@ class SparseQuadForm(torch.autograd.Function):
                 Tuple[Float[Tensor, "... M D"], Float[Tensor, "... N D"]],
             ]
         ],
-    ) -> Float[Tensor, "... I I"]:
+    ) -> Float[Tensor, "... I1 I2"]:
         """
         O(K^2 I^2) time
         O(max(K^2, I^2)) memory (if vmap is done sequentially)
         """
 
         # Get consistent batch sizes
-        K, I = Sv1.shape[-2:]
+        K1, I1 = Sv1.shape[-2:]
+        K2, I2 = Sv2.shape[-2:]
         batch_shape = torch.broadcast_shapes(
-            X1.shape[:-2], X2.shape[:-2], Sv1.shape[:-2], Sv2.shape[:-2], Si1.shape[:-2], Si2.shape[:-2]
+            X.shape[:-2], Sv1.shape[:-2], Sv2.shape[:-2], Si1.shape[:-2], Si2.shape[:-2]
         )
-        X1_ = X1.expand(*batch_shape, *X1.shape[-2:])
-        X2_ = X2.expand(*batch_shape, *X2.shape[-2:])
-        Sv1_ = Sv1[..., :, None].expand(*batch_shape, K, I, I)
-        Sv2_ = Sv2[..., None, :].expand(*batch_shape, K, I, I)
-        Si1_ = Si1[..., :, None].expand(*batch_shape, K, I, I)
-        Si2_ = Si2[..., None, :].expand(*batch_shape, K, I, I)
+        X_ = X.expand(*batch_shape, *X.shape[-2:])
+        Sv1_ = Sv1[..., :, None].expand(*batch_shape, K1, I1, I2)
+        Sv2_ = Sv2[..., None, :].expand(*batch_shape, K2, I1, I2)
+        Si1_ = Si1[..., :, None].expand(*batch_shape, K1, I1, I2)
+        Si2_ = Si2[..., None, :].expand(*batch_shape, K2, I1, I2)
 
         # Define a vmap function for forward
         # This function essentially computes s_i^T K s_j
@@ -173,8 +172,8 @@ class SparseQuadForm(torch.autograd.Function):
             Si1_sub: Long[LongTensor, "... K1"],
             Si2_sub: Long[LongTensor, "... K2"],
         ) -> Float[Tensor, "..."]:
-            X1_sub = _vmap_index_select(X1_, Si1_sub)
-            X2_sub = _vmap_index_select(X2_, Si2_sub)
+            X1_sub = _vmap_index_select(X_, Si1_sub)
+            X2_sub = _vmap_index_select(X_, Si2_sub)
             K_sub = kernel_forward(X1_sub, X2_sub)
             res = (Sv1_sub * (K_sub @ Sv2_sub[..., None]).squeeze(-1)).sum(dim=-1)
             return res
@@ -184,14 +183,15 @@ class SparseQuadForm(torch.autograd.Function):
         res = forward(Sv1_, Sv2_, Si1_, Si2_)
 
         # Maybe save stuff for the backward pass.
-        ctx.save_for_backward(X1, X2, Sv1, Sv2, Si1, Si2)
-        if any(ctx.needs_input_grad[:2]):
+        ctx.save_for_backward(X, Sv1, Sv2, Si1, Si2)
+        ctx.S2_chunk_size = S2_chunk_size
+        if ctx.needs_input_grad[0]:
             if kernel_vjp is None:
                 kernel_vjp = lambda V, X1, X2: torch.autograd.functional.vjp(
                     lambda X1, X2: kernel_forward(X1, X2), (X1, X2), V
                 )[1]
             ctx.kernel_vjp = kernel_vjp
-        if any(ctx.needs_input_grad[2:4]):
+        if any(ctx.needs_input_grad[1:3]):
             ctx.forward = forward
             ctx.kernel_forward = kernel_forward
 
@@ -205,47 +205,44 @@ class SparseQuadForm(torch.autograd.Function):
         O(I^2 K D) memory
         """
         # Get consistent batch sizes
-        X1, X2, Sv1, Sv2, Si1, Si2 = ctx.saved_tensors
-        K, I = Sv1.shape[-2:]
+        X, Sv1, Sv2, Si1, Si2 = ctx.saved_tensors
+        K1, I1 = Sv1.shape[-2:]
+        K2, I2 = Sv2.shape[-2:]
         batch_shape = torch.broadcast_shapes(
-            X1.shape[:-2], X2.shape[:-2], Sv1.shape[:-2], Sv2.shape[:-2], Si1.shape[:-2], Si2.shape[:-2]
+            X.shape[:-2], Sv1.shape[:-2], Sv2.shape[:-2], Si1.shape[:-2], Si2.shape[:-2]
         )
-        X1_ = X1.expand(*batch_shape, *X1.shape[-2:])
-        X2_ = X2.expand(*batch_shape, *X2.shape[-2:])
-        Sv1_ = Sv1[..., :, None].expand(*batch_shape, K, I, I)
-        Sv2_ = Sv2[..., None, :].expand(*batch_shape, K, I, I)
-        Si1_ = Si1[..., :, None].expand(*batch_shape, K, I, I)
-        Si2_ = Si2[..., None, :].expand(*batch_shape, K, I, I)
+        X_ = X.expand(*batch_shape, *X.shape[-2:])
+        Sv1_ = Sv1[..., :, None].expand(*batch_shape, K1, I1, I2)
+        Sv2_ = Sv2[..., None, :].expand(*batch_shape, K2, I1, I2)
+        Si1_ = Si1[..., :, None].expand(*batch_shape, K1, I1, I2)
+        Si2_ = Si2[..., None, :].expand(*batch_shape, K2, I1, I2)
 
-        # X1 and X2
-        if any(ctx.needs_input_grad[:-2]):
+        # X
+        if ctx.needs_input_grad[0]:
             # Define a vmap function for backward
             # This function essentially computes d(v_ij * s_i^T K s_j) / d(x_1), and likewise for x_2
             def _sub_backward(
-                Sv1_sub: Float[Tensor, "... K"],
-                Sv2_sub: Float[Tensor, "... K"],
-                Si1_sub: Long[LongTensor, "... K"],
-                Si2_sub: Long[LongTensor, "... K"],
-            ) -> Float[Tensor, "... K K"]:
-                X1_sub = _vmap_index_select(X1_, Si1_sub)
-                X2_sub = _vmap_index_select(X2_, Si2_sub)
-                X1_sub_grad, X2_sub_grad = ctx.kernel_vjp(
-                    (Sv1_sub[..., :, None] @ Sv2_sub[..., None, :]), X1_sub, X2_sub
-                )
-                return torch.cat([X1_sub_grad, X2_sub_grad], dim=-2)  # Vmap can only return single tensors
+                Sv1_sub: Float[Tensor, "... K1"],
+                Sv2_sub: Float[Tensor, "... K2"],
+                Si1_sub: Long[LongTensor, "... K1"],
+                Si2_sub: Long[LongTensor, "... K2"],
+            ) -> Float[Tensor, "... K1+K2 D"]:
+                X1_sub = _vmap_index_select(X_, Si1_sub)
+                X2_sub = _vmap_index_select(X_, Si2_sub)
+                return ctx.kernel_vjp((Sv1_sub[..., :, None] @ Sv2_sub[..., None, :]), X1_sub, X2_sub)
 
             # Call s_i^T K s_j for all i, j
             backward = torch.vmap(torch.vmap(_sub_backward, in_dims=-1, out_dims=-2), in_dims=-1, out_dims=-2)
-            combined_grads = V[..., None, :, :, None] * backward(Sv1_, Sv2_, Si1_, Si2_)  # ... x k*2 x i x i x d
-            X1_grads, X2_grads = torch.split(combined_grads, [K, K], dim=-4)
-            X1_grad = _compress_gradients(X1, X1_grads, Si1_)
-            X2_grad = _compress_gradients(X2, X2_grads, Si2_)
+            X1_grads, X2_grads = backward(Sv1_, Sv2_, Si1_, Si2_)  # ... x k*2 x i x i x d
+            X_grad = torch.add(
+                _compress_gradients(X, V[..., None, :, :, None] * X1_grads, Si1_),
+                _compress_gradients(X, V[..., None, :, :, None] * X2_grads, Si2_),
+            )
         else:
-            X1_grad = None
-            X2_grad = None
+            X_grad = None
 
         # Sv1
-        if ctx.needs_input_grad[2]:
+        if ctx.needs_input_grad[1]:
             # d tr(V^T S_1^T K S_2) / d S_1
             # = d tr(S_1^T K S_2 V^T) / d S_1
             # = K S_2 V^T
@@ -258,7 +255,7 @@ class SparseQuadForm(torch.autograd.Function):
             Sv1_grad = None
 
         # Sv2
-        if ctx.needs_input_grad[3]:
+        if ctx.needs_input_grad[2]:
             # d tr(V^T S_1^T K S_2) / d S_2
             # = d tr(S_2^T K^T S_1 V) / d S_2
             # = K^T S_1 V
@@ -273,8 +270,7 @@ class SparseQuadForm(torch.autograd.Function):
             Sv2_grad = None
 
         return (
-            X1_grad,
-            X2_grad,
+            X_grad,
             Sv1_grad,
             Sv2_grad,
             None,  # Si1
