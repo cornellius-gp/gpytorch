@@ -202,7 +202,7 @@ class SparseQuadForm(torch.autograd.Function):
     def backward(ctx, V):
         """
         O(K^2 I^2) time
-        O(max(I^2 K D) memory
+        O(I^2 K D) memory
         """
         # Get consistent batch sizes
         X1, X2, Sv1, Sv2, Si1, Si2 = ctx.saved_tensors
@@ -222,7 +222,6 @@ class SparseQuadForm(torch.autograd.Function):
             # Define a vmap function for backward
             # This function essentially computes d(v_ij * s_i^T K s_j) / d(x_1), and likewise for x_2
             def _sub_backward(
-                V_sub: Float[Tensor, "..."],
                 Sv1_sub: Float[Tensor, "... K"],
                 Sv2_sub: Float[Tensor, "... K"],
                 Si1_sub: Long[LongTensor, "... K"],
@@ -231,13 +230,13 @@ class SparseQuadForm(torch.autograd.Function):
                 X1_sub = _vmap_index_select(X1_, Si1_sub)
                 X2_sub = _vmap_index_select(X2_, Si2_sub)
                 X1_sub_grad, X2_sub_grad = ctx.kernel_vjp(
-                    V_sub[..., None, None] * (Sv1_sub[..., :, None] @ Sv2_sub[..., None, :]), X1_sub, X2_sub
+                    (Sv1_sub[..., :, None] @ Sv2_sub[..., None, :]), X1_sub, X2_sub
                 )
                 return torch.cat([X1_sub_grad, X2_sub_grad], dim=-2)  # Vmap can only return single tensors
 
             # Call s_i^T K s_j for all i, j
             backward = torch.vmap(torch.vmap(_sub_backward, in_dims=-1, out_dims=-2), in_dims=-1, out_dims=-2)
-            combined_grads = backward(V, Sv1_, Sv2_, Si1_, Si2_)  # ... x k*2 x i x i x d
+            combined_grads = V[..., None, :, :, None] * backward(Sv1_, Sv2_, Si1_, Si2_)  # ... x k*2 x i x i x d
             X1_grads, X2_grads = torch.split(combined_grads, [K, K], dim=-4)
             X1_grad = _compress_gradients(X1, X1_grads, Si1_)
             X2_grad = _compress_gradients(X2, X2_grads, Si2_)
@@ -251,12 +250,10 @@ class SparseQuadForm(torch.autograd.Function):
             # = d tr(S_1^T K S_2 V^T) / d S_1
             # = K S_2 V^T
             # We can use the "forward" helper to compute `I K S_2`
-            Sv1_grad = torch.mul(
-                ctx.forward(
-                    torch.ones_like(Sv1_).unsqueeze(-3), Sv2_.unsqueeze(-4), Si1_.unsqueeze(-3), Si2_.unsqueeze(-4)
-                ),
-                V.unsqueeze(-3),
-            ).sum(dim=-1)
+            Sv1_full_grad = ctx.forward(
+                torch.ones_like(Sv1_).unsqueeze(-3), Sv2_.unsqueeze(-4), Si1_.unsqueeze(-3), Si2_.unsqueeze(-4)
+            )
+            Sv1_grad = torch.mul(Sv1_full_grad, V.unsqueeze(-3)).sum(dim=-1)
         else:
             Sv1_grad = None
 
