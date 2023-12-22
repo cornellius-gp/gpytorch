@@ -80,7 +80,7 @@ def rbf_vjp(
     return res.sum(dim=-2), res.mul(-1).sum(dim=-3)
 
 
-def _compress_gradients(
+def _scatter_gradients(
     X: Float[Tensor, "... N D"],
     X_grads_unreduced: Float[Tensor, "*batch K I1 I2 D"],
     Si: Long[LongTensor, "*batch K I1 I2"],
@@ -101,9 +101,6 @@ def _compress_gradients(
 
     # Run vmap to reduce X_grads_unreduced
     X_grad = torch.vmap(reduce_grad, in_dims=-1, out_dims=-1)(X_grads_unreduced)
-
-    # Now compress expanded batch dimensions
-    _, X_grad = torch.autograd.functional.vjp(lambda _X: _X.expand(X_grad.shape), X, X_grad)
     return X_grad
 
 
@@ -118,18 +115,29 @@ def _vmap_index_select(
         return torch.vmap(_vmap_index_select)(input, index)
 
 
-class SparseBilinearForm(torch.autograd.Function):
+class SparseBilinearForms(torch.autograd.Function):
     r"""
-    An autograd function to compute bilinear forms
+    An autograd function to compute the bilinear forms
     .. math::
 
-        \boldsymbol S_1^T \boldsymbol K(\boldsymbol X_1, \boldsymbol X_2) S_2^\top,
+        \boldsymbol S_1^\top \boldsymbol K(\boldsymbol X, \boldsymbol X) \boldsymbol S_2   \quad \text{and} \quad   \boldsymbol S_1^\top \boldsymbol S_2^\top,
 
     where :math:`\boldsymbol S_1` and :math:`\boldsymbol S_2` are row-wise sparse.
     They are represented by row-wise value/index matrices.
 
-    The kernel matrix is given by a forward (and an optional backward) function.
-    """
+    The kernel matrix :math:`\boldsymbol K(\cdot, \cdot)`
+    is given by a forward (and an optional backward) function.
+
+    :param X: The inputs :math:`\boldsymbol X`.
+    :param Sv1: The `K1` non-zero values of each row in :math:`\boldsymbol S_1`.
+    :param Sv2: The `K2` non-zero values of each row in :math:`\boldsymbol S_2`.
+    :param Si1: The indicies of the `K1` non-zero entries of each row in :math:`\boldsymbol S_1`.
+    :param Si2: The indicies of the `K2` non-zero entries of each row in :math:`\boldsymbol S_2`.
+    :param kernel_forward: The forward function for :math:`\boldsymbol K(\cdot, \cdot)`.
+    :param kernel_vjp: A VJP function for :math:`\boldsymbol K(\cdot, \cdot)`.
+    :param S2_chunk_size: An optional chunk size (number of columns of :math:`\boldsymbol S_2`
+        to compute in parallel) for vmaps.
+    """  # noqa: E501
 
     @staticmethod
     def forward(
@@ -166,7 +174,7 @@ class SparseBilinearForm(torch.autograd.Function):
         Si2_ = Si2[..., None, :].expand(*batch_shape, K2, I1, I2)
 
         # Define a vmap function for forward
-        # This function essentially computes s_i^T K s_j
+        # This function essentially computes s_i^T K s_j and s_i^T s_j
         def _sub_forward(
             Sv1_sub: Float[Tensor, "... K1"],
             Sv2_sub: Float[Tensor, "... K2"],
@@ -176,14 +184,16 @@ class SparseBilinearForm(torch.autograd.Function):
             X1_sub = _vmap_index_select(X_, Si1_sub)
             X2_sub = _vmap_index_select(X_, Si2_sub)
             K_sub = kernel_forward(X1_sub, X2_sub)
-            res = (Sv1_sub * (K_sub @ Sv2_sub[..., None]).squeeze(-1)).sum(dim=-1)
-            return res
+            Dirac_sub = torch.eq(Si1_sub[..., :, None], Si2_sub[..., None, :]).to(dtype=K_sub.dtype)
+            siT_K_sj = (Sv1_sub * (K_sub @ Sv2_sub[..., None]).squeeze(-1)).sum(dim=-1)
+            siT_sj = (Sv1_sub * (Dirac_sub @ Sv2_sub[..., None]).squeeze(-1)).sum(dim=-1)
+            return siT_K_sj, siT_sj
 
-        # Call s_i^T K s_j for all i, j
+        # Call s_i^T K s_j and s_i^T s_j for all i, j
         forward = torch.vmap(
             torch.vmap(_sub_forward, in_dims=-1, out_dims=-1), in_dims=-1, out_dims=-1, chunk_size=S2_chunk_size
         )
-        res = forward(Sv1_, Sv2_, Si1_, Si2_)
+        S1T_K_S2, S1T_S2 = forward(Sv1_, Sv2_, Si1_, Si2_)
 
         # Maybe save stuff for the backward pass.
         ctx.save_for_backward(X, Sv1, Sv2, Si1, Si2)
@@ -199,10 +209,10 @@ class SparseBilinearForm(torch.autograd.Function):
             ctx.kernel_forward = kernel_forward
 
         # Done!
-        return res
+        return S1T_K_S2, S1T_S2
 
     @staticmethod
-    def backward(ctx, V):
+    def backward(ctx, V_S1T_K_S2, V_S1T_S2):
         """
         O(K^2 I^2) time
         O(I^2 K D) memory
@@ -223,7 +233,7 @@ class SparseBilinearForm(torch.autograd.Function):
         # X
         if ctx.needs_input_grad[0]:
             # Define a vmap function for backward
-            # This function essentially computes d(v_ij * s_i^T K s_j) / d(x_1), and likewise for x_2
+            # This function essentially computes d(v_ij * s_i^T K s_j) / d(X_1), and likewise for X_2
             def _sub_backward(
                 Sv1_sub: Float[Tensor, "... K1"],
                 Sv2_sub: Float[Tensor, "... K2"],
@@ -234,7 +244,7 @@ class SparseBilinearForm(torch.autograd.Function):
                 X2_sub = _vmap_index_select(X_, Si2_sub)
                 return ctx.kernel_vjp((Sv1_sub[..., :, None] @ Sv2_sub[..., None, :]), X1_sub, X2_sub)
 
-            # Call s_i^T K s_j for all i, j
+            # Call d(v_ij * s_i^T K s_j) / dX for all i, j, and sum
             backward = torch.vmap(
                 torch.vmap(_sub_backward, in_dims=-1, out_dims=-2),
                 in_dims=-1,
@@ -243,36 +253,50 @@ class SparseBilinearForm(torch.autograd.Function):
             )
             X1_grads, X2_grads = backward(Sv1_, Sv2_, Si1_, Si2_)  # ... x k*2 x i x i x d
             X_grad = torch.add(
-                _compress_gradients(X, V[..., None, :, :, None] * X1_grads, Si1_),
-                _compress_gradients(X, V[..., None, :, :, None] * X2_grads, Si2_),
+                _scatter_gradients(X, V_S1T_K_S2[..., None, :, :, None] * X1_grads, Si1_),
+                _scatter_gradients(X, V_S1T_K_S2[..., None, :, :, None] * X2_grads, Si2_),
             )
         else:
             X_grad = None
 
         # Sv1
         if ctx.needs_input_grad[1]:
-            # d tr(V^T S_1^T K S_2) / d S_1
-            # = d tr(S_1^T K S_2 V^T) / d S_1
-            # = K S_2 V^T
-            # We can use the "forward" helper to compute `I K S_2`
-            Sv1_full_grad = ctx.forward(
-                torch.ones_like(Sv1_).unsqueeze(-3), Sv2_.unsqueeze(-4), Si1_.unsqueeze(-3), Si2_.unsqueeze(-4)
+            # d tr(V^T (S1^T K S2) / d S1
+            # = d tr(S1^T K S2 V^T) / d S1
+            # = K S2 V^T
+            # Similarly, d tr(V^T S1^T S2) / d S1 = S2 V^T
+            # We can use the "forward" helper to compute `I K S2` and `I S2`
+            Sv1_full_grad_a, Sv1_full_grad_b = ctx.forward(
+                torch.ones_like(Sv1_).unsqueeze(-3),
+                Sv2_.unsqueeze(-4),
+                Si1_.unsqueeze(-3),
+                Si2_.unsqueeze(-4),
             )
-            Sv1_grad = torch.mul(Sv1_full_grad, V.unsqueeze(-3)).sum(dim=-1)
+            Sv1_grad = torch.addcmul(
+                torch.mul(Sv1_full_grad_a, V_S1T_K_S2.unsqueeze(-3)),
+                Sv1_full_grad_b,
+                V_S1T_S2.unsqueeze(-3),
+            ).sum(dim=-1)
         else:
             Sv1_grad = None
 
         # Sv2
         if ctx.needs_input_grad[2]:
-            # d tr(V^T S_1^T K S_2) / d S_2
-            # = d tr(S_2^T K^T S_1 V) / d S_2
-            # = K^T S_1 V
-            # We can use the "forward" helper to compute `S_1^T K I`
-            Sv2_grad = torch.mul(
-                ctx.forward(
-                    Sv1_.unsqueeze(-4), torch.ones_like(Sv2_).unsqueeze(-3), Si1_.unsqueeze(-4), Si2_.unsqueeze(-3)
-                ),
-                V.unsqueeze(-3),
+            # d tr(V^T (S1^T K S2) / d S2
+            # = d tr(S2^T K^T S1 V) / d S1
+            # = K^T S1 V
+            # Similarly, d tr(V^T S1^T S2) / d S2 = S1 V
+            # We can use the "forward" helper to compute `I K^T S1` and `I S1`
+            Sv2_full_grad_a, Sv2_full_grad_b = ctx.forward(
+                Sv1_.unsqueeze(-4),
+                torch.ones_like(Sv2_).unsqueeze(-3),
+                Si1_.unsqueeze(-4),
+                Si2_.unsqueeze(-3),
+            )
+            Sv2_grad = torch.addcmul(
+                torch.mul(Sv2_full_grad_a, V_S1T_K_S2.unsqueeze(-3)),
+                Sv2_full_grad_b,
+                V_S1T_S2.unsqueeze(-3),
             ).sum(dim=-2)
         else:
             Sv2_grad = None

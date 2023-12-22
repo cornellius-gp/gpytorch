@@ -7,7 +7,7 @@ import unittest
 import torch
 
 from gpytorch.kernels import RBFKernel
-from gpytorch.kernels.rbf_kernel import rbf_forward, rbf_vjp, SparseBilinearForm
+from gpytorch.kernels.rbf_kernel import rbf_forward, rbf_vjp, SparseBilinearForms
 from gpytorch.priors import NormalPrior
 from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
 
@@ -246,11 +246,13 @@ class TestRBFKernel(unittest.TestCase, BaseKernelTestCase):
         K = 3
         I1 = 4
         I2 = 2
+
         X = torch.randn(4, N, D).requires_grad_(True)
         Sv1 = torch.randn(4, K, I1).requires_grad_(True)
         Si1 = torch.stack([torch.randperm(N) for _ in range(I1)], dim=-1)[..., :K, :]
         Sv2 = torch.randn(2, 1, K, I2).requires_grad_(True)
         Si2 = torch.stack([torch.randperm(N) for _ in range(I2)], dim=-1)[..., :K, :]
+
         X_clone = X.detach().clone().requires_grad_(True)
         Sv1_clone = Sv1.detach().clone().requires_grad_(True)
         Sv2_clone = Sv2.detach().clone().requires_grad_(True)
@@ -263,17 +265,22 @@ class TestRBFKernel(unittest.TestCase, BaseKernelTestCase):
         S1 = torch.zeros(2, 4, N, I1).scatter_(-2, Si1.expand(_shape1), Sv1.expand(_shape1))
         S2 = torch.zeros(2, 4, N, I2).scatter_(-2, Si2.expand(_shape2), Sv2.expand(_shape2))
         S1T_K_S2 = S1.mT @ kernel(X, X).to_dense() @ S2
+        S1T_S2 = S1.mT @ S2
 
         # Test custom forward
-        S1T_K_S2_custom = SparseBilinearForm.apply(X_clone, Sv1_clone, Sv2_clone, Si1, Si2, rbf_forward, rbf_vjp, 1)
+        S1T_K_S2_custom, S1T_S2_custom = SparseBilinearForms.apply(
+            X_clone, Sv1_clone, Sv2_clone, Si1, Si2, rbf_forward, rbf_vjp, 1
+        )
         self.assertAllClose(S1T_K_S2, S1T_K_S2_custom)
+        self.assertAllClose(S1T_S2, S1T_S2_custom)
 
         # Actual backward
-        V = torch.randn(2, 4, I1, I2)
-        S1T_K_S2.backward(gradient=V)
+        V_S1T_K_S2 = torch.randn(2, 4, I1, I2)
+        V_S1T_S2 = torch.randn(2, 4, I1, I2)
+        (V_S1T_K_S2 * S1T_K_S2 + V_S1T_S2 * S1T_S2).sum().backward()
 
         # Test custom backward
-        S1T_K_S2_custom.backward(gradient=V)
+        (V_S1T_K_S2 * S1T_K_S2_custom + V_S1T_S2 * S1T_S2_custom).sum().backward()
         self.assertAllClose(X.grad, X_clone.grad)
         self.assertAllClose(Sv1.grad, Sv1_clone.grad)
         self.assertAllClose(Sv2.grad, Sv2_clone.grad)
