@@ -118,6 +118,17 @@ class ProbabilisticLinearSolver(LinearSolver):
                 # Select action
                 action = self.policy(solver_state)
 
+                # Normalize action
+                action = (
+                    BlockSparseLinearOperator(
+                        non_zero_idcs=action.non_zero_idcs,
+                        blocks=action.blocks / torch.linalg.vector_norm(action.blocks),
+                        size_sparse_dim=action.size_sparse_dim,
+                    )
+                    if isinstance(action, BlockSparseLinearOperator)
+                    else action / torch.linalg.vector_norm(action)
+                )
+
             with torch.no_grad():  # Saves 2x compute since we don't need gradients through the solve.
                 linear_op_action = (
                     (action._matmul(linear_op)) if isinstance(action, BlockSparseLinearOperator) else linear_op @ action
@@ -336,6 +347,17 @@ class ProbabilisticLinearSolver(LinearSolver):
             ):  # For efficiency, only track gradients if necessary to optimize action hyperparameters.
                 # Select action
                 action = self.policy(solver_state)
+
+                # Normalize action
+                action = (
+                    BlockSparseLinearOperator(
+                        non_zero_idcs=action.non_zero_idcs,
+                        blocks=action.blocks / torch.linalg.vector_norm(action.blocks),
+                        size_sparse_dim=action.size_sparse_dim,
+                    )
+                    if isinstance(action, BlockSparseLinearOperator)
+                    else action / torch.linalg.vector_norm(action)
+                )
 
             with torch.no_grad():  # Saves 2x compute since we don't need gradients through the solve.
                 # Matrix of actions
