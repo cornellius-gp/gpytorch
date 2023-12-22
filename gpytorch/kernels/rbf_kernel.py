@@ -118,9 +118,9 @@ def _vmap_index_select(
         return torch.vmap(_vmap_index_select)(input, index)
 
 
-class SparseQuadForm(torch.autograd.Function):
+class SparseBilinearForm(torch.autograd.Function):
     r"""
-    An autograd function to compute quadratic forms
+    An autograd function to compute bilinear forms
     .. math::
 
         \boldsymbol S_1^T \boldsymbol K(\boldsymbol X_1, \boldsymbol X_2) S_2^\top,

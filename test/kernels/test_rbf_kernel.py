@@ -7,7 +7,7 @@ import unittest
 import torch
 
 from gpytorch.kernels import RBFKernel
-from gpytorch.kernels.rbf_kernel import rbf_forward, rbf_vjp, SparseQuadForm
+from gpytorch.kernels.rbf_kernel import rbf_forward, rbf_vjp, SparseBilinearForm
 from gpytorch.priors import NormalPrior
 from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
 
@@ -240,7 +240,7 @@ class TestRBFKernel(unittest.TestCase, BaseKernelTestCase):
         self.assertAllClose(x1.grad, x1_grad)
         self.assertAllClose(x2.grad, x2_grad)
 
-    def test_sparse_quad_form(self):
+    def test_sparse_bilinear_form(self):
         N = 8
         D = 5
         K = 3
@@ -265,7 +265,7 @@ class TestRBFKernel(unittest.TestCase, BaseKernelTestCase):
         S1T_K_S2 = S1.mT @ kernel(X, X).to_dense() @ S2
 
         # Test custom forward
-        S1T_K_S2_custom = SparseQuadForm.apply(X_clone, Sv1_clone, Sv2_clone, Si1, Si2, rbf_forward, rbf_vjp)
+        S1T_K_S2_custom = SparseBilinearForm.apply(X_clone, Sv1_clone, Sv2_clone, Si1, Si2, rbf_forward, rbf_vjp)
         self.assertAllClose(S1T_K_S2, S1T_K_S2_custom)
 
         # Actual backward
