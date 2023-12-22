@@ -5,7 +5,6 @@ from typing import Optional
 
 import torch
 
-from linear_operator.operators import LinearOperator
 from linear_operator.utils.lanczos import lanczos_tridiag, lanczos_tridiag_to_diag
 
 from ._sparsify_vector import sparsify_vector
@@ -18,50 +17,37 @@ class LanczosPolicy(LinearSolverPolicy):
     def __init__(
         self,
         seeding: float = "random",
-        precond: Optional["LinearOperator"] = None,
-        sparsification_threshold: float = 0.0,
         num_non_zero: Optional[int] = None,
     ) -> None:
         self.seeding = seeding
-        self.precond = precond
-        self.sparsification_threshold = sparsification_threshold
         self.num_nonzero = num_non_zero
         super().__init__()
 
     def __call__(self, solver_state: "LinearSolverState") -> torch.Tensor:
         with torch.no_grad():
-            if "init_vec" not in solver_state.cache:
+            if "seed_vector" not in solver_state.cache:
                 # Seed vector
                 if self.seeding == "random":
-                    init_vec = torch.randn(
+                    seed_vector = torch.randn(
                         solver_state.problem.A.shape[1],
                         dtype=solver_state.problem.A.dtype,
                         device=solver_state.problem.A.device,
                     )
-                    init_vec = init_vec.div(torch.linalg.vector_norm(init_vec))
+                    seed_vector = seed_vector.div(torch.linalg.vector_norm(seed_vector))
                 else:
                     raise NotImplementedError
 
                 # Cache initial vector
-                solver_state.cache["init_vec"] = init_vec
+                solver_state.cache["seed_vector"] = seed_vector
 
-            if "compressed_solution" in solver_state.cache:
-                if solver_state.cache["compressed_solution"] is None:
-                    action = solver_state.cache["init_vec"]
-                else:
-                    action = (
-                        solver_state.cache["init_vec"] - solver_state.cache["linear_op_actions_compressed_solution"]
-                    )
+            if solver_state.iteration == 0:
+                action = solver_state.cache["seed_vector"]
             else:
-                action = solver_state.cache["init_vec"] - solver_state.problem.A @ solver_state.solution
-
-            if isinstance(self.precond, (torch.Tensor, LinearOperator)):
-                action = self.precond @ action
-            elif callable(self.precond):
-                action = self.precond(action).squeeze()
-
-            if self.sparsification_threshold > 0.0:
-                action[torch.abs(action) < self.sparsification_threshold] = 0.0
+                action = (
+                    solver_state.cache["seed_vector"]
+                    - (solver_state.cache["actions_op"]._matmul(solver_state.problem.A)).mT
+                    @ solver_state.cache["compressed_solution"]
+                )
 
             # Sparsify
             if self.num_nonzero is not None:
