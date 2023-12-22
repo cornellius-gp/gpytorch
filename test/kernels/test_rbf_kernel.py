@@ -265,7 +265,7 @@ class TestRBFKernel(unittest.TestCase, BaseKernelTestCase):
         S1T_K_S2 = S1.mT @ kernel(X, X).to_dense() @ S2
 
         # Test custom forward
-        S1T_K_S2_custom = SparseBilinearForm.apply(X_clone, Sv1_clone, Sv2_clone, Si1, Si2, rbf_forward, rbf_vjp)
+        S1T_K_S2_custom = SparseBilinearForm.apply(X_clone, Sv1_clone, Sv2_clone, Si1, Si2, rbf_forward, rbf_vjp, 1)
         self.assertAllClose(S1T_K_S2, S1T_K_S2_custom)
 
         # Actual backward

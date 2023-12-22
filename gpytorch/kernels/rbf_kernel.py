@@ -146,6 +146,7 @@ class SparseBilinearForm(torch.autograd.Function):
                 Tuple[Float[Tensor, "... M D"], Float[Tensor, "... N D"]],
             ]
         ],
+        S2_chunk_size: Optional[int] = None,
     ) -> Float[Tensor, "... I1 I2"]:
         """
         O(K^2 I^2) time
@@ -179,7 +180,9 @@ class SparseBilinearForm(torch.autograd.Function):
             return res
 
         # Call s_i^T K s_j for all i, j
-        forward = torch.vmap(torch.vmap(_sub_forward, in_dims=-1, out_dims=-1), in_dims=-1, out_dims=-1)
+        forward = torch.vmap(
+            torch.vmap(_sub_forward, in_dims=-1, out_dims=-1), in_dims=-1, out_dims=-1, chunk_size=S2_chunk_size
+        )
         res = forward(Sv1_, Sv2_, Si1_, Si2_)
 
         # Maybe save stuff for the backward pass.
@@ -232,7 +235,12 @@ class SparseBilinearForm(torch.autograd.Function):
                 return ctx.kernel_vjp((Sv1_sub[..., :, None] @ Sv2_sub[..., None, :]), X1_sub, X2_sub)
 
             # Call s_i^T K s_j for all i, j
-            backward = torch.vmap(torch.vmap(_sub_backward, in_dims=-1, out_dims=-2), in_dims=-1, out_dims=-2)
+            backward = torch.vmap(
+                torch.vmap(_sub_backward, in_dims=-1, out_dims=-2),
+                in_dims=-1,
+                out_dims=-2,
+                chunk_size=ctx.S2_chunk_size,
+            )
             X1_grads, X2_grads = backward(Sv1_, Sv2_, Si1_, Si2_)  # ... x k*2 x i x i x d
             X_grad = torch.add(
                 _compress_gradients(X, V[..., None, :, :, None] * X1_grads, Si1_),
@@ -277,6 +285,7 @@ class SparseBilinearForm(torch.autograd.Function):
             None,  # Si2
             None,  # kernel_forward
             None,  # kernel_vjp
+            None,  # S2_chunk_size
         )
 
 
