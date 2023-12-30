@@ -79,7 +79,7 @@ Converting Models to TorchScript
 ----------------------------------
 
 In order to deploy GPs in production code, it can be desirable to avoid using PyTorch directly for performance reasons.
-Fortunarely, PyTorch offers a mechanism caled TorchScript to aid in this. In these example notebooks, we'll demonstrate
+Fortunarely, PyTorch offers a mechanism called TorchScript to aid in this. In these example notebooks, we'll demonstrate
 how to convert both an exact GP and a variational GP to a ScriptModule that can then be used for example in LibTorch.
 
 .. toctree::
