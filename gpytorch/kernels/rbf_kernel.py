@@ -95,7 +95,7 @@ def _scatter_gradients(
 
     # Function to reduce X_grads_unreduced
     def reduce_grad(X_grads_unreduced_sub: Float[Tensor, "... K*I1*I2"]):
-        res = torch.zeros(*batch_shape, N)
+        res = torch.zeros(*batch_shape, N, device=X.device)
         res = torch.scatter_reduce(res, -1, Si, X_grads_unreduced_sub, reduce="sum")
         return res
 
