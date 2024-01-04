@@ -20,10 +20,10 @@ class GradientPolicy(LinearSolverPolicy):
 
     def __init__(
         self,
-        precond: Optional["LinearOperator"] = None,
+        preconditioner: Optional["LinearOperator"] = None,
         num_non_zero: Optional[int] = None,
     ) -> None:
-        self.precond = precond
+        self.preconditioner = preconditioner
         self.num_nonzero = num_non_zero
 
         super().__init__()
@@ -32,10 +32,10 @@ class GradientPolicy(LinearSolverPolicy):
         with torch.no_grad():
             action = solver_state.residual
 
-            if isinstance(self.precond, (torch.Tensor, LinearOperator)):
-                action = self.precond @ action
-            elif callable(self.precond):
-                action = self.precond(action).squeeze()
+            if isinstance(self.preconditioner, (torch.Tensor, LinearOperator)):
+                action = self.preconditioner @ action
+            elif callable(self.preconditioner):
+                action = self.preconditioner(action).squeeze()
 
             # Sparsify
             if self.num_nonzero is not None:

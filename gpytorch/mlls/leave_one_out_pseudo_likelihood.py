@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import math
+import warnings
 
 import torch
 from linear_operator import operators
@@ -70,6 +71,90 @@ class LeaveOneOutPseudoLikelihood(ExactMarginalLogLikelihood):
         # Scale by the amount of data we have and then add on the scaled constant
         num_data = target.size(-1)
         return res.div_(num_data) - 0.5 * math.log(2 * math.pi)
+
+
+class BatchedLeaveOneOutPseudoLikelihood(ExactMarginalLogLikelihood):
+    def __init__(self, likelihood, model, batch_size_left_out_data):
+        super().__init__(likelihood=likelihood, model=model)
+        self.likelihood = likelihood
+        self.model = model
+        self.batch_size_left_out_data = batch_size_left_out_data
+
+    def forward(self, function_dist: MultivariateNormal, target: Tensor, *params) -> Tensor:
+        # Kernel linear operator
+        Khat = self.likelihood(function_dist).lazy_covariance_matrix.evaluate_kernel()
+
+        # Linear solve
+        # TODO: Do we even need this solve?
+        solver_state = self.model.linear_solver.solve(Khat, target)  # TODO: do we need to subtract output.mean here?
+        if self.model.prediction_strategy is None:
+            self.model._solver_state = solver_state
+        else:
+            warnings.warn(
+                "Computing the loss does not set solver_state during its computation. This could cause undefined behavior."
+            )
+
+        # Sample left out idcs
+        idcs_left_out_data = (
+            torch.rand(
+                self.batch_size_left_out_data,
+                dtype=self.model.train_inputs[0].dtype,
+                device=self.model.train_inputs[0].device,
+            )
+            .mul(len(self.model.train_inputs[0]))
+            .long()
+        )
+
+        actions_op = solver_state.cache["actions_op"]
+        prior_mean = function_dist.mean
+        kernel_loobatch_X = function_dist.lazy_covariance_matrix[idcs_left_out_data, :]
+        loocv_objective = torch.zeros(())
+
+        for i, loo_idx in enumerate(idcs_left_out_data):  # TODO: compute in parallel instead of sequentially
+            # Compute S_{-i}
+            loo_mask = actions_op.non_zero_idcs == loo_idx
+            loo_blocks = torch.clone(actions_op.blocks)
+            loo_blocks[loo_mask] = 0.0
+            actions_op_loo = operators.BlockSparseLinearOperator(
+                non_zero_idcs=actions_op.non_zero_idcs, blocks=loo_blocks, size_sparse_dim=actions_op.size_sparse_dim
+            )
+
+            # Compute S_{-i}' K S_{-i} and its Cholesky factor
+            gram_SKS = actions_op_loo._matmul(actions_op_loo._matmul(Khat).mT)
+            cholfac_gram = torch.linalg.cholesky(gram_SKS, upper=False)
+
+            # Compressed representer weights
+            actions_target = actions_op_loo @ target
+            compressed_repr_weights = torch.cholesky_solve(
+                actions_target.unsqueeze(1), cholfac_gram, upper=False
+            ).squeeze()
+
+            # k(x, X) S
+            kernel_loobatch_X_actions = actions_op_loo._matmul(kernel_loobatch_X[i, :].reshape(-1, 1)).T
+
+            # Predictive mean
+            pred_mean = prior_mean[loo_idx] + kernel_loobatch_X_actions @ compressed_repr_weights
+
+            # Predictive covariance
+            root_downdate = torch.linalg.solve_triangular(
+                cholfac_gram,
+                kernel_loobatch_X_actions.mT,
+                upper=False,
+                left=True,
+            ).mT
+            pred_cov = Khat[loo_idx, loo_idx] - root_downdate @ root_downdate.mT
+
+            assert pred_cov > 0.0
+
+            # Log-predictive density: log p(y_i | X, S_{-i}'y, \theta)
+            log_pred_loo = -0.5 * (
+                torch.sum((target - pred_mean) ** 2) / pred_cov + torch.log(pred_cov) + math.log(2 * math.pi)
+            )
+
+            loocv_objective = loocv_objective + log_pred_loo
+
+        # Average over held out batch of data
+        return loocv_objective / (self.batch_size_left_out_data * len(self.model.train_inputs[0]))
 
 
 class LeaveOneActionOutPseudoLikelihood(MarginalLogLikelihood):

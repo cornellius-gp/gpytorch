@@ -19,7 +19,7 @@ class SpectralPolicy(LinearSolverPolicy):
                 # Compute eigenvectors
                 with torch.no_grad():
                     eigvals, eigvecs = torch.linalg.eigh(
-                        solver_state.problem.A.to_dense() + 1e-3 * torch.eye(solver_state.problem.A.shape[0])
+                        solver_state.problem.A.to_dense() + 1e-4 * torch.eye(solver_state.problem.A.shape[0])
                     )
 
                 # Cache eigenvectors

@@ -4,7 +4,9 @@ from __future__ import annotations
 from typing import Optional
 
 import torch
-from linear_operator.operators import BlockSparseLinearOperator
+from linear_operator.operators import BlockSparseLinearOperator, LinearOperator
+
+from ._sparsify_vector import sparsify_vector
 
 from .linear_solver_policy import LinearSolverPolicy
 
@@ -16,6 +18,7 @@ class RademacherPolicy(LinearSolverPolicy):
         self,
         num_non_zero: Optional[int] = None,
         non_zero_idcs: Optional[torch.Tensor] = None,
+        preconditioner: Optional[LinearOperator] = None,
     ) -> None:
         if num_non_zero is not None and non_zero_idcs is not None:
             if num_non_zero != non_zero_idcs.shape[-1]:
@@ -28,6 +31,7 @@ class RademacherPolicy(LinearSolverPolicy):
 
         self.num_nonzero = num_non_zero
         self.non_zero_idcs = non_zero_idcs
+        self.preconditioner = preconditioner
         super().__init__()
 
     def __call__(self, solver_state: "LinearSolverState") -> torch.Tensor:
@@ -37,7 +41,7 @@ class RademacherPolicy(LinearSolverPolicy):
             device=solver_state.problem.A.device,
         )
 
-        if self.num_nonzero is None:
+        if self.num_nonzero is None or self.preconditioner is not None:
             num_nonzero = solver_state.problem.A.shape[0]
         else:
             num_nonzero = self.num_nonzero
@@ -55,6 +59,10 @@ class RademacherPolicy(LinearSolverPolicy):
                     device=solver_state.problem.A.device,
                 )
             )
+
+            if self.preconditioner is not None:
+                action = self.preconditioner(rademacher_vec)
+                return sparsify_vector(action, num_non_zero=self.num_nonzero)
 
             if self.non_zero_idcs is None:
                 perm = torch.randperm(solver_state.problem.A.shape[0])
