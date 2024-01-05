@@ -112,7 +112,9 @@ class MaternKernel(Kernel):
             x1, x2, self.lengthscale, self.nu, lambda x1, x2: self.covar_dist(x1, x2, **params)
         )
 
-    def _forward(self, X1: Float[Tensor, "batch* M D"], X2: Float[Tensor, "batch* N D"]) -> Float[Tensor, "batch* M N"]:
+    def _forward(
+        self, X1: Float[Tensor, "batch* M D"], X2: Float[Tensor, "batch* N D"]  # noqa F722
+    ) -> Float[Tensor, "batch* M N"]:  # noqa F722
         X1_ = X1[..., :, None, :]
         X2_ = X2[..., None, :, :]
         euclidean_dists = ((X1_ - X2_) ** 2).sum(-1)
@@ -128,10 +130,8 @@ class MaternKernel(Kernel):
         return constant_component * exp_component
 
     def _vjp(
-        self,
-        V: Float[Tensor, "*batch M N"],
-        X1: Float[Tensor, "*batch M D"],
-        X2: Float[Tensor, "*batch N D"],
-    ) -> Tuple[Float[Tensor, "*batch M D"], Float[Tensor, "*batch N D"]]:
-        # TODO
+        V: Float[Tensor, "*batch M N"],  # noqa F722
+        X1: Float[Tensor, "*batch M D"],  # noqa F722
+        X2: Float[Tensor, "*batch N D"],  # noqa F722
+    ) -> Tuple[Float[Tensor, "*batch M D"], Float[Tensor, "*batch N D"]]:  # noqa F722
         raise NotImplementedError

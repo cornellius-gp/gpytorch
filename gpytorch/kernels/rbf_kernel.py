@@ -89,7 +89,9 @@ class RBFKernel(Kernel):
             lambda x1, x2: self.covar_dist(x1, x2, square_dist=True, diag=False, **params),
         )
 
-    def _forward(self, X1: Float[Tensor, "batch* M D"], X2: Float[Tensor, "batch* N D"]) -> Float[Tensor, "batch* M N"]:
+    def _forward(
+        self, X1: Float[Tensor, "batch* M D"], X2: Float[Tensor, "batch* N D"]  # noqa F722
+    ) -> Float[Tensor, "batch* M N"]:  # noqa F722
         r"""
         O(NMD) time
         O(NMD) memory
@@ -109,10 +111,10 @@ class RBFKernel(Kernel):
 
     def _vjp(
         self,
-        V: Float[Tensor, "*batch M N"],
-        X1: Float[Tensor, "*batch M D"],
-        X2: Float[Tensor, "*batch N D"],
-    ) -> Tuple[Float[Tensor, "*batch M D"], Float[Tensor, "*batch N D"]]:
+        V: Float[Tensor, "*batch M N"],  # noqa F722
+        X1: Float[Tensor, "*batch M D"],  # noqa F722
+        X2: Float[Tensor, "*batch N D"],  # noqa F722
+    ) -> Tuple[Float[Tensor, "*batch M D"], Float[Tensor, "*batch N D"]]:  # noqa F722
         r"""
         O(NMD) time
         O(NMD) memory
