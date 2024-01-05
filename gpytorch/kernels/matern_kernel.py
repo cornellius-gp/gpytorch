@@ -117,15 +117,17 @@ class MaternKernel(Kernel):
     ) -> Float[Tensor, "batch* M N"]:  # noqa F722
         X1_ = X1[..., :, None, :]
         X2_ = X2[..., None, :, :]
-        euclidean_dists = ((X1_ - X2_) ** 2).sum(-1)
-        exp_component = (-math.sqrt(self.nu * 2) * euclidean_dists).exp()
+        diffs = X1_ - X2_
+        dists = diffs.norm(dim=-1)
+        consts = -math.sqrt(self.nu * 2)
+        exp_component = (consts * dists).exp()
 
         if self.nu == 0.5:
             constant_component = 1
         elif self.nu == 1.5:
-            constant_component = (math.sqrt(3) * euclidean_dists).add(1)
+            constant_component = torch.add(1.0, dists, alpha=math.sqrt(3))
         elif self.nu == 2.5:
-            constant_component = (math.sqrt(5) * euclidean_dists).add(1).add(5.0 / 3.0 * euclidean_dists**2)
+            constant_component = torch.add(1.0, dists, alpha=math.sqrt(5)).add(dists.square(), alpha=(5.0 / 3.0))
 
         return constant_component * exp_component
 
@@ -134,4 +136,28 @@ class MaternKernel(Kernel):
         X1: Float[Tensor, "*batch M D"],  # noqa F722
         X2: Float[Tensor, "*batch N D"],  # noqa F722
     ) -> Tuple[Float[Tensor, "*batch M D"], Float[Tensor, "*batch N D"]]:  # noqa F722
-        raise NotImplementedError
+        X1_ = X1[..., :, None, :]
+        X2_ = X2[..., None, :, :]
+        diffs = X1_ - X2_
+        dists = diffs.norm(dim=-1)
+        consts = -math.sqrt(self.nu * 2)
+        exp_component = (consts * dists).exp_()
+
+        if self.nu == 0.5:
+            constant_component = torch.tensor(1.0, dtype=X1.dtype, device=X1.device)
+            d_constant_component = torch.tensor(0.0, dtype=X1.dtype, device=X1.device).expand_as(dists)
+        elif self.nu == 1.5:
+            constant_component = torch.add(1.0, dists, alpha=math.sqrt(3))
+            d_constant_component = torch.tensor(math.sqrt(3), dtype=X1.dtype, device=X1.device)
+        elif self.nu == 2.5:
+            constant_component = torch.add(1.0, dists, alpha=math.sqrt(5)).add_(dists.square(), alpha=(5.0 / 3.0))
+            d_constant_component = torch.add(math.sqrt(5), dists, alpha=(10.0 / 3.0))
+
+        # Product rule:
+        # dK_ddists = (d_constant_component * exp_component) + (constant_component * d_exp_component)
+        # d_exp_component = consts * exp_component
+        V_dK_ddists = torch.add(d_constant_component, constant_component, alpha=consts).mul_(exp_component).mul_(V)
+        # dK_dX1 = dK_ddists * ddists_dX1
+        # ddists_dX1 = X1 / ||X1||
+        res = diffs.mul_(V_dK_ddists.div_(dists)[..., None])
+        return res.sum(dim=-2), res.sum(dim=-3).mul_(-1)
