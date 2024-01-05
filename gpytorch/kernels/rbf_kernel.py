@@ -133,6 +133,7 @@ class RBFKernel(Kernel):
         """  # noqa: E501
         X1_ = X1[..., :, None, :]
         X2_ = X2[..., None, :, :]
-        VK = V * (-((X1_ - X2_) ** 2).sum(-1) / 2).exp()
-        res = VK[..., None] * (X2_ - X1_)
-        return res.sum(dim=-2), res.mul(-1).sum(dim=-3)
+        diffs = X1_ - X2_
+        VK = diffs.norm(dim=-1).square_().div_(-2.0).exp_().mul_(V)
+        res = diffs.mul_(VK[..., None])
+        return res.mul(-1).sum(dim=-2), res.sum(dim=-3)
