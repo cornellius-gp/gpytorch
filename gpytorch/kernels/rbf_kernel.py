@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 
+from typing import Tuple
+
+from torch import Tensor
+
 from ..functions import RBFCovariance
 from ..settings import trace_mode
+from ..typing import Float
 from .kernel import Kernel
 
 
@@ -83,3 +88,50 @@ class RBFKernel(Kernel):
             self.lengthscale,
             lambda x1, x2: self.covar_dist(x1, x2, square_dist=True, diag=False, **params),
         )
+
+    @staticmethod
+    def _forward(X1: Float[Tensor, "batch* M D"], X2: Float[Tensor, "batch* N D"]) -> Float[Tensor, "batch* M N"]:
+        r"""
+        O(NMD) time
+        O(NMD) memory
+
+        :param X1: Kernel input :math:`\boldsymbol X_1`
+        :param X2: Kernel input :math:`\boldsymbol X_2`
+        :return: The RBF kernel matrix :math:`\boldsymbol K_\mathrm{RBF}(\boldsymbol X_1, \boldsymbol X_2)`
+
+        .. note::
+
+            This function does not broadcast. `X1` and `X2` must have the same batch shapes.
+        """
+        X1_ = X1[..., :, None, :]
+        X2_ = X2[..., None, :, :]
+        K = (-((X1_ - X2_) ** 2).sum(-1) / 2).exp()
+        return K
+
+    @staticmethod
+    def _vjp(
+        V: Float[Tensor, "*batch M N"],
+        X1: Float[Tensor, "*batch M D"],
+        X2: Float[Tensor, "*batch N D"],
+    ) -> Tuple[Float[Tensor, "*batch M D"], Float[Tensor, "*batch N D"]]:
+        r"""
+        O(NMD) time
+        O(NMD) memory
+
+        :param V: :math:`\boldsymbol V` - the LHS of the VJP operation
+        :param X1: Kernel input :math:`\boldsymbol X_1`
+        :param X2: Kernel input :math:`\boldsymbol X_2`
+        :return: The VJPs
+            :math:`\frac{\del \mathrm{tr} \left( \boldsymbol V^\top \boldsymbol K_\mathrm{RBF}(\boldsymbol X_1, \boldsymbol X_2) \right)}{\del \boldsymbol X_1}`
+            and
+            :math:`\frac{\del \mathrm{tr} \left( \boldsymbol V^\top \boldsymbol K_\mathrm{RBF}(\boldsymbol X_1, \boldsymbol X_2) \right)}{\del \boldsymbol X_2}`
+
+        .. note::
+
+            This function does not broadcast. `V`, `X1`, and `X2` must have the same batch shapes.
+        """  # noqa: E501
+        X1_ = X1[..., :, None, :]
+        X2_ = X2[..., None, :, :]
+        VK = V * (-((X1_ - X2_) ** 2).sum(-1) / 2).exp()
+        res = VK[..., None] * (X2_ - X1_)
+        return res.sum(dim=-2), res.mul(-1).sum(dim=-3)

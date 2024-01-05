@@ -140,9 +140,7 @@ class ProbabilisticLinearSolver(LinearSolver):
                     prev_actions_linear_op_action = None
 
                 # Schur complement / Squared linop-norm of search direction
-                action_linear_op_action = action @ linear_op_action
-
-                schur_complement = action_linear_op_action
+                schur_complement = action @ linear_op_action
 
                 if solver_state.cache["actions_op"] is not None:
                     gram_inv_tilde_z = torch.cholesky_solve(
@@ -155,7 +153,7 @@ class ProbabilisticLinearSolver(LinearSolver):
 
                 solver_state.cache["schur_complements"].append(schur_complement)
 
-                if schur_complement <= 0:
+                if schur_complement <= 0.0:
                     if settings.verbose_linalg.on():
                         settings.verbose_linalg.logger.debug(
                             f"PLS terminated after {solver_state.iteration} iteration(s)"
@@ -174,7 +172,7 @@ class ProbabilisticLinearSolver(LinearSolver):
                     # solver_state.cache["linear_op_actions"] = torch.reshape(linear_op_action, (-1, 1))
 
                     # Initialize Cholesky factor
-                    solver_state.cache["cholfac_gram"] = torch.sqrt(action_linear_op_action).reshape(1, 1)
+                    solver_state.cache["cholfac_gram"] = torch.sqrt(schur_complement).reshape(1, 1)
 
             else:
                 with torch.no_grad():
