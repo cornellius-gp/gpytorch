@@ -106,7 +106,8 @@ class RBFKernel(Kernel):
         """
         X1_ = X1[..., :, None, :]
         X2_ = X2[..., None, :, :]
-        K = (-((X1_ - X2_) ** 2).sum(-1) / 2).exp()
+        diffs = X1_ - X2_
+        K = diffs.norm(dim=-1).square_().div_(-2.0).exp_()
         return K
 
     def _vjp(

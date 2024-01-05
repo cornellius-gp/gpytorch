@@ -120,16 +120,16 @@ class MaternKernel(Kernel):
         diffs = X1_ - X2_
         dists = diffs.norm(dim=-1)
         consts = -math.sqrt(self.nu * 2)
-        exp_component = (consts * dists).exp()
+        exp_component = (consts * dists).exp_()
 
         if self.nu == 0.5:
-            constant_component = 1
+            constant_component = torch.tensor(1.0, dtype=X1.dtype, device=X1.device)
         elif self.nu == 1.5:
             constant_component = torch.add(1.0, dists, alpha=math.sqrt(3))
         elif self.nu == 2.5:
-            constant_component = torch.add(1.0, dists, alpha=math.sqrt(5)).add(dists.square(), alpha=(5.0 / 3.0))
+            constant_component = torch.add(1.0, dists, alpha=math.sqrt(5)).add_(dists.square(), alpha=(5.0 / 3.0))
 
-        return constant_component * exp_component
+        return exp_component.mul_(constant_component)
 
     def _vjp(
         V: Float[Tensor, "*batch M N"],  # noqa F722
