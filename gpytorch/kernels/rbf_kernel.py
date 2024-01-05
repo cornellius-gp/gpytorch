@@ -89,8 +89,7 @@ class RBFKernel(Kernel):
             lambda x1, x2: self.covar_dist(x1, x2, square_dist=True, diag=False, **params),
         )
 
-    @staticmethod
-    def _forward(X1: Float[Tensor, "batch* M D"], X2: Float[Tensor, "batch* N D"]) -> Float[Tensor, "batch* M N"]:
+    def _forward(self, X1: Float[Tensor, "batch* M D"], X2: Float[Tensor, "batch* N D"]) -> Float[Tensor, "batch* M N"]:
         r"""
         O(NMD) time
         O(NMD) memory
@@ -108,8 +107,8 @@ class RBFKernel(Kernel):
         K = (-((X1_ - X2_) ** 2).sum(-1) / 2).exp()
         return K
 
-    @staticmethod
     def _vjp(
+        self,
         V: Float[Tensor, "*batch M N"],
         X1: Float[Tensor, "*batch M D"],
         X2: Float[Tensor, "*batch N D"],

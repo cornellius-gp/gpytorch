@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
 import math
-from typing import Optional
+from typing import Optional, Tuple
 
 import torch
+from torch import Tensor
 
 from ..functions import MaternCovariance
 from ..settings import trace_mode
+from ..typing import Float
 from .kernel import Kernel
 
 
@@ -109,3 +111,27 @@ class MaternKernel(Kernel):
         return MaternCovariance.apply(
             x1, x2, self.lengthscale, self.nu, lambda x1, x2: self.covar_dist(x1, x2, **params)
         )
+
+    def _forward(self, X1: Float[Tensor, "batch* M D"], X2: Float[Tensor, "batch* N D"]) -> Float[Tensor, "batch* M N"]:
+        X1_ = X1[..., :, None, :]
+        X2_ = X2[..., None, :, :]
+        euclidean_dists = ((X1_ - X2_) ** 2).sum(-1)
+        exp_component = (-math.sqrt(self.nu * 2) * euclidean_dists).exp()
+
+        if self.nu == 0.5:
+            constant_component = 1
+        elif self.nu == 1.5:
+            constant_component = (math.sqrt(3) * euclidean_dists).add(1)
+        elif self.nu == 2.5:
+            constant_component = (math.sqrt(5) * euclidean_dists).add(1).add(5.0 / 3.0 * euclidean_dists**2)
+
+        return constant_component * exp_component
+
+    def _vjp(
+        self,
+        V: Float[Tensor, "*batch M N"],
+        X1: Float[Tensor, "*batch M D"],
+        X2: Float[Tensor, "*batch N D"],
+    ) -> Tuple[Float[Tensor, "*batch M D"], Float[Tensor, "*batch N D"]]:
+        # TODO
+        raise NotImplementedError
