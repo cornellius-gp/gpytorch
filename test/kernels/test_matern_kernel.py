@@ -178,9 +178,9 @@ class TestMaternKernel(unittest.TestCase, BaseKernelTestCase):
 
     def test_custom_forward_and_vjp(self):
         for nu in [
+            0.5,
             1.5,
             2.5,
-            0.5,
         ]:
             x1 = torch.randn(2, 4, 6, 3).requires_grad_(True)
             x2 = torch.randn(2, 4, 5, 3).requires_grad_(True)

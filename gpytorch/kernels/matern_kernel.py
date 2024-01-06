@@ -132,6 +132,7 @@ class MaternKernel(Kernel):
         return exp_component.mul_(constant_component)
 
     def _vjp(
+        self,
         V: Float[Tensor, "*batch M N"],  # noqa F722
         X1: Float[Tensor, "*batch M D"],  # noqa F722
         X2: Float[Tensor, "*batch N D"],  # noqa F722
@@ -159,5 +160,7 @@ class MaternKernel(Kernel):
         V_dK_ddists = torch.add(d_constant_component, constant_component, alpha=consts).mul_(exp_component).mul_(V)
         # dK_dX1 = dK_ddists * ddists_dX1
         # ddists_dX1 = X1 / ||X1||
-        res = diffs.mul_(V_dK_ddists.div_(dists)[..., None])
+        res = diffs.mul_(
+            V_dK_ddists.div_(dists)[..., None].nan_to_num_(nan=0.0)
+        )  # nan_to_num handles cases where dists == 0
         return res.sum(dim=-2), res.sum(dim=-3).mul_(-1)
