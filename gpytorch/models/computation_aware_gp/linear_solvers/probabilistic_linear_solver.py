@@ -10,6 +10,8 @@ from linear_operator import settings
 from linear_operator.operators import BlockSparseLinearOperator, LinearOperator, to_linear_operator, ZeroLinearOperator
 from torch import Tensor
 
+from .... import kernels
+
 from .linear_solver import LinearSolver, LinearSolverState, LinearSystem
 
 
@@ -36,14 +38,14 @@ class ProbabilisticLinearSolver(LinearSolver):
         abstol: float = 1e-5,
         reltol: float = 1e-5,
         max_iter: int = None,
-        subset_mode=False,
+        use_sparse_bilinear_form=False,
     ):
         self.policy = policy
         self.abstol = abstol
         self.reltol = reltol
         self.max_iter = max_iter
         self.enable_action_gradients = True if len(list(self.policy.parameters())) > 0 else False
-        self.subset_mode = subset_mode
+        self.use_sparse_bilinear_form = use_sparse_bilinear_form
 
     def solve_iterator(
         self,
@@ -274,7 +276,7 @@ class ProbabilisticLinearSolver(LinearSolver):
 
                 yield solver_state
 
-    def solve_iterator_sparse(
+    def solve_iterator_sparse_bilinear_form(
         self,
         linear_op: LinearOperator,
         rhs: Tensor,
@@ -364,27 +366,27 @@ class ProbabilisticLinearSolver(LinearSolver):
                         action if isinstance(action, BlockSparseLinearOperator) else torch.reshape(action, (1, -1))
                     )
                 else:
-                    if isinstance(action, BlockSparseLinearOperator):
-                        solver_state.cache["actions_op"] = BlockSparseLinearOperator(
-                            non_zero_idcs=torch.cat(
-                                (solver_state.cache["actions_op"].non_zero_idcs, action.non_zero_idcs), dim=0
-                            ),
-                            blocks=torch.cat((solver_state.cache["actions_op"].blocks, action.blocks), dim=0),
-                            size_sparse_dim=solver_state.problem.A.shape[0],
-                        )
-                    else:
-                        solver_state.cache["actions_op"] = torch.vstack(
-                            (solver_state.cache["actions_op"], action.reshape(1, -1))
-                        )
+                    solver_state.cache["actions_op"] = BlockSparseLinearOperator(
+                        non_zero_idcs=torch.cat(
+                            (solver_state.cache["actions_op"].non_zero_idcs, action.non_zero_idcs), dim=0
+                        ),
+                        blocks=torch.cat((solver_state.cache["actions_op"].blocks, action.blocks), dim=0),
+                        size_sparse_dim=solver_state.problem.A.shape[0],
+                    )
 
                 # Compute S'Ks
-                linear_op_subset = linear_op[
-                    solver_state.cache["actions_op"].non_zero_idcs[:, :, None, None],
-                    action.non_zero_idcs[None, None, :, :],
-                ]
-                actions_linear_op_current_action = (
-                    solver_state.cache["actions_op"].blocks * (linear_op_subset * action.blocks).sum((-2, -1))
-                ).sum(-1)
+                SKS, SS = kernels.SparseBilinearForms.apply(
+                    self.model.train_inputs[0] / lengthscale,
+                    solver_state.cache["actions_op"].blocks.mT,
+                    solver_state.cache["actions_op"].blocks.mT,
+                    solver_state.cache["actions_op"].non_zero_idcs.mT,
+                    solver_state.cache["actions_op"].non_zero_idcs.mT,
+                    forward_fn,
+                    vjp_fn,
+                    1,
+                )
+                actions_linear_op_current_action = outputscale * SKS + noise * SS
+
                 prev_actions_linear_op_current_action = actions_linear_op_current_action[0:-1]
 
                 # Schur complement / Squared linop-norm of search direction
@@ -405,7 +407,7 @@ class ProbabilisticLinearSolver(LinearSolver):
                         prev_actions_linear_op_current_action, gram_inv_tilde_z
                     )
 
-                    if schur_complement <= 1e-12:
+                    if schur_complement <= 0.0:
                         if settings.verbose_linalg.on():
                             settings.verbose_linalg.logger.debug(
                                 f"PLS terminated after {solver_state.iteration} iteration(s)"
@@ -470,7 +472,7 @@ class ProbabilisticLinearSolver(LinearSolver):
                 solver_state.inverse_op = None
 
                 # Update log-determinant
-                solver_state.logdet = solver_state.logdet + torch.log(schur_complement)
+                # solver_state.logdet = solver_state.logdet + torch.log(schur_complement)
 
                 # Update iteration
                 solver_state.iteration += 1
@@ -493,8 +495,8 @@ class ProbabilisticLinearSolver(LinearSolver):
 
         solver_state = None
 
-        if self.subset_mode:
-            for solver_state in self.solve_iterator_sparse(linear_op, rhs, x=x):
+        if self.use_sparse_bilinear_form:
+            for solver_state in self.solve_iterator_sparse_bilinear_form(linear_op, rhs, x=x):
                 pass
 
             return solver_state

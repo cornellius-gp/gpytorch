@@ -986,61 +986,15 @@ class ComputationAwarePredictionStrategy(DefaultPredictionStrategy):
             return ZeroLinearOperator(*test_test_covar.size())
 
         covar_inv_quad_form_root = self._exact_predictive_covar_inv_quad_form_root(test_train_covar)
-        if torch.is_tensor(test_test_covar):
-            return to_linear_operator(
-                torch.add(
-                    test_test_covar,
-                    covar_inv_quad_form_root @ covar_inv_quad_form_root.transpose(-1, -2),
-                    alpha=-1,
-                )
-            )
-        else:
-            return test_test_covar + MatmulLinearOperator(
-                to_linear_operator(covar_inv_quad_form_root),
-                to_linear_operator(covar_inv_quad_form_root.transpose(-1, -2).mul(-1)),
-            )
-
-        # if settings.fast_pred_var.on():
-        #     self._last_test_train_covar = test_train_covar
-
-        # if settings.skip_posterior_variances.on():
-        #     return ZeroLinearOperator(*test_test_covar.size())
-
-        # if settings.fast_pred_var.off():
-        #     dist = self.train_prior_dist.__class__(
-        #         torch.zeros_like(self.train_prior_dist.mean), self.train_prior_dist.lazy_covariance_matrix
-        #     )
-        #     if settings.detach_test_caches.on():
-        #         train_train_covar = self.likelihood(dist, self.train_inputs).lazy_covariance_matrix.detach()
-        #     else:
-        #         train_train_covar = self.likelihood(dist, self.train_inputs).lazy_covariance_matrix
-
-        #     test_train_covar = to_dense(test_train_covar)
-        #     train_test_covar = test_train_covar.transpose(-1, -2)
-        #     covar_correction_rhs = train_train_covar.solve(train_test_covar)
-        #     # For efficiency
-        #     if torch.is_tensor(test_test_covar):
-        #         # We can use addmm in the 2d case
-        #         if test_test_covar.dim() == 2:
-        #             return to_linear_operator(
-        #                 torch.addmm(test_test_covar, test_train_covar, covar_correction_rhs, beta=1, alpha=-1)
-        #             )
-        #         else:
-        #             return to_linear_operator(test_test_covar + test_train_covar @ covar_correction_rhs.mul(-1))
-        #     # In other cases - we'll use the standard infrastructure
-        #     else:
-        #         return test_test_covar + MatmulLinearOperator(test_train_covar, covar_correction_rhs.mul(-1))
-
-        # precomputed_cache = self.covar_cache
-        # covar_inv_quad_form_root = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache,
-        # test_train_covar)
-        # if torch.is_tensor(test_test_covar):
+        # if torch.is_tensor(
+        #     test_test_covar
+        # ):  # TODO: this is the wrong check, especially for the sparse bilinear form version
         #     return to_linear_operator(
         #         torch.add(
-        #             test_test_covar, covar_inv_quad_form_root @ covar_inv_quad_form_root.transpose(-1, -2), alpha=-1
+        #             test_test_covar,
+        #             covar_inv_quad_form_root @ covar_inv_quad_form_root.transpose(-1, -2),
+        #             alpha=-1,
         #         )
         #     )
         # else:
-        #     return test_test_covar + MatmulLinearOperator(
-        #         covar_inv_quad_form_root, covar_inv_quad_form_root.transpose(-1, -2).mul(-1)
-        #     )
+        return test_test_covar - RootLinearOperator(root=covar_inv_quad_form_root)

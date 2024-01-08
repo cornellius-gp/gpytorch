@@ -9,6 +9,8 @@ from typing import Tuple, Union
 import torch
 from linear_operator import operators
 
+from .. import kernels
+
 from ..likelihoods import _GaussianLikelihoodBase, GaussianLikelihood
 from .marginal_log_likelihood import MarginalLogLikelihood
 
@@ -16,12 +18,65 @@ from .marginal_log_likelihood import MarginalLogLikelihood
 class ComputationAwareMarginalLogLikelihoodAutoDiff(MarginalLogLikelihood):
     """Computation-aware marginal log-likelihood with gradients via automatic differentiation."""
 
-    def __init__(self, likelihood: GaussianLikelihood, model: "ComputationAwareGP"):
+    def __init__(
+        self, likelihood: GaussianLikelihood, model: "ComputationAwareGP", use_sparse_bilinear_form: bool = True
+    ):
         if not isinstance(likelihood, _GaussianLikelihoodBase):
             raise RuntimeError("Likelihood must be Gaussian for exact inference.")
         super().__init__(likelihood, model)
+        self.use_sparse_bilinear_form = use_sparse_bilinear_form
 
-    def forward(self, output: torch.Tensor, target: torch.Tensor, **kwargs):
+    def _forward_sparse_bilinear_form(self, output: torch.Tensor, target: torch.Tensor, **kwargs):
+        # Kernel linear operator
+        Khat = self.likelihood(output).lazy_covariance_matrix.evaluate_kernel()
+
+        # Linear solve
+        solver_state = self.model.linear_solver.solve(
+            Khat, target - output.mean
+        )  # TODO: do we really need to do a solve here? Seems like wasted compute.
+        actions_op = solver_state.cache["actions_op"]
+        actions_op.requires_grad = False  # TODO: taking gradients here is really slow, why?
+        num_actions = actions_op.shape[0]
+
+        # Kernel parameters
+        outputscale = 1.0
+        lengthscale = 1.0
+        noise = self.likelihood.noise
+        if isinstance(self.model.covar_module, kernels.ScaleKernel):
+            outputscale = self.model.covar_module.outputscale
+            lengthscale = self.model.covar_module.base_kernel.lengthscale
+            forward_fn = self.model.covar_module.base_kernel._forward
+            vjp_fn = self.model.covar_module.base_kernel._vjp
+        else:
+            try:
+                lengthscale = self.model.covar_module.lengthscale
+            except AttributeError:
+                pass
+
+            forward_fn = self.model.covar_module._forward
+            forward_fn = self.model.covar_module._vjp
+
+        SKS, SS = kernels.SparseBilinearForms.apply(
+            self.model.train_inputs[0] / lengthscale,
+            actions_op.blocks.mT,
+            actions_op.blocks.mT,
+            actions_op.non_zero_idcs.mT,
+            actions_op.non_zero_idcs.mT,
+            forward_fn,
+            vjp_fn,
+            1,
+        )
+        L = torch.linalg.cholesky(outputscale * SKS + noise * SS, upper=False)
+        Sy = actions_op @ self.model.train_targets
+        compressed_rweights = torch.cholesky_solve(Sy.unsqueeze(1), L, upper=False).squeeze()
+        lml = -(
+            0.5 * torch.inner(Sy, compressed_rweights)
+            + torch.sum(torch.log(L.diagonal()))
+            + 0.5 * num_actions * math.log(2 * math.pi)
+        ).div_(num_actions)
+        return lml
+
+    def _forward_sparse_linop(self, output: torch.Tensor, target: torch.Tensor, **kwargs):
         # Kernel linear operator
         Khat = self.likelihood(output).lazy_covariance_matrix.evaluate_kernel()
 
@@ -37,7 +92,7 @@ class ComputationAwareMarginalLogLikelihoodAutoDiff(MarginalLogLikelihood):
         num_actions = actions_op.shape[0]
 
         # Gramian S'KS
-        if self.model.linear_solver.subset_mode:
+        if self.model.linear_solver.use_sparse_bilinear_form:
             Khat_subset = Khat[
                 solver_state.cache["actions_op"].non_zero_idcs[:, :, None, None],
                 solver_state.cache["actions_op"].non_zero_idcs[None, None, :, :],
@@ -76,6 +131,12 @@ class ComputationAwareMarginalLogLikelihoodAutoDiff(MarginalLogLikelihood):
         normalized_lml = lml.div(num_actions)
 
         return normalized_lml
+
+    def forward(self, output: torch.Tensor, target: torch.Tensor, **kwargs):
+        if self.use_sparse_bilinear_form:
+            return self._forward_sparse_bilinear_form(output=output, target=target, **kwargs)
+        else:
+            return self._forward_sparse_linop(output=output, target=target, **kwargs)
 
 
 class ComputationAwareMarginalLogLikelihood(MarginalLogLikelihood):
