@@ -107,7 +107,11 @@ class RBFKernel(Kernel):
         X1_ = X1[..., :, None, :]
         X2_ = X2[..., None, :, :]
         diffs = X1_ - X2_
-        K = diffs.norm(dim=-1).square_().div_(-2.0).exp_()
+        if diffs.shape[-1] > 1:  # No special casing here causes 10x slowdown!
+            dists = diffs.norm(dim=-1)
+        else:
+            dists = diffs.squeeze(-1)
+        K = dists.square_().div_(-2.0).exp_()
         return K
 
     def _vjp(
@@ -135,6 +139,10 @@ class RBFKernel(Kernel):
         X1_ = X1[..., :, None, :]
         X2_ = X2[..., None, :, :]
         diffs = X1_ - X2_
-        VK = diffs.norm(dim=-1).square_().div_(-2.0).exp_().mul_(V)
+        if diffs.shape[-1] > 1:  # No special casing here causes 10x slowdown!
+            dists = diffs.norm(dim=-1)
+        else:
+            dists = diffs.squeeze(-1)
+        VK = dists.square_().div_(-2.0).exp_().mul_(V)
         res = diffs.mul_(VK[..., None])
         return res.mul(-1).sum(dim=-2), res.sum(dim=-3)

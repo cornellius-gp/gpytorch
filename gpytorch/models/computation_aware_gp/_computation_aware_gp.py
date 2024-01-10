@@ -78,6 +78,7 @@ class ComputationAwareGP(ExactGP):
                     train_inputs=train_inputs,
                     train_prior_dist=train_output,
                     train_labels=self.train_targets,
+                    kernel=self.covar_module,
                     likelihood=self.likelihood,
                     linear_solver=self.linear_solver,
                     solver_state=self._solver_state,

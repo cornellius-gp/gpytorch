@@ -118,7 +118,10 @@ class MaternKernel(Kernel):
         X1_ = X1[..., :, None, :]
         X2_ = X2[..., None, :, :]
         diffs = X1_ - X2_
-        dists = diffs.norm(dim=-1)
+        if diffs.shape[-1] > 1:  # No special casing here causes 10x slowdown!
+            dists = diffs.norm(dim=-1)
+        else:
+            dists = diffs.abs().squeeze(-1)
         consts = -math.sqrt(self.nu * 2)
         exp_component = (consts * dists).exp_()
 
@@ -140,7 +143,10 @@ class MaternKernel(Kernel):
         X1_ = X1[..., :, None, :]
         X2_ = X2[..., None, :, :]
         diffs = X1_ - X2_
-        dists = diffs.norm(dim=-1)
+        if diffs.shape[-1] > 1:  # No special casing here causes 10x slowdown!
+            dists = diffs.norm(dim=-1)
+        else:
+            dists = diffs.abs().squeeze(-1)
         consts = -math.sqrt(self.nu * 2)
         exp_component = (consts * dists).exp_()
 

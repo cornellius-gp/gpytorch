@@ -881,6 +881,7 @@ class ComputationAwarePredictionStrategy(DefaultPredictionStrategy):
         train_prior_dist,
         train_labels,
         likelihood,
+        kernel,
         linear_solver: LinearSolver,
         solver_state: LinearSolverState,
     ):
@@ -901,7 +902,13 @@ class ComputationAwarePredictionStrategy(DefaultPredictionStrategy):
             train_labels_offset = self.train_labels - train_mean
 
             with torch.no_grad():  # Ensure gradients are not taken through the solve
-                self._solver_state = linear_solver.solve(train_train_covar.evaluate_kernel(), train_labels_offset)
+                self._solver_state = linear_solver.solve(
+                    train_train_covar.evaluate_kernel(),
+                    train_labels_offset,
+                    train_inputs=train_inputs[0],
+                    kernel=kernel,
+                    noise=likelihood.noise,
+                )
         else:
             self._solver_state = solver_state
 

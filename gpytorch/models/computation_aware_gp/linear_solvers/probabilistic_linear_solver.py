@@ -282,6 +282,9 @@ class ProbabilisticLinearSolver(LinearSolver):
         rhs: Tensor,
         /,
         x: Optional[Tensor] = None,
+        train_inputs: Optional[Tensor] = None,
+        kernel: Optional[kernels.Kernel] = None,
+        noise: Optional[Tensor] = None,
     ) -> Generator[LinearSolverState, None, None]:
         r"""Generator implementing the linear solver iteration.
 
@@ -332,6 +335,25 @@ class ProbabilisticLinearSolver(LinearSolver):
             },
         )
 
+        # Necessary functions and hyperparameters of kernel
+        with torch.no_grad():
+            outputscale = 1.0
+            lengthscale = 1.0
+            if isinstance(kernel, kernels.ScaleKernel):
+                outputscale = kernel.outputscale
+                lengthscale = kernel.base_kernel.lengthscale
+                forward_fn = kernel.base_kernel._forward
+                vjp_fn = kernel.base_kernel._vjp
+            else:
+                try:
+                    lengthscale = kernel.lengthscale
+                except AttributeError:
+                    pass
+
+                forward_fn = kernel._forward
+                vjp_fn = kernel._vjp
+
+        # Implementation of solver iteration
         yield solver_state
 
         while True:
@@ -343,20 +365,17 @@ class ProbabilisticLinearSolver(LinearSolver):
                 break
 
             with torch.set_grad_enabled(
-                self.enable_action_gradients
+                False  # TODO: taking gradients here is really slow, why?
+                # self.enable_action_gradients
             ):  # For efficiency, only track gradients if necessary to optimize action hyperparameters.
                 # Select action
                 action = self.policy(solver_state)
 
                 # Normalize action
-                action = (
-                    BlockSparseLinearOperator(
-                        non_zero_idcs=action.non_zero_idcs,
-                        blocks=action.blocks / torch.linalg.vector_norm(action.blocks),
-                        size_sparse_dim=action.size_sparse_dim,
-                    )
-                    if isinstance(action, BlockSparseLinearOperator)
-                    else action / torch.linalg.vector_norm(action)
+                action = BlockSparseLinearOperator(
+                    non_zero_idcs=action.non_zero_idcs,
+                    blocks=action.blocks / torch.linalg.vector_norm(action.blocks),
+                    size_sparse_dim=action.size_sparse_dim,
                 )
 
             with torch.no_grad():  # Saves 2x compute since we don't need gradients through the solve.
@@ -376,18 +395,16 @@ class ProbabilisticLinearSolver(LinearSolver):
 
                 # Compute S'Ks
                 SKS, SS = kernels.SparseBilinearForms.apply(
-                    self.model.train_inputs[0] / lengthscale,
+                    train_inputs / lengthscale,
                     solver_state.cache["actions_op"].blocks.mT,
-                    solver_state.cache["actions_op"].blocks.mT,
+                    action.blocks.mT,
                     solver_state.cache["actions_op"].non_zero_idcs.mT,
-                    solver_state.cache["actions_op"].non_zero_idcs.mT,
+                    action.non_zero_idcs.mT,
                     forward_fn,
                     vjp_fn,
                     1,
                 )
-                actions_linear_op_current_action = outputscale * SKS + noise * SS
-
-                prev_actions_linear_op_current_action = actions_linear_op_current_action[0:-1]
+                actions_linear_op_current_action = (outputscale * SKS + noise * SS).reshape((-1,))
 
                 # Schur complement / Squared linop-norm of search direction
                 schur_complement = actions_linear_op_current_action[-1]
@@ -396,6 +413,8 @@ class ProbabilisticLinearSolver(LinearSolver):
                     # Initialize Cholesky factor
                     solver_state.cache["cholfac_gram"] = torch.sqrt(schur_complement).reshape(1, 1)
                 else:
+                    prev_actions_linear_op_current_action = actions_linear_op_current_action[0:-1]
+
                     gram_inv_tilde_z = torch.cholesky_solve(
                         prev_actions_linear_op_current_action.reshape(-1, 1),
                         solver_state.cache["cholfac_gram"],
@@ -485,6 +504,9 @@ class ProbabilisticLinearSolver(LinearSolver):
         rhs: Tensor,
         /,
         x: Optional[Tensor] = None,
+        train_inputs: Optional[Tensor] = None,
+        kernel: Optional[kernels.Kernel] = None,
+        noise: Optional[Tensor] = None,
     ) -> LinearSolverState:
         r"""Solve linear system :math:`Ax_*=b`.
 
@@ -496,7 +518,9 @@ class ProbabilisticLinearSolver(LinearSolver):
         solver_state = None
 
         if self.use_sparse_bilinear_form:
-            for solver_state in self.solve_iterator_sparse_bilinear_form(linear_op, rhs, x=x):
+            for solver_state in self.solve_iterator_sparse_bilinear_form(
+                linear_op, rhs, x=x, train_inputs=train_inputs, kernel=kernel, noise=noise
+            ):
                 pass
 
             return solver_state

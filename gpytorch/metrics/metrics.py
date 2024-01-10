@@ -66,8 +66,8 @@ def mean_standardized_log_loss(
     Mean standardized log loss.
 
     Computes the average *standardized* log loss, which subtracts the loss obtained
-    under the trivial model which predicts with the mean and variance of the training
-    data from the mean log loss. See p.23 of Rasmussen and Williams (2006).
+    under the trivial model, which predicts with the mean and variance of the training
+    data, from the mean log loss. See p.23 of Rasmussen and Williams (2006).
 
     If no training data is supplied, the mean log loss is computed.
     """

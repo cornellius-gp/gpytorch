@@ -6,6 +6,8 @@ import warnings
 from collections import deque
 from typing import Tuple, Union
 
+import numpy as np
+
 import torch
 from linear_operator import operators
 
@@ -32,8 +34,12 @@ class ComputationAwareMarginalLogLikelihoodAutoDiff(MarginalLogLikelihood):
 
         # Linear solve
         solver_state = self.model.linear_solver.solve(
-            Khat, target - output.mean
-        )  # TODO: do we really need to do a solve here? Seems like wasted compute.
+            Khat,
+            target - output.mean,
+            train_inputs=self.model.train_inputs[0],
+            kernel=self.model.covar_module,
+            noise=self.likelihood.noise,
+        )  # TODO: do we really need to do a solve here? Seems like wasted compute since we only need this to get the actions.
         actions_op = solver_state.cache["actions_op"]
         actions_op.requires_grad = False  # TODO: taking gradients here is really slow, why?
         num_actions = actions_op.shape[0]
@@ -54,7 +60,7 @@ class ComputationAwareMarginalLogLikelihoodAutoDiff(MarginalLogLikelihood):
                 pass
 
             forward_fn = self.model.covar_module._forward
-            forward_fn = self.model.covar_module._vjp
+            vjp_fn = self.model.covar_module._vjp
 
         SKS, SS = kernels.SparseBilinearForms.apply(
             self.model.train_inputs[0] / lengthscale,
@@ -66,14 +72,17 @@ class ComputationAwareMarginalLogLikelihoodAutoDiff(MarginalLogLikelihood):
             vjp_fn,
             1,
         )
-        L = torch.linalg.cholesky(outputscale * SKS + noise * SS, upper=False)
-        Sy = actions_op @ self.model.train_targets
+        L = torch.linalg.cholesky(
+            outputscale * SKS + noise * SS,  # + 1e-5 * torch.eye(num_actions, dtype=SS.dtype, device=SS.device),
+            upper=False,
+        )  # TODO: do we really need this extra nugget?
+        Sy = actions_op @ target
         compressed_rweights = torch.cholesky_solve(Sy.unsqueeze(1), L, upper=False).squeeze()
         lml = -(
             0.5 * torch.inner(Sy, compressed_rweights)
             + torch.sum(torch.log(L.diagonal()))
             + 0.5 * num_actions * math.log(2 * math.pi)
-        ).div_(num_actions)
+        ).div(num_actions)
         return lml
 
     def _forward_sparse_linop(self, output: torch.Tensor, target: torch.Tensor, **kwargs):
