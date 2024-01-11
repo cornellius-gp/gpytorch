@@ -30,7 +30,7 @@ class ComputationAwareMarginalLogLikelihoodAutoDiff(MarginalLogLikelihood):
 
     def _forward_sparse_bilinear_form(self, output: torch.Tensor, target: torch.Tensor, **kwargs):
         # Kernel linear operator
-        Khat = self.likelihood(output).lazy_covariance_matrix.evaluate_kernel()
+        Khat = self.likelihood(output).lazy_covariance_matrix
 
         # Linear solve
         solver_state = self.model.linear_solver.solve(
