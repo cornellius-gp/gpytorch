@@ -67,7 +67,6 @@ class RademacherPolicy(LinearSolverPolicy):
             if self.non_zero_idcs is None:
                 perm = torch.randperm(
                     solver_state.problem.A.shape[0],
-                    dtype=solver_state.problem.A.dtype,
                     device=solver_state.problem.A.device,
                 )
                 non_zero_idcs = perm[0:num_nonzero]
