@@ -121,7 +121,7 @@ class ComputationAwareMarginalLogLikelihoodAutoDiff(MarginalLogLikelihood):
                 else actions_op @ (actions_op @ Khat).mT
             )
         cholfac_gram = torch.linalg.cholesky(
-            gram_SKS + torch.eye(num_actions) * 1e-5, upper=False
+            gram_SKS + torch.eye(num_actions, dtype=gram_SKS.dtype, device=gram_SKS.dtype) * 1e-5, upper=False
         )  # TODO: do we really need the nugget here?
 
         # Compressed representer weights
