@@ -903,7 +903,8 @@ class ComputationAwarePredictionStrategy(DefaultPredictionStrategy):
 
             with torch.no_grad():  # Ensure gradients are not taken through the solve
                 self._solver_state = linear_solver.solve(
-                    train_train_covar.evaluate_kernel(),
+                    # train_train_covar.evaluate_kernel(),
+                    train_train_covar,
                     train_labels_offset,
                     train_inputs=train_inputs[0],
                     kernel=kernel,
