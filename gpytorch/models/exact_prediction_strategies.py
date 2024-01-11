@@ -895,21 +895,22 @@ class ComputationAwarePredictionStrategy(DefaultPredictionStrategy):
         )
 
         if solver_state is None:
-            # Compute the representer weights
-            mvn = self.likelihood(self.train_prior_dist, self.train_inputs)
-            train_mean, train_train_covar = mvn.loc, mvn.lazy_covariance_matrix
+            # # Compute the representer weights
+            # mvn = self.likelihood(self.train_prior_dist, self.train_inputs)
+            # train_mean, train_train_covar = mvn.loc, mvn.lazy_covariance_matrix
 
-            train_labels_offset = self.train_labels - train_mean
+            # train_labels_offset = self.train_labels - train_mean
 
-            with torch.no_grad():  # Ensure gradients are not taken through the solve
-                self._solver_state = linear_solver.solve(
-                    # train_train_covar.evaluate_kernel(),
-                    train_train_covar,
-                    train_labels_offset,
-                    train_inputs=train_inputs[0],
-                    kernel=kernel,
-                    noise=likelihood.noise,
-                )
+            # with torch.no_grad():  # Ensure gradients are not taken through the solve
+            #     self._solver_state = linear_solver.solve(
+            #         # train_train_covar.evaluate_kernel(),
+            #         train_train_covar,
+            #         train_labels_offset,
+            #         train_inputs=train_inputs[0],
+            #         kernel=kernel,
+            #         noise=likelihood.noise,
+            #     )
+            raise NotImplementedError("Solver state not set during MLL computation.")
         else:
             self._solver_state = solver_state
 
@@ -994,15 +995,6 @@ class ComputationAwarePredictionStrategy(DefaultPredictionStrategy):
             return ZeroLinearOperator(*test_test_covar.size())
 
         covar_inv_quad_form_root = self._exact_predictive_covar_inv_quad_form_root(test_train_covar)
-        # if torch.is_tensor(
-        #     test_test_covar
-        # ):  # TODO: this is the wrong check, especially for the sparse bilinear form version
-        #     return to_linear_operator(
-        #         torch.add(
-        #             test_test_covar,
-        #             covar_inv_quad_form_root @ covar_inv_quad_form_root.transpose(-1, -2),
-        #             alpha=-1,
-        #         )
-        #     )
-        # else:
+
+        # TODO: mode for marginals only that vmaps over the test points to reduce memory complexity to O(n_test)
         return test_test_covar - RootLinearOperator(root=covar_inv_quad_form_root)

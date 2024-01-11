@@ -6,7 +6,6 @@ import warnings
 from collections import deque
 from typing import Tuple, Union
 
-import numpy as np
 
 import torch
 from linear_operator import operators
@@ -40,6 +39,11 @@ class ComputationAwareMarginalLogLikelihoodAutoDiff(MarginalLogLikelihood):
             kernel=self.model.covar_module,
             noise=self.likelihood.noise,
         )  # TODO: do we really need to do a solve here? Seems like wasted compute since we only need this to get the actions.
+        if self.model.prediction_strategy is None:
+            self.model._solver_state = solver_state
+        else:
+            warnings.warn("MLL does not set solver_state during its computation. This could cause undefined behavior.")
+
         actions_op = solver_state.cache["actions_op"]
         actions_op.requires_grad = False  # TODO: taking gradients here is really slow, why?
         num_actions = actions_op.shape[0]
@@ -70,7 +74,7 @@ class ComputationAwareMarginalLogLikelihoodAutoDiff(MarginalLogLikelihood):
             actions_op.non_zero_idcs.mT,
             forward_fn,
             vjp_fn,
-            1,
+            None if self.model.train_inputs[0].shape[0] < 10000 else 1,
         )
         L = torch.linalg.cholesky(
             outputscale * SKS + noise * SS,  # + 1e-5 * torch.eye(num_actions, dtype=SS.dtype, device=SS.device),
