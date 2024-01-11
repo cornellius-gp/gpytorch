@@ -332,6 +332,9 @@ class ProbabilisticLinearSolver(LinearSolver):
                 # "linear_op_actions": None,
                 "observation": None,
                 "compressed_solution": None,
+                "X": train_inputs,
+                "kernel": kernel,
+                "noise": noise,
             },
         )
 
