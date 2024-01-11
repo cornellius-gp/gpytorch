@@ -70,7 +70,7 @@ class ComputationAwareMarginalLogLikelihoodAutoDiff(MarginalLogLikelihood):
             actions_op.non_zero_idcs.mT,
             forward_fn,
             vjp_fn,
-            1,
+            None,
         )
         L = torch.linalg.cholesky(
             outputscale * SKS + noise * SS,  # + 1e-5 * torch.eye(num_actions, dtype=SS.dtype, device=SS.device),

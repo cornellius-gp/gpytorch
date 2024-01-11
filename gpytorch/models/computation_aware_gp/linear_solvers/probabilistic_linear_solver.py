@@ -401,8 +401,8 @@ class ProbabilisticLinearSolver(LinearSolver):
                     solver_state.cache["actions_op"].non_zero_idcs.mT,
                     action.non_zero_idcs.mT,
                     forward_fn,
-                    vjp_fn,
-                    1,
+                    None,  # vjp_fn,
+                    None,
                 )
                 actions_linear_op_current_action = (outputscale * SKS + noise * SS).reshape((-1,))
 
