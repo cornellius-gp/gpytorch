@@ -7,7 +7,7 @@ from typing import Optional
 import torch
 from linear_operator.operators import BlockSparseLinearOperator, LinearOperator
 
-from .... import kernels
+# from ..... import kernels
 
 from .linear_solver_policy import LinearSolverPolicy
 
@@ -37,6 +37,7 @@ class StochasticGradientPolicy(LinearSolverPolicy):
                     residual = self.preconditioner @ residual
                 elif callable(self.preconditioner):
                     residual = self.preconditioner(residual).squeeze()
+                residual_batch = residual[non_zero_idcs]
             else:
                 # outputscale = 1.0
                 # lengthscale = 1.0
@@ -64,6 +65,9 @@ class StochasticGradientPolicy(LinearSolverPolicy):
                 #     None,
                 # )
                 # actions_linear_op_current_action = (outputscale * SKS + noise * SS).reshape((-1,))
+
+                # TODO: simply evaluate the kernel on subset data and then multiply with z_i:
+                # k(X[non_zero_idcs, :], X[action.non_zero_idcs, :]) + sigma2 * non_zero_idcs == action.non_zero_idcs
                 raise NotImplementedError
 
             if self.dense:
@@ -73,10 +77,10 @@ class StochasticGradientPolicy(LinearSolverPolicy):
                     dtype=residual.dtype,
                     device=residual.device,
                 )
-                action[non_zero_idcs] = residual[non_zero_idcs]
+                action[non_zero_idcs] = residual_batch
                 return action
 
             else:
                 return BlockSparseLinearOperator(
-                    non_zero_idcs=non_zero_idcs, blocks=residual[non_zero_idcs], size_sparse_dim=len(perm)
+                    non_zero_idcs=non_zero_idcs, blocks=residual_batch, size_sparse_dim=len(perm)
                 )
