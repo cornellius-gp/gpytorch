@@ -5,10 +5,12 @@ from __future__ import annotations
 from typing import Optional, Union
 
 import torch
+from linear_operator import operators
+
+from gpytorch import settings
 
 from gpytorch.kernels import Kernel
 from ._sparsify_vector import sparsify_vector
-
 from .linear_solver_policy import LinearSolverPolicy
 
 
@@ -29,6 +31,7 @@ class PseudoInputPolicy(LinearSolverPolicy):
         num_non_zero: Optional[int] = None,
         optimize_pseudo_inputs: bool = True,
         kernel_hyperparams_as_policy_hyperparams: bool = False,
+        precondition: bool = False,
     ) -> None:
         super().__init__()
         self.kernel = kernel
@@ -47,6 +50,25 @@ class PseudoInputPolicy(LinearSolverPolicy):
 
         self.sparsification_threshold = sparsification_threshold
         self.num_nonzero = num_non_zero
+        self.precondition = precondition
+
+        # Compute preconditioner
+        if self.precondition:
+
+            def partial_cholesky_preconditioner(kernel, rank=100):
+                with settings.min_preconditioning_size(rank), settings.max_preconditioner_size(rank):
+                    return (
+                        kernel(train_data) + 0.01 * operators.IdentityLinearOperator(len(train_data))
+                    )._solve_preconditioner()
+
+            K_XZ = self.kernel(train_data, self.pseudo_inputs).to_dense()
+            # self.preconditioner = torch.linalg.cholesky(
+            #     K_XZ.mT @ K_XZ + 10 * torch.eye(len(self.train_data)),
+            #     upper=False,  # 0.002 * self.kernel(self.pseudo_inputs).to_dense(), upper=False
+            # )
+            # self.actions = torch.linalg.solve_triangular(self.preconditioner, K_XZ.mT, upper=False).mT
+            # self.actions = torch.cholesky_solve(K_XZ.mT, self.preconditioner, upper=False).mT
+            self.actions = partial_cholesky_preconditioner(self.kernel)(K_XZ)
 
     def __call__(self, solver_state: "LinearSolverState") -> torch.Tensor:
         action = (
@@ -57,6 +79,9 @@ class PseudoInputPolicy(LinearSolverPolicy):
             .evaluate_kernel()
             .to_dense()
         ).reshape(-1)
+
+        if self.precondition:
+            action = self.actions[:, solver_state.iteration].reshape(-1)
 
         if self.sparsification_threshold > 0.0:
             action[torch.abs(action) < self.sparsification_threshold] = 0.0

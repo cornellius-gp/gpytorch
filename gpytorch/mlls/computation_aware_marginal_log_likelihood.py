@@ -6,7 +6,6 @@ import warnings
 from collections import deque
 from typing import Tuple, Union
 
-
 import torch
 from linear_operator import operators
 
@@ -124,6 +123,7 @@ class ComputationAwareMarginalLogLikelihoodAutoDiff(MarginalLogLikelihood):
                 if isinstance(actions_op, operators.BlockSparseLinearOperator)
                 else actions_op @ (actions_op @ Khat).mT
             )
+
         cholfac_gram = torch.linalg.cholesky(
             gram_SKS + torch.eye(num_actions, dtype=gram_SKS.dtype, device=gram_SKS.device) * 1e-5, upper=False
         )  # TODO: do we really need the nugget here?
