@@ -242,9 +242,12 @@ class ProbabilisticLinearSolver(LinearSolver):
                 # solver_state.solution = solver_state.cache["actions_op"] @ solver_state.cache["compressed_solution"]
 
                 # Update residual
-                solver_state.residual = (
-                    solver_state.residual - linear_op_action * solver_state.cache["compressed_solution"][-1]
-                )
+                # solver_state.residual = (
+                #     solver_state.residual - linear_op_action * solver_state.cache["compressed_solution"][-1]
+                # )
+
+                # the following is stable, but it blows up the complexity
+                solver_state.residual = rhs - linear_op @ solver_state.cache['actions_op'].to_dense().T @ solver_state.cache['compressed_solution']
 
                 # # Compute residual
                 # solver_state.cache["linear_op_actions_compressed_solution"] = (
