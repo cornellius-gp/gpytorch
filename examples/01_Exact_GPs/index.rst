@@ -1,7 +1,7 @@
 Exact GPs (Regression)
 ========================
 
-Regression with a Gaussian noise model is the cannonical example of Gaussian processes.
+Regression with a Gaussian noise model is the canonical example of Gaussian processes.
 These examples will work for small to medium sized datasets (~2,000 data points).
 All examples here use exact GP inference.
 
