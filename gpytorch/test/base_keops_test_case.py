@@ -35,14 +35,15 @@ class BaseKeOpsTestCase(BaseTestCase):
                 kern1 = self.k1(**kwargs)
                 kern2 = self.k2(**kwargs)
 
-            with patch.object(self.k1, "_keops_forward", wraps=kern1._keops_forward) as _keops_forward_mock:
-                # The patch makes sure that we're actually using KeOps
+            # The patch makes sure that we're actually using KeOps
+            # However, we're going to bypass KeOps and instead just use non-LazyTensors
+            with patch("gpytorch.kernels.keops.keops_kernel.LazyTensor", wraps=lambda x: x) as keops_mock:
                 k1 = kern1(x1, x1).to_dense()
                 k2 = kern2(x1, x1).to_dense()
                 self.assertLess(torch.norm(k1 - k2), 1e-4)
 
         if use_keops:
-            self.assertTrue(_keops_forward_mock.called)
+            self.assertTrue(keops_mock.called)
 
     def test_forward_x1_eq_x2_ard(self):
         return self.test_forward_x1_eq_x2(ard=True)
@@ -61,14 +62,14 @@ class BaseKeOpsTestCase(BaseTestCase):
                 kern1 = self.k1(**kwargs)
                 kern2 = self.k2(**kwargs)
 
-            with patch.object(self.k1, "_keops_forward", wraps=kern1._keops_forward) as _keops_forward_mock:
+            with patch("gpytorch.kernels.keops.keops_kernel.LazyTensor", wraps=lambda x: x) as keops_mock:
                 # The patch makes sure that we're actually using KeOps
                 k1 = kern1(x1, x2).to_dense()
                 k2 = kern2(x1, x2).to_dense()
                 self.assertLess(torch.norm(k1 - k2), 1e-4)
 
         if use_keops:
-            self.assertTrue(_keops_forward_mock.called)
+            self.assertTrue(keops_mock.called)
 
     def test_forward_x1_meq_x2_ard(self):
         return self.test_forward_x1_neq_x2(ard=True)
@@ -81,14 +82,14 @@ class BaseKeOpsTestCase(BaseTestCase):
             kern2 = self.k2(**kwargs)
 
             rhs = torch.randn(3, 2, 100, 1)
-            with patch.object(self.k1, "_keops_forward", wraps=kern1._keops_forward) as _keops_forward_mock:
+            with patch("gpytorch.kernels.keops.keops_kernel.LazyTensor", wraps=lambda x: x) as keops_mock:
                 # The patch makes sure that we're actually using KeOps
                 res1 = kern1(x1, x1).matmul(rhs)
                 res2 = kern2(x1, x1).matmul(rhs)
                 self.assertLess(torch.norm(res1 - res2), 1e-4)
 
         if use_keops:
-            self.assertTrue(_keops_forward_mock.called)
+            self.assertTrue(keops_mock.called)
 
     def test_gradient(self, use_keops=True, ard=False, **kwargs):
         max_cholesky_size = CHOLESKY_SIZE_KEOPS if use_keops else CHOLESKY_SIZE_NONKEOPS
@@ -104,20 +105,20 @@ class BaseKeOpsTestCase(BaseTestCase):
                 kern1 = self.k1(**kwargs)
                 kern2 = self.k2(**kwargs)
 
-            with patch.object(self.k1, "_keops_forward", wraps=kern1._keops_forward) as _keops_forward_mock:
+            with patch("gpytorch.kernels.keops.keops_kernel.LazyTensor", wraps=lambda x: x) as keops_mock:
                 # The patch makes sure that we're actually using KeOps
                 res1 = kern1(x1, x1)
                 res2 = kern2(x1, x1)
                 s1 = res1.sum()
                 s2 = res2.sum()
 
-            # stack all gradients into a tensor
-            grad_s1 = torch.vstack(torch.autograd.grad(s1, [*kern1.hyperparameters()]))
-            grad_s2 = torch.vstack(torch.autograd.grad(s2, [*kern2.hyperparameters()]))
-            self.assertAllClose(grad_s1, grad_s2, rtol=1e-4, atol=1e-5)
+                # stack all gradients into a tensor
+                grad_s1 = torch.vstack(torch.autograd.grad(s1, [*kern1.hyperparameters()]))
+                grad_s2 = torch.vstack(torch.autograd.grad(s2, [*kern2.hyperparameters()]))
+                self.assertAllClose(grad_s1, grad_s2, rtol=1e-4, atol=1e-5)
 
         if use_keops:
-            self.assertTrue(_keops_forward_mock.called)
+            self.assertTrue(keops_mock.called)
 
     def test_gradient_ard(self):
         return self.test_gradient(ard=True)
