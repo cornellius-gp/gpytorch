@@ -58,7 +58,7 @@ class PseudoInputPolicy(LinearSolverPolicy):
             def partial_cholesky_preconditioner(kernel, rank=100):
                 with settings.min_preconditioning_size(rank), settings.max_preconditioner_size(rank):
                     return (
-                        kernel(train_data) + 0.01 * operators.IdentityLinearOperator(len(train_data))
+                        kernel(train_data) + 0.0001 * operators.IdentityLinearOperator(len(train_data))
                     )._solve_preconditioner()
 
             K_XZ = self.kernel(train_data, self.pseudo_inputs).to_dense()

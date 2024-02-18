@@ -41,7 +41,7 @@ class RademacherPolicy(LinearSolverPolicy):
             ) - 2.0 * torch.bernoulli(
                 0.5
                 * torch.ones(
-                    self.num_nonzero,
+                    self.num_nonzero if self.num_nonzero is not None else solver_state.problem.A.shape[1],
                     dtype=solver_state.problem.A.dtype,
                     device=solver_state.problem.A.device,
                 )
