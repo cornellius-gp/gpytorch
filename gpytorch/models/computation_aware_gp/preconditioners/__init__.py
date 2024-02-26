@@ -1,32 +1,28 @@
 """Preconditioners for kernel matrices."""
 
-import abc
-
 import numpy as np
 import torch
 from linear_operator.operators import DiagLinearOperator
-from torch import nn
 
 from .... import settings
+from .banded_inverse import BandedInverse, Diagonal, ToeplitzInverse
 
+from .preconditioner import Preconditioner
 
-# class Preconditioner(nn.Module, abc.ABC):
-#     def __init__(self, kernel, noise, X, **kwargs) -> None:
-#         super().__init__(**kwargs)
-#         self.kernel = kernel
-#         self.noise = noise
-#         self.X = X
+from .scalar import Scalar
+from .sparse_inverse_cholesky import SparseInverseCholesky
 
+Vecchia = SparseInverseCholesky
 
-# class Scalar(Preconditioner):
-
-#     def __init__(self, kernel, noise, X, **kwargs) -> None:
-#         super().__init__(kernel=kernel, noise=noise, X=X, **kwargs)
-#         self.lmda_max_upper_bound = torch.max(torch.sum(self.kernel(self.X), dim=1))
-
-#     def forward(self, x):
-#         return DiagLinearOperator(1 / (self.lmda_max_upper_bound + self.noise) * torch.ones(self.X.shape[0])) @ x
-# TODO: need a caching mechanism so we only recompute the preconditioner when the hyperparameters are updated
+__all__ = [
+    "Preconditioner",
+    "Scalar",
+    "Diagonal",
+    "Vecchia",
+    "SparseInverseCholesky",
+    "BandedInverse",
+    "ToeplitzInverse",
+]
 
 
 def scalar(
@@ -89,12 +85,13 @@ def sparse_precision(
             upper=False,
         )
 
-        unit_vec = torch.zeros((len(sparsity_set), 1))
-        unit_vec[0, 0] = 1.0
+        with torch.no_grad():
+            unit_vec = torch.zeros((len(sparsity_set), 1))
+            unit_vec[0, 0] = 1.0
 
         cholfac_K_neighbor_set_unit_vector = torch.cholesky_solve(unit_vec, cholfac_K_sparsity_set, upper=False)
         cholfac_precision[i : np.minimum(i + num_diags_cholfac, X_train.shape[0]), i] = (
-            cholfac_K_neighbor_set_unit_vector / (unit_vec.mT @ cholfac_K_neighbor_set_unit_vector).item()
+            cholfac_K_neighbor_set_unit_vector / (unit_vec.mT @ cholfac_K_neighbor_set_unit_vector).squeeze()
         ).reshape(
             -1
         )  # Note: Cholesky factor has sparsity pattern of choice! Here: banded and lower triangular -> efficient!
@@ -105,35 +102,3 @@ def sparse_precision(
             preconditioner_inv=preconditioner_inv, kernel=kernel, noise=noise, X_train=X_train
         )
     return preconditioner_inv
-
-
-def polynomial():
-    raise NotImplementedError
-
-
-def low_rank_plus_diagonal(low_rank_factor, diag_const):
-    # Matrix inversion lemma
-    raise NotImplementedError
-
-
-def rescale_preconditioner(
-    preconditioner_inv,
-    kernel,
-    noise,
-    X_train,
-):
-    # Ensure preconditioner validity
-    upper_bound_max_eval_preconditioner_inv = torch.max(torch.sum(torch.abs(preconditioner_inv), dim=1))
-    upper_bound_max_eval_Khat = torch.sum(kernel(X_train)) / X_train.shape[0] + noise
-    lower_bound_max_eval_Khat = torch.max(
-        torch.sum(
-            torch.abs(kernel(X_train).to_dense() + noise * torch.eye(X_train.shape[0])),
-            dim=1,
-        )
-    )
-    scalar_factor_precond_inv = (
-        torch.minimum(lower_bound_max_eval_Khat, 1.0 / upper_bound_max_eval_Khat)
-        / upper_bound_max_eval_preconditioner_inv
-    )
-    print(scalar_factor_precond_inv)
-    return scalar_factor_precond_inv * preconditioner_inv

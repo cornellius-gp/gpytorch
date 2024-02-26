@@ -93,7 +93,7 @@ class ComputationAwareMarginalLogLikelihoodAutoDiff(MarginalLogLikelihood):
         Khat = self.likelihood(output).lazy_covariance_matrix.evaluate_kernel()
 
         # Linear solve
-        solver_state = self.model.linear_solver.solve(Khat, target)  # TODO: do we need to subtract output.mean here?
+        solver_state = self.model.linear_solver.solve(Khat, target - output.mean)
         if self.model.prediction_strategy is None:
             self.model._solver_state = solver_state
         else:
