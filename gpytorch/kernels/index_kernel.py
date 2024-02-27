@@ -72,7 +72,7 @@ class IndexKernel(Kernel):
         if prior is not None:
             if not isinstance(prior, Prior):
                 raise TypeError("Expected gpytorch.priors.Prior but got " + type(prior).__name__)
-            self.register_prior("IndexKernelPrior", prior, lambda m: m._eval_covar_matrix())
+            self.register_prior("IndexKernelPrior", prior, _index_kernel_prior_closure)
 
         self.register_constraint("raw_var", var_constraint)
 
@@ -109,3 +109,7 @@ class IndexKernel(Kernel):
             right_interp_indices=i2.expand(batch_shape + i2.shape[-2:]),
         )
         return res
+
+
+def _index_kernel_prior_closure(m):
+    return m._eval_covar_matrix()
