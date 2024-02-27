@@ -4,6 +4,8 @@ from typing import Any
 
 import torch
 
+from linear_operator.operators import DiagLinearOperator
+
 from ..distributions import base_distributions, MultivariateNormal
 from ..likelihoods import _GaussianLikelihoodBase
 from .noise_models import MultitaskHomoskedasticNoise
@@ -54,24 +56,14 @@ class HadamardGaussianLikelihood(_GaussianLikelihoodBase):
         self.noise_covar.initialize(raw_noise=value)
 
     def _shaped_noise_covar(self, base_shape: torch.Size, *params: Any, **kwargs: Any):
-        # params contains training data
+        # params contains task indexes
         task_idxs = params[0][-1]
         noise_base_covar_matrix = self.noise_covar(*params, shape=base_shape, **kwargs)
-        # initialize masking
-        mask = torch.zeros(size=noise_base_covar_matrix.shape)
-        # for each task create a masking
-        for task_num in range(self.num_tasks):
-            # create vector of indexes
-            task_idx_diag = (task_idxs == task_num).int().reshape(-1).diag()
-            mask[..., task_num, :, :] = task_idx_diag
-        # multiply covar by masking
-        # there seems to be problems when base_shape is singleton, so we need to squeeze
-        if base_shape == torch.Size([1]):
-            noise_base_covar_matrix = noise_base_covar_matrix.squeeze(-1).mul(mask.squeeze(-1))
-            noise_covar_matrix = noise_base_covar_matrix.unsqueeze(-1).sum(dim=1)
-        else:
-            noise_covar_matrix = noise_base_covar_matrix.mul(mask).sum(dim=1)
-        return noise_covar_matrix
+
+        all_tasks = torch.arange(self.num_tasks)[:, None]
+        diag = torch.eq(all_tasks, task_idxs.mT)
+        mask = DiagLinearOperator(diag)
+        return (noise_base_covar_matrix @ mask).sum(dim=-3)
 
     def forward(
         self,
