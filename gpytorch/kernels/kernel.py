@@ -236,7 +236,7 @@ class Kernel(Module):
     ) -> Union[Tensor, LinearOperator]:
         r"""
         Computes the covariance between :math:`\mathbf x_1` and :math:`\mathbf x_2`.
-        This method should be imlemented by all Kernel subclasses.
+        This method should be implemented by all Kernel subclasses.
 
         :param x1: First set of data (... x N x D).
         :param x2: Second set of data (... x M x D).
