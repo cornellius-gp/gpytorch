@@ -4,7 +4,6 @@ import abc
 import unittest
 from abc import abstractmethod
 
-
 import torch
 
 import gpytorch

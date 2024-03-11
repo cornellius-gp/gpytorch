@@ -11,13 +11,17 @@ from .preconditioner import Preconditioner
 class Diagonal(Preconditioner):
     """Diagonal preconditioner."""
 
-    def __init__(self, kernel, noise, X, inverse_diagonal_sqrt: Optional[torch.Tensor] = None, **kwargs) -> None:
+    def __init__(
+        self, kernel, noise, X, inverse_diagonal_sqrt_unnormalized: Optional[torch.Tensor] = None, **kwargs
+    ) -> None:
         super().__init__(kernel, noise, X, **kwargs)
-        if inverse_diagonal_sqrt is None:
-            inverse_diagonal_sqrt = nn.Parameter(torch.zeros((self.X.shape[0],)))
+        if inverse_diagonal_sqrt_unnormalized is None:
+            self.inverse_diagonal_sqrt_unnormalized = nn.Parameter(torch.ones((self.X.shape[0],)))
+        else:
+            self.inverse_diagonal_sqrt_unnormalized = nn.Parameter(inverse_diagonal_sqrt_unnormalized)
 
-        self.inverse_diagonal_sqrt = inverse_diagonal_sqrt * torch.sqrt(
-            self._scaling(torch.max(inverse_diagonal_sqrt**2))
+        self.inverse_diagonal_sqrt = self.inverse_diagonal_sqrt_unnormalized * torch.sqrt(
+            self._scaling(torch.max(self.inverse_diagonal_sqrt_unnormalized**2))
         )
 
     def inv_matmul(self, input):
