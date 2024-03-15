@@ -11,38 +11,56 @@ class Preconditioner(nn.Module, abc.ABC):
     # TODO: do we want this to inherit from linear operator?
     """Abstract base class for a kernel matrix preconditioner."""
 
-    def __init__(self, kernel, noise, X, **kwargs) -> None:
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
-        self.kernel = kernel
-        self.noise = noise
-        self.X = X
 
-    def forward(self, input):
+    def forward(
+        self,
+        input: torch.Tensor,
+        kernel,
+        noise: torch.Tensor,
+        X: torch.Tensor,
+    ):
         raise NotImplementedError
 
-    @property
-    def shape(self):
-        return (self.X.shape[0], self.X.shape[0])
-
-    def inv_matmul(self, input):
+    def inv_matmul(
+        self,
+        input: torch.Tensor,
+        kernel,
+        noise: torch.Tensor,
+        X: torch.Tensor,
+    ):
         raise NotImplementedError
 
-    def sqrt_inv_matmul(self, input):
+    def sqrt_inv_matmul(
+        self,
+        input: torch.Tensor,
+        kernel,
+        noise: torch.Tensor,
+        X: torch.Tensor,
+    ):
         raise NotImplementedError
 
-    def _scaling(self, upper_bound_max_eigval_preconditioner_inv: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def _scaling(
+        self,
+        kernel,
+        noise: torch.Tensor,
+        X: torch.Tensor,
+        unnormalized_preconditioner_inv: Optional[torch.Tensor] = None,
+        upper_bound_max_eigval_preconditioner_inv: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
         # Ensure preconditioner validity
         if upper_bound_max_eigval_preconditioner_inv is None:
             upper_bound_max_eigval_preconditioner_inv = torch.max(
-                torch.sum(torch.abs(self.inv_matmul(torch.eye(self.X.shape[0]))), dim=1)
+                torch.sum(torch.abs(unnormalized_preconditioner_inv), dim=1)
             )
         if torch.abs(upper_bound_max_eigval_preconditioner_inv) < 1e-12:
             return torch.zeros(())
 
-        upper_bound_max_eigval_Khat = torch.sum(self.kernel(self.X)) / self.X.shape[0] + self.noise
-        lower_bound_max_eigval_Khat = torch.max(
+        lower_bound_max_eigval_Khat = torch.sum(kernel(X)) / X.shape[0] + noise
+        upper_bound_max_eigval_Khat = torch.max(
             torch.sum(
-                torch.abs(self.kernel(self.X).to_dense() + self.noise * torch.eye(self.X.shape[0])),
+                torch.abs(kernel(X).to_dense() + noise * torch.eye(X.shape[0])),
                 dim=1,
             )
         )

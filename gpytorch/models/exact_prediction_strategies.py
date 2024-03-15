@@ -30,6 +30,7 @@ from ..distributions import MultitaskMultivariateNormal
 from ..lazy import LazyEvaluatedKernelTensor
 from ..utils.memoize import add_to_cache, cached, clear_cache_hook, pop_from_cache
 from .computation_aware_gp.linear_solvers import LinearSolver, LinearSolverState
+from .computation_aware_gp.preconditioners import Preconditioner
 
 
 def prediction_strategy(train_inputs, train_prior_dist, train_labels, likelihood):
@@ -877,11 +878,12 @@ class ComputationAwarePredictionStrategy(DefaultPredictionStrategy):
 
     def __init__(
         self,
-        train_inputs,
+        train_inputs: torch.Tensor,
         train_prior_dist,
-        train_labels,
+        train_labels: torch.Tensor,
         likelihood,
         kernel,
+        preconditioner: Preconditioner,
         linear_solver: LinearSolver,
         solver_state: LinearSolverState,
     ):
@@ -895,20 +897,19 @@ class ComputationAwarePredictionStrategy(DefaultPredictionStrategy):
         )
 
         if solver_state is None:
-            # Compute the representer weights
+            # Evaluate preconditioner-augmented prior
             mvn = self.likelihood(self.train_prior_dist, self.train_inputs)
             train_mean, train_train_covar = mvn.loc, mvn.lazy_covariance_matrix
 
-            train_labels_offset = self.train_labels - train_mean
-
+            # Compute the representer weights
             with torch.no_grad():  # Ensure gradients are not taken through the solve
                 self._solver_state = linear_solver.solve(
-                    # train_train_covar.evaluate_kernel(),
                     train_train_covar,
-                    train_labels_offset,
-                    train_inputs=train_inputs[0],
-                    kernel=kernel,
-                    noise=likelihood.noise,
+                    self.train_labels - train_mean,
+                    # TODO: arguments below are only needed for sparse bilinear form
+                    # train_inputs=train_inputs[0],
+                    # kernel=kernel,
+                    # noise=likelihood.noise,
                 )
             # this code should only execute if we just compute the posterior
             warnings.warn("Solver state not set during MLL computation.")

@@ -19,7 +19,7 @@ class ComputationAwareMarginalLogLikelihoodAutoDiff(MarginalLogLikelihood):
     """Computation-aware marginal log-likelihood with gradients via automatic differentiation."""
 
     def __init__(
-        self, likelihood: GaussianLikelihood, model: "ComputationAwareGP", use_sparse_bilinear_form: bool = True
+        self, likelihood: GaussianLikelihood, model: "ComputationAwareGP", use_sparse_bilinear_form: bool = False
     ):
         if not isinstance(likelihood, _GaussianLikelihoodBase):
             raise RuntimeError("Likelihood must be Gaussian for exact inference.")
@@ -129,19 +129,72 @@ class ComputationAwareMarginalLogLikelihoodAutoDiff(MarginalLogLikelihood):
         )  # TODO: do we really need the nugget here?
 
         # Compressed representer weights
-        actions_target = actions_op @ target
+        actions_target = actions_op @ (target - output.mean)
         compressed_repr_weights = torch.cholesky_solve(actions_target.unsqueeze(1), cholfac_gram, upper=False).squeeze()
 
         # TODO: Avoid the O(ik) operation here
         # Instead: Cache S'y in the linear solver state and compute y'S @ compr_repr_weights
-        lml = -(
-            0.5 * torch.inner(actions_target, compressed_repr_weights)
-            + torch.sum(torch.log(cholfac_gram.diagonal()))
-            + 0.5 * num_actions * math.log(2 * math.pi)
-        )
+        if self.model.preconditioner is None:
+            lml = -(
+                0.5 * torch.inner(actions_target, compressed_repr_weights)
+                + torch.sum(torch.log(cholfac_gram.diagonal()))
+                + 0.5 * num_actions * math.log(2 * math.pi)
+            )
+            # Normalize log-marginal likelihood
+            normalized_lml = lml.div(num_actions)
+        else:
+            # # LML via preconditioner only
+            # # TODO: REMOVE ME?
+            # warnings.warn("Computing LML via preconditioner only!")
 
-        # Normalize log-marginal likelihood
-        normalized_lml = lml.div(num_actions)
+            # num_data = target.shape[0]
+            # cholfac_Pinv = torch.linalg.cholesky(
+            #     self.model.preconditioner.inv_matmul(
+            #         torch.eye(num_data),
+            #         kernel=self.model.covar_module,
+            #         noise=self.likelihood.noise,
+            #         X=self.model.train_inputs[0],
+            #     )
+            # )
+            # target_minus_prior_mean = target - self.model.mean_module(self.model.train_inputs[0])
+            # lml = -(
+            #     0.5
+            #     * torch.inner(
+            #         target_minus_prior_mean,
+            #         self.model.preconditioner.inv_matmul(
+            #             target_minus_prior_mean,
+            #             kernel=self.model.covar_module,
+            #             noise=self.likelihood.noise,
+            #             X=self.model.train_inputs[0],
+            #         ),
+            #     )
+            #     + torch.sum(torch.log(cholfac_Pinv.diagonal()))
+            #     + 0.5 * num_data * math.log(2 * math.pi)
+            # )
+            # # Normalize log-marginal likelihood
+            # normalized_lml = lml.div(num_data)
+
+            # LML for preconditioner-augmented prior
+            warnings.warn("Computing LML via preconditioner-augmented prior only!")
+            prior_dist = self.model.preconditioner_augmented_forward(self.model.train_inputs[0])
+            prior_mean = prior_dist.mean
+            prior_pred_cov = self.likelihood(prior_dist).lazy_covariance_matrix.evaluate_kernel().to_dense()
+            num_data = target.shape[0]
+
+            cholfac_prior_pred_cov = torch.linalg.cholesky(prior_pred_cov, upper=False)
+            lml = -(
+                0.5
+                * torch.inner(
+                    target - prior_mean,
+                    torch.cholesky_solve(
+                        (target - prior_mean).unsqueeze(-1), cholfac_prior_pred_cov, upper=False
+                    ).squeeze(),
+                )
+                + torch.sum(torch.log(cholfac_prior_pred_cov.diagonal()))
+                + 0.5 * num_data * math.log(2 * math.pi)
+            )
+            # Normalize log-marginal likelihood
+            normalized_lml = lml.div(num_data)
 
         return normalized_lml
 

@@ -11,6 +11,7 @@ from ...utils.warnings import GPInputWarning
 from ..exact_gp import ExactGP
 from ..exact_prediction_strategies import ComputationAwarePredictionStrategy
 from .linear_solvers import LinearSolver
+from .preconditioners import Preconditioner
 
 
 class ComputationAwareGP(ExactGP):
@@ -20,13 +21,22 @@ class ComputationAwareGP(ExactGP):
     :param train_targets: (size n) The training targets :math:`\mathbf y`.
     :param likelihood: The Gaussian likelihood that defines the observational distribution.
     :param linear_solver: The (probabilistic) linear solver used for inference.
+    :param preconditioner: The preconditioner for the covariance matrix :math:`K(X, X) + \Lambda`.
 
     Example:
         >>> TODO
     """
 
-    def __init__(self, train_inputs: torch.Tensor, train_targets, likelihood, linear_solver: LinearSolver):
+    def __init__(
+        self,
+        train_inputs: torch.Tensor,
+        train_targets: torch.Tensor,
+        likelihood,
+        preconditioner: Preconditioner,
+        linear_solver: LinearSolver,
+    ):
         super().__init__(train_inputs, train_targets, likelihood)
+        self.preconditioner = preconditioner  # Registers preconditioner's parameters as hyperparameters
         self._linear_solver = linear_solver
         self._solver_state = None
 
@@ -34,9 +44,52 @@ class ComputationAwareGP(ExactGP):
         for param_name, param in self._linear_solver.policy.named_parameters():
             self.register_parameter(name="linear_solver_policy_" + param_name, parameter=param)
 
+    def preconditioner_augmented_forward(self, x):
+        """Compute the mean and covariance function augmented by a preconditioner."""
+        if self.preconditioner is None:
+            return MultivariateNormal(self.mean_module(x), self.covar_module(x))
+
+        X_train = self.train_inputs[0]
+        y_train = self.train_targets
+
+        # Preconditioner-augmented mean function
+        mean_x = self.mean_module(x) + self.covar_module(x, X_train) @ (
+            self.preconditioner.inv_matmul(
+                y_train - self.mean_module(X_train),
+                kernel=self.covar_module,
+                noise=self.likelihood.noise,
+                X=X_train,
+            )
+        )
+
+        # Preconditioner-augmented covariance function
+
+        # TODO: We can compute the diagonal more efficiently. Is this helpful here?
+        # if diag:
+
+        #     def kxX_Pinv_kXx(kernel_Xx):
+        #         return kernel_Xx.T @ self.preconditioner.inv_matmul(kernel_Xx)
+
+        #     return self.covar_module(x1, x2, diag=diag) - torch.vmap(kxX_Pinv_kXx)(
+        #         self.covar_module(x1, X_train).to_dense()
+        #     )
+
+        # TODO: this should probably be a linear operator, such that the diagonal can be computed efficiently
+        covar_x = self.covar_module(x) - self.covar_module(x, X_train) @ (
+            self.preconditioner.inv_matmul(  # TODO: replace with square root => more numerically stable
+                self.covar_module(X_train, x),
+                kernel=self.covar_module,
+                noise=self.likelihood.noise,
+                X=X_train,
+            )
+        )
+        return MultivariateNormal(mean_x, covar_x)
+
     def __call__(self, *args, **kwargs):
         train_inputs = list(self.train_inputs) if self.train_inputs is not None else []
         inputs = [i.unsqueeze(-1) if i.ndimension() == 1 else i for i in args]
+
+        # TODO: Instantiate preconditioner (and cache)
 
         # Training mode: optimization
         if self.training:
@@ -48,13 +101,14 @@ class ComputationAwareGP(ExactGP):
             if settings.debug.on():
                 if not all(torch.equal(train_input, input) for train_input, input in zip(train_inputs, inputs)):
                     raise RuntimeError("You must train on the training inputs!")
-            res = self.forward(*inputs, **kwargs)
-            return res
+            return self.preconditioner_augmented_forward(*inputs, **kwargs)
 
         # Prior mode
         elif settings.prior_mode.on() or self.train_inputs is None or self.train_targets is None:
             full_inputs = args
-            full_output = self.forward(*full_inputs, **kwargs)
+            full_output = self.forward(
+                *full_inputs, **kwargs
+            )  # TODO: should this be the original prior or the preconditioner-augmented prior?
             if settings.debug().on():
                 if not isinstance(full_output, MultivariateNormal):
                     raise RuntimeError("ComputationAwareGP.forward must return a MultivariateNormal.")
@@ -71,18 +125,23 @@ class ComputationAwareGP(ExactGP):
 
             # Get the terms that only depend on training data
             if self.prediction_strategy is None:
-                train_output = self.forward(*train_inputs, **kwargs)
+
+                # Evaluate preconditioner-augmented prior distribution
+                train_preconditioner_augmented_prior_dist = self.preconditioner_augmented_forward(
+                    *train_inputs, **kwargs
+                )
 
                 # Create the prediction strategy for
                 self.prediction_strategy = ComputationAwarePredictionStrategy(
                     train_inputs=train_inputs,
-                    train_prior_dist=train_output,
+                    train_prior_dist=train_preconditioner_augmented_prior_dist,
                     train_labels=self.train_targets,
                     kernel=self.covar_module,
                     likelihood=self.likelihood,
+                    preconditioner=self.preconditioner,
                     linear_solver=self.linear_solver,
                     solver_state=self._solver_state,
-                )
+                )  # TODO: ensure prediction strategy (and MLL) use preconditioner
 
             # Concatenate the input to the training input
             full_inputs = []
@@ -99,7 +158,8 @@ class ComputationAwareGP(ExactGP):
                 full_inputs.append(torch.cat([train_input, input], dim=-2))
 
             # Get the joint distribution for training/test data
-            full_output = self.forward(*full_inputs, **kwargs)
+            # TODO: make sure this is the preconditioner-augmented prior / kernel
+            full_output = self.preconditioner_augmented_forward(*full_inputs, **kwargs)
             if settings.debug().on():
                 if not isinstance(full_output, MultivariateNormal):
                     raise RuntimeError("ComputationAwareGP.forward must return a MultivariateNormal.")
@@ -112,10 +172,9 @@ class ComputationAwareGP(ExactGP):
             test_shape = torch.Size([joint_shape[0] - self.prediction_strategy.train_shape[0], *tasks_shape])
 
             # Make the prediction
-            (
-                predictive_mean,
-                predictive_covar,
-            ) = self.prediction_strategy.exact_prediction(full_mean, full_covar)
+            (predictive_mean, predictive_covar,) = self.prediction_strategy.exact_prediction(
+                full_mean, full_covar
+            )  # TODO: replace with "preconditioned" prediction call
 
             # Reshape predictive mean to match the appropriate event shape
             predictive_mean = predictive_mean.view(*batch_shape, *test_shape).contiguous()

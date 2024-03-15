@@ -2,6 +2,7 @@
 
 from .adverserial_policy import AdverserialPolicy
 from .combined_policy import CombinedPolicy
+from .constant_policy import ConstantPolicy
 from .custom_gradient_policy import CustomGradientPolicy
 from .gradient_policy import GradientPolicy
 from .kernel_jacobian_policy import KernelJacobianPolicy
@@ -19,6 +20,7 @@ from .unit_vector_policy import UnitVectorPolicy
 __all__ = [
     "AdverserialPolicy",
     "CombinedPolicy",
+    "ConstantPolicy",
     "CustomGradientPolicy",
     "FullLanczosPolicy",
     "GradientPolicy",

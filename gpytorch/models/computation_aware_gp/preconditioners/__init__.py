@@ -10,7 +10,7 @@ from .banded_inverse import BandedInverse, Diagonal, ToeplitzInverse
 from .preconditioner import Preconditioner
 
 from .scalar import Scalar
-from .sparse_inverse_cholesky import SparseInverseCholesky
+from .sparse_inverse_cholesky import BandedInverseCholesky, SparseInverseCholesky
 
 Vecchia = SparseInverseCholesky
 
@@ -20,6 +20,7 @@ __all__ = [
     "Diagonal",
     "Vecchia",
     "SparseInverseCholesky",
+    "BandedInverseCholesky",
     "BandedInverse",
     "ToeplitzInverse",
 ]
@@ -50,15 +51,6 @@ def partial_cholesky(
             preconditioner_inv=preconditioner_inv, kernel=kernel, noise=noise, X_train=X_train
         )
     return preconditioner_inv
-
-
-# class SparsePrecision(Preconditioner):
-#     def __init__(self, kernel, noise, X, num_diags_cholfac: int, **kwargs) -> None:
-#         super().__init__(kernel=kernel, noise=noise, X=X, **kwargs)
-#         self.num_diags_cholfac = num_diags_cholfac
-
-#     def forward(self, x):
-#         DiagLinearOperator(1 / (self.lmda_max_upper_bound + self.noise) * torch.ones(self.X.shape[0])) @ x
 
 
 def sparse_precision(
