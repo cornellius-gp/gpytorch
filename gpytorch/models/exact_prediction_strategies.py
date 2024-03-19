@@ -10,7 +10,6 @@ from linear_operator.operators import (
     AddedDiagLinearOperator,
     BatchRepeatLinearOperator,
     ConstantMulLinearOperator,
-    DenseLinearOperator,
     InterpolatedLinearOperator,
     LinearOperator,
     LowRankRootAddedDiagLinearOperator,
@@ -222,7 +221,7 @@ class DefaultPredictionStrategy(object):
             full_inputs = [fi.expand(fant_batch_shape + fi.shape) for fi in full_inputs]
             full_mean = full_mean.expand(fant_batch_shape + full_mean.shape)
             full_covar = BatchRepeatLinearOperator(full_covar, repeat_shape)
-            new_root = BatchRepeatLinearOperator(DenseLinearOperator(new_root.to_dense()), repeat_shape)
+            new_root = BatchRepeatLinearOperator(new_root, repeat_shape)
             # no need to repeat the covar cache, broadcasting will do the right thing
 
         if isinstance(full_output, MultitaskMultivariateNormal):
