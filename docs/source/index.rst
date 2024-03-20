@@ -33,6 +33,7 @@ GPyTorch's documentation
    means
    marginal_log_likelihoods
    metrics
+   nearest_neighbors
    constraints
    distributions
    priors
