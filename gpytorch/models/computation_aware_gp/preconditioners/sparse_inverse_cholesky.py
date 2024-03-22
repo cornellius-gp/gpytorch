@@ -64,7 +64,7 @@ class SparseInverseCholesky(Preconditioner):
             upper_bound_max_eigval_preconditioner_inv=None,
         )  # TODO: can we find a tighter upper bound for banded matrices?
 
-        scaling_factor = 1.0 / 8.0  # TODO: REMOVE ME
+        # scaling_factor = 1.0 / 8.0  # TODO: REMOVE ME
 
         return (scaling_factor * banded_inverse) @ input
 
