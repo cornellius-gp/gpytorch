@@ -434,6 +434,8 @@ class ComputationAwareELBO(MarginalLogLikelihood):
 
     def forward(self, output: torch.Tensor, target: torch.Tensor, **kwargs):
 
+        # prior_dist = self.model.preconditioner_augmented_forward(self.model.train_inputs[0]) # TODO: enable prior augmentation
+
         K = output.lazy_covariance_matrix
         Khat = self.likelihood(output).lazy_covariance_matrix.evaluate_kernel()
 
@@ -446,7 +448,6 @@ class ComputationAwareELBO(MarginalLogLikelihood):
 
         # Compute the log marginal likelihood
         actions_op = solver_state.cache["actions_op"]
-        actions_dense = actions_op.to_dense()
         num_actions = actions_op.shape[0]
         num_train_data = target.shape[0]
 
@@ -456,22 +457,32 @@ class ComputationAwareELBO(MarginalLogLikelihood):
             if isinstance(actions_op, operators.BlockSparseLinearOperator)
             else actions_op @ (actions_op @ Khat).mT
         )
+        K_actions = (
+            actions_op._matmul(K).mT
+            if isinstance(actions_op, operators.BlockSparseLinearOperator)
+            else (actions_op @ K).mT
+        )
         gram_SKS = (
             actions_op._matmul(actions_op._matmul(K).mT)
             if isinstance(actions_op, operators.BlockSparseLinearOperator)
-            else actions_op @ (actions_op @ K).mT
+            else actions_op @ K_actions
         )
 
         cholfac_gram = torch.linalg.cholesky(
-            gram_SKhatS,  # + torch.eye(num_actions, dtype=gram_SKhatS.dtype, device=gram_SKhatS.device) * 1e-5,
+            gram_SKhatS + torch.eye(num_actions, dtype=gram_SKhatS.dtype, device=gram_SKhatS.device) * 1e-5,
             upper=False,
         )  # TODO: do we really need the nugget here?
 
+        # S'S
+        StrS = (
+            actions_op._matmul(actions_op.to_dense().mT)
+            if isinstance(actions_op, operators.BlockSparseLinearOperator)
+            else actions_op @ actions_op.mT
+        )
+
         # Compressed representer weights
         actions_target = actions_op @ (target - output.mean)
-        K_actions = K @ actions_dense.mT
         compressed_repr_weights = torch.cholesky_solve(actions_target.unsqueeze(1), cholfac_gram, upper=False).squeeze()
-        repr_weights = actions_op.mT @ torch.atleast_1d(compressed_repr_weights)
 
         # Expected log-likelihood term
         f_pred_mean = output.mean + K_actions @ torch.atleast_1d(compressed_repr_weights)
@@ -481,16 +492,18 @@ class ComputationAwareELBO(MarginalLogLikelihood):
         expected_log_likelihood_term = -0.5 * (
             num_train_data * torch.log(self.likelihood.noise)
             + 1 / self.likelihood.noise * (torch.linalg.vector_norm(target - f_pred_mean) ** 2 + f_pred_var)
+            + num_train_data * torch.log(torch.as_tensor(2 * math.pi))
         )
 
         # KL divergence to prior
         kl_prior_term = -0.5 * (
             num_actions * torch.log(self.likelihood.noise)
-            + torch.logdet(actions_dense @ actions_dense.mT)
+            + torch.logdet(StrS)
             - 2 * torch.sum(torch.log(cholfac_gram.diagonal()))
-            - repr_weights.T @ (K @ repr_weights)
+            - torch.inner(compressed_repr_weights, (gram_SKS @ compressed_repr_weights))
             + torch.trace(torch.cholesky_solve(gram_SKS, cholfac_gram, upper=False))
+            + num_train_data
         )
 
-        elbo_up_to_constants = torch.squeeze(expected_log_likelihood_term - kl_prior_term)
-        return elbo_up_to_constants.div(num_train_data)
+        elbo = torch.squeeze(expected_log_likelihood_term - kl_prior_term)
+        return elbo.div(num_train_data)
