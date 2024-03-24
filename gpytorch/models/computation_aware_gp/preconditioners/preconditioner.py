@@ -68,6 +68,13 @@ class Preconditioner(nn.Module, abc.ABC):
             torch.minimum(lower_bound_max_eigval_Khat, 1.0 / upper_bound_max_eigval_Khat)
             / upper_bound_max_eigval_preconditioner_inv
         )
+        # Pinvsqrt_Khat = self.sqrt_inv_matmul(
+        #     kernel(X).to_dense() + noise * torch.eye(X.shape[0]), kernel=kernel, noise=noise, X=X
+        # )
+        # Pinvsqrt_Khat_Pinvsqrt = self.sqrt_inv_matmul(Pinvsqrt_Khat.mT, kernel=kernel, noise=noise, X=X)
+        # upper_bound_max_eigval_Pinvsqrt_Khat_Pinvsqrt = torch.max(torch.sum(torch.abs(Pinvsqrt_Khat_Pinvsqrt), dim=1))
+        # scalar_factor_precond_inv = 1 / upper_bound_max_eigval_Pinvsqrt_Khat_Pinvsqrt
+
         # print(scalar_factor_precond_inv)
         return scalar_factor_precond_inv
 
