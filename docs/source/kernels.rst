@@ -9,7 +9,7 @@ gpytorch.kernels
 
 
 If you don't know what kernel to use, we recommend that you start out with a
-:code:`gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel)`.
+:code:`gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())`.
 
 
 Kernel
