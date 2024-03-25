@@ -496,13 +496,12 @@ class ComputationAwareELBO(MarginalLogLikelihood):
         )
 
         # KL divergence to prior
-        kl_prior_term = -0.5 * (
-            num_actions * torch.log(self.likelihood.noise)
-            + torch.logdet(StrS)
-            - 2 * torch.sum(torch.log(cholfac_gram.diagonal()))
-            - torch.inner(compressed_repr_weights, (gram_SKS @ compressed_repr_weights))
-            + torch.trace(torch.cholesky_solve(gram_SKS, cholfac_gram, upper=False))
-            + num_train_data
+        kl_prior_term = 0.5 * (
+            torch.inner(compressed_repr_weights, (gram_SKS @ compressed_repr_weights))
+            + 2 * torch.sum(torch.log(cholfac_gram.diagonal()))
+            - num_actions * torch.log(self.likelihood.noise)
+            - torch.logdet(StrS)
+            - torch.trace(torch.cholesky_solve(gram_SKS, cholfac_gram, upper=False))
         )
 
         elbo = torch.squeeze(expected_log_likelihood_term - kl_prior_term)
