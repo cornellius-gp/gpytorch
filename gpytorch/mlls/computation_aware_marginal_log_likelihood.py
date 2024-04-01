@@ -452,11 +452,12 @@ class ComputationAwareELBO(MarginalLogLikelihood):
         num_train_data = target.shape[0]
 
         # Gramian S'KS
-        gram_SKhatS = (
-            actions_op._matmul(actions_op._matmul(Khat).mT)
-            if isinstance(actions_op, operators.BlockSparseLinearOperator)
-            else actions_op @ (actions_op @ Khat).mT
-        )
+
+        # gram_SKhatS = (
+        #     actions_op._matmul(actions_op._matmul(Khat).mT)
+        #     if isinstance(actions_op, operators.BlockSparseLinearOperator)
+        #     else actions_op @ (actions_op @ Khat).mT
+        # )
         K_actions = (
             actions_op._matmul(K).mT
             if isinstance(actions_op, operators.BlockSparseLinearOperator)
@@ -467,22 +468,24 @@ class ComputationAwareELBO(MarginalLogLikelihood):
             if isinstance(actions_op, operators.BlockSparseLinearOperator)
             else actions_op @ K_actions
         )
-
-        cholfac_gram = torch.linalg.cholesky(
-            gram_SKhatS + torch.eye(num_actions, dtype=gram_SKhatS.dtype, device=gram_SKhatS.device) * 1e-5,
-            upper=False,
-        )  # TODO: do we really need the nugget here?
-
-        # S'S
         StrS = (
             actions_op._matmul(actions_op.to_dense().mT)
             if isinstance(actions_op, operators.BlockSparseLinearOperator)
             else actions_op @ actions_op.mT
         )
+        gram_SKhatS = gram_SKS + self.likelihood.noise * StrS
+
+        cholfac_gram = torch.linalg.cholesky(
+            gram_SKhatS,  # + torch.eye(num_actions, dtype=gram_SKhatS.dtype, device=gram_SKhatS.device) * 1e-5,
+            upper=False,
+        )  # TODO: do we really need the nugget here?
+        # TODO: if cholesky fails, recompute with up to noise 1e-4 added
 
         # Compressed representer weights
         actions_target = actions_op @ (target - output.mean)
-        compressed_repr_weights = torch.cholesky_solve(actions_target.unsqueeze(1), cholfac_gram, upper=False).squeeze()
+        compressed_repr_weights = torch.cholesky_solve(actions_target.unsqueeze(1), cholfac_gram, upper=False).squeeze(
+            -1
+        )
 
         # Expected log-likelihood term
         f_pred_mean = output.mean + K_actions @ torch.atleast_1d(compressed_repr_weights)
