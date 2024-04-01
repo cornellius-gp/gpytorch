@@ -437,7 +437,7 @@ class ComputationAwareELBO(MarginalLogLikelihood):
         # prior_dist = self.model.preconditioner_augmented_forward(self.model.train_inputs[0]) # TODO: enable prior augmentation
 
         K = output.lazy_covariance_matrix
-        Khat = self.likelihood(output).lazy_covariance_matrix.evaluate_kernel()
+        Khat = self.likelihood(output).lazy_covariance_matrix
 
         # Linear solve
         solver_state = self.model.linear_solver.solve(Khat, target - output.mean)
