@@ -259,7 +259,7 @@ class ProbabilisticLinearSolver(LinearSolver):
                 solver_state.residual = (
                     rhs
                     - linear_op
-                    @ solver_state.cache["actions_op"].to_dense().T
+                    @ solver_state.cache["actions_op"].to_dense().T  # TODO: blows up complexity
                     @ solver_state.cache["compressed_solution"]
                 )
 

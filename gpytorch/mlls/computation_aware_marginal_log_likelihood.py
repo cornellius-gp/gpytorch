@@ -461,7 +461,7 @@ class ComputationAwareELBO(MarginalLogLikelihood):
         K_actions = (
             actions_op._matmul(K).mT
             if isinstance(actions_op, operators.BlockSparseLinearOperator)
-            else (actions_op @ K).mT
+            else K @ actions_op.mT
         )
         gram_SKS = (
             actions_op._matmul(actions_op._matmul(K).mT)
