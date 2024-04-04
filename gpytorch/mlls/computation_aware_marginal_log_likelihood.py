@@ -7,7 +7,7 @@ from collections import deque
 from typing import Tuple, Union
 
 import torch
-from linear_operator import operators
+from linear_operator import operators, utils
 
 from .. import kernels
 
@@ -475,11 +475,7 @@ class ComputationAwareELBO(MarginalLogLikelihood):
         )
         gram_SKhatS = gram_SKS + self.likelihood.noise * StrS
 
-        cholfac_gram = torch.linalg.cholesky(
-            gram_SKhatS,  # + torch.eye(num_actions, dtype=gram_SKhatS.dtype, device=gram_SKhatS.device) * 1e-5,
-            upper=False,
-        )  # TODO: do we really need the nugget here?
-        # TODO: if cholesky fails, recompute with up to noise 1e-4 added
+        cholfac_gram = utils.cholesky.psd_safe_cholesky(gram_SKhatS, upper=False)
 
         # Compressed representer weights
         actions_target = actions_op @ (target - output.mean)
