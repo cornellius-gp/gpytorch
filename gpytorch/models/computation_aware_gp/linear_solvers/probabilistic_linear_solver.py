@@ -239,11 +239,11 @@ class ProbabilisticLinearSolver(LinearSolver):
                 ).reshape(-1)
 
                 # Update solution estimate
-                # solver_state.solution = solver_state.cache["actions_op"] @ solver_state.cache["compressed_solution"]
+                # solver_state.solution = solver_state.cache["actions_op"].mT @ solver_state.cache["compressed_solution"]
 
                 # Update residual
 
-                # Note: The following two updates seem to be unstable.
+                # # NOTE: The following two updates seem to be unstable.
                 # if solver_state.iteration == 0:
                 #     predictive_mean = torch.zeros_like(rhs)
                 #     solver_state.residual = rhs
@@ -255,12 +255,17 @@ class ProbabilisticLinearSolver(LinearSolver):
                 #     solver_state.residual - linear_op_action * solver_state.cache["compressed_solution"][-1]
                 # )
 
-                # Note: the following is stable, but it blows up the complexity
-                solver_state.residual = (
-                    rhs
-                    - linear_op
-                    @ solver_state.cache["actions_op"].to_dense().T  # TODO: blows up complexity
-                    @ solver_state.cache["compressed_solution"]
+                # # NOTE: the following is stable, but it blows up the complexity
+                # solver_state.residual = (
+                #     rhs
+                #     - linear_op
+                #     @ solver_state.cache["actions_op"].to_dense().mT # TODO: blows up complexity
+                #     @ solver_state.cache["compressed_solution"]
+                # )
+
+                # NOTE: experimenting with this now:
+                solver_state.residual = rhs - linear_op @ (
+                    solver_state.cache["actions_op"].to_dense().mT @ solver_state.cache["compressed_solution"]
                 )
 
                 # # Compute residual
