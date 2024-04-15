@@ -332,6 +332,7 @@ class ProbabilisticLinearSolver(LinearSolver):
         if x is None:
             x = None
             inverse_op = ZeroLinearOperator(*linear_op.shape, dtype=linear_op.dtype, device=linear_op.device)
+            residual = rhs
             logdet = torch.zeros((), requires_grad=True)
         else:
             raise NotImplementedError("Currently we do not support initializing with a given solution x.")
@@ -342,8 +343,8 @@ class ProbabilisticLinearSolver(LinearSolver):
             solution=x,
             forward_op=None,
             inverse_op=inverse_op,
-            residual=None,
-            residual_norm=torch.inf,
+            residual=residual,
+            residual_norm=torch.linalg.vector_norm(residual, ord=2),
             logdet=logdet,
             iteration=0,
             cache={
@@ -381,6 +382,8 @@ class ProbabilisticLinearSolver(LinearSolver):
         # Implementation of solver iteration
         yield solver_state
 
+        # import ipdb; ipdb.set_trace()
+
         while True:
             # Check convergence
             if (
@@ -394,6 +397,7 @@ class ProbabilisticLinearSolver(LinearSolver):
                 # self.enable_action_gradients
             ):  # For efficiency, only track gradients if necessary to optimize action hyperparameters.
                 # Select action
+                # import ipdb; ipdb.set_trace()
                 action = self.policy(solver_state)
 
                 # Normalize action
@@ -402,6 +406,7 @@ class ProbabilisticLinearSolver(LinearSolver):
                     blocks=action.blocks / torch.linalg.vector_norm(action.blocks),
                     size_sparse_dim=action.size_sparse_dim,
                 )
+                action = action.to(rhs.device)
 
             with torch.no_grad():  # Saves 2x compute since we don't need gradients through the solve.
                 # Matrix of actions
@@ -427,7 +432,7 @@ class ProbabilisticLinearSolver(LinearSolver):
                     action.non_zero_idcs.mT,
                     forward_fn,
                     None,  # vjp_fn,
-                    None,
+                    1,
                 )
                 actions_linear_op_current_action = (outputscale * SKS + noise * SS).reshape((-1,))
 
@@ -507,10 +512,24 @@ class ProbabilisticLinearSolver(LinearSolver):
                 ).reshape(-1)
 
                 # Update residual # TODO
-                # solver_state.residual = (
-                #     solver_state.residual - linear_op_action * solver_state.cache["compressed_solution"][-1]
+                # def sparse_linear_form(X, Sv, Si, kernel_forward):
+                #     def mvm(value, indices):
+                #         return kernel_forward(X, X[indices]) @ value
+
+                #     batched_mvm = torch.vmap(mvm, in_dims=0, out_dims=-1, chunk_size=1)
+                #     return batched_mvm(Sv, Si)
+
+                # linear_op_action = sparse_linear_form(
+                #     train_inputs, action.blocks, action.non_zero_idcs, forward_fn
                 # )
-                solver_state.residual_norm = torch.inf  # torch.linalg.vector_norm(solver_state.residual, ord=2)
+                # linear_op_action = outputscale * linear_op_action + noise * action.to_dense()
+                linear_op_action = linear_op.to_dense() @ action.to_dense().squeeze()
+
+                solver_state.residual = (
+                    solver_state.residual - linear_op_action * solver_state.cache["compressed_solution"][-1]
+                )
+                # solver_state.residual_norm = torch.inf
+                solver_state.residual_norm = torch.linalg.vector_norm(solver_state.residual, ord=2)
 
                 # Update inverse approximation
                 solver_state.inverse_op = None
@@ -523,6 +542,7 @@ class ProbabilisticLinearSolver(LinearSolver):
 
                 yield solver_state
 
+    @torch.no_grad()
     def solve(
         self,
         linear_op: LinearOperator,
