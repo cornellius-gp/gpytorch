@@ -433,8 +433,10 @@ class ComputationAwareELBO(MarginalLogLikelihood):
         self.use_sparse_bilinear_form = use_sparse_bilinear_form
 
     def forward(self, output: torch.Tensor, target: torch.Tensor, **kwargs):
-
         # prior_dist = self.model.preconditioner_augmented_forward(self.model.train_inputs[0]) # TODO: enable prior augmentation
+
+        if self.use_sparse_bilinear_form:
+            return self._sparse_forward(output, target, **kwargs)
 
         K = output.lazy_covariance_matrix
         Khat = self.likelihood(output).lazy_covariance_matrix
@@ -450,6 +452,108 @@ class ComputationAwareELBO(MarginalLogLikelihood):
         actions_op = solver_state.cache["actions_op"]
         num_actions = actions_op.shape[0]
         num_train_data = target.shape[0]
+
+        # Gramian S'KS
+
+        # gram_SKhatS = (
+        #     actions_op._matmul(actions_op._matmul(Khat).mT)
+        #     if isinstance(actions_op, operators.BlockSparseLinearOperator)
+        #     else actions_op @ (actions_op @ Khat).mT
+        # )
+        K_actions = (
+            actions_op._matmul(K).mT
+            if isinstance(actions_op, operators.BlockSparseLinearOperator)
+            else K @ actions_op.mT
+        )
+        gram_SKS = (
+            actions_op._matmul(actions_op._matmul(K).mT)
+            if isinstance(actions_op, operators.BlockSparseLinearOperator)
+            else actions_op @ K_actions
+        )
+        StrS = (
+            actions_op._matmul(actions_op.to_dense().mT)
+            if isinstance(actions_op, operators.BlockSparseLinearOperator)
+            else actions_op @ actions_op.mT
+        )
+        gram_SKhatS = gram_SKS + self.likelihood.noise * StrS
+
+        cholfac_gram = utils.cholesky.psd_safe_cholesky(gram_SKhatS, upper=False)
+
+        # Compressed representer weights
+        actions_target = actions_op @ (target - output.mean)
+        compressed_repr_weights = torch.cholesky_solve(actions_target.unsqueeze(1), cholfac_gram, upper=False).squeeze(
+            -1
+        )
+
+        # Expected log-likelihood term
+        f_pred_mean = output.mean + K_actions @ torch.atleast_1d(compressed_repr_weights)
+        f_pred_var = torch.sum(output.variance) - torch.sum(
+            torch.diag(torch.cholesky_solve(K_actions.mT @ K_actions, cholfac_gram, upper=False))
+        )
+        expected_log_likelihood_term = -0.5 * (
+            num_train_data * torch.log(self.likelihood.noise)
+            + 1 / self.likelihood.noise * (torch.linalg.vector_norm(target - f_pred_mean) ** 2 + f_pred_var)
+            + num_train_data * torch.log(torch.as_tensor(2 * math.pi))
+        )
+
+        # KL divergence to prior
+        kl_prior_term = 0.5 * (
+            torch.inner(compressed_repr_weights, (gram_SKS @ compressed_repr_weights))
+            + 2 * torch.sum(torch.log(cholfac_gram.diagonal()))
+            - num_actions * torch.log(self.likelihood.noise)
+            - torch.logdet(StrS)
+            - torch.trace(torch.cholesky_solve(gram_SKS, cholfac_gram, upper=False))
+        )
+
+        elbo = torch.squeeze(expected_log_likelihood_term - kl_prior_term)
+        return elbo.div(num_train_data)
+
+    def _sparse_forward(self, output: torch.Tensor, target: torch.Tensor, **kwargs):
+        kernel = self.model.covar_module
+
+        with torch.no_grad():
+            outputscale = 1.0
+            lengthscale = 1.0
+
+            if isinstance(kernel, kernels.ScaleKernel):
+                outputscale = kernel.outputscale
+                lengthscale = kernel.base_kernel.lengthscale
+                forward_fn = kernel.base_kernel._forward
+            else:
+                lengthscale = kernel.lengthscale
+
+                forward_fn = kernel._forward
+
+        import ipdb; ipdb.set_trace()
+
+        K = output.lazy_covariance_matrix
+        Khat = self.likelihood(output).lazy_covariance_matrix
+
+        # Linear solve
+        solver_state = self.model.linear_solver.solve(
+            Khat, target - output.mean,
+            x=None, train_inputs=self.model.train_inputs[0], kernel=kernel, noise=self.likelihood.noise.item(),
+        )
+        if self.model.prediction_strategy is None:
+            self.model._solver_state = solver_state
+        else:
+            warnings.warn("MLL does not set solver_state during its computation. This could cause undefined behavior.")
+
+        # Compute the log marginal likelihood
+        actions_op = solver_state.cache["actions_op"]
+        num_actions = actions_op.shape[0]
+        num_train_data = target.shape[0]
+
+        SKS, SS = kernels.SparseBilinearForms.apply(
+            self.model.train_inputs[0] / lengthscale,
+            solver_state.cache["actions_op"].blocks.mT,
+            solver_state.cache["actions_op"].blocks.mT,
+            solver_state.cache["actions_op"].non_zero_idcs.mT,
+            solver_state.cache["actions_op"].non_zero_idcs.mT,
+            forward_fn,
+            None,
+            None,
+        )
 
         # Gramian S'KS
 
