@@ -7,7 +7,7 @@ from collections import deque
 from typing import Tuple, Union
 
 import torch
-from linear_operator import operators, utils
+from linear_operator import operators, settings, utils
 
 from .. import kernels
 
@@ -467,27 +467,29 @@ class ComputationAwareELBO(MarginalLogLikelihood):
             actions_op._matmul(actions_op._matmul(K).mT)
             if isinstance(actions_op, operators.BlockSparseLinearOperator)
             else actions_op @ K_actions
-        )
+        ).to(dtype=torch.float32)
         StrS = (
             actions_op._matmul(actions_op.to_dense().mT)
             if isinstance(actions_op, operators.BlockSparseLinearOperator)
             else actions_op @ actions_op.mT
-        )
-        gram_SKhatS = gram_SKS + self.likelihood.noise * StrS
+        ).to(dtype=torch.float32)
+        gram_SKhatS = gram_SKS.to(dtype=torch.float32) + self.likelihood.noise * StrS
 
         cholfac_gram = utils.cholesky.psd_safe_cholesky(gram_SKhatS, upper=False)
 
         # Compressed representer weights
-        actions_target = actions_op @ (target - output.mean)
+        actions_target = (actions_op @ (target - output.mean)).to(dtype=torch.float32)
         compressed_repr_weights = torch.cholesky_solve(actions_target.unsqueeze(1), cholfac_gram, upper=False).squeeze(
             -1
         )
 
         # Expected log-likelihood term
-        f_pred_mean = output.mean + K_actions @ torch.atleast_1d(compressed_repr_weights)
+        f_pred_mean = output.mean + K_actions @ torch.atleast_1d(compressed_repr_weights).to(dtype=Khat.dtype)
         f_pred_var = torch.sum(output.variance) - torch.sum(
-            torch.diag(torch.cholesky_solve(K_actions.mT @ K_actions, cholfac_gram, upper=False))
-        )
+            torch.diag(
+                torch.cholesky_solve((K_actions.mT @ K_actions).to(dtype=torch.float32), cholfac_gram, upper=False)
+            )
+        ).to(dtype=Khat.dtype)
         expected_log_likelihood_term = -0.5 * (
             num_train_data * torch.log(self.likelihood.noise)
             + 1 / self.likelihood.noise * (torch.linalg.vector_norm(target - f_pred_mean) ** 2 + f_pred_var)
@@ -501,7 +503,7 @@ class ComputationAwareELBO(MarginalLogLikelihood):
             - num_actions * torch.log(self.likelihood.noise)
             - torch.logdet(StrS)
             - torch.trace(torch.cholesky_solve(gram_SKS, cholfac_gram, upper=False))
-        )
+        ).to(dtype=Khat.dtype)
 
         elbo = torch.squeeze(expected_log_likelihood_term - kl_prior_term)
         return elbo.div(num_train_data)
