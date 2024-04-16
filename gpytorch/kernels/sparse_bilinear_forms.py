@@ -23,7 +23,7 @@ def _scatter_gradients(
 
     # Function to reduce X_grads_unreduced
     def reduce_grad(X_grads_unreduced_sub: Float[Tensor, "... K*I1*I2"]):
-        res = torch.zeros(*batch_shape, N, device=X.device)
+        res = X.new_zeros((*batch_shape, N))
         res = torch.scatter_reduce(res, -1, Si, X_grads_unreduced_sub, reduce="sum")
         return res
 
@@ -239,3 +239,11 @@ class SparseBilinearForms(torch.autograd.Function):
             None,  # kernel_vjp
             None,  # S2_chunk_size
         )
+
+
+def sparse_linear_form(X, Sv, Si, kernel_forward):
+    def mvm(value, indices):
+        return kernel_forward(X, X[indices]) @ value
+
+    batched_mvm = torch.vmap(mvm, in_dims=0, out_dims=-1, chunk_size=1)
+    return batched_mvm(Sv, Si)
