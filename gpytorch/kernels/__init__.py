@@ -30,6 +30,7 @@ from .rff_kernel import RFFKernel
 from .rq_kernel import RQKernel
 from .scale_kernel import ScaleKernel
 from .sparse_bilinear_forms import SparseBilinearForms
+from .sparse_bilinear_forms import SparseLinearForms
 from .spectral_delta_kernel import SpectralDeltaKernel
 from .spectral_mixture_kernel import SpectralMixtureKernel
 
@@ -67,6 +68,7 @@ __all__ = [
     "RQKernel",
     "ScaleKernel",
     "SparseBilinearForms",
+    "SparseLinearForms",
     "SpectralDeltaKernel",
     "SpectralMixtureKernel",
 ]

@@ -241,9 +241,54 @@ class SparseBilinearForms(torch.autograd.Function):
         )
 
 
-def sparse_linear_form(X, Sv, Si, kernel_forward):
-    def mvm(value, indices):
-        return kernel_forward(X, X[indices]) @ value
+class SparseLinearForms(torch.autograd.Function):
 
-    batched_mvm = torch.vmap(mvm, in_dims=0, out_dims=-1, chunk_size=1)
-    return batched_mvm(Sv, Si)
+    @staticmethod
+    def forward(ctx, X, Sv, Si, kernel_forward, kernel_vjp):
+        """
+        X: tensor of size (n, d)
+        Sv: tensor of size (i, nnz), the indices of the sparse entries
+        Si: tensor of size (i, nnz), the values of the sparse entries
+        kernel_forward: callable function that computes the kernel
+        """
+        ctx.save_for_backward(X, Sv, Si)
+        ctx.kernel_forward = kernel_forward
+        ctx.kernel_vjp = kernel_vjp
+
+        def mvm(value, indices):
+            return kernel_forward(X, X[indices]) @ value
+
+        batched_mvm = torch.vmap(mvm, in_dims=0, out_dims=0, chunk_size=None)
+        res = batched_mvm(Sv, Si)
+
+        # the following is probably faster, but has higher memory consumption
+        # res = kernel_forward(X, X[Si]) @ Sv.unsqueeze(-1)
+        # res = res.squeeze()
+
+        return res
+
+    def backward(ctx, grad_output):
+        X, Sv, Si = ctx.saved_tensors
+        kernel_forward = ctx.kernel_forward
+        kernel_vjp = ctx.kernel_vjp
+
+        # dK = dO @ S'
+        # dX = K
+        if ctx.needs_input_grad[0]:
+            dX = None
+        else:
+            dX = None
+
+        # dS = K' @ grad_output
+        if ctx.needs_input_grad[1]:
+            dSv = torch.vmap(
+                lambda indices, rhs: kernel_forward(X[indices], X) @ rhs,
+                in_dims=0, out_dims=0, chunk_size=None,
+            )(Si, grad_output)
+        else:
+            dSv = None
+
+        return (
+            dX, dSv,
+            None, None, None,
+        )
