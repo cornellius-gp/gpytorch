@@ -542,7 +542,6 @@ class ProbabilisticLinearSolver(LinearSolver):
 
                 yield solver_state
 
-    @torch.no_grad()
     def solve(
         self,
         linear_op: LinearOperator,
