@@ -82,6 +82,7 @@ setup(
             "nbclient<=0.7.3",
             "nbformat<=5.8.0",
             "nbsphinx<=0.9.1",
+            "lxml_html_clean",
             "platformdirs<=3.2.0",
             "setuptools_scm<=7.1.0",
             "sphinx<=6.2.1",
