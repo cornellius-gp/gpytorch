@@ -273,16 +273,37 @@ class SparseLinearForms(torch.autograd.Function):
         kernel_vjp = ctx.kernel_vjp
 
         # dK = dO @ S'
-        # dX = K
+        # dX = dK @ (dK / dX)
         if ctx.needs_input_grad[0]:
-            dX = None
+            dX1, dX2 = torch.vmap(
+                lambda value, indices, d_out: kernel_vjp(
+                    torch.outer(d_out, value), X, X[indices],
+                ),
+                in_dims=0, out_dims=0, chunk_size=None,
+            )(Sv, Si, grad_output)
+            # import ipdb; ipdb.set_trace()
+            # dX = dX1.sum(dim=0)
+            # dX = dX1.scatter_reduce(1, Si.unsqueeze(-1), dX2, reduce='sum').sum(dim=0)
+
+            def _reduce_gradients(dX1, dX2, indices):
+                # return dX1.scatter_reduce(-2, indices.unsqueeze(-1), dX2, reduce='sum')
+                res = dX1.clone().detach()
+                res[indices] += dX2
+                return res
+
+            reduce_gradients = torch.vmap(_reduce_gradients, in_dims=0, out_dims=0, chunk_size=None)
+            dX = reduce_gradients(dX1, dX2, Si)
+
+            # dX = dX1
+            # dX[0][Si[0]] = dX1[0][Si[0]] + dX2
+            # import ipdb; ipdb.set_trace()
         else:
             dX = None
 
         # dS = K' @ grad_output
         if ctx.needs_input_grad[1]:
             dSv = torch.vmap(
-                lambda indices, rhs: kernel_forward(X[indices], X) @ rhs,
+                lambda indices, d_out: kernel_forward(X[indices], X) @ d_out,
                 in_dims=0, out_dims=0, chunk_size=None,
             )(Si, grad_output)
         else:
