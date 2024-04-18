@@ -244,7 +244,7 @@ class SparseBilinearForms(torch.autograd.Function):
 class SparseLinearForms(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, X, Sv, Si, kernel_forward, kernel_vjp):
+    def forward(ctx, X, Sv, Si, kernel_forward, kernel_vjp, chunk_size=None):
         """
         X: tensor of size (n, d)
         Sv: tensor of size (i, nnz), the indices of the sparse entries
@@ -257,11 +257,12 @@ class SparseLinearForms(torch.autograd.Function):
         ctx.save_for_backward(X, Sv, Si)
         ctx.kernel_forward = kernel_forward
         ctx.kernel_vjp = kernel_vjp
+        ctx.chunk_size = chunk_size
 
         def mvm(value, indices):
             return kernel_forward(X, X[indices]) @ value
 
-        batched_mvm = torch.vmap(mvm, in_dims=0, out_dims=0, chunk_size=None)
+        batched_mvm = torch.vmap(mvm, in_dims=0, out_dims=0, chunk_size=chunk_size)
         res = batched_mvm(Sv, Si)
 
         return res.T
@@ -270,6 +271,7 @@ class SparseLinearForms(torch.autograd.Function):
         X, Sv, Si = ctx.saved_tensors
         kernel_forward = ctx.kernel_forward
         kernel_vjp = ctx.kernel_vjp
+        chunk_size = ctx.chunk_size
 
         grad_output = grad_output.T
 
@@ -280,7 +282,7 @@ class SparseLinearForms(torch.autograd.Function):
                 lambda value, indices, d_out: kernel_vjp(
                     torch.outer(d_out, value), X, X[indices],
                 ),
-                in_dims=0, out_dims=0, chunk_size=None,
+                in_dims=0, out_dims=0, chunk_size=chunk_size,
             )(Sv, Si, grad_output)
             # import ipdb; ipdb.set_trace()
             # dX = dX1.sum(dim=0)
@@ -292,7 +294,7 @@ class SparseLinearForms(torch.autograd.Function):
                 res[indices] += dX2
                 return res
 
-            reduce_gradients = torch.vmap(_reduce_gradients, in_dims=0, out_dims=0, chunk_size=None)
+            reduce_gradients = torch.vmap(_reduce_gradients, in_dims=0, out_dims=0, chunk_size=chunk_size)
             dX = reduce_gradients(dX1, dX2, Si)
 
             # dX = dX1
@@ -305,12 +307,12 @@ class SparseLinearForms(torch.autograd.Function):
         if ctx.needs_input_grad[1]:
             dSv = torch.vmap(
                 lambda indices, d_out: kernel_forward(X[indices], X) @ d_out,
-                in_dims=0, out_dims=0, chunk_size=None,
+                in_dims=0, out_dims=0, chunk_size=ctx.chunk_size,
             )(Si, grad_output)
         else:
             dSv = None
 
         return (
             dX, dSv,
-            None, None, None,
+            None, None, None, None
         )
