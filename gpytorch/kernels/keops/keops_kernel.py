@@ -34,11 +34,12 @@ try:
         There are situations where we do not want the KeOps linear operator to use KeOps under the hood.
         See https://github.com/cornellius-gp/gpytorch/pull/1319
         """
-        return (
-            settings.use_keops.on()
-            and x1.size(-2) >= settings.max_cholesky_size.value()
-            and x2.size(-2) >= settings.max_cholesky_size.value()
-        )
+        # return (
+        #     settings.use_keops.on()
+        #     and x1.size(-2) >= settings.max_cholesky_size.value()
+        #     and x2.size(-2) >= settings.max_cholesky_size.value()
+        # )
+        return settings.use_keops.on() and x1.size(-2) * x2.size(-2) >= settings.max_cholesky_size.value() ** 2
 
     class KeOpsKernel(Kernel):
         def __call__(self, *args: Any, **kwargs: Any) -> Union[LinearOperator, Tensor, LazyTensor]:

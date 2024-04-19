@@ -14,6 +14,8 @@ from .... import kernels
 
 from .linear_solver import LinearSolver, LinearSolverState, LinearSystem
 
+# from .policies import GradientPolicy
+
 
 class ProbabilisticLinearSolver(LinearSolver):
     """Probabilistic linear solver.
@@ -137,12 +139,14 @@ class ProbabilisticLinearSolver(LinearSolver):
                 ).squeeze()
 
                 if solver_state.cache["actions_op"] is not None:
-                    prev_actions_linear_op_action = solver_state.cache["actions_op"] @ linear_op_action
+                    prev_actions_linear_op_action = solver_state.cache["actions_op"].to(
+                        dtype=torch.float64
+                    ) @ linear_op_action.to(dtype=torch.float64)
                 else:
                     prev_actions_linear_op_action = None
 
                 # Schur complement / Squared linop-norm of search direction
-                schur_complement = action @ linear_op_action
+                schur_complement = (action @ linear_op_action).to(dtype=torch.float64)
 
                 if solver_state.cache["actions_op"] is not None:
                     gram_inv_tilde_z = torch.cholesky_solve(
@@ -155,13 +159,26 @@ class ProbabilisticLinearSolver(LinearSolver):
 
                 solver_state.cache["schur_complements"].append(schur_complement)
 
-                if schur_complement <= 0.0:
+                # Terminate if Schur complement is negative
+                if schur_complement <= 0:
                     if settings.verbose_linalg.on():
                         settings.verbose_linalg.logger.debug(
                             f"PLS terminated after {solver_state.iteration} iteration(s)"
                             + " due to a negative Schur complement."
                         )
                     break
+
+                # Terminate if actions are not independent
+                if solver_state.iteration > 1:
+                    if solver_state.iteration > torch.linalg.matrix_rank(
+                        torch.vstack((solver_state.cache["actions_op"], action.reshape(1, -1)))
+                    ):
+                        if settings.verbose_linalg.on():
+                            settings.verbose_linalg.logger.debug(
+                                f"PLS terminated after {solver_state.iteration} iteration(s)"
+                                + " due to the latest action being in the span of the previous actions."
+                            )
+                        break
 
             if solver_state.cache["actions_op"] is None:
                 # Matrix of previous actions
@@ -232,25 +249,22 @@ class ProbabilisticLinearSolver(LinearSolver):
 
             with torch.no_grad():
                 # Update compressed solution estimate
-                solver_state.cache["compressed_solution"] = torch.cholesky_solve(
-                    (solver_state.cache["actions_op"] @ rhs).reshape(-1, 1),
-                    solver_state.cache["cholfac_gram"],
-                    upper=False,
-                ).reshape(-1)
+                solver_state.cache["compressed_solution"] = (
+                    torch.cholesky_solve(
+                        (solver_state.cache["actions_op"] @ rhs).reshape(-1, 1).to(dtype=torch.float64),
+                        solver_state.cache["cholfac_gram"],
+                        upper=False,
+                    )
+                    .reshape(-1)
+                    .to(dtype=linear_op.dtype)
+                )
 
                 # Update solution estimate
                 # solver_state.solution = solver_state.cache["actions_op"].mT @ solver_state.cache["compressed_solution"]
 
                 # Update residual
 
-                # # NOTE: The following two updates seem to be unstable.
-                # if solver_state.iteration == 0:
-                #     predictive_mean = torch.zeros_like(rhs)
-                #     solver_state.residual = rhs
-                # else:
-                #     predictive_mean = predictive_mean + linear_op_action * solver_state.cache["compressed_solution"][-1]
-                #     solver_state.residual = rhs - predictive_mean
-
+                # # NOTE: The following update is unstable:
                 # solver_state.residual = (
                 #     solver_state.residual - linear_op_action * solver_state.cache["compressed_solution"][-1]
                 # )
@@ -263,7 +277,7 @@ class ProbabilisticLinearSolver(LinearSolver):
                 #     @ solver_state.cache["compressed_solution"]
                 # )
 
-                # NOTE: experimenting with this now:
+                # NOTE: This seems to be more stable
                 solver_state.residual = rhs - linear_op @ (
                     solver_state.cache["actions_op"].to_dense().mT @ solver_state.cache["compressed_solution"]
                 )

@@ -98,9 +98,10 @@ class ComputationAwareGP(ExactGP):
                     "train_inputs, train_targets cannot be None in training mode. "
                     "Call .eval() for prior predictions, or call .set_train_data() to add training data."
                 )
-            if settings.debug.on():
-                if not all(torch.equal(train_input, input) for train_input, input in zip(train_inputs, inputs)):
-                    raise RuntimeError("You must train on the training inputs!")
+            # if settings.debug.on():
+            #     if not all(torch.equal(train_input, input) for train_input, input in zip(train_inputs, inputs)):
+            #         raise RuntimeError("You must train on the training inputs!")
+            # NOTE: Not true for batched training.
             return self.preconditioner_augmented_forward(*inputs, **kwargs)
 
         # Prior mode

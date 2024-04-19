@@ -895,26 +895,28 @@ class ComputationAwarePredictionStrategy(DefaultPredictionStrategy):
             root=None,
             inv_root=None,
         )
+        if solver_state is not None:
+            if solver_state.cache["actions_op"].shape[1] == train_inputs[0].shape[0]:
+                # Linear solver was run during loss computation, therefore we can recycle the solver state.
+                self._solver_state = solver_state
+                return None
 
-        if solver_state is None:
-            # Evaluate preconditioner-augmented prior
-            mvn = self.likelihood(self.train_prior_dist, self.train_inputs)
-            train_mean, train_train_covar = mvn.loc, mvn.lazy_covariance_matrix
+        # We only want to predict using the posterior, nothing has been precomputed (e.g. if we evaluated the loss on a batch).
 
-            # Compute the representer weights
-            with torch.no_grad():  # Ensure gradients are not taken through the solve
-                self._solver_state = linear_solver.solve(
-                    train_train_covar,
-                    self.train_labels - train_mean,
-                    # TODO: arguments below are only needed for sparse bilinear form
-                    # train_inputs=train_inputs[0],
-                    # kernel=kernel,
-                    # noise=likelihood.noise,
-                )
-            # this code should only execute if we just compute the posterior
-            warnings.warn("Solver state not set during MLL computation.")
-        else:
-            self._solver_state = solver_state
+        # Evaluate preconditioner-augmented prior
+        mvn = self.likelihood(self.train_prior_dist, self.train_inputs)
+        train_mean, train_train_covar = mvn.loc, mvn.lazy_covariance_matrix
+
+        # Compute the representer weights
+        with torch.no_grad():  # Ensure gradients are not taken through the solve
+            self._solver_state = linear_solver.solve(
+                train_train_covar,
+                self.train_labels - train_mean,
+                # TODO: arguments below are only needed for sparse bilinear form
+                # train_inputs=train_inputs[0],
+                # kernel=kernel,
+                # noise=likelihood.noise,
+            )
 
     def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output, **kwargs):
         raise NotImplementedError(
