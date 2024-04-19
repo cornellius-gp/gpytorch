@@ -23,7 +23,7 @@ def _scatter_gradients(
 
     # Function to reduce X_grads_unreduced
     def reduce_grad(X_grads_unreduced_sub: Float[Tensor, "... K*I1*I2"]):
-        res = torch.zeros(*batch_shape, N, device=X.device)
+        res = X.new_zeros((*batch_shape, N))
         res = torch.scatter_reduce(res, -1, Si, X_grads_unreduced_sub, reduce="sum")
         return res
 
@@ -238,4 +238,81 @@ class SparseBilinearForms(torch.autograd.Function):
             None,  # kernel_forward
             None,  # kernel_vjp
             None,  # S2_chunk_size
+        )
+
+
+class SparseLinearForms(torch.autograd.Function):
+
+    @staticmethod
+    def forward(ctx, X, Sv, Si, kernel_forward, kernel_vjp, chunk_size=None):
+        """
+        X: tensor of size (n, d)
+        Sv: tensor of size (i, nnz), the indices of the sparse entries
+        Si: tensor of size (i, nnz), the values of the sparse entries
+        kernel_forward: callable function that computes the kernel
+
+        Return:
+            a tensor of size (n, i) representing K(X, X) @ S
+        """
+        ctx.save_for_backward(X, Sv, Si)
+        ctx.kernel_forward = kernel_forward
+        ctx.kernel_vjp = kernel_vjp
+        ctx.chunk_size = chunk_size
+
+        def mvm(value, indices):
+            return kernel_forward(X, X[indices]) @ value
+
+        batched_mvm = torch.vmap(mvm, in_dims=0, out_dims=0, chunk_size=chunk_size)
+        res = batched_mvm(Sv, Si)
+
+        return res.T
+
+    def backward(ctx, grad_output):
+        X, Sv, Si = ctx.saved_tensors
+        kernel_forward = ctx.kernel_forward
+        kernel_vjp = ctx.kernel_vjp
+        chunk_size = ctx.chunk_size
+
+        grad_output = grad_output.T
+
+        # dK = dO @ S'
+        # dX = dK @ (dK / dX)
+        if ctx.needs_input_grad[0]:
+            dX1, dX2 = torch.vmap(
+                lambda value, indices, d_out: kernel_vjp(
+                    torch.outer(d_out, value), X, X[indices],
+                ),
+                in_dims=0, out_dims=0, chunk_size=chunk_size,
+            )(Sv, Si, grad_output)
+            # import ipdb; ipdb.set_trace()
+            # dX = dX1.sum(dim=0)
+            # dX = dX1.scatter_reduce(1, Si.unsqueeze(-1), dX2, reduce='sum').sum(dim=0)
+
+            def _reduce_gradients(dX1, dX2, indices):
+                # return dX1.scatter_reduce(-2, indices.unsqueeze(-1), dX2, reduce='sum')
+                res = dX1.clone().detach()
+                res[indices] += dX2
+                return res
+
+            reduce_gradients = torch.vmap(_reduce_gradients, in_dims=0, out_dims=0, chunk_size=chunk_size)
+            dX = reduce_gradients(dX1, dX2, Si)
+
+            # dX = dX1
+            # dX[0][Si[0]] = dX1[0][Si[0]] + dX2
+            # import ipdb; ipdb.set_trace()
+        else:
+            dX = None
+
+        # dS = K' @ grad_output
+        if ctx.needs_input_grad[1]:
+            dSv = torch.vmap(
+                lambda indices, d_out: kernel_forward(X[indices], X) @ d_out,
+                in_dims=0, out_dims=0, chunk_size=ctx.chunk_size,
+            )(Si, grad_output)
+        else:
+            dSv = None
+
+        return (
+            dX, dSv,
+            None, None, None, None
         )

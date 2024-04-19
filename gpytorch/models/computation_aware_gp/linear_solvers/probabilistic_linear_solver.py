@@ -512,18 +512,13 @@ class ProbabilisticLinearSolver(LinearSolver):
                 ).reshape(-1)
 
                 # Update residual # TODO
-                # def sparse_linear_form(X, Sv, Si, kernel_forward):
-                #     def mvm(value, indices):
-                #         return kernel_forward(X, X[indices]) @ value
-
-                #     batched_mvm = torch.vmap(mvm, in_dims=0, out_dims=-1, chunk_size=1)
-                #     return batched_mvm(Sv, Si)
-
-                # linear_op_action = sparse_linear_form(
-                #     train_inputs, action.blocks, action.non_zero_idcs, forward_fn
-                # )
-                # linear_op_action = outputscale * linear_op_action + noise * action.to_dense()
-                linear_op_action = linear_op.to_dense() @ action.to_dense().squeeze()
+                linear_op_action = kernels.SparseLinearForms.apply(
+                    train_inputs, action.blocks, action.non_zero_idcs,
+                    forward_fn, None,
+                )
+                linear_op_action = outputscale * linear_op_action + noise * action.to_dense().T
+                linear_op_action = linear_op_action.squeeze()
+                # linear_op_action = linear_op.to_dense() @ action.to_dense().squeeze()
 
                 solver_state.residual = (
                     solver_state.residual - linear_op_action * solver_state.cache["compressed_solution"][-1]

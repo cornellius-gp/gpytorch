@@ -511,29 +511,27 @@ class ComputationAwareELBO(MarginalLogLikelihood):
     def _sparse_forward(self, output: torch.Tensor, target: torch.Tensor, **kwargs):
         kernel = self.model.covar_module
 
-        with torch.no_grad():
-            outputscale = 1.0
-            lengthscale = 1.0
-
-            if isinstance(kernel, kernels.ScaleKernel):
-                outputscale = kernel.outputscale
-                lengthscale = kernel.base_kernel.lengthscale
-                forward_fn = kernel.base_kernel._forward
-            else:
-                lengthscale = kernel.lengthscale
-
-                forward_fn = kernel._forward
-
-        import ipdb; ipdb.set_trace()
+        if isinstance(kernel, kernels.ScaleKernel):
+            outputscale = kernel.outputscale
+            lengthscale = kernel.base_kernel.lengthscale
+            forward_fn = kernel.base_kernel._forward
+            vjp_fn = kernel.base_kernel._vjp
+        else:
+            outputscale = 1.
+            lengthscale = kernel.lengthscale
+            forward_fn = kernel._forward
+            vjp_fn = kernel._vjp
 
         K = output.lazy_covariance_matrix
         Khat = self.likelihood(output).lazy_covariance_matrix
 
         # Linear solve
-        solver_state = self.model.linear_solver.solve(
-            Khat, target - output.mean,
-            x=None, train_inputs=self.model.train_inputs[0], kernel=kernel, noise=self.likelihood.noise.item(),
-        )
+        with torch.no_grad():
+            solver_state = self.model.linear_solver.solve(
+                Khat, target - output.mean,
+                x=None, train_inputs=self.model.train_inputs[0], kernel=kernel, noise=self.likelihood.noise.item(),
+            )
+
         if self.model.prediction_strategy is None:
             self.model._solver_state = solver_state
         else:
@@ -551,38 +549,33 @@ class ComputationAwareELBO(MarginalLogLikelihood):
             solver_state.cache["actions_op"].non_zero_idcs.mT,
             solver_state.cache["actions_op"].non_zero_idcs.mT,
             forward_fn,
-            None,
-            None,
+            vjp_fn,
+            1,
         )
 
         # Gramian S'KS
+        gram_SKS = SKS
 
-        # gram_SKhatS = (
-        #     actions_op._matmul(actions_op._matmul(Khat).mT)
-        #     if isinstance(actions_op, operators.BlockSparseLinearOperator)
-        #     else actions_op @ (actions_op @ Khat).mT
-        # )
-        K_actions = (
-            actions_op._matmul(K).mT
-            if isinstance(actions_op, operators.BlockSparseLinearOperator)
-            else K @ actions_op.mT
+        StrS = SS
+
+        gram_SKhatS = outputscale * gram_SKS + self.likelihood.noise * StrS
+
+        # K_actions = kernel(self.model.train_inputs[0]) \
+        #     @ solver_state.cache["actions_op"].to_dense().T
+
+        K_actions = outputscale * kernels.SparseLinearForms.apply(
+            self.model.train_inputs[0] / lengthscale,
+            solver_state.cache["actions_op"].blocks,
+            solver_state.cache["actions_op"].non_zero_idcs,
+            forward_fn,
+            vjp_fn,
+            1,
         )
-        gram_SKS = (
-            actions_op._matmul(actions_op._matmul(K).mT)
-            if isinstance(actions_op, operators.BlockSparseLinearOperator)
-            else actions_op @ K_actions
-        )
-        StrS = (
-            actions_op._matmul(actions_op.to_dense().mT)
-            if isinstance(actions_op, operators.BlockSparseLinearOperator)
-            else actions_op @ actions_op.mT
-        )
-        gram_SKhatS = gram_SKS + self.likelihood.noise * StrS
 
         cholfac_gram = utils.cholesky.psd_safe_cholesky(gram_SKhatS, upper=False)
 
         # Compressed representer weights
-        actions_target = actions_op @ (target - output.mean)
+        actions_target = actions_op.to_dense() @ (target - output.mean)
         compressed_repr_weights = torch.cholesky_solve(actions_target.unsqueeze(1), cholfac_gram, upper=False).squeeze(
             -1
         )
