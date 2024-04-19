@@ -118,7 +118,10 @@ class Matern52KernelGrad(MaternKernel):
             part3 = 1 + sqrt5 * distance_matrix
 
             K[..., n1:, n2:] = part1.repeat([*([1] * n_batch_dims), d, d]).mul_(
-                part2.sub_(kp.to_dense().mul_(part3.repeat([*([1] * n_batch_dims), d, d])))
+                # need to use kp.to_dense().mul instead of kp.to_dense().mul_
+                # because otherwise a RuntimeError is raised due to how autograd works with
+                # view + inplace operations in the case of 1-dimensional input
+                part2.sub_(kp.to_dense().mul(part3.repeat([*([1] * n_batch_dims), d, d])))
             )
 
             # Symmetrize for stability
