@@ -448,7 +448,6 @@ class ComputationAwareELBO(MarginalLogLikelihood):
         else:
             warnings.warn("MLL does not set solver_state during its computation. This could cause undefined behavior.")
 
-        # Compute the log marginal likelihood
         actions_op = solver_state.cache["actions_op"]
         num_actions = actions_op.shape[0]
         num_train_data = target.shape[0]
@@ -487,11 +486,9 @@ class ComputationAwareELBO(MarginalLogLikelihood):
 
         # Expected log-likelihood term
         f_pred_mean = output.mean + K_actions @ torch.atleast_1d(compressed_repr_weights).to(dtype=Khat.dtype)
-        f_pred_var = torch.sum(output.variance) - torch.sum(
-            torch.diag(
-                torch.cholesky_solve((K_actions.mT @ K_actions).to(dtype=torch.float32), cholfac_gram, upper=False)
-            )
-        ).to(dtype=Khat.dtype)
+        sqrt_downdate = torch.linalg.solve_triangular(cholfac_gram, K_actions.mT, upper=False)
+        trace_downdate = torch.sum(sqrt_downdate**2, dim=0)
+        f_pred_var = torch.sum(output.variance) - torch.sum(trace_downdate)
         expected_log_likelihood_term = -0.5 * (
             num_train_data * torch.log(self.likelihood.noise)
             + 1 / self.likelihood.noise * (torch.linalg.vector_norm(target - f_pred_mean) ** 2 + f_pred_var)
@@ -519,74 +516,50 @@ class ComputationAwareELBO(MarginalLogLikelihood):
             forward_fn = kernel.base_kernel._forward
             vjp_fn = kernel.base_kernel._vjp
         else:
-            outputscale = 1.
+            outputscale = 1.0
             lengthscale = kernel.lengthscale
             forward_fn = kernel._forward
             vjp_fn = kernel._vjp
 
-        K = output.lazy_covariance_matrix
-        Khat = self.likelihood(output).lazy_covariance_matrix
-
-        # Linear solve
-        with torch.no_grad():
-            solver_state = self.model.linear_solver.solve(
-                Khat, target - output.mean,
-                x=None, train_inputs=self.model.train_inputs[0], kernel=kernel, noise=self.likelihood.noise.item(),
-            )
-
-        if self.model.prediction_strategy is None:
-            self.model._solver_state = solver_state
-        else:
-            warnings.warn("MLL does not set solver_state during its computation. This could cause undefined behavior.")
-
-        # Compute the log marginal likelihood
-        actions_op = solver_state.cache["actions_op"]
+        actions_op = self.model.actions
         num_actions = actions_op.shape[0]
         num_train_data = target.shape[0]
 
-        SKS, SS = kernels.SparseBilinearForms.apply(
+        # Gramian S'KS
+        gram_SKS, StrS = kernels.SparseBilinearForms.apply(
             self.model.train_inputs[0] / lengthscale,
-            solver_state.cache["actions_op"].blocks.mT,
-            solver_state.cache["actions_op"].blocks.mT,
-            solver_state.cache["actions_op"].non_zero_idcs.mT,
-            solver_state.cache["actions_op"].non_zero_idcs.mT,
+            self.model.actions.blocks.mT,
+            self.model.actions.blocks.mT,
+            self.model.actions.non_zero_idcs.mT,
+            self.model.actions.non_zero_idcs.mT,
             forward_fn,
             vjp_fn,
-            1,
+            self.model.chunk_size,
         )
-
-        # Gramian S'KS
-        gram_SKS = SKS
-
-        StrS = SS
-
         gram_SKhatS = outputscale * gram_SKS + self.likelihood.noise * StrS
-
-        # K_actions = kernel(self.model.train_inputs[0]) \
-        #     @ solver_state.cache["actions_op"].to_dense().T
 
         K_actions = outputscale * kernels.SparseLinearForms.apply(
             self.model.train_inputs[0] / lengthscale,
-            solver_state.cache["actions_op"].blocks,
-            solver_state.cache["actions_op"].non_zero_idcs,
+            self.model.actions.blocks,
+            self.model.actions.non_zero_idcs,
             forward_fn,
             vjp_fn,
-            1,
+            self.model.chunk_size,
         )
 
-        cholfac_gram = utils.cholesky.psd_safe_cholesky(gram_SKhatS, upper=False)
+        cholfac_gram = utils.cholesky.psd_safe_cholesky(gram_SKhatS.to(dtype=torch.float64), upper=False)
 
         # Compressed representer weights
-        actions_target = actions_op.to_dense() @ (target - output.mean)
-        compressed_repr_weights = torch.cholesky_solve(actions_target.unsqueeze(1), cholfac_gram, upper=False).squeeze(
-            -1
-        )
+        actions_target = actions_op._matmul(torch.atleast_2d(target - output.mean).mT).squeeze(-1)
+        compressed_repr_weights = torch.cholesky_solve(
+            actions_target.unsqueeze(1).to(dtype=torch.float64), cholfac_gram, upper=False
+        ).squeeze(-1)
 
         # Expected log-likelihood term
-        f_pred_mean = output.mean + K_actions @ torch.atleast_1d(compressed_repr_weights)
-        f_pred_var = torch.sum(output.variance) - torch.sum(
-            torch.diag(torch.cholesky_solve(K_actions.mT @ K_actions, cholfac_gram, upper=False))
-        )
+        f_pred_mean = output.mean + K_actions @ torch.atleast_1d(compressed_repr_weights).to(dtype=target.dtype)
+        sqrt_downdate = torch.linalg.solve_triangular(cholfac_gram, K_actions.mT, upper=False)
+        trace_downdate = torch.sum(sqrt_downdate**2, dim=-1)
+        f_pred_var = torch.sum(output.variance) - torch.sum(trace_downdate)
         expected_log_likelihood_term = -0.5 * (
             num_train_data * torch.log(self.likelihood.noise)
             + 1 / self.likelihood.noise * (torch.linalg.vector_norm(target - f_pred_mean) ** 2 + f_pred_var)
@@ -595,12 +568,14 @@ class ComputationAwareELBO(MarginalLogLikelihood):
 
         # KL divergence to prior
         kl_prior_term = 0.5 * (
-            torch.inner(compressed_repr_weights, (gram_SKS @ compressed_repr_weights))
+            torch.inner(compressed_repr_weights, (gram_SKS.to(dtype=torch.float64) @ compressed_repr_weights))
             + 2 * torch.sum(torch.log(cholfac_gram.diagonal()))
-            - num_actions * torch.log(self.likelihood.noise)
-            - torch.logdet(StrS)
-            - torch.trace(torch.cholesky_solve(gram_SKS, cholfac_gram, upper=False))
+            - num_actions * torch.log(self.likelihood.noise).to(dtype=torch.float64)
+            - torch.logdet(StrS).to(
+                dtype=torch.float64
+            )  # NOTE: Assuming actions that are made up of blocks, StrS can be computed efficiently and should not blow up, since actions are orthogonal by definition
+            - torch.trace(torch.cholesky_solve(gram_SKS.to(dtype=torch.float64), cholfac_gram, upper=False))
         )
 
-        elbo = torch.squeeze(expected_log_likelihood_term - kl_prior_term)
+        elbo = torch.squeeze(expected_log_likelihood_term - kl_prior_term.to(dtype=target.dtype))
         return elbo.div(num_train_data)
