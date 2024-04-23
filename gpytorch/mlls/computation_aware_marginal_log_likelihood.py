@@ -507,9 +507,18 @@ class ComputationAwareELBO(MarginalLogLikelihood):
         elbo = torch.squeeze(expected_log_likelihood_term - kl_prior_term)
         return elbo.div(num_train_data)
 
-    def _sparse_forward(self, output: torch.Tensor, target: torch.Tensor, **kwargs):
-        kernel = self.model.covar_module
+    def _sparse_forward(self, outputs_batch: torch.Tensor, targets_batch: torch.Tensor, **kwargs):
 
+        actions_op = self.model.actions
+        num_actions = actions_op.shape[0]
+
+        # Training data batch
+        train_inputs_batch = outputs_batch.lazy_covariance_matrix.x1
+        num_train_data_batch = targets_batch.shape[0]
+        num_train_data = len(self.model.train_inputs[0])
+
+        # Kernel
+        kernel = self.model.covar_module
         if isinstance(kernel, kernels.ScaleKernel):
             outputscale = kernel.outputscale
             lengthscale = kernel.base_kernel.lengthscale
@@ -521,9 +530,13 @@ class ComputationAwareELBO(MarginalLogLikelihood):
             forward_fn = kernel._forward
             vjp_fn = kernel._vjp
 
-        actions_op = self.model.actions
-        num_actions = actions_op.shape[0]
-        num_train_data = target.shape[0]
+        # Prior mean and kernel
+        if num_train_data > num_train_data_batch:
+            train_targets = self.model.train_targets
+            prior_mean = self.model.mean_module(self.model.train_inputs[0])
+        else:
+            train_targets = targets_batch
+            prior_mean = outputs_batch.mean
 
         # Gramian S'KS
         gram_SKS, StrS = kernels.SparseBilinearForms.apply(
@@ -535,47 +548,54 @@ class ComputationAwareELBO(MarginalLogLikelihood):
             forward_fn,
             vjp_fn,
             self.model.chunk_size,
-        )
+        )  # TODO: Can compute StrS more efficiently since we assume actions are made up of non-intersecting blocks.
         gram_SKhatS = outputscale * gram_SKS + self.likelihood.noise * StrS
 
-        K_actions = outputscale * kernels.SparseLinearForms.apply(
-            self.model.train_inputs[0] / lengthscale,
-            self.model.actions.blocks,
-            self.model.actions.non_zero_idcs,
-            forward_fn,
-            vjp_fn,
-            self.model.chunk_size,
-        )
+        # K_actions = outputscale * kernels.SparseLinearForms.apply(
+        #     self.model.train_inputs[0] / lengthscale,
+        #     self.model.actions.blocks,
+        #     self.model.actions.non_zero_idcs,
+        #     forward_fn,
+        #     vjp_fn,
+        #     self.model.chunk_size,
+        # )
+        # TODO: need sparse linear form which accepts train inputs and batch inputs
+        K_actions = actions_op._matmul(kernel(self.model.train_inputs[0], train_inputs_batch)).mT
 
-        cholfac_gram = utils.cholesky.psd_safe_cholesky(gram_SKhatS.to(dtype=torch.float64), upper=False)
+        cholfac_gram_SKhatS = utils.cholesky.psd_safe_cholesky(gram_SKhatS.to(dtype=torch.float64), upper=False)
 
         # Compressed representer weights
-        actions_target = actions_op._matmul(torch.atleast_2d(target - output.mean).mT).squeeze(-1)
+        actions_targets = actions_op._matmul(torch.atleast_2d(train_targets - prior_mean).mT).squeeze(-1)
         compressed_repr_weights = torch.cholesky_solve(
-            actions_target.unsqueeze(1).to(dtype=torch.float64), cholfac_gram, upper=False
+            actions_targets.unsqueeze(1).to(dtype=torch.float64), cholfac_gram_SKhatS, upper=False
         ).squeeze(-1)
 
         # Expected log-likelihood term
-        f_pred_mean = output.mean + K_actions @ torch.atleast_1d(compressed_repr_weights).to(dtype=target.dtype)
-        sqrt_downdate = torch.linalg.solve_triangular(cholfac_gram, K_actions.mT, upper=False)
-        trace_downdate = torch.sum(sqrt_downdate**2, dim=-1)
-        f_pred_var = torch.sum(output.variance) - torch.sum(trace_downdate)
-        expected_log_likelihood_term = -0.5 * (
-            num_train_data * torch.log(self.likelihood.noise)
-            + 1 / self.likelihood.noise * (torch.linalg.vector_norm(target - f_pred_mean) ** 2 + f_pred_var)
-            + num_train_data * torch.log(torch.as_tensor(2 * math.pi))
+        f_pred_mean_batch = outputs_batch.mean + K_actions @ torch.atleast_1d(compressed_repr_weights).to(
+            dtype=targets_batch.dtype
         )
+        sqrt_downdate = torch.linalg.solve_triangular(cholfac_gram_SKhatS, K_actions.mT, upper=False)
+        trace_downdate = torch.sum(sqrt_downdate**2, dim=-1)
+        f_pred_var_batch = torch.sum(outputs_batch.variance) - torch.sum(trace_downdate)
+        expected_log_likelihood_term = -0.5 * (
+            num_train_data_batch * torch.log(self.likelihood.noise)
+            + 1
+            / self.likelihood.noise
+            * (torch.linalg.vector_norm(targets_batch - f_pred_mean_batch) ** 2 + f_pred_var_batch)
+            + num_train_data_batch * torch.log(torch.as_tensor(2 * math.pi))
+        ).div(num_train_data_batch)
+        # TODO: Double check whether scaling the expected log likelihood term with the batch size and the KL term with the train data size makes sense.
 
         # KL divergence to prior
         kl_prior_term = 0.5 * (
             torch.inner(compressed_repr_weights, (gram_SKS.to(dtype=torch.float64) @ compressed_repr_weights))
-            + 2 * torch.sum(torch.log(cholfac_gram.diagonal()))
+            + 2 * torch.sum(torch.log(cholfac_gram_SKhatS.diagonal()))
             - num_actions * torch.log(self.likelihood.noise).to(dtype=torch.float64)
             - torch.logdet(StrS).to(
                 dtype=torch.float64
             )  # NOTE: Assuming actions that are made up of blocks, StrS can be computed efficiently and should not blow up, since actions are orthogonal by definition
-            - torch.trace(torch.cholesky_solve(gram_SKS.to(dtype=torch.float64), cholfac_gram, upper=False))
-        )
+            - torch.trace(torch.cholesky_solve(gram_SKS.to(dtype=torch.float64), cholfac_gram_SKhatS, upper=False))
+        ).div(num_train_data)
 
-        elbo = torch.squeeze(expected_log_likelihood_term - kl_prior_term.to(dtype=target.dtype))
-        return elbo.div(num_train_data)
+        elbo = torch.squeeze(expected_log_likelihood_term - kl_prior_term.to(dtype=targets_batch.dtype))
+        return elbo

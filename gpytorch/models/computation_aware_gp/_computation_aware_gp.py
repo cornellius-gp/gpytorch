@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Computation-aware Gaussian processes."""
 
+import math
 import warnings
 from typing import Optional
 
@@ -202,6 +203,7 @@ class ComputationAwareGPOpt(ExactGP):
         num_iter: int,
         num_non_zero: int,
         chunk_size: Optional[int] = None,
+        initialization: str = "targets",
     ):
         super().__init__(train_inputs, train_targets, likelihood)
         self.num_iter = num_iter
@@ -224,14 +226,29 @@ class ComputationAwareGPOpt(ExactGP):
         #         self.num_non_zero,
         #         dtype=train_inputs.dtype,
         #         device=train_inputs.device,
-        #         dtype=train_inputs.dtype,
         #     )
         # )
         # Initialize with rhs of linear system (i.e. train targets)
         non_zero_idcs = torch.arange((num_train // num_iter) * num_iter).reshape(self.num_iter, -1)
-        self.non_zero_action_entries = torch.nn.Parameter(
-            train_targets.clone()[: (num_train // num_iter) * num_iter].reshape(self.num_iter, -1)
-        )
+        self.num_non_zero = non_zero_idcs.shape[1]
+
+        if initialization == "random":
+            self.non_zero_action_entries = torch.nn.Parameter(
+                torch.randn_like(
+                    non_zero_idcs,
+                    dtype=train_inputs.dtype,
+                    device=train_inputs.device,
+                ).div(math.sqrt(self.num_non_zero))
+            )
+        elif initialization == "targets":
+            self.non_zero_action_entries = torch.nn.Parameter(
+                train_targets.clone()[: (num_train // num_iter) * num_iter].reshape(self.num_iter, -1)
+            )
+            self.non_zero_action_entries.div(
+                torch.linalg.vector_norm(self.non_zero_action_entries, dim=1).reshape(-1, 1)
+            )
+        else:
+            raise ValueError(f"Unknown initialization: '{initialization}'.")
 
         self.actions = (
             operators.BlockSparseLinearOperator(  # TODO: Can we speed this up by allowing ranges as non-zero indices?
