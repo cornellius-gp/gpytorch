@@ -551,16 +551,16 @@ class ComputationAwareELBO(MarginalLogLikelihood):
         )  # TODO: Can compute StrS more efficiently since we assume actions are made up of non-intersecting blocks.
         gram_SKhatS = outputscale * gram_SKS + self.likelihood.noise * StrS
 
-        # K_actions = outputscale * kernels.SparseLinearForms.apply(
-        #     self.model.train_inputs[0] / lengthscale,
-        #     self.model.actions.blocks,
-        #     self.model.actions.non_zero_idcs,
-        #     forward_fn,
-        #     vjp_fn,
-        #     self.model.chunk_size,
-        # )
+        K_actions = outputscale * kernels.SparseLinearForms.apply(
+            self.model.train_inputs[0] / lengthscale,
+            self.model.actions.blocks,
+            self.model.actions.non_zero_idcs,
+            forward_fn,
+            vjp_fn,
+            self.model.chunk_size,
+        )
         # TODO: need sparse linear form which accepts train inputs and batch inputs
-        K_actions = actions_op._matmul(kernel(self.model.train_inputs[0], train_inputs_batch)).mT
+        # K_actions = actions_op._matmul(kernel(self.model.train_inputs[0], train_inputs_batch)).mT
 
         cholfac_gram_SKhatS = utils.cholesky.psd_safe_cholesky(gram_SKhatS.to(dtype=torch.float64), upper=False)
 
