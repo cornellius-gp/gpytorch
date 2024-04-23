@@ -531,12 +531,12 @@ class ComputationAwareELBO(MarginalLogLikelihood):
             vjp_fn = kernel._vjp
 
         # Prior mean and kernel
-        if num_train_data > num_train_data_batch:
-            train_targets = self.model.train_targets
-            prior_mean = self.model.mean_module(self.model.train_inputs[0])
-        else:
-            train_targets = targets_batch
-            prior_mean = outputs_batch.mean
+        train_targets = self.model.train_targets
+        # if num_train_data > num_train_data_batch:
+        prior_mean = self.model.mean_module(self.model.train_inputs[0])
+        # else:
+        #     prior_mean = outputs_batch.mean
+        # TODO: We can optimize this if we don't batch to avoid one evaluation of the prior mean
 
         # Gramian S'KS
         gram_SKS, StrS = kernels.SparseBilinearForms.apply(
