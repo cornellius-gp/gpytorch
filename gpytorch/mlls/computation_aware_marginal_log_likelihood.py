@@ -517,11 +517,6 @@ class ComputationAwareELBO(MarginalLogLikelihood):
         num_train_data_batch = targets_batch.shape[0]
         num_train_data = len(self.model.train_inputs[0])
 
-        print(f"train_inputs_batch: {train_inputs_batch.device}")
-        print(f"targets_batch: {targets_batch.device}")
-        print(f"train_inputs: {self.model.train_inputs[0].device}")
-        print(f"self.model.train_targets: {self.model.train_targets.device}")
-
         # Kernel
         kernel = self.model.covar_module
         if isinstance(kernel, kernels.ScaleKernel):
