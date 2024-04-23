@@ -517,6 +517,11 @@ class ComputationAwareELBO(MarginalLogLikelihood):
         num_train_data_batch = targets_batch.shape[0]
         num_train_data = len(self.model.train_inputs[0])
 
+        print(f"train_inputs_batch: {train_inputs_batch.device}")
+        print(f"targets_batch: {targets_batch.device}")
+        print(f"train_inputs: {self.model.train_inputs[0].device}")
+        print(f"self.model.train_targets: {self.model.train_targets.device}")
+
         # Kernel
         kernel = self.model.covar_module
         if isinstance(kernel, kernels.ScaleKernel):
@@ -594,7 +599,9 @@ class ComputationAwareELBO(MarginalLogLikelihood):
             - torch.logdet(StrS).to(
                 dtype=torch.float64
             )  # NOTE: Assuming actions that are made up of blocks, StrS can be computed efficiently and should not blow up, since actions are orthogonal by definition
-            - torch.trace(torch.cholesky_solve(gram_SKS.to(dtype=torch.float64), cholfac_gram_SKhatS, upper=False))
+            - torch.trace(
+                torch.cholesky_solve(gram_SKS.to(dtype=torch.float64), cholfac_gram_SKhatS, upper=False)
+            )  # TODO: compute this with triangular solve to ensure matrix inside trace is symmetric?
         ).div(num_train_data)
 
         elbo = torch.squeeze(expected_log_likelihood_term - kl_prior_term.to(dtype=targets_batch.dtype))

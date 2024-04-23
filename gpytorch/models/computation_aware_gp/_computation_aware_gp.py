@@ -229,7 +229,9 @@ class ComputationAwareGPOpt(ExactGP):
         #     )
         # )
         # Initialize with rhs of linear system (i.e. train targets)
-        non_zero_idcs = torch.arange((num_train // num_iter) * num_iter).reshape(self.num_iter, -1)
+        non_zero_idcs = torch.arange((num_train // num_iter) * num_iter, device=train_inputs.device).reshape(
+            self.num_iter, -1
+        )
         self.num_non_zero = non_zero_idcs.shape[1]
 
         if initialization == "random":
