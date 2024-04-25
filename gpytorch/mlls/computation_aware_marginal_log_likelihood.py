@@ -7,7 +7,7 @@ from collections import deque
 from typing import Tuple, Union
 
 import torch
-from linear_operator import operators, settings, utils
+from linear_operator import operators, utils
 
 from .. import kernels
 
@@ -448,17 +448,17 @@ class ComputationAwareELBO(MarginalLogLikelihood):
         else:
             warnings.warn("MLL does not set solver_state during its computation. This could cause undefined behavior.")
 
+        if str(self.model.linear_solver.policy) == "GradientPolicy()":
+            # Reorthogonalize actions twice for stability (only applies to IterGP-CG):
+            S, _ = torch.linalg.qr(solver_state.cache["actions_op"].mT, mode="reduced")
+            S, _ = torch.linalg.qr(S, mode="reduced")
+            solver_state.cache["actions_op"] = S.mT
+
         actions_op = solver_state.cache["actions_op"]
         num_actions = actions_op.shape[0]
         num_train_data = target.shape[0]
 
         # Gramian S'KS
-
-        # gram_SKhatS = (
-        #     actions_op._matmul(actions_op._matmul(Khat).mT)
-        #     if isinstance(actions_op, operators.BlockSparseLinearOperator)
-        #     else actions_op @ (actions_op @ Khat).mT
-        # )
         K_actions = (
             actions_op._matmul(K).mT
             if isinstance(actions_op, operators.BlockSparseLinearOperator)
@@ -469,20 +469,29 @@ class ComputationAwareELBO(MarginalLogLikelihood):
             if isinstance(actions_op, operators.BlockSparseLinearOperator)
             else actions_op @ K_actions
         ).to(dtype=torch.float32)
-        StrS = (
-            actions_op._matmul(actions_op.to_dense().mT)
-            if isinstance(actions_op, operators.BlockSparseLinearOperator)
-            else actions_op @ actions_op.mT
-        ).to(dtype=torch.float32)
+        if str(self.model.linear_solver.policy) == "GradientPolicy()":
+            # Actions are orthogonal by assumption
+            StrS = torch.eye(num_actions)
+        else:
+            StrS = (
+                actions_op._matmul(actions_op.to_dense().mT)
+                if isinstance(actions_op, operators.BlockSparseLinearOperator)
+                else actions_op @ actions_op.mT
+            ).to(dtype=torch.float32)
         gram_SKhatS = gram_SKS.to(dtype=torch.float32) + self.likelihood.noise * StrS
 
         cholfac_gram = utils.cholesky.psd_safe_cholesky(gram_SKhatS, upper=False)
+
+        if str(self.model.linear_solver.policy) == "GradientPolicy()":
+            solver_state.cache["cholfac_gram"] = cholfac_gram
 
         # Compressed representer weights
         actions_target = (actions_op @ (target - output.mean)).to(dtype=torch.float32)
         compressed_repr_weights = torch.cholesky_solve(actions_target.unsqueeze(1), cholfac_gram, upper=False).squeeze(
             -1
         )
+        if str(self.model.linear_solver.policy) == "GradientPolicy()":
+            solver_state.cache["compressed_solution"] = compressed_repr_weights
 
         # Expected log-likelihood term
         f_pred_mean = output.mean + K_actions @ torch.atleast_1d(compressed_repr_weights).to(dtype=Khat.dtype)
@@ -501,9 +510,7 @@ class ComputationAwareELBO(MarginalLogLikelihood):
             + 2 * torch.sum(torch.log(cholfac_gram.diagonal()))
             - num_actions * torch.log(self.likelihood.noise)
             - torch.logdet(StrS)
-            - torch.trace(
-                torch.cholesky_solve(gram_SKS, cholfac_gram, upper=False)
-            )  # TODO: compute this with triangular solve to ensure matrix inside trace is symmetric?
+            - torch.trace(torch.cholesky_solve(gram_SKS, cholfac_gram, upper=False))
         ).to(dtype=Khat.dtype)
 
         elbo = torch.squeeze(expected_log_likelihood_term - kl_prior_term)
@@ -603,9 +610,7 @@ class ComputationAwareELBO(MarginalLogLikelihood):
             - torch.logdet(StrS).to(
                 dtype=torch.float64
             )  # NOTE: Assuming actions that are made up of blocks, StrS can be computed efficiently and should not blow up, since actions are orthogonal by definition
-            - torch.trace(
-                torch.cholesky_solve(gram_SKS.to(dtype=torch.float64), cholfac_gram_SKhatS, upper=False)
-            )  # TODO: compute this with triangular solve to ensure matrix inside trace is symmetric?
+            - torch.trace(torch.cholesky_solve(gram_SKS.to(dtype=torch.float64), cholfac_gram_SKhatS, upper=False))
         ).div(num_train_data)
 
         elbo = torch.squeeze(expected_log_likelihood_term - kl_prior_term.to(dtype=targets_batch.dtype))

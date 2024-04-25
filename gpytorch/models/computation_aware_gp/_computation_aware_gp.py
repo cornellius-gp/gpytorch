@@ -233,8 +233,8 @@ class ComputationAwareGPOpt(ExactGP):
         # )
         # Initialize with rhs of linear system (i.e. train targets)
         non_zero_idcs = torch.arange(
-            # (num_train // num_iter) * num_iter,
-            int(math.sqrt(num_train / num_iter)) * num_iter,  # TODO: This does not include all training datapoints!
+            (num_train // num_iter) * num_iter,
+            # int(math.sqrt(num_train / num_iter)) * num_iter,  # TODO: This does not include all training datapoints!
             device=train_inputs.device,
         ).reshape(self.num_iter, -1)
         self.num_non_zero = non_zero_idcs.shape[1]
