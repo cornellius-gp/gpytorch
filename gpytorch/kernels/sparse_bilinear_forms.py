@@ -280,9 +280,13 @@ class SparseLinearForms(torch.autograd.Function):
         if ctx.needs_input_grad[0]:
             dX1, dX2 = torch.vmap(
                 lambda value, indices, d_out: kernel_vjp(
-                    torch.outer(d_out, value), X, X[indices],
+                    torch.outer(d_out, value),
+                    X,
+                    X[indices],
                 ),
-                in_dims=0, out_dims=0, chunk_size=chunk_size,
+                in_dims=0,
+                out_dims=0,
+                chunk_size=chunk_size,
             )(Sv, Si, grad_output)
             # import ipdb; ipdb.set_trace()
             # dX = dX1.sum(dim=0)
@@ -307,12 +311,11 @@ class SparseLinearForms(torch.autograd.Function):
         if ctx.needs_input_grad[1]:
             dSv = torch.vmap(
                 lambda indices, d_out: kernel_forward(X[indices], X) @ d_out,
-                in_dims=0, out_dims=0, chunk_size=ctx.chunk_size,
+                in_dims=0,
+                out_dims=0,
+                chunk_size=ctx.chunk_size,
             )(Si, grad_output)
         else:
             dSv = None
 
-        return (
-            dX, dSv,
-            None, None, None, None
-        )
+        return (dX, dSv, None, None, None, None)

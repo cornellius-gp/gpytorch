@@ -501,7 +501,9 @@ class ComputationAwareELBO(MarginalLogLikelihood):
             + 2 * torch.sum(torch.log(cholfac_gram.diagonal()))
             - num_actions * torch.log(self.likelihood.noise)
             - torch.logdet(StrS)
-            - torch.trace(torch.cholesky_solve(gram_SKS, cholfac_gram, upper=False))
+            - torch.trace(
+                torch.cholesky_solve(gram_SKS, cholfac_gram, upper=False)
+            )  # TODO: compute this with triangular solve to ensure matrix inside trace is symmetric?
         ).to(dtype=Khat.dtype)
 
         elbo = torch.squeeze(expected_log_likelihood_term - kl_prior_term)
@@ -509,6 +511,13 @@ class ComputationAwareELBO(MarginalLogLikelihood):
 
     def _sparse_forward(self, outputs_batch: torch.Tensor, targets_batch: torch.Tensor, **kwargs):
 
+        # # Idea: Subsample set of actions used
+        # action_idcs = torch.randperm(self.model.actions.shape[0])[0:32]
+        # actions_op = operators.BlockSparseLinearOperator(
+        #     non_zero_idcs=self.model.actions.non_zero_idcs[action_idcs, :],
+        #     blocks=self.model.actions.blocks[action_idcs, :],
+        #     size_sparse_dim=self.model.actions.size_sparse_dim,
+        # )
         actions_op = self.model.actions
         num_actions = actions_op.shape[0]
 
@@ -541,10 +550,10 @@ class ComputationAwareELBO(MarginalLogLikelihood):
         # Gramian S'KS
         gram_SKS, StrS = kernels.SparseBilinearForms.apply(
             self.model.train_inputs[0] / lengthscale,
-            self.model.actions.blocks.mT,
-            self.model.actions.blocks.mT,
-            self.model.actions.non_zero_idcs.mT,
-            self.model.actions.non_zero_idcs.mT,
+            actions_op.blocks.mT,
+            actions_op.blocks.mT,
+            actions_op.non_zero_idcs.mT,
+            actions_op.non_zero_idcs.mT,
             forward_fn,
             vjp_fn,
             self.model.chunk_size,
@@ -553,8 +562,8 @@ class ComputationAwareELBO(MarginalLogLikelihood):
 
         # K_actions = outputscale * kernels.SparseLinearForms.apply(
         #     self.model.train_inputs[0] / lengthscale,
-        #     self.model.actions.blocks,
-        #     self.model.actions.non_zero_idcs,
+        #     actions_op.blocks,
+        #     actions_op.non_zero_idcs,
         #     forward_fn,
         #     vjp_fn,
         #     self.model.chunk_size,

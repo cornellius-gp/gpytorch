@@ -174,7 +174,10 @@ class ComputationAwareGP(ExactGP):
             test_shape = torch.Size([joint_shape[0] - self.prediction_strategy.train_shape[0], *tasks_shape])
 
             # Make the prediction
-            (predictive_mean, predictive_covar,) = self.prediction_strategy.exact_prediction(
+            (
+                predictive_mean,
+                predictive_covar,
+            ) = self.prediction_strategy.exact_prediction(
                 full_mean, full_covar
             )  # TODO: replace with "preconditioned" prediction call
 
@@ -229,9 +232,11 @@ class ComputationAwareGPOpt(ExactGP):
         #     )
         # )
         # Initialize with rhs of linear system (i.e. train targets)
-        non_zero_idcs = torch.arange((num_train // num_iter) * num_iter, device=train_inputs.device).reshape(
-            self.num_iter, -1
-        )
+        non_zero_idcs = torch.arange(
+            # (num_train // num_iter) * num_iter,
+            int(math.sqrt(num_train / num_iter)) * num_iter,  # TODO: This does not include all training datapoints!
+            device=train_inputs.device,
+        ).reshape(self.num_iter, -1)
         self.num_non_zero = non_zero_idcs.shape[1]
 
         if initialization == "random":
@@ -245,6 +250,7 @@ class ComputationAwareGPOpt(ExactGP):
         elif initialization == "targets":
             self.non_zero_action_entries = torch.nn.Parameter(
                 train_targets.clone()[: (num_train // num_iter) * num_iter].reshape(self.num_iter, -1)
+                # train_targets.clone()[: int(math.sqrt(num_train / num_iter)) * num_iter].reshape(self.num_iter, -1)
             )
             self.non_zero_action_entries.div(
                 torch.linalg.vector_norm(self.non_zero_action_entries, dim=1).reshape(-1, 1)
