@@ -471,7 +471,7 @@ class ComputationAwareELBO(MarginalLogLikelihood):
         ).to(dtype=torch.float32)
         if str(self.model.linear_solver.policy) == "GradientPolicy()":
             # Actions are orthogonal by assumption
-            StrS = torch.eye(num_actions)
+            StrS = torch.eye(num_actions, device=gram_SKS.device, dtype=gram_SKS.dtype)
         else:
             StrS = (
                 actions_op._matmul(actions_op.to_dense().mT)
@@ -567,16 +567,16 @@ class ComputationAwareELBO(MarginalLogLikelihood):
         )  # TODO: Can compute StrS more efficiently since we assume actions are made up of non-intersecting blocks.
         gram_SKhatS = outputscale * gram_SKS + self.likelihood.noise * StrS
 
-        # K_actions = outputscale * kernels.SparseLinearForms.apply(
-        #     self.model.train_inputs[0] / lengthscale,
-        #     actions_op.blocks,
-        #     actions_op.non_zero_idcs,
-        #     forward_fn,
-        #     vjp_fn,
-        #     self.model.chunk_size,
-        # )
-        # TODO: need sparse linear form which accepts train inputs and batch inputs
-        K_actions = actions_op._matmul(kernel(self.model.train_inputs[0], train_inputs_batch)).mT
+        K_actions = outputscale * kernels.SparseLinearForms.apply(
+            train_inputs_batch / lengthscale,
+            self.model.train_inputs[0] / lengthscale,
+            actions_op.blocks,
+            actions_op.non_zero_idcs,
+            forward_fn,
+            vjp_fn,
+            self.model.chunk_size,
+        )
+        # K_actions = actions_op._matmul(kernel(self.model.train_inputs[0], train_inputs_batch)).mT
 
         cholfac_gram_SKhatS = utils.cholesky.psd_safe_cholesky(gram_SKhatS.to(dtype=torch.float64), upper=False)
 
