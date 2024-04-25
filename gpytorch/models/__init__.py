@@ -4,7 +4,7 @@ import warnings
 
 from . import computation_aware_gp, deep_gps, exact_prediction_strategies, gplvm, pyro
 from .approximate_gp import ApproximateGP
-from .computation_aware_gp import ComputationAwareGP
+from .computation_aware_gp import ComputationAwareGP, ComputationAwareGPOpt
 from .exact_gp import ExactGP
 from .gp import GP
 from .model_list import AbstractModelList, IndependentModelList
@@ -37,6 +37,7 @@ __all__ = [
     "AbstractModelList",
     "ApproximateGP",
     "ComputationAwareGP",
+    "ComputationAwareGPOpt",
     "IterGP",
     "ExactGP",
     "GP",

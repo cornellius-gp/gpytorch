@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """Computation-aware Gaussian processes."""
 
+import math
 import warnings
+from typing import Optional
 
 import torch
+from linear_operator import operators, utils as linop_utils
 
-from ... import settings
+from ... import kernels, lazy, settings
 from ...distributions import MultivariateNormal
 from ...utils.warnings import GPInputWarning
 from ..exact_gp import ExactGP
@@ -88,8 +91,6 @@ class ComputationAwareGP(ExactGP):
     def __call__(self, *args, **kwargs):
         train_inputs = list(self.train_inputs) if self.train_inputs is not None else []
         inputs = [i.unsqueeze(-1) if i.ndimension() == 1 else i for i in args]
-
-        # TODO: Instantiate preconditioner (and cache)
 
         # Training mode: optimization
         if self.training:
@@ -189,3 +190,129 @@ class ComputationAwareGP(ExactGP):
     @linear_solver.setter
     def linear_solver(self, linear_solver: LinearSolver) -> None:
         self._linear_solver = linear_solver
+
+
+class ComputationAwareGPOpt(ExactGP):
+    """Computation-aware Gaussian process."""
+
+    def __init__(
+        self,
+        train_inputs: torch.Tensor,
+        train_targets: torch.Tensor,
+        likelihood,
+        num_iter: int,
+        num_non_zero: int,
+        chunk_size: Optional[int] = None,
+        initialization: str = "targets",
+    ):
+        super().__init__(train_inputs, train_targets, likelihood)
+        self.num_iter = num_iter
+        self.num_non_zero = num_non_zero
+        self.chunk_size = chunk_size
+
+        num_train = train_targets.size(-1)
+
+        # # Random initialization
+        # non_zero_idcs = torch.cat(
+        #     [
+        #         torch.randperm(num_train, device=train_inputs.device)[: self.num_non_zero].unsqueeze(-2)
+        #         for _ in range(self.num_iter)
+        #     ],
+        #     dim=0,
+        # )
+        # blocks = torch.nn.Parameter(
+        #     torch.randn(
+        #         self.num_iter,
+        #         self.num_non_zero,
+        #         dtype=train_inputs.dtype,
+        #         device=train_inputs.device,
+        #     )
+        # )
+        # Initialize with rhs of linear system (i.e. train targets)
+        non_zero_idcs = torch.arange((num_train // num_iter) * num_iter, device=train_inputs.device).reshape(
+            self.num_iter, -1
+        )
+        self.num_non_zero = non_zero_idcs.shape[1]
+
+        if initialization == "random":
+            self.non_zero_action_entries = torch.nn.Parameter(
+                torch.randn_like(
+                    non_zero_idcs,
+                    dtype=train_inputs.dtype,
+                    device=train_inputs.device,
+                ).div(math.sqrt(self.num_non_zero))
+            )
+        elif initialization == "targets":
+            self.non_zero_action_entries = torch.nn.Parameter(
+                train_targets.clone()[: (num_train // num_iter) * num_iter].reshape(self.num_iter, -1)
+            )
+            self.non_zero_action_entries.div(
+                torch.linalg.vector_norm(self.non_zero_action_entries, dim=1).reshape(-1, 1)
+            )
+        else:
+            raise ValueError(f"Unknown initialization: '{initialization}'.")
+
+        self.actions = (
+            operators.BlockSparseLinearOperator(  # TODO: Can we speed this up by allowing ranges as non-zero indices?
+                non_zero_idcs=non_zero_idcs, blocks=self.non_zero_action_entries, size_sparse_dim=num_train
+            )
+        )
+
+    def __call__(self, x):
+        if self.training:
+            return MultivariateNormal(
+                self.mean_module(x),
+                self.covar_module(x),
+            )
+        else:
+            # covar_train_train = self.covar_module(self.train_inputs[0])
+
+            kernel = self.covar_module
+
+            with torch.no_grad():
+                outputscale = 1.0
+                lengthscale = 1.0
+
+                if isinstance(kernel, kernels.ScaleKernel):
+                    outputscale = kernel.outputscale
+                    lengthscale = kernel.base_kernel.lengthscale
+                    forward_fn = kernel.base_kernel._forward
+                else:
+                    lengthscale = kernel.lengthscale
+
+                    forward_fn = kernel._forward
+
+            actions_op = self.actions
+
+            SKS, SS = kernels.SparseBilinearForms.apply(
+                self.train_inputs[0] / lengthscale,
+                actions_op.blocks.mT,
+                actions_op.blocks.mT,
+                actions_op.non_zero_idcs.mT,
+                actions_op.non_zero_idcs.mT,
+                forward_fn,
+                None,
+                self.chunk_size,
+            )
+
+            gram = outputscale * SKS + self.likelihood.noise * SS
+
+            cholfac_gram = linop_utils.cholesky.psd_safe_cholesky(gram)
+
+            covar_x_train = self.covar_module(x, self.train_inputs[0]).evaluate()
+            covar_x_train_actions = (self.actions @ covar_x_train.transpose(-2, -1)).mT
+
+            covar_x_train_actions_cholfac_inv = torch.linalg.solve_triangular(
+                cholfac_gram, covar_x_train_actions.mT, upper=False
+            ).mT
+
+            # Compressed representer weights
+            actions_target = self.actions @ (self.train_targets - self.mean_module(self.train_inputs[0]))
+            compressed_repr_weights = torch.cholesky_solve(
+                actions_target.unsqueeze(1), cholfac_gram, upper=False
+            ).squeeze(-1)
+
+            mean = self.mean_module(x) + covar_x_train_actions @ compressed_repr_weights
+            covar = self.covar_module(x) - operators.RootLinearOperator(root=covar_x_train_actions_cholfac_inv)
+
+            return MultivariateNormal(mean, covar)
