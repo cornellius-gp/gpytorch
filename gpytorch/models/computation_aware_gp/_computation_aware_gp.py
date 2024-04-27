@@ -8,7 +8,7 @@ from typing import Optional
 import torch
 from linear_operator import operators, utils as linop_utils
 
-from ... import kernels, lazy, settings
+from ... import kernels, settings
 from ...distributions import MultivariateNormal
 from ...utils.warnings import GPInputWarning
 from ..exact_gp import ExactGP
@@ -290,7 +290,7 @@ class ComputationAwareGPOpt(ExactGP):
 
             actions_op = self.actions
 
-            SKS, SS = kernels.SparseBilinearForms.apply(
+            gram_SKS, StrS = kernels.SparseBilinearForms.apply(
                 self.train_inputs[0] / lengthscale,
                 actions_op.blocks.mT,
                 actions_op.blocks.mT,
@@ -299,24 +299,37 @@ class ComputationAwareGPOpt(ExactGP):
                 forward_fn,
                 None,
                 self.chunk_size,
+            )  # TODO: Can compute StrS more efficiently since we assume actions are made up of non-intersecting blocks.
+            gram_SKhatS = outputscale * gram_SKS + self.likelihood.noise * StrS
+
+            if x.ndim == 1:
+                x = torch.atleast_2d(x).mT
+            covar_x_train_actions = outputscale * kernels.SparseLinearForms.apply(
+                x / lengthscale,
+                self.train_inputs[0] / lengthscale,
+                actions_op.blocks,
+                actions_op.non_zero_idcs,
+                forward_fn,
+                None,
+                self.chunk_size,
             )
 
-            gram = outputscale * SKS + self.likelihood.noise * SS
-
-            cholfac_gram = linop_utils.cholesky.psd_safe_cholesky(gram)
-
-            covar_x_train = self.covar_module(x, self.train_inputs[0]).evaluate()
-            covar_x_train_actions = (self.actions @ covar_x_train.transpose(-2, -1)).mT
-
+            cholfac_gram_SKhatS = linop_utils.cholesky.psd_safe_cholesky(
+                gram_SKhatS.to(dtype=torch.float64), upper=False
+            )
             covar_x_train_actions_cholfac_inv = torch.linalg.solve_triangular(
-                cholfac_gram, covar_x_train_actions.mT, upper=False
+                cholfac_gram_SKhatS, covar_x_train_actions.mT, upper=False
             ).mT
 
             # Compressed representer weights
             actions_target = self.actions @ (self.train_targets - self.mean_module(self.train_inputs[0]))
-            compressed_repr_weights = torch.cholesky_solve(
-                actions_target.unsqueeze(1), cholfac_gram, upper=False
-            ).squeeze(-1)
+            compressed_repr_weights = (
+                torch.cholesky_solve(
+                    actions_target.unsqueeze(1).to(dtype=torch.float64), cholfac_gram_SKhatS, upper=False
+                )
+                .squeeze(-1)
+                .to(self.train_inputs[0].dtype)
+            )
 
             mean = self.mean_module(x) + covar_x_train_actions @ compressed_repr_weights
             covar = self.covar_module(x) - operators.RootLinearOperator(root=covar_x_train_actions_cholfac_inv)
