@@ -311,7 +311,7 @@ class ComputationAwareGPOpt(ExactGP):
                 actions_op.non_zero_idcs,
                 forward_fn,
                 None,
-                self.chunk_size,
+                self.chunk_size,  # TODO: the chunk size should probably be larger here, since we usually compute this on the test set
             )
 
             cholfac_gram_SKhatS = linop_utils.cholesky.psd_safe_cholesky(

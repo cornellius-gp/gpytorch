@@ -28,7 +28,9 @@ def _scatter_gradients(
         return res
 
     # Run vmap to reduce X_grads_unreduced
-    X_grad = torch.vmap(reduce_grad, in_dims=-1, out_dims=-1)(X_grads_unreduced)
+    X_grad = torch.vmap(reduce_grad, in_dims=-1, out_dims=-1)(
+        X_grads_unreduced
+    )  # TODO: for orthogonal S, no need to reduce, just scatter
     return X_grad
 
 
@@ -112,9 +114,11 @@ class SparseBilinearForms(torch.autograd.Function):
             X1_sub = _vmap_index_select(X_, Si1_sub)
             X2_sub = _vmap_index_select(X_, Si2_sub)
             K_sub = kernel_forward(X1_sub, X2_sub)
-            Dirac_sub = torch.eq(Si1_sub[..., :, None], Si2_sub[..., None, :]).to(dtype=K_sub.dtype)
+            Dirac_sub = torch.eq(Si1_sub[..., :, None], Si2_sub[..., None, :]).to(
+                dtype=K_sub.dtype
+            )  # O(k^2) time and memory
             siT_K_sj = (Sv1_sub * (K_sub @ Sv2_sub[..., None]).squeeze(-1)).sum(dim=-1)
-            siT_sj = (Sv1_sub * (Dirac_sub @ Sv2_sub[..., None]).squeeze(-1)).sum(dim=-1)
+            siT_sj = (Sv1_sub * (Dirac_sub @ Sv2_sub[..., None]).squeeze(-1)).sum(dim=-1)  # O(k^2) time
             return siT_K_sj, siT_sj
 
         # Call s_i^T K s_j and s_i^T s_j for all i, j
@@ -179,7 +183,9 @@ class SparseBilinearForms(torch.autograd.Function):
                 out_dims=-2,
                 chunk_size=ctx.S2_chunk_size,
             )
-            X1_grads, X2_grads = backward(Sv1_, Sv2_, Si1_, Si2_)  # ... x k*2 x i x i x d
+            X1_grads, X2_grads = backward(
+                Sv1_, Sv2_, Si1_, Si2_
+            )  # ... x k**2 x i x i x d # TODO: This seems like more memory than we should allocate
             X_grad = torch.add(
                 _scatter_gradients(X, V_S1T_K_S2[..., None, :, :, None] * X1_grads, Si1_),
                 _scatter_gradients(X, V_S1T_K_S2[..., None, :, :, None] * X2_grads, Si2_),
@@ -199,7 +205,8 @@ class SparseBilinearForms(torch.autograd.Function):
                 Sv2_.unsqueeze(-4),
                 Si1_.unsqueeze(-3),
                 Si2_.unsqueeze(-4),
-            )
+            )  # TODO: should be possible in i^2 k^2
+            # TODO: implement custom vjp for KS
             Sv1_grad = torch.addcmul(
                 torch.mul(Sv1_full_grad_a, V_S1T_K_S2.unsqueeze(-3)),
                 Sv1_full_grad_b,
