@@ -209,7 +209,7 @@ class MaternKernel(Kernel):
         diffs, dists, exp_component, constant_component = self._forward_helper(X1=X1, X2=X2)
 
         # Forward pass K(X1, X2)
-        K = exp_component * (constant_component)
+        K = exp_component * constant_component
 
         # Backward pass / Vector-Jacobian Product
         if self.nu == 0.5:
@@ -230,7 +230,7 @@ class MaternKernel(Kernel):
         # dK_dXi = dK_ddists * ddists_dXi
         # ddists_dX1 = diffs / dists
         # ddists_dX1 = - diffs / dists
-        res = diffs * (
+        res = diffs.mul_(
             V_dK_ddists.div_(dists)[..., None].nan_to_num_(nan=0.0)
         )  # nan_to_num handles cases where dists == 0
 
