@@ -191,8 +191,8 @@ class SparseQuadForm(torch.autograd.Function):
             # Similarly, each column of Sv2_grads represents d(v_{1,2} * s_1^T K s_2) / d(s_2) for all s_1
             #    Therefore, we need to sum along all columns
             Sv_grad = torch.add(
-                (Sv1_grads * V[..., None, :, :]).sum(dim=-2),
-                (Sv2_grads * V[..., None, :, :]).sum(dim=-1),
+                torch.einsum("...KIJ,...IJ->...KJ", Sv1_grads, V),
+                torch.einsum("...KIJ,...IJ->...KI", Sv2_grads, V),
             )
             # Compress Sv1_grads and Sv2_grads into a single (... x K x D) tensor
             # We accomplish this compression with the _scatter_gradients helper

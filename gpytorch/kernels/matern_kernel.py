@@ -126,7 +126,7 @@ class MaternKernel(Kernel):
         exp_component = (consts * dists).exp_()
 
         if self.nu == 0.5:
-            constant_component = torch.tensor(1.0, dtype=X1.dtype, device=X1.device)
+            constant_component = torch.ones_like(dists)
         elif self.nu == 1.5:
             constant_component = torch.add(1.0, dists, alpha=math.sqrt(3))
         elif self.nu == 2.5:
@@ -162,7 +162,7 @@ class MaternKernel(Kernel):
         diffs, dists, exp_component, constant_component = self._forward_helper(X1=X1, X2=X2)
 
         if self.nu == 0.5:
-            d_constant_component = torch.tensor(0.0, dtype=X1.dtype, device=X1.device).expand_as(dists)
+            d_constant_component = torch.tensor(0.0, dtype=X1.dtype, device=X1.device)
         elif self.nu == 1.5:
             d_constant_component = torch.tensor(math.sqrt(3), dtype=X1.dtype, device=X1.device)
         elif self.nu == 2.5:
@@ -178,10 +178,10 @@ class MaternKernel(Kernel):
         )
         # dK_dX1 = dK_ddists * ddists_dX1
         # ddists_dX1 = X1 / ||X1||
-        res = diffs.mul_(
-            V_dK_ddists.div_(dists)[..., None].nan_to_num_(nan=0.0)
-        )  # nan_to_num handles cases where dists == 0
-        return res.sum(dim=-2), res.sum(dim=-3).mul_(-1)
+        V_dK_ddists_div_dists = V_dK_ddists.div_(dists).nan_to_num_(nan=0.0)
+        X1_grad = torch.einsum("...MN,...MND->...MD", V_dK_ddists_div_dists, diffs)
+        X2_grad = torch.einsum("...MN,...MND->...ND", V_dK_ddists_div_dists, diffs).mul_(-1)
+        return X1_grad, X2_grad
 
     def _forward_and_vjp(
         self,
@@ -213,7 +213,7 @@ class MaternKernel(Kernel):
 
         # Backward pass / Vector-Jacobian Product
         if self.nu == 0.5:
-            d_constant_component = torch.tensor(0.0, dtype=X1.dtype, device=X1.device).expand_as(dists)
+            d_constant_component = torch.tensor(0.0, dtype=X1.dtype, device=X1.device)
         elif self.nu == 1.5:
             d_constant_component = torch.tensor(math.sqrt(3), dtype=X1.dtype, device=X1.device)
         elif self.nu == 2.5:
@@ -222,16 +222,16 @@ class MaternKernel(Kernel):
         # Product rule:
         # dK_ddists = (d_constant_component * exp_component) + (constant_component * d_exp_component)
         # d_exp_component = consts * exp_component
-        V_dK_ddists = torch.add(d_constant_component, constant_component, alpha=-math.sqrt(self.nu * 2)).mul_(
-            exp_component
-        )
+        V_dK_ddists = torch.add(
+            d_constant_component, constant_component, alpha=-math.sqrt(self.nu * 2), out=constant_component
+        ).mul_(exp_component)
         if V is not None:
             V_dK_ddists.mul_(V)
         # dK_dXi = dK_ddists * ddists_dXi
         # ddists_dX1 = diffs / dists
         # ddists_dX1 = - diffs / dists
-        res = diffs.mul_(
-            V_dK_ddists.div_(dists)[..., None].nan_to_num_(nan=0.0)
-        )  # nan_to_num handles cases where dists == 0
+        V_dK_ddists_div_dists = V_dK_ddists.div_(dists).nan_to_num_(nan=0.0)
+        X1_grad = torch.einsum("...MN,...MND->...MD", V_dK_ddists_div_dists, diffs)
+        X2_grad = torch.einsum("...MN,...MND->...ND", V_dK_ddists_div_dists, diffs).mul_(-1)
 
-        return K, (res.sum(dim=-2), res.sum(dim=-3).mul_(-1))
+        return K, (X1_grad, X2_grad)

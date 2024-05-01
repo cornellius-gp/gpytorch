@@ -193,12 +193,16 @@ class TestMaternKernel(unittest.TestCase, BaseKernelTestCase):
             kernel.lengthscale = 1.0
             K = kernel(x1, x2).to_dense()
 
+            # Forward function
+            K_custom = kernel._forward(X1=x1_clone, X2=x2_clone)
+            self.assertAllClose(K, K_custom)
+
             # Forward and vjp function
-            K_custom, (x1_grad, x2_grad) = kernel._forward_and_vjp(X1=x1_clone, X2=x2_clone, V=V)
+            K_custom_2, (x1_grad, x2_grad) = kernel._forward_and_vjp(X1=x1_clone, X2=x2_clone, V=V)
 
             # Test custom forward
             # K_custom = kernel._forward(x1_clone, x2_clone)
-            self.assertAllClose(K, K_custom)
+            self.assertAllClose(K, K_custom_2)
 
             # Actual backward
             K.backward(gradient=V)

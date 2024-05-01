@@ -7,6 +7,7 @@ import unittest
 import torch
 
 from gpytorch.kernels import RBFKernel
+from gpytorch.kernels.sparse_quad_forms import SparseQuadForm
 from gpytorch.priors import NormalPrior
 from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
 
@@ -235,9 +236,44 @@ class TestRBFKernel(unittest.TestCase, BaseKernelTestCase):
         K.backward(gradient=V)
 
         # # Test custom backward
-        x1_grad, x2_grad = kernel._vjp(V, x1_clone, x2_clone)
+        K_custom_2, (x1_grad, x2_grad) = kernel._forward_and_vjp(x1_clone, x2_clone, V)
+        self.assertAllClose(K, K_custom_2)
         self.assertAllClose(x1.grad, x1_grad)
         self.assertAllClose(x2.grad, x2_grad)
+
+    def test_sparse_quad_form(self):
+        N = 8
+        D = 5
+        K = 3
+        I = 4
+
+        X = torch.randn(N, D).requires_grad_(True)
+        Sv = torch.randn(2, K, I).requires_grad_(True)
+        Si = torch.stack([torch.randperm(N) for _ in range(I)], dim=-1)[..., :K, :]
+
+        X_clone = X.detach().clone().requires_grad_(True)
+        Sv_clone = Sv.detach().clone().requires_grad_(True)
+
+        # Actual forward
+        kernel = RBFKernel()
+        kernel.lengthscale = 1.0
+        _shape = torch.Size([2, K, I])
+        S = torch.zeros(2, N, I).scatter_(-2, Si.expand(_shape), Sv.expand(_shape))
+        K = kernel(X, X).to_dense()
+        ST_K_S = S.mT @ K @ S
+
+        # Test custom forward
+        ST_K_S_custom = SparseQuadForm.apply(X_clone, Sv_clone, Si, kernel._forward, kernel._forward_and_vjp, 1)
+        self.assertAllClose(ST_K_S, ST_K_S_custom)
+
+        # Actual backward
+        V = torch.randn(2, I, I)
+        ST_K_S.backward(gradient=V)
+
+        # Test custom backward
+        ST_K_S_custom.backward(gradient=V)
+        self.assertAllClose(Sv.grad, Sv_clone.grad)
+        self.assertAllClose(X.grad, X_clone.grad)
 
 
 if __name__ == "__main__":

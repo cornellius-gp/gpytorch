@@ -2,7 +2,7 @@
 
 from typing import Optional, Tuple
 
-from torch import Tensor
+from torch import einsum, Tensor
 
 from ..functions import RBFCovariance
 from ..settings import trace_mode
@@ -144,8 +144,9 @@ class RBFKernel(Kernel):
         else:
             dists = diffs.squeeze(-1)
         VK = dists.square_().div_(-2.0).exp_().mul_(V)
-        res = diffs.mul_(VK[..., None])
-        return res.mul(-1).sum(dim=-2), res.sum(dim=-3)
+        X1_grad = einsum("...MN,...MND->...MD", VK, diffs).mul_(-1)
+        X2_grad = einsum("...MN,...MND->...ND", VK, diffs)
+        return X1_grad, X2_grad
 
     def _forward_and_vjp(
         self,
@@ -169,7 +170,15 @@ class RBFKernel(Kernel):
 
             This function does not broadcast. `V`, `X1`, and `X2` must have the same batch shapes.
         """  # noqa: E501
-        K = self._forward(X1, X2)
+        X1_ = X1[..., :, None, :]
+        X2_ = X2[..., None, :, :]
+        diffs = X1_ - X2_
+        if diffs.shape[-1] > 1:  # No special casing here causes 10x slowdown!
+            dists = diffs.norm(dim=-1)
+        else:
+            dists = diffs.squeeze(-1)
+        K = diffs.square().sum(-1).div_(-2.0).exp_()
         VK = (V * K) if V is not None else K
-        res = VK[..., None] * (X2[..., None, :, :] - X1[..., :, None, :])
-        return K, (res.sum(dim=-2), res.mul(-1).sum(dim=-3))
+        X1_grad = einsum("...MN,...MND->...MD", VK, diffs).mul_(-1)
+        X2_grad = einsum("...MN,...MND->...ND", VK, diffs)
+        return K, (X1_grad, X2_grad)
