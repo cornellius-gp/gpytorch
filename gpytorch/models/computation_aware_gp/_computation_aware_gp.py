@@ -174,10 +174,7 @@ class ComputationAwareGP(ExactGP):
             test_shape = torch.Size([joint_shape[0] - self.prediction_strategy.train_shape[0], *tasks_shape])
 
             # Make the prediction
-            (
-                predictive_mean,
-                predictive_covar,
-            ) = self.prediction_strategy.exact_prediction(
+            (predictive_mean, predictive_covar,) = self.prediction_strategy.exact_prediction(
                 full_mean, full_covar
             )  # TODO: replace with "preconditioned" prediction call
 
@@ -275,41 +272,37 @@ class ComputationAwareGPOpt(ExactGP):
 
             kernel = self.covar_module
 
-            with torch.no_grad():
+            if isinstance(kernel, kernels.ScaleKernel):
+                outputscale = kernel.outputscale
+                lengthscale = kernel.base_kernel.lengthscale
+                kernel_forward_fn = kernel.base_kernel._forward
+            else:
                 outputscale = 1.0
-                lengthscale = 1.0
-
-                if isinstance(kernel, kernels.ScaleKernel):
-                    outputscale = kernel.outputscale
-                    lengthscale = kernel.base_kernel.lengthscale
-                    forward_fn = kernel.base_kernel._forward
-                else:
-                    lengthscale = kernel.lengthscale
-
-                    forward_fn = kernel._forward
+                lengthscale = kernel.lengthscale
+                kernel_forward_fn = kernel._forward
 
             actions_op = self.actions
 
-            gram_SKS, StrS = kernels.SparseBilinearForms.apply(
+            gram_SKS = kernels.SparseQuadForm.apply(
                 self.train_inputs[0] / lengthscale,
                 actions_op.blocks.mT,
-                actions_op.blocks.mT,
                 actions_op.non_zero_idcs.mT,
-                actions_op.non_zero_idcs.mT,
-                forward_fn,
+                kernel_forward_fn,
                 None,
                 self.chunk_size,
-            )  # TODO: Can compute StrS more efficiently since we assume actions are made up of non-intersecting blocks.
-            gram_SKhatS = outputscale * gram_SKS + self.likelihood.noise * StrS
+            )
+
+            StrS_diag = (actions_op.blocks**2).sum(-1)  # NOTE: Assumes orthogonal actions.
+            gram_SKhatS = outputscale * gram_SKS + torch.diag(self.likelihood.noise * StrS_diag)
 
             if x.ndim == 1:
                 x = torch.atleast_2d(x).mT
-            covar_x_train_actions = outputscale * kernels.SparseLinearForms.apply(
+            covar_x_train_actions = outputscale * kernels.SparseLinearForm.apply(
                 x / lengthscale,
                 self.train_inputs[0] / lengthscale,
                 actions_op.blocks,
                 actions_op.non_zero_idcs,
-                forward_fn,
+                kernel_forward_fn,
                 None,
                 self.chunk_size,  # TODO: the chunk size should probably be larger here, since we usually compute this on the test set
             )
@@ -335,3 +328,75 @@ class ComputationAwareGPOpt(ExactGP):
             covar = self.covar_module(x) - operators.RootLinearOperator(root=covar_x_train_actions_cholfac_inv)
 
             return MultivariateNormal(mean, covar)
+
+    # def __call__(self, x):
+    #     if self.training:
+    #         return MultivariateNormal(
+    #             self.mean_module(x),
+    #             self.covar_module(x),
+    #         )
+    #     else:
+    #         # covar_train_train = self.covar_module(self.train_inputs[0])
+
+    #         kernel = self.covar_module
+
+    #         with torch.no_grad():
+    #             outputscale = 1.0
+    #             lengthscale = 1.0
+
+    #             if isinstance(kernel, kernels.ScaleKernel):
+    #                 outputscale = kernel.outputscale
+    #                 lengthscale = kernel.base_kernel.lengthscale
+    #                 forward_fn = kernel.base_kernel._forward
+    #             else:
+    #                 lengthscale = kernel.lengthscale
+
+    #                 forward_fn = kernel._forward
+
+    #         actions_op = self.actions
+
+    #         gram_SKS, StrS = kernels.SparseBilinearForms.apply(
+    #             self.train_inputs[0] / lengthscale,
+    #             actions_op.blocks.mT,
+    #             actions_op.blocks.mT,
+    #             actions_op.non_zero_idcs.mT,
+    #             actions_op.non_zero_idcs.mT,
+    #             forward_fn,
+    #             None,
+    #             self.chunk_size,
+    #         )  # TODO: Can compute StrS more efficiently since we assume actions are made up of non-intersecting blocks.
+    #         gram_SKhatS = outputscale * gram_SKS + self.likelihood.noise * StrS
+
+    #         if x.ndim == 1:
+    #             x = torch.atleast_2d(x).mT
+    #         covar_x_train_actions = outputscale * kernels.SparseLinearForms.apply(
+    #             x / lengthscale,
+    #             self.train_inputs[0] / lengthscale,
+    #             actions_op.blocks,
+    #             actions_op.non_zero_idcs,
+    #             forward_fn,
+    #             None,
+    #             self.chunk_size,  # TODO: the chunk size should probably be larger here, since we usually compute this on the test set
+    #         )
+
+    #         cholfac_gram_SKhatS = linop_utils.cholesky.psd_safe_cholesky(
+    #             gram_SKhatS.to(dtype=torch.float64), upper=False
+    #         )
+    #         covar_x_train_actions_cholfac_inv = torch.linalg.solve_triangular(
+    #             cholfac_gram_SKhatS, covar_x_train_actions.mT, upper=False
+    #         ).mT
+
+    #         # Compressed representer weights
+    #         actions_target = self.actions @ (self.train_targets - self.mean_module(self.train_inputs[0]))
+    #         compressed_repr_weights = (
+    #             torch.cholesky_solve(
+    #                 actions_target.unsqueeze(1).to(dtype=torch.float64), cholfac_gram_SKhatS, upper=False
+    #             )
+    #             .squeeze(-1)
+    #             .to(self.train_inputs[0].dtype)
+    #         )
+
+    #         mean = self.mean_module(x) + covar_x_train_actions @ compressed_repr_weights
+    #         covar = self.covar_module(x) - operators.RootLinearOperator(root=covar_x_train_actions_cholfac_inv)
+
+    #         return MultivariateNormal(mean, covar)

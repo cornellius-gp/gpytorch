@@ -29,8 +29,8 @@ from .rbf_kernel_gradgrad import RBFKernelGradGrad
 from .rff_kernel import RFFKernel
 from .rq_kernel import RQKernel
 from .scale_kernel import ScaleKernel
-from .sparse_bilinear_forms import SparseBilinearForms
-from .sparse_bilinear_forms import SparseLinearForms
+from .sparse_bilinear_forms import SparseBilinearForms, SparseLinearForms
+from .sparse_quad_forms import SparseLinearForm, SparseQuadForm
 from .spectral_delta_kernel import SpectralDeltaKernel
 from .spectral_mixture_kernel import SpectralMixtureKernel
 
@@ -68,6 +68,8 @@ __all__ = [
     "RQKernel",
     "ScaleKernel",
     "SparseBilinearForms",
+    "SparseQuadForm",
+    "SparseLinearForm",
     "SparseLinearForms",
     "SpectralDeltaKernel",
     "SpectralMixtureKernel",
