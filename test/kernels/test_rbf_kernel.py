@@ -235,7 +235,8 @@ class TestRBFKernel(unittest.TestCase, BaseKernelTestCase):
         K.backward(gradient=V)
 
         # # Test custom backward
-        x1_grad, x2_grad = kernel._vjp(V, x1_clone, x2_clone)
+        K_custom_2, (x1_grad, x2_grad) = kernel._forward_and_vjp(x1_clone, x2_clone, V)
+        self.assertAllClose(K, K_custom_2)
         self.assertAllClose(x1.grad, x1_grad)
         self.assertAllClose(x2.grad, x2_grad)
 
