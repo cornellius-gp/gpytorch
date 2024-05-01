@@ -93,7 +93,7 @@ class SparseQuadForm(torch.autograd.Function):
         Si_ = Si[..., None, :].expand(*batch_shape, K, I, I)
 
         # Define a vmap function for forward
-        # This function essentially computes s_i^T K s_j and s_i^T s_j
+        # This function essentially computes s_i^T K s_j
         def _sub_forward(
             Sv1_sub: Float[Tensor, "... K"],
             Sv2_sub: Float[Tensor, "... K"],
@@ -106,7 +106,7 @@ class SparseQuadForm(torch.autograd.Function):
             siT_K_sj = (Sv1_sub * (K_sub @ Sv2_sub[..., None]).squeeze(-1)).sum(dim=-1)
             return siT_K_sj
 
-        # Call s_i^T K s_j and s_i^T s_j for all i, j
+        # Call s_i^T K s_j for all i, j
         forward = torch.vmap(
             torch.vmap(_sub_forward, in_dims=-1, out_dims=-1), in_dims=-1, out_dims=-1, chunk_size=chunk_size
         )
