@@ -538,8 +538,10 @@ class ComputationAwareELBO(MarginalLogLikelihood):
         if isinstance(kernel, kernels.ScaleKernel):
             outputscale = kernel.outputscale
             lengthscale = kernel.base_kernel.lengthscale
-            forward_fn = kernel.base_kernel._forward
-            vjp_fn = kernel.base_kernel._vjp
+            # forward_fn = kernel.base_kernel._forward
+            # vjp_fn = kernel.base_kernel._vjp
+            forward_fn = lambda X1, X2: kernel.base_kernel._forward_and_vjp(X1, X2)[0]
+            vjp_fn = lambda V, X1, X2: kernel.base_kernel._forward_and_vjp(X1, X2, V)[1]
         else:
             outputscale = 1.0
             lengthscale = kernel.lengthscale
@@ -600,7 +602,6 @@ class ComputationAwareELBO(MarginalLogLikelihood):
             * (torch.linalg.vector_norm(targets_batch - f_pred_mean_batch) ** 2 + f_pred_var_batch)
             + num_train_data_batch * torch.log(torch.as_tensor(2 * math.pi))
         ).div(num_train_data_batch)
-        # TODO: Double check whether scaling the expected log likelihood term with the batch size and the KL term with the train data size makes sense.
 
         # KL divergence to prior
         kl_prior_term = 0.5 * (

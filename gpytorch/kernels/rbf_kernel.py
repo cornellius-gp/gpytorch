@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Tuple
+from typing import Optional, Tuple
 
 from torch import Tensor
 
@@ -146,3 +146,30 @@ class RBFKernel(Kernel):
         VK = dists.square_().div_(-2.0).exp_().mul_(V)
         res = diffs.mul_(VK[..., None])
         return res.mul(-1).sum(dim=-2), res.sum(dim=-3)
+
+    def _forward_and_vjp(
+        self,
+        X1: Float[Tensor, "*batch M D"],
+        X2: Float[Tensor, "*batch N D"],
+        V: Optional[Float[Tensor, "*batch M N"]] = None,
+    ) -> Tuple[Float[Tensor, "*batch M N"], Tuple[Float[Tensor, "*batch M D"], Float[Tensor, "*batch N D"]]]:
+        r"""
+        O(NMD) time
+        O(NMD) memory
+
+        :param X1: Kernel input :math:`\boldsymbol X_1`
+        :param X2: Kernel input :math:`\boldsymbol X_2`
+        :param V: :math:`\boldsymbol V` - the LHS of the VJP operation
+        :return: The kernel matrix :math:`\boldsymbol K` and a tuple containing the VJPs
+            :math:`\frac{\del \mathrm{tr} \left( \boldsymbol V^\top \boldsymbol K(\boldsymbol X_1, \boldsymbol X_2) \right)}{\del \boldsymbol X_1}`
+            and
+            :math:`\frac{\del \mathrm{tr} \left( \boldsymbol V^\top \boldsymbol K(\boldsymbol X_1, \boldsymbol X_2) \right)}{\del \boldsymbol X_2}`
+
+        .. note::
+
+            This function does not broadcast. `V`, `X1`, and `X2` must have the same batch shapes.
+        """  # noqa: E501
+        K = self._forward(X1, X2)
+        VK = (V * K) if V is not None else K
+        res = VK[..., None] * (X2[..., None, :, :] - X1[..., :, None, :])
+        return K, (res.sum(dim=-2), res.mul(-1).sum(dim=-3))

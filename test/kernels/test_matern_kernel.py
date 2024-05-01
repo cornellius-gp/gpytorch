@@ -186,22 +186,25 @@ class TestMaternKernel(unittest.TestCase, BaseKernelTestCase):
             x2 = torch.randn(2, 4, 5, 3).requires_grad_(True)
             x1_clone = x1.detach().clone()
             x2_clone = x2.detach().clone()
+            V = torch.randn(2, 4, 6, 5)
 
             # Actual forward
             kernel = MaternKernel(nu=nu)
             kernel.lengthscale = 1.0
             K = kernel(x1, x2).to_dense()
 
+            # Forward and vjp function
+            K_custom, (x1_grad, x2_grad) = kernel._forward_and_vjp(X1=x1_clone, X2=x2_clone, V=V)
+
             # Test custom forward
-            K_custom = kernel._forward(x1_clone, x2_clone)
+            # K_custom = kernel._forward(x1_clone, x2_clone)
             self.assertAllClose(K, K_custom)
 
             # Actual backward
-            V = torch.randn(2, 4, 6, 5)
             K.backward(gradient=V)
 
             # # Test custom backward
-            x1_grad, x2_grad = kernel._vjp(V, x1_clone, x2_clone)
+            # x1_grad, x2_grad = kernel._vjp(V, x1_clone, x2_clone)
             self.assertAllClose(x1.grad, x1_grad)
             self.assertAllClose(x2.grad, x2_grad)
 

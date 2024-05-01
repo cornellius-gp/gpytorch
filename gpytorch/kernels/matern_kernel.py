@@ -112,7 +112,7 @@ class MaternKernel(Kernel):
             x1, x2, self.lengthscale, self.nu, lambda x1, x2: self.covar_dist(x1, x2, **params)
         )
 
-    def _forward(
+    def _forward_helper(
         self, X1: Float[Tensor, "batch* M D"], X2: Float[Tensor, "batch* N D"]  # noqa F722
     ) -> Float[Tensor, "batch* M N"]:  # noqa F722
         X1_ = X1[..., :, None, :]
@@ -132,6 +132,25 @@ class MaternKernel(Kernel):
         elif self.nu == 2.5:
             constant_component = torch.add(1.0, dists, alpha=math.sqrt(5)).add_(dists.square(), alpha=(5.0 / 3.0))
 
+        return diffs, dists, exp_component, constant_component
+
+    def _forward(
+        self, X1: Float[Tensor, "batch* M D"], X2: Float[Tensor, "batch* N D"]  # noqa F722
+    ) -> Float[Tensor, "batch* M N"]:  # noqa F722
+        r"""Evaluate the Matern kernel.
+
+        O(NMD) time
+        O(NMD) memory
+
+        :param X1: Kernel input :math:`\boldsymbol X_1`
+        :param X2: Kernel input :math:`\boldsymbol X_2`
+        :return: The Matern kernel matrix :math:`\boldsymbol K(\boldsymbol X_1, \boldsymbol X_2)`
+
+        .. note::
+
+            This function does not broadcast. `X1` and `X2` must have the same batch shapes.
+        """
+        _, _, exp_component, constant_component = self._forward_helper(X1, X2)
         return exp_component.mul_(constant_component)
 
     def _vjp(
@@ -140,33 +159,79 @@ class MaternKernel(Kernel):
         X1: Float[Tensor, "*batch M D"],  # noqa F722
         X2: Float[Tensor, "*batch N D"],  # noqa F722
     ) -> Tuple[Float[Tensor, "*batch M D"], Float[Tensor, "*batch N D"]]:  # noqa F722
-        X1_ = X1[..., :, None, :]
-        X2_ = X2[..., None, :, :]
-        diffs = X1_ - X2_
-        if diffs.shape[-1] > 1:  # No special casing here causes 10x slowdown!
-            dists = diffs.norm(dim=-1)
-        else:
-            dists = diffs.abs().squeeze(-1)
-        consts = -math.sqrt(self.nu * 2)
-        exp_component = (consts * dists).exp_()
+        diffs, dists, exp_component, constant_component = self._forward_helper(X1=X1, X2=X2)
 
         if self.nu == 0.5:
-            constant_component = torch.tensor(1.0, dtype=X1.dtype, device=X1.device)
             d_constant_component = torch.tensor(0.0, dtype=X1.dtype, device=X1.device).expand_as(dists)
         elif self.nu == 1.5:
-            constant_component = torch.add(1.0, dists, alpha=math.sqrt(3))
             d_constant_component = torch.tensor(math.sqrt(3), dtype=X1.dtype, device=X1.device)
         elif self.nu == 2.5:
-            constant_component = torch.add(1.0, dists, alpha=math.sqrt(5)).add_(dists.square(), alpha=(5.0 / 3.0))
             d_constant_component = torch.add(math.sqrt(5), dists, alpha=(10.0 / 3.0))
 
         # Product rule:
         # dK_ddists = (d_constant_component * exp_component) + (constant_component * d_exp_component)
         # d_exp_component = consts * exp_component
-        V_dK_ddists = torch.add(d_constant_component, constant_component, alpha=consts).mul_(exp_component).mul_(V)
+        V_dK_ddists = (
+            torch.add(d_constant_component, constant_component, alpha=-math.sqrt(self.nu * 2))
+            .mul_(exp_component)
+            .mul_(V)
+        )
         # dK_dX1 = dK_ddists * ddists_dX1
         # ddists_dX1 = X1 / ||X1||
         res = diffs.mul_(
             V_dK_ddists.div_(dists)[..., None].nan_to_num_(nan=0.0)
         )  # nan_to_num handles cases where dists == 0
         return res.sum(dim=-2), res.sum(dim=-3).mul_(-1)
+
+    def _forward_and_vjp(
+        self,
+        X1: Float[Tensor, "*batch M D"],
+        X2: Float[Tensor, "*batch N D"],
+        V: Optional[Float[Tensor, "*batch M N"]] = None,
+    ) -> Tuple[Float[Tensor, "*batch M N"], Tuple[Float[Tensor, "*batch M D"], Float[Tensor, "*batch N D"]]]:
+        r"""
+        O(NMD) time
+        O(NMD) memory
+
+        :param X1: Kernel input :math:`\boldsymbol X_1`
+        :param X2: Kernel input :math:`\boldsymbol X_2`
+        :param V: :math:`\boldsymbol V` - the LHS of the VJP operation
+        :return: The kernel matrix :math:`\boldsymbol K` and a tuple containing the VJPs
+            :math:`\frac{\del \mathrm{tr} \left( \boldsymbol V^\top \boldsymbol K(\boldsymbol X_1, \boldsymbol X_2) \right)}{\del \boldsymbol X_1}`
+            and
+            :math:`\frac{\del \mathrm{tr} \left( \boldsymbol V^\top \boldsymbol K(\boldsymbol X_1, \boldsymbol X_2) \right)}{\del \boldsymbol X_2}`
+
+        .. note::
+
+            This function does not broadcast. `V`, `X1`, and `X2` must have the same batch shapes.
+        """  # noqa: E501
+        # Compute quantities used in forward and backward pass
+        diffs, dists, exp_component, constant_component = self._forward_helper(X1=X1, X2=X2)
+
+        # Forward pass K(X1, X2)
+        K = exp_component * (constant_component)
+
+        # Backward pass / Vector-Jacobian Product
+        if self.nu == 0.5:
+            d_constant_component = torch.tensor(0.0, dtype=X1.dtype, device=X1.device).expand_as(dists)
+        elif self.nu == 1.5:
+            d_constant_component = torch.tensor(math.sqrt(3), dtype=X1.dtype, device=X1.device)
+        elif self.nu == 2.5:
+            d_constant_component = torch.add(math.sqrt(5), dists, alpha=(10.0 / 3.0))
+
+        # Product rule:
+        # dK_ddists = (d_constant_component * exp_component) + (constant_component * d_exp_component)
+        # d_exp_component = consts * exp_component
+        V_dK_ddists = torch.add(d_constant_component, constant_component, alpha=-math.sqrt(self.nu * 2)).mul_(
+            exp_component
+        )
+        if V is not None:
+            V_dK_ddists.mul_(V)
+        # dK_dXi = dK_ddists * ddists_dXi
+        # ddists_dX1 = diffs / dists
+        # ddists_dX1 = - diffs / dists
+        res = diffs * (
+            V_dK_ddists.div_(dists)[..., None].nan_to_num_(nan=0.0)
+        )  # nan_to_num handles cases where dists == 0
+
+        return K, (res.sum(dim=-2), res.sum(dim=-3).mul_(-1))
