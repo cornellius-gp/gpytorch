@@ -559,8 +559,9 @@ class ComputationAwareELBO(MarginalLogLikelihood):
         # Gramian S'KS
         gram_SKS = kernels.SparseQuadForm.apply(
             self.model.train_inputs[0] / lengthscale,
-            actions_op.blocks.mT,
-            actions_op.non_zero_idcs.mT,
+            actions_op.blocks,
+            None,
+            # actions_op.non_zero_idcs.mT,
             kernel_forward_fn,
             kernel_forward_and_vjp_fn,
             self.model.chunk_size,

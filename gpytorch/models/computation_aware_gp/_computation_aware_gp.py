@@ -174,7 +174,10 @@ class ComputationAwareGP(ExactGP):
             test_shape = torch.Size([joint_shape[0] - self.prediction_strategy.train_shape[0], *tasks_shape])
 
             # Make the prediction
-            (predictive_mean, predictive_covar,) = self.prediction_strategy.exact_prediction(
+            (
+                predictive_mean,
+                predictive_covar,
+            ) = self.prediction_strategy.exact_prediction(
                 full_mean, full_covar
             )  # TODO: replace with "preconditioned" prediction call
 
@@ -285,8 +288,9 @@ class ComputationAwareGPOpt(ExactGP):
 
             gram_SKS = kernels.SparseQuadForm.apply(
                 self.train_inputs[0] / lengthscale,
-                actions_op.blocks.mT,
-                actions_op.non_zero_idcs.mT,
+                actions_op.blocks,
+                # actions_op.non_zero_idcs.mT,
+                None,
                 kernel_forward_fn,
                 None,
                 self.chunk_size,
