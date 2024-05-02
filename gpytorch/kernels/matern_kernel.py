@@ -222,9 +222,9 @@ class MaternKernel(Kernel):
         # Product rule:
         # dK_ddists = (d_constant_component * exp_component) + (constant_component * d_exp_component)
         # d_exp_component = consts * exp_component
-        V_dK_ddists = torch.add(
-            d_constant_component, constant_component, alpha=-math.sqrt(self.nu * 2), out=constant_component
-        ).mul_(exp_component)
+        V_dK_ddists = torch.add(d_constant_component, constant_component, alpha=-math.sqrt(self.nu * 2)).mul_(
+            exp_component
+        )
         if V is not None:
             V_dK_ddists.mul_(V)
         # dK_dXi = dK_ddists * ddists_dXi
