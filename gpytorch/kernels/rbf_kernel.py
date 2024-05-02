@@ -111,7 +111,8 @@ class RBFKernel(Kernel):
             dists = diffs.norm(dim=-1)
         else:
             dists = diffs.squeeze(-1)
-        K = dists.square_().div_(-2.0).exp_()
+        K = dists.square().div_(-2.0).exp_()
+        # Note: we are not using the inplace square_ operation because ther eis not an efficient batched implementation
         return K
 
     def _vjp(
