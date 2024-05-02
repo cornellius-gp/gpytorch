@@ -126,7 +126,6 @@ class SparseQuadForm(torch.autograd.Function):
                 *batch_shape, I, I, K, D
             )  # ... x I x I X K x D, where last dim=-3 entry is identifical
             forward_args = X_, X_.transpose(-3, -4), Sv_, Sv_.transpose(-3, -4)
-            print(X_.shape, Sv_.shape)
         else:
             sub_forward_fn = _sub_forward_with_index
             forward_args = Sv_, Sv_.transpose(-3, -4), Si_, Si_.transpose(-3, -4)
