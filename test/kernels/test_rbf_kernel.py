@@ -248,8 +248,8 @@ class TestRBFKernel(unittest.TestCase, BaseKernelTestCase):
         I = 4
 
         X = torch.randn(N, D).requires_grad_(True)
-        Sv = torch.randn(2, K, I).requires_grad_(True)
-        Si = torch.stack([torch.randperm(N) for _ in range(I)], dim=-1)[..., :K, :]
+        Sv = torch.randn(I, K).requires_grad_(True)
+        Si = torch.stack([torch.randperm(N) for _ in range(I)], dim=-2)[..., :K]
 
         X_clone = X.detach().clone().requires_grad_(True)
         Sv_clone = Sv.detach().clone().requires_grad_(True)
@@ -257,8 +257,8 @@ class TestRBFKernel(unittest.TestCase, BaseKernelTestCase):
         # Actual forward
         kernel = RBFKernel()
         kernel.lengthscale = 1.0
-        _shape = torch.Size([2, K, I])
-        S = torch.zeros(2, N, I).scatter_(-2, Si.expand(_shape), Sv.expand(_shape))
+        _shape = torch.Size([K, I])
+        S = torch.zeros(N, I).scatter_(-2, Si.mT.expand(_shape), Sv.mT.expand(_shape))
         K = kernel(X, X).to_dense()
         ST_K_S = S.mT @ K @ S
 
@@ -267,7 +267,7 @@ class TestRBFKernel(unittest.TestCase, BaseKernelTestCase):
         self.assertAllClose(ST_K_S, ST_K_S_custom)
 
         # Actual backward
-        V = torch.randn(2, I, I)
+        V = torch.randn(I, I)
         ST_K_S.backward(gradient=V)
 
         # Test custom backward
@@ -283,7 +283,7 @@ class TestRBFKernel(unittest.TestCase, BaseKernelTestCase):
         assert K * I == N
 
         X = torch.randn(N, D).requires_grad_(True)
-        Sv = torch.randn(2, K, I).requires_grad_(True)
+        Sv = torch.randn(2, I, K).requires_grad_(True)
 
         X_clone = X.detach().clone().requires_grad_(True)
         Sv_clone = Sv.detach().clone().requires_grad_(True)
@@ -293,7 +293,7 @@ class TestRBFKernel(unittest.TestCase, BaseKernelTestCase):
         kernel.lengthscale = 1.0
         S = torch.zeros(2, N, I)
         for i in range(I):
-            S[..., i * K : (i + 1) * K, i] = Sv[..., i]
+            S[..., i * K : (i + 1) * K, i] = Sv[..., i, :]
         K = kernel(X, X).to_dense()
         ST_K_S = S.mT @ K @ S
 
