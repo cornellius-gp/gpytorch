@@ -275,6 +275,41 @@ class TestRBFKernel(unittest.TestCase, BaseKernelTestCase):
         self.assertAllClose(Sv.grad, Sv_clone.grad)
         self.assertAllClose(X.grad, X_clone.grad)
 
+    def test_sparse_quad_form_no_index(self):
+        N = 12
+        D = 5
+        K = 4
+        I = N // K
+        assert K * I == N
+
+        X = torch.randn(N, D).requires_grad_(True)
+        Sv = torch.randn(2, K, I).requires_grad_(True)
+
+        X_clone = X.detach().clone().requires_grad_(True)
+        Sv_clone = Sv.detach().clone().requires_grad_(True)
+
+        # Actual forward
+        kernel = RBFKernel()
+        kernel.lengthscale = 1.0
+        S = torch.zeros(2, N, I)
+        for i in range(I):
+            S[..., i * K : (i + 1) * K, i] = Sv[..., i]
+        K = kernel(X, X).to_dense()
+        ST_K_S = S.mT @ K @ S
+
+        # Test custom forward
+        ST_K_S_custom = SparseQuadForm.apply(X_clone, Sv_clone, None, kernel._forward, kernel._forward_and_vjp, 1)
+        self.assertAllClose(ST_K_S, ST_K_S_custom)
+
+        # Actual backward
+        V = torch.randn(2, I, I)
+        ST_K_S.backward(gradient=V)
+
+        # Test custom backward
+        ST_K_S_custom.backward(gradient=V)
+        self.assertAllClose(Sv.grad, Sv_clone.grad)
+        self.assertAllClose(X.grad, X_clone.grad)
+
 
 if __name__ == "__main__":
     unittest.main()

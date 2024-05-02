@@ -70,7 +70,7 @@ class SparseQuadForm(torch.autograd.Function):
         ctx,
         X: Float[Tensor, "... N D"],
         Sv: Float[Tensor, "... K I"],
-        Si: Long[LongTensor, "... K I"],
+        Si: Optional[Long[LongTensor, "... K I"]],
         kernel_forward: Callable[[Float[Tensor, "... M D"], Float[Tensor, "... N D"]], Float[Tensor, "... M N"]],
         kernel_forward_and_vjp: Optional[
             Callable[
@@ -87,14 +87,28 @@ class SparseQuadForm(torch.autograd.Function):
 
         # Get consistent batch sizes
         K, I = Sv.shape[-2:]
+        N, D = X.shape[-2:]
         batch_shape = torch.broadcast_shapes(X.shape[:-2], Sv.shape[:-2])
-        X_ = X.expand(*batch_shape, *X.shape[-2:])
-        Sv_ = Sv[..., None, :].expand(*batch_shape, K, I, I)
-        Si_ = Si[..., None, :].expand(*batch_shape, K, I, I)
+        X_ = X.expand(*batch_shape, N, D)
+        Sv_ = Sv[..., :, None].expand(*batch_shape, K, I, I)
+        if Si is None:
+            assert K * I == N
+        else:
+            Si_ = Si[..., :, None].expand(*batch_shape, K, I, I)
 
         # Define a vmap function for forward
         # This function essentially computes s_i^T K s_j
         def _sub_forward(
+            X1_sub: Float[Tensor, "... K D"],
+            X2_sub: Float[Tensor, "... K D"],
+            Sv1_sub: Float[Tensor, "... K"],
+            Sv2_sub: Float[Tensor, "... K"],
+        ) -> Float[Tensor, "..."]:
+            K_sub = kernel_forward(X1_sub, X2_sub)
+            siT_K_sj = (Sv1_sub * (K_sub @ Sv2_sub[..., None]).squeeze(-1)).sum(dim=-1)
+            return siT_K_sj
+
+        def _sub_forward_with_index(
             Sv1_sub: Float[Tensor, "... K"],
             Sv2_sub: Float[Tensor, "... K"],
             Si1_sub: Long[LongTensor, "... K"],
@@ -102,15 +116,23 @@ class SparseQuadForm(torch.autograd.Function):
         ) -> Float[Tensor, "..."]:
             X1_sub = _vmap_index_select(X_, Si1_sub)
             X2_sub = _vmap_index_select(X_, Si2_sub)
-            K_sub = kernel_forward(X1_sub, X2_sub)
-            siT_K_sj = (Sv1_sub * (K_sub @ Sv2_sub[..., None]).squeeze(-1)).sum(dim=-1)
-            return siT_K_sj
+            return _sub_forward(X1_sub, X2_sub, Sv1_sub, Sv2_sub)
 
         # Call s_i^T K s_j for all i, j
+        if Si is None:
+            sub_forward_fn = _sub_forward
+            X_ = X_.view(*batch_shape, I, K, D).transpose(-3, -2).transpose(-2, -1)  # ... x K x D x I
+            X_ = X_[..., None].expand(
+                *batch_shape, K, D, I, I
+            )  # ... x K x D x I x I, where last every column is identifical
+            forward_args = X_, X_.mT, Sv_, Sv_.mT
+        else:
+            sub_forward_fn = _sub_forward_with_index
+            forward_args = Sv_, Sv_.mT, Si_, Si_.mT
         forward = torch.vmap(
-            torch.vmap(_sub_forward, in_dims=-1, out_dims=-1), in_dims=-1, out_dims=-1, chunk_size=chunk_size
+            torch.vmap(sub_forward_fn, in_dims=-1, out_dims=-1), in_dims=-1, out_dims=-1, chunk_size=chunk_size
         )
-        ST_K_S = forward(Sv_, Sv_.mT, Si_, Si_.mT)
+        ST_K_S = forward(*forward_args)
 
         # Maybe save stuff for the backward pass.
         if any(ctx.needs_input_grad[:]):
@@ -138,10 +160,12 @@ class SparseQuadForm(torch.autograd.Function):
         # Get consistent batch sizes
         X, Sv, Si = ctx.saved_tensors
         K, I = Sv.shape[-2:]
+        N, D = X.shape[-2:]
         batch_shape = torch.broadcast_shapes(X.shape[:-2], Sv.shape[:-2])
-        X_ = X.expand(*batch_shape, *X.shape[-2:])
-        Sv_ = Sv[..., None, :].expand(*batch_shape, K, I, I)
-        Si_ = Si[..., None, :].expand(*batch_shape, K, I, I)
+        X_ = X.expand(*batch_shape, N, D)
+        Sv_ = Sv[..., :, None].expand(*batch_shape, K, I, I)
+        if Si is not None:
+            Si_ = Si[..., :, None].expand(*batch_shape, K, I, I)
 
         if any(ctx.needs_input_grad[0:2]):
             # Define a vmap function for backward
@@ -154,30 +178,49 @@ class SparseQuadForm(torch.autograd.Function):
             #   Note: given a VJP for K(X1, X2), the last two terms can be computed as
             #         vjp( K(X1, x2), vector=(v{ij} * s_1 s_2^T) )
             def _sub_backward(
+                X1_sub: Float[Tensor, "... K D"],
+                X2_sub: Float[Tensor, "... K D"],
+                Sv1_sub: Float[Tensor, "... K"],
+                Sv2_sub: Float[Tensor, "... K"],
+                V_sub: Float[Tensor, "..."],
+            ) -> Tuple[Float[Tensor, "... K"], Float[Tensor, "... K D"], Float[Tensor, "... K D"]]:
+                vjp_vector = (Sv1_sub[..., :, None] @ Sv2_sub[..., None, :]).mul_(V_sub[..., None, None])
+                K, (X1_grad, X2_grad) = ctx.kernel_forward_and_vjp(X1_sub, X2_sub, vjp_vector)
+                Sv1_grad = (K @ Sv2_sub[..., None])[..., 0].mul_(V_sub[..., None])
+                Sv2_grad = (K.mT @ Sv1_sub[..., None])[..., 0].mul_(V_sub[..., None])
+                return Sv1_grad, Sv2_grad, X1_grad, X2_grad
+
+            def _sub_backward_with_index(
                 Sv1_sub: Float[Tensor, "... K"],
                 Sv2_sub: Float[Tensor, "... K"],
                 Si1_sub: Long[LongTensor, "... K"],
                 Si2_sub: Long[LongTensor, "... K"],
                 V_sub: Float[Tensor, "..."],
-            ) -> Tuple[Float[Tensor, "... K"], Float[Tensor, "... K D"], Float[Tensor, "... K D"]]:
+            ) -> Float[Tensor, "..."]:
                 X1_sub = _vmap_index_select(X_, Si1_sub)
                 X2_sub = _vmap_index_select(X_, Si2_sub)
-                vjp_vector = (Sv1_sub[..., :, None] @ Sv2_sub[..., None, :]) * V_sub[..., None, None]
-                K, (X1_grad, X2_grad) = ctx.kernel_forward_and_vjp(X1_sub, X2_sub, vjp_vector)
-                Sv1_grad = (K @ Sv2_sub[..., None])[..., 0]
-                Sv2_grad = (K.mT @ Sv1_sub[..., None])[..., 0]
-                return Sv1_grad, Sv2_grad, X1_grad, X2_grad
+                return _sub_backward(X1_sub, X2_sub, Sv1_sub, Sv2_sub, V_sub)
 
             # Call d(v_{1,2} s_1^T K s_2) / d... for all 1, 2
             #   1, 2) Sv1_grads, Sv2_grads are (... K x I x I)
             #   3, 4) X1_grads, X2_grads are   (... x K x D x I x I)
+            if Si is None:
+                sub_backward_fn = _sub_backward
+                X_ = X_.view(*batch_shape, I, K, D).transpose(-3, -2).transpose(-2, -1)  # ... x K x D x I
+                X_ = X_[..., None].expand(
+                    *batch_shape, K, D, I, I
+                )  # ... x K x D x I x I, where last every column is identifical
+                backward_args = X_, X_.mT, Sv_, Sv_.mT, V
+            else:
+                sub_backward_fn = _sub_backward_with_index
+                backward_args = Sv_, Sv_.mT, Si_, Si_.mT, V
             backward = torch.vmap(
-                torch.vmap(_sub_backward, in_dims=-1, out_dims=-1),
+                torch.vmap(sub_backward_fn, in_dims=-1, out_dims=-1),
                 in_dims=-1,
                 out_dims=-1,
                 chunk_size=ctx.chunk_size,
             )
-            Sv1_grads, Sv2_grads, X1_grads, X2_grads = backward(Sv_, Sv_.mT, Si_, Si_.mT, V)
+            Sv1_grads, Sv2_grads, X1_grads, X2_grads = backward(*backward_args)
 
             ########
             # Tricky section of code down below
@@ -190,16 +233,17 @@ class SparseQuadForm(torch.autograd.Function):
             #    Therefore, we need to sum along all rows
             # Similarly, each column of Sv2_grads represents d(v_{1,2} * s_1^T K s_2) / d(s_2) for all s_1
             #    Therefore, we need to sum along all columns
-            Sv_grad = torch.add(
-                torch.einsum("...KIJ,...IJ->...KJ", Sv1_grads, V),
-                torch.einsum("...KIJ,...IJ->...KI", Sv2_grads, V),
-            )
+            Sv_grad = Sv1_grads.sum(dim=-1).add_(Sv2_grads.sum(dim=-2))
             # Compress Sv1_grads and Sv2_grads into a single (... x K x D) tensor
             # We accomplish this compression with the _scatter_gradients helper
-            X_grad = torch.add(
-                _scatter_gradients(X, X1_grads, Si_),
-                _scatter_gradients(X, X2_grads, Si_.mT),
-            )
+            if Si is None:
+                X_grad = X1_grads.sum(dim=-1).add_(X2_grads.sum(dim=-2)).transpose(-1, -2).transpose(-2, -3)
+                X_grad = X_grad.reshape(*batch_shape, N, D)
+            else:
+                X_grad = torch.add(
+                    _scatter_gradients(X, X1_grads, Si_),
+                    _scatter_gradients(X, X2_grads, Si_.mT),
+                )
         else:
             X_grad = None
             Sv_grad = None
