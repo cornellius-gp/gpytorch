@@ -537,15 +537,15 @@ class ComputationAwareELBO(MarginalLogLikelihood):
         kernel = self.model.covar_module
         if isinstance(kernel, kernels.ScaleKernel):
             outputscale = kernel.outputscale
-            # lengthscale = kernel.base_kernel.lengthscale
-            # kernel_forward_fn = kernel.base_kernel._forward
+            lengthscale = kernel.base_kernel.lengthscale
+            kernel_forward_fn = kernel.base_kernel._forward
             # kernel_vjp_fn = lambda V, X1, X2: kernel.base_kernel._forward_and_vjp(X1, X2, V)[1]
             # kernel_forward_and_vjp_fn = kernel.base_kernel._forward_and_vjp
             base_kernel = kernel.base_kernel
         else:
             outputscale = 1.0
-            # lengthscale = kernel.lengthscale
-            # kernel_forward_fn = kernel._forward
+            lengthscale = kernel.lengthscale
+            kernel_forward_fn = kernel._forward
             # kernel_forward_and_vjp_fn = kernel.base_kernel._forward_and_vjp
             # kernel_vjp_fn = kernel._vjp
             base_kernel = kernel
@@ -568,18 +568,22 @@ class ComputationAwareELBO(MarginalLogLikelihood):
         #     kernel_forward_and_vjp_fn,
         #     # self.model.chunk_size,
         # )
-        K_lazy = base_kernel(
-            self.model.train_inputs[0].view(
-                self.model.num_iter, self.model.num_non_zero, self.model.train_inputs[0].shape[-1]
-            ),
-            self.model.train_inputs[0].view(
-                self.model.num_iter, 1, self.model.num_non_zero, self.model.train_inputs[0].shape[-1]
-            ),
+        K_lazy = kernel_forward_fn(
+            self.model.train_inputs[0]
+            .div(lengthscale)
+            .view(self.model.num_iter, self.model.num_non_zero, self.model.train_inputs[0].shape[-1]),
+            self.model.train_inputs[0]
+            .div(lengthscale)
+            .view(self.model.num_iter, 1, self.model.num_non_zero, self.model.train_inputs[0].shape[-1]),
         )
         gram_SKS = (
-            (K_lazy @ actions_op.blocks.view(self.model.num_iter, 1, self.model.num_non_zero, 1)).squeeze(-1)
-            * actions_op.blocks
-        ).sum(-1)
+            (
+                (K_lazy @ actions_op.blocks.view(self.model.num_iter, 1, self.model.num_non_zero, 1)).squeeze(-1)
+                * actions_op.blocks
+            )
+            .sum(-1)
+            .mul(outputscale)
+        )
 
         StrS_diag = (actions_op.blocks**2).sum(-1)  # NOTE: Assumes orthogonal actions.
         gram_SKhatS = outputscale * gram_SKS + torch.diag(self.likelihood.noise * StrS_diag)
@@ -596,16 +600,16 @@ class ComputationAwareELBO(MarginalLogLikelihood):
 
         covar_x_batch_X_train_actions = (
             (
-                kernel(
+                kernel_forward_fn(
                     train_inputs_batch,
-                    self.model.train_inputs[0].view(
-                        self.model.num_iter, self.model.num_non_zero, self.model.train_inputs[0].shape[-1]
-                    ),
+                    self.model.train_inputs[0]
+                    .div(lengthscale)
+                    .view(self.model.num_iter, self.model.num_non_zero, self.model.train_inputs[0].shape[-1]),
                 )
                 @ actions_op.blocks.view(self.model.num_iter, self.model.num_non_zero, 1)
             )
             .squeeze(-1)
-            .mT
+            .mT.mul(outputscale)
         )
 
         cholfac_gram_SKhatS = utils.cholesky.psd_safe_cholesky(gram_SKhatS.to(dtype=torch.float64), upper=False)

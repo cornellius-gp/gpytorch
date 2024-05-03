@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 import math
 
+from jaxtyping import Float
+
 from linear_operator.operators import KernelLinearOperator
+from pykeops.torch import LazyTensor
+from torch import Tensor
 
 from .keops_kernel import _lazify_and_expand_inputs, KeOpsKernel
 
@@ -69,3 +73,24 @@ class MaternKernel(KeOpsKernel):
         x2_ = (x2 - mean) / self.lengthscale
         # return KernelLinearOperator inst only when calculating the whole covariance matrix
         return KernelLinearOperator(x1_, x2_, covar_func=_covar_func, nu=self.nu, **kwargs)
+
+    def _forward(
+        self, X1: Float[Tensor, "batch* M D"], X2: Float[Tensor, "batch* N D"]  # noqa F722
+    ) -> Float[Tensor, "batch* M N"]:  # noqa F722
+        X1_ = LazyTensor(X1[..., :, None, :])
+        X2_ = LazyTensor(X2[..., None, :, :])
+        sq_distance = ((X1_ - X2_).square()).sum(-1)
+        distance = (sq_distance + 1e-20).sqrt()
+        # ^^ Need to add epsilon to prevent small negative values with the sqrt
+        # backward pass (otherwise we get NaNs).
+        # using .clamp(1e-20, math.inf) doesn't work in KeOps; it also creates NaNs
+        exp_component = (-math.sqrt(self.nu * 2) * distance).exp()
+
+        if self.nu == 0.5:
+            constant_component = 1
+        elif self.nu == 1.5:
+            constant_component = (math.sqrt(3) * distance) + 1
+        elif self.nu == 2.5:
+            constant_component = (math.sqrt(5) * distance) + (1 + 5.0 / 3.0 * sq_distance)
+
+        return constant_component * exp_component

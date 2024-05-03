@@ -278,13 +278,13 @@ class ComputationAwareGPOpt(ExactGP):
 
             if isinstance(kernel, kernels.ScaleKernel):
                 outputscale = kernel.outputscale
-                # lengthscale = kernel.base_kernel.lengthscale
-                # kernel_forward_fn = kernel.base_kernel._forward
+                lengthscale = kernel.base_kernel.lengthscale
+                kernel_forward_fn = kernel.base_kernel._forward
                 base_kernel = kernel.base_kernel
             else:
                 outputscale = 1.0
-                # lengthscale = kernel.lengthscale
-                # kernel_forward_fn = kernel._forward
+                lengthscale = kernel.lengthscale
+                kernel_forward_fn = kernel._forward
                 base_kernel = kernel
 
             actions_op = self.actions
@@ -298,14 +298,22 @@ class ComputationAwareGPOpt(ExactGP):
             #     None,
             #     self.chunk_size,
             # )
-            K_lazy = base_kernel(
-                self.train_inputs[0].view(self.num_iter, self.num_non_zero, self.train_inputs[0].shape[-1]),
-                self.train_inputs[0].view(self.num_iter, 1, self.num_non_zero, self.train_inputs[0].shape[-1]),
+            K_lazy = kernel_forward_fn(
+                self.train_inputs[0]
+                .div(lengthscale)
+                .view(self.num_iter, self.num_non_zero, self.train_inputs[0].shape[-1]),
+                self.train_inputs[0]
+                .div(lengthscale)
+                .view(self.num_iter, 1, self.num_non_zero, self.train_inputs[0].shape[-1]),
             )
             gram_SKS = (
-                (K_lazy @ actions_op.blocks.view(self.num_iter, 1, self.num_non_zero, 1)).squeeze(-1)
-                * actions_op.blocks
-            ).sum(-1)
+                (
+                    (K_lazy @ actions_op.blocks.view(self.num_iter, 1, self.num_non_zero, 1)).squeeze(-1)
+                    * actions_op.blocks
+                )
+                .sum(-1)
+                .mul(outputscale)
+            )
 
             StrS_diag = (actions_op.blocks**2).sum(-1)  # NOTE: Assumes orthogonal actions.
             gram_SKhatS = outputscale * gram_SKS + torch.diag(self.likelihood.noise * StrS_diag)
@@ -323,13 +331,16 @@ class ComputationAwareGPOpt(ExactGP):
             # )
             covar_x_train_actions = (
                 (
-                    kernel(
-                        x, self.train_inputs[0].view(self.num_iter, self.num_non_zero, self.train_inputs[0].shape[-1])
+                    kernel_forward_fn(
+                        x,
+                        (self.train_inputs[0] / lengthscale).view(
+                            self.num_iter, self.num_non_zero, self.train_inputs[0].shape[-1]
+                        ),
                     )
                     @ actions_op.blocks.view(self.num_iter, self.num_non_zero, 1)
                 )
                 .squeeze(-1)
-                .mT
+                .mT.mul(outputscale)
             )
 
             cholfac_gram_SKhatS = linop_utils.cholesky.psd_safe_cholesky(
