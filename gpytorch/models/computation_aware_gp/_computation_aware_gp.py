@@ -174,10 +174,7 @@ class ComputationAwareGP(ExactGP):
             test_shape = torch.Size([joint_shape[0] - self.prediction_strategy.train_shape[0], *tasks_shape])
 
             # Make the prediction
-            (
-                predictive_mean,
-                predictive_covar,
-            ) = self.prediction_strategy.exact_prediction(
+            (predictive_mean, predictive_covar,) = self.prediction_strategy.exact_prediction(
                 full_mean, full_covar
             )  # TODO: replace with "preconditioned" prediction call
 
@@ -204,16 +201,18 @@ class ComputationAwareGPOpt(ExactGP):
         train_targets: torch.Tensor,
         likelihood,
         num_iter: int,
-        num_non_zero: int,
-        chunk_size: Optional[int] = None,
+        # num_non_zero: int,
+        # chunk_size: Optional[int] = None,
         initialization: str = "targets",
     ):
-        super().__init__(train_inputs, train_targets, likelihood)
+
+        num_non_zero = train_targets.size(-1) // num_iter
+        super().__init__(
+            train_inputs[0 : num_non_zero * num_iter], train_targets[0 : num_non_zero * num_iter], likelihood
+        )
         self.num_iter = num_iter
         self.num_non_zero = num_non_zero
-        self.chunk_size = chunk_size
-
-        num_train = train_targets.size(-1)
+        # self.chunk_size = chunk_size
 
         # # Random initialization
         # non_zero_idcs = torch.cat(
@@ -233,11 +232,11 @@ class ComputationAwareGPOpt(ExactGP):
         # )
         # Initialize with rhs of linear system (i.e. train targets)
         non_zero_idcs = torch.arange(
-            (num_train // num_iter) * num_iter,
+            self.num_non_zero * num_iter,
             # int(math.sqrt(num_train / num_iter)) * num_iter,  # TODO: This does not include all training datapoints!
             device=train_inputs.device,
         ).reshape(self.num_iter, -1)
-        self.num_non_zero = non_zero_idcs.shape[1]
+        # self.num_non_zero = non_zero_idcs.shape[1]
 
         if initialization == "random":
             self.non_zero_action_entries = torch.nn.Parameter(
@@ -249,7 +248,7 @@ class ComputationAwareGPOpt(ExactGP):
             )
         elif initialization == "targets":
             self.non_zero_action_entries = torch.nn.Parameter(
-                train_targets.clone()[: (num_train // num_iter) * num_iter].reshape(self.num_iter, -1)
+                train_targets.clone()[: self.num_non_zero * num_iter].reshape(self.num_iter, -1)
                 # train_targets.clone()[: int(math.sqrt(num_train / num_iter)) * num_iter].reshape(self.num_iter, -1)
             )
             self.non_zero_action_entries.div(
@@ -260,7 +259,9 @@ class ComputationAwareGPOpt(ExactGP):
 
         self.actions = (
             operators.BlockSparseLinearOperator(  # TODO: Can we speed this up by allowing ranges as non-zero indices?
-                non_zero_idcs=non_zero_idcs, blocks=self.non_zero_action_entries, size_sparse_dim=num_train
+                non_zero_idcs=non_zero_idcs,
+                blocks=self.non_zero_action_entries,
+                size_sparse_dim=self.num_iter * self.num_non_zero,
             )
         )
 
@@ -277,38 +278,58 @@ class ComputationAwareGPOpt(ExactGP):
 
             if isinstance(kernel, kernels.ScaleKernel):
                 outputscale = kernel.outputscale
-                lengthscale = kernel.base_kernel.lengthscale
-                kernel_forward_fn = kernel.base_kernel._forward
+                # lengthscale = kernel.base_kernel.lengthscale
+                # kernel_forward_fn = kernel.base_kernel._forward
+                base_kernel = kernel.base_kernel
             else:
                 outputscale = 1.0
-                lengthscale = kernel.lengthscale
-                kernel_forward_fn = kernel._forward
+                # lengthscale = kernel.lengthscale
+                # kernel_forward_fn = kernel._forward
+                base_kernel = kernel
 
             actions_op = self.actions
 
-            gram_SKS = kernels.SparseQuadForm.apply(
-                self.train_inputs[0] / lengthscale,
-                actions_op.blocks,
-                # actions_op.non_zero_idcs.mT,
-                None,
-                kernel_forward_fn,
-                None,
-                self.chunk_size,
+            # gram_SKS = kernels.SparseQuadForm.apply(
+            #     self.train_inputs[0] / lengthscale,
+            #     actions_op.blocks,
+            #     # actions_op.non_zero_idcs.mT,
+            #     None,
+            #     kernel_forward_fn,
+            #     None,
+            #     self.chunk_size,
+            # )
+            K_lazy = base_kernel(
+                self.train_inputs[0].view(self.num_iter, self.num_non_zero, self.train_inputs[0].shape[-1]),
+                self.train_inputs[0].view(self.num_iter, 1, self.num_non_zero, self.train_inputs[0].shape[-1]),
             )
+            gram_SKS = (
+                (K_lazy @ actions_op.blocks.view(self.num_iter, 1, self.num_non_zero, 1)).squeeze(-1)
+                * actions_op.blocks
+            ).sum(-1)
 
             StrS_diag = (actions_op.blocks**2).sum(-1)  # NOTE: Assumes orthogonal actions.
             gram_SKhatS = outputscale * gram_SKS + torch.diag(self.likelihood.noise * StrS_diag)
 
             if x.ndim == 1:
                 x = torch.atleast_2d(x).mT
-            covar_x_train_actions = outputscale * kernels.SparseLinearForm.apply(
-                x / lengthscale,
-                self.train_inputs[0] / lengthscale,
-                actions_op.blocks,
-                actions_op.non_zero_idcs,
-                kernel_forward_fn,
-                None,
-                self.chunk_size,  # TODO: the chunk size should probably be larger here, since we usually compute this on the test set
+            # covar_x_train_actions = outputscale * kernels.SparseLinearForm.apply(
+            #     x / lengthscale,
+            #     self.train_inputs[0] / lengthscale,
+            #     actions_op.blocks,
+            #     actions_op.non_zero_idcs,
+            #     kernel_forward_fn,
+            #     None,
+            #     # self.chunk_size,  # TODO: the chunk size should probably be larger here, since we usually compute this on the test set
+            # )
+            covar_x_train_actions = (
+                (
+                    kernel(
+                        x, self.train_inputs[0].view(self.num_iter, self.num_non_zero, self.train_inputs[0].shape[-1])
+                    )
+                    @ actions_op.blocks.view(self.num_iter, self.num_non_zero, 1)
+                )
+                .squeeze(-1)
+                .mT
             )
 
             cholfac_gram_SKhatS = linop_utils.cholesky.psd_safe_cholesky(

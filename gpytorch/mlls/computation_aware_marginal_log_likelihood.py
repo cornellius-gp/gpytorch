@@ -537,16 +537,18 @@ class ComputationAwareELBO(MarginalLogLikelihood):
         kernel = self.model.covar_module
         if isinstance(kernel, kernels.ScaleKernel):
             outputscale = kernel.outputscale
-            lengthscale = kernel.base_kernel.lengthscale
-            kernel_forward_fn = kernel.base_kernel._forward
-            kernel_vjp_fn = lambda V, X1, X2: kernel.base_kernel._forward_and_vjp(X1, X2, V)[1]
-            kernel_forward_and_vjp_fn = kernel.base_kernel._forward_and_vjp
+            # lengthscale = kernel.base_kernel.lengthscale
+            # kernel_forward_fn = kernel.base_kernel._forward
+            # kernel_vjp_fn = lambda V, X1, X2: kernel.base_kernel._forward_and_vjp(X1, X2, V)[1]
+            # kernel_forward_and_vjp_fn = kernel.base_kernel._forward_and_vjp
+            base_kernel = kernel.base_kernel
         else:
             outputscale = 1.0
-            lengthscale = kernel.lengthscale
-            kernel_forward_fn = kernel._forward
-            kernel_forward_and_vjp_fn = kernel.base_kernel._forward_and_vjp
-            kernel_vjp_fn = kernel._vjp
+            # lengthscale = kernel.lengthscale
+            # kernel_forward_fn = kernel._forward
+            # kernel_forward_and_vjp_fn = kernel.base_kernel._forward_and_vjp
+            # kernel_vjp_fn = kernel._vjp
+            base_kernel = kernel
 
         # Prior mean and kernel
         train_targets = self.model.train_targets
@@ -557,28 +559,54 @@ class ComputationAwareELBO(MarginalLogLikelihood):
         # TODO: We can optimize this if we don't batch to avoid one evaluation of the prior mean
 
         # Gramian S'KS
-        gram_SKS = kernels.SparseQuadForm.apply(
-            self.model.train_inputs[0] / lengthscale,
-            actions_op.blocks,
-            None,
-            # actions_op.non_zero_idcs.mT,
-            kernel_forward_fn,
-            kernel_forward_and_vjp_fn,
-            self.model.chunk_size,
+        # gram_SKS = kernels.SparseQuadForm.apply(
+        #     self.model.train_inputs[0] / lengthscale,
+        #     actions_op.blocks,
+        #     None,
+        #     # actions_op.non_zero_idcs.mT,
+        #     kernel_forward_fn,
+        #     kernel_forward_and_vjp_fn,
+        #     # self.model.chunk_size,
+        # )
+        K_lazy = base_kernel(
+            self.model.train_inputs[0].view(
+                self.model.num_iter, self.model.num_non_zero, self.model.train_inputs[0].shape[-1]
+            ),
+            self.model.train_inputs[0].view(
+                self.model.num_iter, 1, self.model.num_non_zero, self.model.train_inputs[0].shape[-1]
+            ),
         )
+        gram_SKS = (
+            (K_lazy @ actions_op.blocks.view(self.model.num_iter, 1, self.model.num_non_zero, 1)).squeeze(-1)
+            * actions_op.blocks
+        ).sum(-1)
 
         StrS_diag = (actions_op.blocks**2).sum(-1)  # NOTE: Assumes orthogonal actions.
         gram_SKhatS = outputscale * gram_SKS + torch.diag(self.likelihood.noise * StrS_diag)
 
-        K_actions = outputscale * kernels.SparseLinearForm.apply(
-            train_inputs_batch / lengthscale,
-            self.model.train_inputs[0] / lengthscale,
-            actions_op.blocks,
-            actions_op.non_zero_idcs,
-            kernel_forward_fn,
-            kernel_forward_and_vjp_fn,
-            self.model.chunk_size,
-        )  # TODO: Set chunk size differently here, since we are only allocating 0.1*n^2 here typically
+        # covar_x_batch_X_train_actions = outputscale * kernels.SparseLinearForm.apply(
+        #     train_inputs_batch / lengthscale,
+        #     self.model.train_inputs[0] / lengthscale,
+        #     actions_op.blocks,
+        #     actions_op.non_zero_idcs,
+        #     kernel_forward_fn,
+        #     kernel_forward_and_vjp_fn,
+        #     # self.model.chunk_size,
+        # )  # TODO: Set chunk size differently here, since we are only allocating 0.1*n^2 here typically
+
+        covar_x_batch_X_train_actions = (
+            (
+                kernel(
+                    train_inputs_batch,
+                    self.model.train_inputs[0].view(
+                        self.model.num_iter, self.model.num_non_zero, self.model.train_inputs[0].shape[-1]
+                    ),
+                )
+                @ actions_op.blocks.view(self.model.num_iter, self.model.num_non_zero, 1)
+            )
+            .squeeze(-1)
+            .mT
+        )
 
         cholfac_gram_SKhatS = utils.cholesky.psd_safe_cholesky(gram_SKhatS.to(dtype=torch.float64), upper=False)
 
@@ -589,10 +617,12 @@ class ComputationAwareELBO(MarginalLogLikelihood):
         ).squeeze(-1)
 
         # Expected log-likelihood term
-        f_pred_mean_batch = outputs_batch.mean + K_actions @ torch.atleast_1d(compressed_repr_weights).to(
-            dtype=targets_batch.dtype
+        f_pred_mean_batch = outputs_batch.mean + covar_x_batch_X_train_actions @ torch.atleast_1d(
+            compressed_repr_weights
+        ).to(dtype=targets_batch.dtype)
+        sqrt_downdate = torch.linalg.solve_triangular(
+            cholfac_gram_SKhatS, covar_x_batch_X_train_actions.mT, upper=False
         )
-        sqrt_downdate = torch.linalg.solve_triangular(cholfac_gram_SKhatS, K_actions.mT, upper=False)
         trace_downdate = torch.sum(sqrt_downdate**2, dim=-1)
         f_pred_var_batch = torch.sum(outputs_batch.variance) - torch.sum(trace_downdate)
         expected_log_likelihood_term = -0.5 * (
