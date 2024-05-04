@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 import math
 
-from jaxtyping import Float
-
 from linear_operator.operators import KernelLinearOperator
 from pykeops.torch import LazyTensor
 from torch import Tensor
+
+from ...typing import Float
 
 from .keops_kernel import _lazify_and_expand_inputs, KeOpsKernel
 
@@ -74,7 +74,7 @@ class MaternKernel(KeOpsKernel):
         # return KernelLinearOperator inst only when calculating the whole covariance matrix
         return KernelLinearOperator(x1_, x2_, covar_func=_covar_func, nu=self.nu, **kwargs)
 
-    def _forward(
+    def _forward_no_kernel_linop(
         self, X1: Float[Tensor, "batch* M D"], X2: Float[Tensor, "batch* N D"]  # noqa F722
     ) -> Float[Tensor, "batch* M N"]:  # noqa F722
         X1_ = LazyTensor(X1[..., :, None, :])

@@ -279,12 +279,12 @@ class ComputationAwareGPOpt(ExactGP):
             if isinstance(kernel, kernels.ScaleKernel):
                 outputscale = kernel.outputscale
                 lengthscale = kernel.base_kernel.lengthscale
-                kernel_forward_fn = kernel.base_kernel._forward
+                kernel_forward_fn = kernel.base_kernel._forward_no_kernel_linop
                 base_kernel = kernel.base_kernel
             else:
                 outputscale = 1.0
                 lengthscale = kernel.lengthscale
-                kernel_forward_fn = kernel._forward
+                kernel_forward_fn = kernel._forward_no_kernel_linop
                 base_kernel = kernel
 
             actions_op = self.actions
@@ -316,7 +316,7 @@ class ComputationAwareGPOpt(ExactGP):
             )
 
             StrS_diag = (actions_op.blocks**2).sum(-1)  # NOTE: Assumes orthogonal actions.
-            gram_SKhatS = outputscale * gram_SKS + torch.diag(self.likelihood.noise * StrS_diag)
+            gram_SKhatS = gram_SKS + torch.diag(self.likelihood.noise * StrS_diag)
 
             if x.ndim == 1:
                 x = torch.atleast_2d(x).mT
@@ -332,7 +332,7 @@ class ComputationAwareGPOpt(ExactGP):
             covar_x_train_actions = (
                 (
                     kernel_forward_fn(
-                        x,
+                        x / lengthscale,
                         (self.train_inputs[0] / lengthscale).view(
                             self.num_iter, self.num_non_zero, self.train_inputs[0].shape[-1]
                         ),

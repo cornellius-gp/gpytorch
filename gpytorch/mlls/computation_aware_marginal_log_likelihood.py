@@ -538,14 +538,14 @@ class ComputationAwareELBO(MarginalLogLikelihood):
         if isinstance(kernel, kernels.ScaleKernel):
             outputscale = kernel.outputscale
             lengthscale = kernel.base_kernel.lengthscale
-            kernel_forward_fn = kernel.base_kernel._forward
+            kernel_forward_fn = kernel.base_kernel._forward_no_kernel_linop
             # kernel_vjp_fn = lambda V, X1, X2: kernel.base_kernel._forward_and_vjp(X1, X2, V)[1]
             # kernel_forward_and_vjp_fn = kernel.base_kernel._forward_and_vjp
             base_kernel = kernel.base_kernel
         else:
             outputscale = 1.0
             lengthscale = kernel.lengthscale
-            kernel_forward_fn = kernel._forward
+            kernel_forward_fn = kernel._forward_no_kernel_linop
             # kernel_forward_and_vjp_fn = kernel.base_kernel._forward_and_vjp
             # kernel_vjp_fn = kernel._vjp
             base_kernel = kernel
@@ -586,7 +586,7 @@ class ComputationAwareELBO(MarginalLogLikelihood):
         )
 
         StrS_diag = (actions_op.blocks**2).sum(-1)  # NOTE: Assumes orthogonal actions.
-        gram_SKhatS = outputscale * gram_SKS + torch.diag(self.likelihood.noise * StrS_diag)
+        gram_SKhatS = gram_SKS + torch.diag(self.likelihood.noise * StrS_diag)
 
         # covar_x_batch_X_train_actions = outputscale * kernels.SparseLinearForm.apply(
         #     train_inputs_batch / lengthscale,
@@ -601,7 +601,7 @@ class ComputationAwareELBO(MarginalLogLikelihood):
         covar_x_batch_X_train_actions = (
             (
                 kernel_forward_fn(
-                    train_inputs_batch,
+                    train_inputs_batch.div(lengthscale),
                     self.model.train_inputs[0]
                     .div(lengthscale)
                     .view(self.model.num_iter, self.model.num_non_zero, self.model.train_inputs[0].shape[-1]),
