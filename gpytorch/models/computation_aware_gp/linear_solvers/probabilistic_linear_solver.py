@@ -139,14 +139,12 @@ class ProbabilisticLinearSolver(LinearSolver):
                 ).squeeze()
 
                 if solver_state.cache["actions_op"] is not None:
-                    prev_actions_linear_op_action = solver_state.cache["actions_op"].to(
-                        dtype=torch.float64
-                    ) @ linear_op_action.to(dtype=torch.float64)
+                    prev_actions_linear_op_action = solver_state.cache["actions_op"] @ linear_op_action
                 else:
                     prev_actions_linear_op_action = None
 
                 # Schur complement / Squared linop-norm of search direction
-                schur_complement = (action @ linear_op_action).to(dtype=torch.float64)
+                schur_complement = action @ linear_op_action
 
                 if solver_state.cache["actions_op"] is not None:
                     gram_inv_tilde_z = torch.cholesky_solve(
@@ -249,15 +247,11 @@ class ProbabilisticLinearSolver(LinearSolver):
 
             with torch.no_grad():
                 # Update compressed solution estimate
-                solver_state.cache["compressed_solution"] = (
-                    torch.cholesky_solve(
-                        (solver_state.cache["actions_op"] @ rhs).reshape(-1, 1).to(dtype=torch.float64),
-                        solver_state.cache["cholfac_gram"],
-                        upper=False,
-                    )
-                    .reshape(-1)
-                    .to(dtype=linear_op.dtype)
-                )
+                solver_state.cache["compressed_solution"] = torch.cholesky_solve(
+                    (solver_state.cache["actions_op"] @ rhs).reshape(-1, 1),
+                    solver_state.cache["cholfac_gram"],
+                    upper=False,
+                ).reshape(-1)
 
                 # Update solution estimate
                 # solver_state.solution = solver_state.cache["actions_op"].mT @ solver_state.cache["compressed_solution"]
@@ -527,8 +521,11 @@ class ProbabilisticLinearSolver(LinearSolver):
 
                 # Update residual # TODO
                 linear_op_action = kernels.SparseLinearForms.apply(
-                    train_inputs, action.blocks, action.non_zero_idcs,
-                    forward_fn, None,
+                    train_inputs,
+                    action.blocks,
+                    action.non_zero_idcs,
+                    forward_fn,
+                    None,
                 )
                 linear_op_action = outputscale * linear_op_action + noise * action.to_dense().T
                 linear_op_action = linear_op_action.squeeze()

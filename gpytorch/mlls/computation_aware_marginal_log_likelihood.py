@@ -468,17 +468,17 @@ class ComputationAwareELBO(MarginalLogLikelihood):
             actions_op._matmul(actions_op._matmul(K).mT)
             if isinstance(actions_op, operators.BlockSparseLinearOperator)
             else actions_op @ K_actions
-        ).to(dtype=torch.float32)
+        )
         if str(self.model.linear_solver.policy) == "GradientPolicy()":
-            # Actions are orthogonal by assumption
+            # Actions are provably orthogonal (and normalized by assumption)
             StrS = torch.eye(num_actions, device=gram_SKS.device, dtype=gram_SKS.dtype)
         else:
             StrS = (
                 actions_op._matmul(actions_op.to_dense().mT)
                 if isinstance(actions_op, operators.BlockSparseLinearOperator)
                 else actions_op @ actions_op.mT
-            ).to(dtype=torch.float32)
-        gram_SKhatS = gram_SKS.to(dtype=torch.float32) + self.likelihood.noise * StrS
+            )
+        gram_SKhatS = gram_SKS + self.likelihood.noise * StrS
 
         cholfac_gram = utils.cholesky.psd_safe_cholesky(gram_SKhatS, upper=False)
 
@@ -486,7 +486,7 @@ class ComputationAwareELBO(MarginalLogLikelihood):
             solver_state.cache["cholfac_gram"] = cholfac_gram
 
         # Compressed representer weights
-        actions_target = (actions_op @ (target - output.mean)).to(dtype=torch.float32)
+        actions_target = actions_op @ (target - output.mean)
         compressed_repr_weights = torch.cholesky_solve(actions_target.unsqueeze(1), cholfac_gram, upper=False).squeeze(
             -1
         )
@@ -494,7 +494,7 @@ class ComputationAwareELBO(MarginalLogLikelihood):
             solver_state.cache["compressed_solution"] = compressed_repr_weights
 
         # Expected log-likelihood term
-        f_pred_mean = output.mean + K_actions @ torch.atleast_1d(compressed_repr_weights).to(dtype=Khat.dtype)
+        f_pred_mean = output.mean + K_actions @ torch.atleast_1d(compressed_repr_weights)
         sqrt_downdate = torch.linalg.solve_triangular(cholfac_gram, K_actions.mT, upper=False)
         trace_downdate = torch.sum(sqrt_downdate**2, dim=0)
         f_pred_var = torch.sum(output.variance) - torch.sum(trace_downdate)
@@ -511,7 +511,7 @@ class ComputationAwareELBO(MarginalLogLikelihood):
             - num_actions * torch.log(self.likelihood.noise)
             - torch.logdet(StrS)
             - torch.trace(torch.cholesky_solve(gram_SKS, cholfac_gram, upper=False))
-        ).to(dtype=Khat.dtype)
+        )
 
         elbo = torch.squeeze(expected_log_likelihood_term - kl_prior_term)
         return elbo.div(num_train_data)
