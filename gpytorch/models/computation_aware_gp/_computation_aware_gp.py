@@ -313,7 +313,7 @@ class ComputationAwareGPOpt(ExactGP):
                 )
                 .sum(-1)
                 .mul(outputscale)
-            )
+            )  # TODO: Don't recompute, load from MLL computation instead.
 
             StrS_diag = (actions_op.blocks**2).sum(-1)  # NOTE: Assumes orthogonal actions.
             gram_SKhatS = gram_SKS + torch.diag(self.likelihood.noise * StrS_diag)
