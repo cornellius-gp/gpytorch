@@ -559,6 +559,7 @@ class ComputationAwareELBO(MarginalLogLikelihood):
         # TODO: We can optimize this if we don't batch to avoid one evaluation of the prior mean
 
         # Gramian S'KS
+        del self.model.cholfac_gram_SKhatS  # Explicitly free up memory from prediction
         # gram_SKS = kernels.SparseQuadForm.apply(
         #     self.model.train_inputs[0] / lengthscale,
         #     actions_op.blocks,
