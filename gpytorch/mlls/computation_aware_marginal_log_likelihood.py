@@ -587,6 +587,8 @@ class ComputationAwareELBO(MarginalLogLikelihood):
 
         StrS_diag = (actions_op.blocks**2).sum(-1)  # NOTE: Assumes orthogonal actions.
         gram_SKhatS = gram_SKS + torch.diag(self.likelihood.noise * StrS_diag)
+        cholfac_gram_SKhatS = utils.cholesky.psd_safe_cholesky(gram_SKhatS.to(dtype=torch.float64), upper=False)
+        self.model.cholfac_gram_SKhatS = cholfac_gram_SKhatS
 
         # covar_x_batch_X_train_actions = outputscale * kernels.SparseLinearForm.apply(
         #     train_inputs_batch / lengthscale,
@@ -611,8 +613,6 @@ class ComputationAwareELBO(MarginalLogLikelihood):
             .squeeze(-1)
             .mT.mul(outputscale)
         )
-
-        cholfac_gram_SKhatS = utils.cholesky.psd_safe_cholesky(gram_SKhatS.to(dtype=torch.float64), upper=False)
 
         # Compressed representer weights
         actions_targets = actions_op._matmul(torch.atleast_2d(train_targets - prior_mean).mT).squeeze(-1)

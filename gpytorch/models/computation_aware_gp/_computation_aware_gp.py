@@ -254,6 +254,32 @@ class ComputationAwareGPOpt(ExactGP):
             self.non_zero_action_entries.div(
                 torch.linalg.vector_norm(self.non_zero_action_entries, dim=1).reshape(-1, 1)
             )
+        elif initialization == "fourier":
+            # X = (
+            #     train_inputs.clone()
+            #     .detach()[0 : num_non_zero * num_iter]
+            #     .reshape(num_iter, num_non_zero)
+            #     .requires_grad_(False)
+            # )
+            X = torch.ones_like(train_inputs)[0 : num_non_zero * num_iter].reshape(num_iter, num_non_zero)
+            self.frequencies = torch.nn.Parameter(
+                torch.randn(
+                    num_iter,
+                    dtype=train_inputs.dtype,
+                    device=train_inputs.device,
+                )
+            )
+            self.offset = torch.nn.Parameter(
+                2
+                * math.pi
+                * torch.rand(
+                    num_iter,
+                    dtype=train_inputs.dtype,
+                    device=train_inputs.device,
+                )
+            )
+            self.non_zero_action_entries = torch.cos(self.frequencies.reshape(-1, 1) * X + self.offset.reshape(-1, 1))
+            # TODO: fails likely because BlockSparseLinearOperator also inherits from nn.Module
         else:
             raise ValueError(f"Unknown initialization: '{initialization}'.")
 
@@ -264,6 +290,7 @@ class ComputationAwareGPOpt(ExactGP):
                 size_sparse_dim=self.num_iter * self.num_non_zero,
             )
         )
+        self.cholfac_gram_SKhatS = None
 
     def __call__(self, x):
         if self.training:
@@ -298,25 +325,29 @@ class ComputationAwareGPOpt(ExactGP):
             #     None,
             #     self.chunk_size,
             # )
-            K_lazy = kernel_forward_fn(
-                self.train_inputs[0]
-                .div(lengthscale)
-                .view(self.num_iter, self.num_non_zero, self.train_inputs[0].shape[-1]),
-                self.train_inputs[0]
-                .div(lengthscale)
-                .view(self.num_iter, 1, self.num_non_zero, self.train_inputs[0].shape[-1]),
-            )
-            gram_SKS = (
-                (
-                    (K_lazy @ actions_op.blocks.view(self.num_iter, 1, self.num_non_zero, 1)).squeeze(-1)
-                    * actions_op.blocks
+            if self.cholfac_gram_SKhatS is None:
+                K_lazy = kernel_forward_fn(
+                    self.train_inputs[0]
+                    .div(lengthscale)
+                    .view(self.num_iter, self.num_non_zero, self.train_inputs[0].shape[-1]),
+                    self.train_inputs[0]
+                    .div(lengthscale)
+                    .view(self.num_iter, 1, self.num_non_zero, self.train_inputs[0].shape[-1]),
                 )
-                .sum(-1)
-                .mul(outputscale)
-            )  # TODO: Don't recompute, load from MLL computation instead.
+                gram_SKS = (
+                    (
+                        (K_lazy @ actions_op.blocks.view(self.num_iter, 1, self.num_non_zero, 1)).squeeze(-1)
+                        * actions_op.blocks
+                    )
+                    .sum(-1)
+                    .mul(outputscale)
+                )
 
-            StrS_diag = (actions_op.blocks**2).sum(-1)  # NOTE: Assumes orthogonal actions.
-            gram_SKhatS = gram_SKS + torch.diag(self.likelihood.noise * StrS_diag)
+                StrS_diag = (actions_op.blocks**2).sum(-1)  # NOTE: Assumes orthogonal actions.
+                gram_SKhatS = gram_SKS + torch.diag(self.likelihood.noise * StrS_diag)
+                self.cholfac_gram_SKhatS = linop_utils.cholesky.psd_safe_cholesky(
+                    gram_SKhatS.to(dtype=torch.float64), upper=False
+                )
 
             if x.ndim == 1:
                 x = torch.atleast_2d(x).mT
@@ -342,19 +373,15 @@ class ComputationAwareGPOpt(ExactGP):
                 .squeeze(-1)
                 .mT.mul(outputscale)
             )
-
-            cholfac_gram_SKhatS = linop_utils.cholesky.psd_safe_cholesky(
-                gram_SKhatS.to(dtype=torch.float64), upper=False
-            )
             covar_x_train_actions_cholfac_inv = torch.linalg.solve_triangular(
-                cholfac_gram_SKhatS, covar_x_train_actions.mT, upper=False
+                self.cholfac_gram_SKhatS, covar_x_train_actions.mT, upper=False
             ).mT
 
             # Compressed representer weights
             actions_target = self.actions @ (self.train_targets - self.mean_module(self.train_inputs[0]))
             compressed_repr_weights = (
                 torch.cholesky_solve(
-                    actions_target.unsqueeze(1).to(dtype=torch.float64), cholfac_gram_SKhatS, upper=False
+                    actions_target.unsqueeze(1).to(dtype=torch.float64), self.cholfac_gram_SKhatS, upper=False
                 )
                 .squeeze(-1)
                 .to(self.train_inputs[0].dtype)
