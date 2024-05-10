@@ -199,6 +199,8 @@ class ComputationAwareGPOpt(ExactGP):
         self,
         train_inputs: torch.Tensor,
         train_targets: torch.Tensor,
+        mean,
+        kernel,
         likelihood,
         num_iter: int,
         # num_non_zero: int,
@@ -210,6 +212,8 @@ class ComputationAwareGPOpt(ExactGP):
         super().__init__(
             train_inputs[0 : num_non_zero * num_iter], train_targets[0 : num_non_zero * num_iter], likelihood
         )
+        self.mean_module = mean
+        self.covar_module = kernel
         self.num_iter = num_iter
         self.num_non_zero = num_non_zero
         # self.chunk_size = chunk_size
@@ -254,6 +258,15 @@ class ComputationAwareGPOpt(ExactGP):
             self.non_zero_action_entries.div(
                 torch.linalg.vector_norm(self.non_zero_action_entries, dim=1).reshape(-1, 1)
             )
+        elif initialization == "eigen":
+            with torch.no_grad():
+                X = train_inputs.clone()[0 : num_non_zero * num_iter].reshape(
+                    num_iter, num_non_zero, train_inputs.shape[-1]
+                )
+                K_sub_matrices = self.covar_module(X)
+                _, evecs = torch.linalg.eigh(K_sub_matrices.to_dense())
+            self.non_zero_action_entries = torch.nn.Parameter(evecs[:, -1])
+
         elif initialization == "fourier":
             # X = (
             #     train_inputs.clone()
