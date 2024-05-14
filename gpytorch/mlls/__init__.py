@@ -5,6 +5,7 @@ import warnings
 from .added_loss_term import AddedLossTerm
 from .computation_aware_marginal_log_likelihood import (
     ComputationAwareELBO,
+    ComputationAwareELBOCustomBackward,
     ComputationAwareMarginalLogLikelihood,
     ComputationAwareMarginalLogLikelihoodAutoDiff,
 )
@@ -48,6 +49,7 @@ __all__ = [
     "ComputationAwareMarginalLogLikelihood",
     "ComputationAwareMarginalLogLikelihoodAutoDiff",
     "ComputationAwareELBO",
+    "ComputationAwareELBOCustomBackward",
     "DeepApproximateMLL",
     "DeepPredictiveLogLikelihood",
     "ExactMarginalLogLikelihood",

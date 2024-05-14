@@ -4,10 +4,12 @@ from __future__ import annotations
 import math
 import warnings
 from collections import deque
-from typing import Tuple, Union
+from typing import Callable, Optional, Tuple, Union
 
 import torch
+from jaxtyping import Float
 from linear_operator import operators, utils
+from pykeops.torch import LazyTensor
 
 from .. import kernels
 
@@ -588,6 +590,7 @@ class ComputationAwareELBO(MarginalLogLikelihood):
 
         StrS_diag = (actions_op.blocks**2).sum(-1)  # NOTE: Assumes orthogonal actions.
         gram_SKhatS = gram_SKS + torch.diag(self.likelihood.noise * StrS_diag)
+
         cholfac_gram_SKhatS = utils.cholesky.psd_safe_cholesky(gram_SKhatS.to(dtype=torch.float64), upper=False)
         # Save Cholesky factor for prediction
         self.model.cholfac_gram_SKhatS = cholfac_gram_SKhatS.clone().detach()
@@ -651,101 +654,262 @@ class ComputationAwareELBO(MarginalLogLikelihood):
         elbo = torch.squeeze(expected_log_likelihood_term - kl_prior_term.to(dtype=targets_batch.dtype))
         return elbo
 
-    # def _sparse_forward(self, outputs_batch: torch.Tensor, targets_batch: torch.Tensor, **kwargs):
 
-    #     # # Idea: Subsample set of actions used
-    #     # action_idcs = torch.randperm(self.model.actions.shape[0])[0:32]
-    #     # actions_op = operators.BlockSparseLinearOperator(
-    #     #     non_zero_idcs=self.model.actions.non_zero_idcs[action_idcs, :],
-    #     #     blocks=self.model.actions.blocks[action_idcs, :],
-    #     #     size_sparse_dim=self.model.actions.size_sparse_dim,
-    #     # )
-    #     actions_op = self.model.actions
-    #     num_actions = actions_op.shape[0]
+class ComputationAwareELBOCustomBackward(MarginalLogLikelihood):
+    """Computation-aware ELBO."""
 
-    #     # Training data batch
-    #     train_inputs_batch = outputs_batch.lazy_covariance_matrix.x1
-    #     num_train_data_batch = targets_batch.shape[0]
-    #     num_train_data = len(self.model.train_inputs[0])
+    def __init__(
+        self, likelihood: GaussianLikelihood, model: "ComputationAwareGP", num_blocks_with_grad: Optional[int] = None
+    ):
+        if not isinstance(likelihood, _GaussianLikelihoodBase):
+            raise RuntimeError("Likelihood must be Gaussian for exact inference.")
+        super().__init__(likelihood, model)
+        self.num_blocks_with_grad = num_blocks_with_grad
 
-    #     # Kernel
-    #     kernel = self.model.covar_module
-    #     if isinstance(kernel, kernels.ScaleKernel):
-    #         outputscale = kernel.outputscale
-    #         lengthscale = kernel.base_kernel.lengthscale
-    #         forward_fn = kernel.base_kernel._forward
-    #         vjp_fn = kernel.base_kernel._vjp
-    #     else:
-    #         outputscale = 1.0
-    #         lengthscale = kernel.lengthscale
-    #         forward_fn = kernel._forward
-    #         vjp_fn = kernel._vjp
+    def forward(self, outputs_batch: torch.Tensor, targets_batch: torch.Tensor, **kwargs):
 
-    #     # Prior mean and kernel
-    #     train_targets = self.model.train_targets
-    #     # if num_train_data > num_train_data_batch:
-    #     prior_mean = self.model.mean_module(self.model.train_inputs[0])
-    #     # else:
-    #     #     prior_mean = outputs_batch.mean
-    #     # TODO: We can optimize this if we don't batch to avoid one evaluation of the prior mean
+        # Actions
+        actions_op = self.model.actions
+        num_actions = actions_op.shape[-2]
 
-    #     # Gramian S'KS
-    #     gram_SKS, StrS = kernels.SparseBilinearForms.apply(
-    #         self.model.train_inputs[0] / lengthscale,
-    #         actions_op.blocks.mT,
-    #         actions_op.blocks.mT,
-    #         actions_op.non_zero_idcs.mT,
-    #         actions_op.non_zero_idcs.mT,
-    #         forward_fn,
-    #         vjp_fn,
-    #         self.model.chunk_size,
-    #     )  # TODO: Can compute StrS more efficiently since we assume actions are made up of non-intersecting blocks.
-    #     gram_SKhatS = outputscale * gram_SKS + self.likelihood.noise * StrS
+        # Training data
+        train_inputs = self.model.train_inputs[0]
+        train_targets = self.model.train_targets
+        num_train_data = len(train_targets)
 
-    #     K_actions = outputscale * kernels.SparseLinearForms.apply(
-    #         train_inputs_batch / lengthscale,
-    #         self.model.train_inputs[0] / lengthscale,
-    #         actions_op.blocks,
-    #         actions_op.non_zero_idcs,
-    #         forward_fn,
-    #         vjp_fn,
-    #         self.model.chunk_size,
-    #     )
-    #     # K_actions = actions_op._matmul(kernel(self.model.train_inputs[0], train_inputs_batch)).mT
+        # Training data batch
+        if targets_batch.shape[0] < num_train_data:
+            is_batched_objective = True
+            train_inputs_batch = outputs_batch.lazy_covariance_matrix.x1
+            num_train_data_batch = targets_batch.shape[0]
+        else:
+            is_batched_objective = False
+            targets_batch = self.model.train_targets
+            num_train_data_batch = num_train_data
 
-    #     cholfac_gram_SKhatS = utils.cholesky.psd_safe_cholesky(gram_SKhatS.to(dtype=torch.float64), upper=False)
+        # Prior
+        prior_train_inputs = self.model(train_inputs)
+        prior_mean_train_inputs = prior_train_inputs.mean
 
-    #     # Compressed representer weights
-    #     actions_targets = actions_op._matmul(torch.atleast_2d(train_targets - prior_mean).mT).squeeze(-1)
-    #     compressed_repr_weights = torch.cholesky_solve(
-    #         actions_targets.unsqueeze(1).to(dtype=torch.float64), cholfac_gram_SKhatS, upper=False
-    #     ).squeeze(-1)
+        if is_batched_objective:
+            outputs_batch = prior_train_inputs
 
-    #     # Expected log-likelihood term
-    #     f_pred_mean_batch = outputs_batch.mean + K_actions @ torch.atleast_1d(compressed_repr_weights).to(
-    #         dtype=targets_batch.dtype
-    #     )
-    #     sqrt_downdate = torch.linalg.solve_triangular(cholfac_gram_SKhatS, K_actions.mT, upper=False)
-    #     trace_downdate = torch.sum(sqrt_downdate**2, dim=-1)
-    #     f_pred_var_batch = torch.sum(outputs_batch.variance) - torch.sum(trace_downdate)
-    #     expected_log_likelihood_term = -0.5 * (
-    #         num_train_data_batch * torch.log(self.likelihood.noise)
-    #         + 1
-    #         / self.likelihood.noise
-    #         * (torch.linalg.vector_norm(targets_batch - f_pred_mean_batch) ** 2 + f_pred_var_batch)
-    #         + num_train_data_batch * torch.log(torch.as_tensor(2 * math.pi))
-    #     ).div(num_train_data_batch)
+        # Kernel
+        if isinstance(self.model.covar_module, kernels.ScaleKernel):
+            outputscale = self.model.covar_module.outputscale
+            lengthscale = self.model.covar_module.base_kernel.lengthscale
+            kernel_forward_fn = self.model.covar_module.base_kernel._forward_no_kernel_linop
+        else:
+            outputscale = 1.0
+            lengthscale = self.model.covar_module.lengthscale
+            kernel_forward_fn = self.model.covar_module._forward_no_kernel_linop
 
-    #     # KL divergence to prior
-    #     kl_prior_term = 0.5 * (
-    #         torch.inner(compressed_repr_weights, (gram_SKS.to(dtype=torch.float64) @ compressed_repr_weights))
-    #         + 2 * torch.sum(torch.log(cholfac_gram_SKhatS.diagonal()))
-    #         - num_actions * torch.log(self.likelihood.noise).to(dtype=torch.float64)
-    #         - torch.logdet(StrS).to(
-    #             dtype=torch.float64
-    #         )  # NOTE: Assuming actions that are made up of blocks, StrS can be computed efficiently and should not blow up, since actions are orthogonal by definition
-    #         - torch.trace(torch.cholesky_solve(gram_SKS.to(dtype=torch.float64), cholfac_gram_SKhatS, upper=False))
-    #     ).div(num_train_data)
+        # Gramian S'KS
+        del self.model.cholfac_gram_SKhatS  # Explicitly free up memory from prediction
 
-    #     elbo = torch.squeeze(expected_log_likelihood_term - kl_prior_term.to(dtype=targets_batch.dtype))
-    #     return elbo
+        gram_SKS, StK = self._compute_StKS_stochastic_gradient(
+            X=train_inputs.div(lengthscale),
+            Sv=actions_op.blocks,
+            kernel=kernel_forward_fn,
+            num_blocks_with_grad=self.num_blocks_with_grad,
+        )
+        # gram_SKS = self._compute_StKS(
+        #     X=train_inputs.div(lengthscale),
+        #     Sv=actions_op.blocks,
+        #     kernel=kernel_forward_fn,
+        # )
+        gram_SKS = gram_SKS.mul(outputscale)
+        StK = StK.mul(outputscale)
+
+        StrS_diag = (actions_op.blocks**2).sum(-1)  # NOTE: Assumes orthogonal actions.
+        gram_SKhatS = gram_SKS + torch.diag(self.likelihood.noise * StrS_diag)
+
+        cholfac_gram_SKhatS = utils.cholesky.psd_safe_cholesky(gram_SKhatS.to(dtype=torch.float64), upper=False)
+
+        # Save Cholesky factor for prediction
+        self.model.cholfac_gram_SKhatS = cholfac_gram_SKhatS.clone().detach()
+
+        if is_batched_objective:
+            covar_x_batch_X_train_actions = (
+                (
+                    kernel_forward_fn(
+                        train_inputs_batch.div(lengthscale),
+                        self.model.train_inputs[0]
+                        .div(lengthscale)
+                        .view(self.model.num_iter, self.model.num_non_zero, self.model.train_inputs[0].shape[-1]),
+                    )
+                    @ actions_op.blocks.view(self.model.num_iter, self.model.num_non_zero, 1)
+                )
+                .squeeze(-1)
+                .mT.mul(outputscale)
+            )
+        else:
+            covar_x_batch_X_train_actions = StK.mT
+
+        # Compressed representer weights
+        actions_targets = actions_op._matmul(torch.atleast_2d(train_targets - prior_mean_train_inputs).mT).squeeze(-1)
+        compressed_repr_weights = torch.cholesky_solve(
+            actions_targets.unsqueeze(1).to(dtype=torch.float64), cholfac_gram_SKhatS, upper=False
+        ).squeeze(-1)
+
+        # Expected log-likelihood term
+        f_pred_mean_batch = outputs_batch.mean + covar_x_batch_X_train_actions @ torch.atleast_1d(
+            compressed_repr_weights
+        ).to(dtype=targets_batch.dtype)
+        sqrt_downdate = torch.linalg.solve_triangular(
+            cholfac_gram_SKhatS, covar_x_batch_X_train_actions.mT, upper=False
+        )
+        trace_downdate = torch.sum(sqrt_downdate**2, dim=-1)
+        f_pred_var_batch = torch.sum(outputs_batch.variance) - torch.sum(trace_downdate)
+        expected_log_likelihood_term = -0.5 * (
+            num_train_data_batch * torch.log(self.likelihood.noise)
+            + 1
+            / self.likelihood.noise
+            * (torch.linalg.vector_norm(targets_batch - f_pred_mean_batch) ** 2 + f_pred_var_batch)
+            + num_train_data_batch * torch.log(torch.as_tensor(2 * math.pi))
+        ).div(num_train_data_batch)
+
+        # KL divergence to prior
+        kl_prior_term = 0.5 * (
+            torch.inner(compressed_repr_weights, (gram_SKS.to(dtype=torch.float64) @ compressed_repr_weights))
+            + 2 * torch.sum(torch.log(cholfac_gram_SKhatS.diagonal()))
+            - num_actions * torch.log(self.likelihood.noise).to(dtype=torch.float64)
+            - torch.log(StrS_diag.to(dtype=torch.float64).sum())
+            - torch.trace(torch.cholesky_solve(gram_SKS.to(dtype=torch.float64), cholfac_gram_SKhatS, upper=False))
+        ).div(num_train_data)
+
+        elbo = torch.squeeze(expected_log_likelihood_term - kl_prior_term.to(dtype=targets_batch.dtype))
+        return elbo
+
+    def _compute_StKS_stochastic_gradient(
+        self,
+        X: Float[torch.Tensor, "... N D"],
+        Sv: Float[torch.Tensor, "... I K"],
+        kernel: Callable[
+            [Float[torch.Tensor, "... M1 D"], Float[torch.Tensor, "... M2 D"]],
+            Float[LazyTensor, "... M1 M2"],
+        ],
+        num_blocks_with_grad: Optional[int] = None,
+    ) -> Float[torch.Tensor, "... I I"]:
+        """
+        num_blocks_with_grad: if we divide S^T K S into rows, how many of the rows do we want contributing
+            to the gradient
+        """
+
+        *X_batch_shape, N, D = X.shape
+        *Sv_batch_shape, I, K = Sv.shape
+
+        if num_blocks_with_grad is None:
+            num_blocks_with_grad = I
+        num_blocks_no_grad = I - num_blocks_with_grad
+
+        Sv_detached = Sv  # .detach()
+        # ^^^ note we are purposefully detaching Sv here because we can compute its gradient easily and analytically
+        # We will use an autograd hack to populate Sv.grad down below
+
+        # Randomly shuffle X blocks and Sv blocks
+        # This ensures that we are randomly detaching parts of X for the stochastic gradient computation
+        sv_order = torch.randperm(I, device=Sv.device)
+        arange = torch.arange(K, device=Sv.device)
+        x_order = (sv_order.mul(K)[:, None] + arange).view(N)
+        Sv_detached_perm = Sv_detached  # [..., sv_order, :]
+        X_perm = X[..., x_order, :]
+
+        # Detach parts of X
+        X_with_grad = X_perm[..., : num_blocks_with_grad * K, :]
+        if X.requires_grad:
+            X_with_grad.register_hook(lambda grad: grad * (I / float(num_blocks_with_grad)))
+            # Up-weight the stochastic gradient terms based on how much we are dropping out
+        X_no_grad = X_perm[..., num_blocks_with_grad * K :, :].detach()
+
+        # Compute StK
+        K_nonzero_with_grad = kernel(
+            X_with_grad.view(*X_batch_shape, 1, num_blocks_with_grad, K, D),
+            X.view(*X_batch_shape, I, 1, K, D),
+        )
+        StK_nonzero_with_grad = (K_nonzero_with_grad @ Sv_detached_perm.view(*Sv_batch_shape, I, 1, K, 1)).squeeze(-1)
+        K_nonzero_no_grad = kernel(
+            X_no_grad.view(*X_batch_shape, 1, num_blocks_no_grad, K, D),
+            X.view(*X_batch_shape, I, 1, K, D).detach(),
+        )
+        StK_nonzero_no_grad = (K_nonzero_no_grad @ Sv_detached_perm.view(*Sv_batch_shape, I, 1, K, 1)).squeeze(-1)
+        StK_nonzero = torch.cat([StK_nonzero_with_grad, StK_nonzero_no_grad], dim=-2)
+
+        # Unshuffle the entries of StK
+        orig_sv_order = torch.empty_like(sv_order)
+        orig_sv_order[sv_order] = torch.arange(sv_order.size(0), device=sv_order.device)
+        StK_nonzero = StK_nonzero[..., :, orig_sv_order, :]
+
+        # Now compute StKS
+        StKS = torch.einsum("...ijk,...jk->...ij", StK_nonzero, Sv_detached)
+        # StKS = GetSvGradThroughStKS.apply(StKS, StK_nonzero.detach(), Sv)
+        # ^^^ note this functions is an autograd hack to ensure that the gradients of Sv get populated on the backward pass
+        # the forward pass is a no-op; it just returns StKS
+        # on the backward pass, we set Sv's gradient to be what it would have been if we hadn't detached it a few lines above
+
+        return StKS, StK_nonzero.view(I, I * K)
+
+    class GetSvGradThroughStKS(torch.autograd.Function):
+        """
+        Autograd hack function so that we can populate Sv's gradient with an analytic computation.
+        All of the computation on StKS and StKS_nonzero should be performed on a detached version of Sv,
+        so that Sv won't get gradients except through this function.
+
+        The forward pass is a no-op.
+        The backward pass is also a no-op, except that Sv's gradient gets populated with the analytic gradient computation.
+        """
+
+        @staticmethod
+        def forward(
+            ctx,
+            StKS: Float[torch.Tensor, "... I I"],
+            StK_nonzero: Float[torch.Tensor, "... I I K"],
+            Sv: Float[torch.Tensor, "... I K"],
+        ) -> Float[torch.Tensor, "... I I"]:
+            ctx.save_for_backward(StK_nonzero)
+            return StKS
+
+        @staticmethod
+        def backward(
+            ctx,
+            grad_output: Float[torch.Tensor, "... I I"],
+        ) -> Float[torch.Tensor, "... I I"]:
+            (StK_nonzero,) = ctx.saved_tensors
+            *Sv_batch_shape, I, _, K = StK_nonzero.shape
+            N = I * K
+
+            StK: Float[torch.Tensor, "... I N"] = StK_nonzero.view(*Sv_batch_shape, I, N)
+            S_grad = grad_output @ StK + grad_output.mT @ StK
+            Sv_grad = S_grad[
+                ...,
+                torch.arange(I, device=StK.device).view(I, 1),
+                torch.arange(N, device=StK.device).view(I, K),
+            ]
+            return grad_output, None, Sv_grad
+
+    def _compute_StKS(
+        self,
+        X: Float[torch.Tensor, "... N D"],
+        Sv: Float[torch.Tensor, "... I K"],
+        kernel: Callable[
+            [Float[torch.Tensor, "... M1 D"], Float[torch.Tensor, "... M2 D"]],
+            Float[LazyTensor, "... M1 M2"],
+        ],
+    ) -> Float[torch.Tensor, "... I I"]:
+        *X_batch_shape, N, D = X.shape
+        *Sv_batch_shape, I, K = Sv.shape
+        Sv_detached = Sv.detach()
+        # ^^^ note we are purposefully detaching Sv here because we can compute its gradient easily and analytically
+        # We will use an autograd hack to populate Sv.grad down below
+        K_nonzero: Float[LazyTensor, "... I I K K"] = kernel(
+            X.view(*X_batch_shape, 1, I, K, D), X.view(*X_batch_shape, I, 1, K, D)
+        )
+        StK_nonzero: Float[torch.Tensor, "... I I K"] = (
+            K_nonzero @ Sv_detached.view(*Sv_batch_shape, I, 1, K, 1)
+        ).squeeze(-1)
+        StKS: Float[torch.Tensor, "... I I"] = torch.einsum("...ijk,...jk->...ij", StK_nonzero, Sv_detached)
+        StKS = self.__class__.GetSvGradThroughStKS.apply(StKS, StK_nonzero.detach(), Sv)
+        # ^^^ note this functions is an autograd hack to ensure that the gradients of Sv get populated on the backward pass
+        # the forward pass is a no-op; it just returns StKS
+        # on the backward pass, we set Sv's gradient to be what it would have been if we hadn't detached it a few lines above
+        return StKS
