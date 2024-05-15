@@ -677,22 +677,21 @@ class ComputationAwareELBOCustomBackward(MarginalLogLikelihood):
         train_targets = self.model.train_targets
         num_train_data = len(train_targets)
 
-        # Training data batch
         if targets_batch.shape[0] < num_train_data:
+            # Batched objective
             is_batched_objective = True
             train_inputs_batch = outputs_batch.lazy_covariance_matrix.x1
             num_train_data_batch = targets_batch.shape[0]
+            prior_train_inputs = self.model(train_inputs)
         else:
+            # Objective evaluated on entire trainign data
             is_batched_objective = False
-            targets_batch = self.model.train_targets
+            targets_batch = self.model.train_targets[
+                0:num_train_data
+            ]  # Account for block structure in sparse actions (N=I*K)
+            outputs_batch = outputs_batch[0:num_train_data]
+            prior_train_inputs = outputs_batch
             num_train_data_batch = num_train_data
-
-        # Prior
-        prior_train_inputs = self.model(train_inputs)
-        prior_mean_train_inputs = prior_train_inputs.mean
-
-        if is_batched_objective:
-            outputs_batch = prior_train_inputs
 
         # Kernel
         if isinstance(self.model.covar_module, kernels.ScaleKernel):
@@ -747,7 +746,7 @@ class ComputationAwareELBOCustomBackward(MarginalLogLikelihood):
             covar_x_batch_X_train_actions = StK.mT
 
         # Compressed representer weights
-        actions_targets = actions_op._matmul(torch.atleast_2d(train_targets - prior_mean_train_inputs).mT).squeeze(-1)
+        actions_targets = actions_op._matmul(torch.atleast_2d(train_targets - prior_train_inputs.mean).mT).squeeze(-1)
         compressed_repr_weights = torch.cholesky_solve(
             actions_targets.unsqueeze(1).to(dtype=torch.float64), cholfac_gram_SKhatS, upper=False
         ).squeeze(-1)
