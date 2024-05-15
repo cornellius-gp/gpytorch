@@ -706,19 +706,29 @@ class ComputationAwareELBOCustomBackward(MarginalLogLikelihood):
         # Gramian S'KS
         del self.model.cholfac_gram_SKhatS  # Explicitly free up memory from prediction
 
-        gram_SKS, StK = self._compute_StKS_stochastic_gradient(
-            X=train_inputs.div(lengthscale),
-            Sv=actions_op.blocks,
-            kernel=kernel_forward_fn,
-            num_blocks_with_grad=self.num_blocks_with_grad,
-        )
-        # gram_SKS = self._compute_StKS(
-        #     X=train_inputs.div(lengthscale),
-        #     Sv=actions_op.blocks,
-        #     kernel=kernel_forward_fn,
-        # )
-        gram_SKS = gram_SKS.mul(outputscale)
-        StK = StK.mul(outputscale)
+        if self.num_blocks_with_grad is None:
+            K_lazy = kernel_forward_fn(
+                self.model.train_inputs[0]
+                .div(lengthscale)
+                .view(self.model.num_iter, self.model.num_non_zero, self.model.train_inputs[0].shape[-1]),
+                self.model.train_inputs[0]
+                .div(lengthscale)
+                .view(self.model.num_iter, 1, self.model.num_non_zero, self.model.train_inputs[0].shape[-1]),
+            )
+            StK_block_shape = (
+                K_lazy @ actions_op.blocks.view(self.model.num_iter, 1, self.model.num_non_zero, 1)
+            ).squeeze(-1)
+            gram_SKS = (StK_block_shape * actions_op.blocks).sum(-1).mul(outputscale)
+            StK = StK_block_shape.view(num_actions, num_actions * self.model.num_non_zero).mul(outputscale)
+        else:
+            gram_SKS, StK = self._compute_StKS_stochastic_gradient(
+                X=train_inputs.div(lengthscale),
+                Sv=actions_op.blocks,
+                kernel=kernel_forward_fn,
+                num_blocks_with_grad=self.num_blocks_with_grad,
+            )
+            gram_SKS = gram_SKS.mul(outputscale)
+            StK = StK.mul(outputscale)
 
         StrS_diag = (actions_op.blocks**2).sum(-1)  # NOTE: Assumes orthogonal actions.
         gram_SKhatS = gram_SKS + torch.diag(self.likelihood.noise * StrS_diag)
@@ -802,9 +812,7 @@ class ComputationAwareELBOCustomBackward(MarginalLogLikelihood):
             num_blocks_with_grad = I
         num_blocks_no_grad = I - num_blocks_with_grad
 
-        Sv_detached = Sv  # .detach()
-        # ^^^ note we are purposefully detaching Sv here because we can compute its gradient easily and analytically
-        # We will use an autograd hack to populate Sv.grad down below
+        Sv_detached = Sv
 
         # Randomly shuffle X blocks and Sv blocks
         # This ensures that we are randomly detaching parts of X for the stochastic gradient computation
@@ -841,74 +849,70 @@ class ComputationAwareELBOCustomBackward(MarginalLogLikelihood):
 
         # Now compute StKS
         StKS = torch.einsum("...ijk,...jk->...ij", StK_nonzero, Sv_detached)
-        # StKS = GetSvGradThroughStKS.apply(StKS, StK_nonzero.detach(), Sv)
-        # ^^^ note this functions is an autograd hack to ensure that the gradients of Sv get populated on the backward pass
-        # the forward pass is a no-op; it just returns StKS
-        # on the backward pass, we set Sv's gradient to be what it would have been if we hadn't detached it a few lines above
 
         return StKS, StK_nonzero.view(I, I * K)
 
-    class GetSvGradThroughStKS(torch.autograd.Function):
-        """
-        Autograd hack function so that we can populate Sv's gradient with an analytic computation.
-        All of the computation on StKS and StKS_nonzero should be performed on a detached version of Sv,
-        so that Sv won't get gradients except through this function.
+    # class GetSvGradThroughStKS(torch.autograd.Function):
+    #     """
+    #     Autograd hack function so that we can populate Sv's gradient with an analytic computation.
+    #     All of the computation on StKS and StKS_nonzero should be performed on a detached version of Sv,
+    #     so that Sv won't get gradients except through this function.
 
-        The forward pass is a no-op.
-        The backward pass is also a no-op, except that Sv's gradient gets populated with the analytic gradient computation.
-        """
+    #     The forward pass is a no-op.
+    #     The backward pass is also a no-op, except that Sv's gradient gets populated with the analytic gradient computation.
+    #     """
 
-        @staticmethod
-        def forward(
-            ctx,
-            StKS: Float[torch.Tensor, "... I I"],
-            StK_nonzero: Float[torch.Tensor, "... I I K"],
-            Sv: Float[torch.Tensor, "... I K"],
-        ) -> Float[torch.Tensor, "... I I"]:
-            ctx.save_for_backward(StK_nonzero)
-            return StKS
+    #     @staticmethod
+    #     def forward(
+    #         ctx,
+    #         StKS: Float[torch.Tensor, "... I I"],
+    #         StK_nonzero: Float[torch.Tensor, "... I I K"],
+    #         Sv: Float[torch.Tensor, "... I K"],
+    #     ) -> Float[torch.Tensor, "... I I"]:
+    #         ctx.save_for_backward(StK_nonzero)
+    #         return StKS
 
-        @staticmethod
-        def backward(
-            ctx,
-            grad_output: Float[torch.Tensor, "... I I"],
-        ) -> Float[torch.Tensor, "... I I"]:
-            (StK_nonzero,) = ctx.saved_tensors
-            *Sv_batch_shape, I, _, K = StK_nonzero.shape
-            N = I * K
+    #     @staticmethod
+    #     def backward(
+    #         ctx,
+    #         grad_output: Float[torch.Tensor, "... I I"],
+    #     ) -> Float[torch.Tensor, "... I I"]:
+    #         (StK_nonzero,) = ctx.saved_tensors
+    #         *Sv_batch_shape, I, _, K = StK_nonzero.shape
+    #         N = I * K
 
-            StK: Float[torch.Tensor, "... I N"] = StK_nonzero.view(*Sv_batch_shape, I, N)
-            S_grad = grad_output @ StK + grad_output.mT @ StK
-            Sv_grad = S_grad[
-                ...,
-                torch.arange(I, device=StK.device).view(I, 1),
-                torch.arange(N, device=StK.device).view(I, K),
-            ]
-            return grad_output, None, Sv_grad
+    #         StK: Float[torch.Tensor, "... I N"] = StK_nonzero.view(*Sv_batch_shape, I, N)
+    #         S_grad = grad_output @ StK + grad_output.mT @ StK
+    #         Sv_grad = S_grad[
+    #             ...,
+    #             torch.arange(I, device=StK.device).view(I, 1),
+    #             torch.arange(N, device=StK.device).view(I, K),
+    #         ]
+    #         return grad_output, None, Sv_grad
 
-    def _compute_StKS(
-        self,
-        X: Float[torch.Tensor, "... N D"],
-        Sv: Float[torch.Tensor, "... I K"],
-        kernel: Callable[
-            [Float[torch.Tensor, "... M1 D"], Float[torch.Tensor, "... M2 D"]],
-            Float[LazyTensor, "... M1 M2"],
-        ],
-    ) -> Float[torch.Tensor, "... I I"]:
-        *X_batch_shape, N, D = X.shape
-        *Sv_batch_shape, I, K = Sv.shape
-        Sv_detached = Sv.detach()
-        # ^^^ note we are purposefully detaching Sv here because we can compute its gradient easily and analytically
-        # We will use an autograd hack to populate Sv.grad down below
-        K_nonzero: Float[LazyTensor, "... I I K K"] = kernel(
-            X.view(*X_batch_shape, 1, I, K, D), X.view(*X_batch_shape, I, 1, K, D)
-        )
-        StK_nonzero: Float[torch.Tensor, "... I I K"] = (
-            K_nonzero @ Sv_detached.view(*Sv_batch_shape, I, 1, K, 1)
-        ).squeeze(-1)
-        StKS: Float[torch.Tensor, "... I I"] = torch.einsum("...ijk,...jk->...ij", StK_nonzero, Sv_detached)
-        StKS = self.__class__.GetSvGradThroughStKS.apply(StKS, StK_nonzero.detach(), Sv)
-        # ^^^ note this functions is an autograd hack to ensure that the gradients of Sv get populated on the backward pass
-        # the forward pass is a no-op; it just returns StKS
-        # on the backward pass, we set Sv's gradient to be what it would have been if we hadn't detached it a few lines above
-        return StKS
+    # def _compute_StKS(
+    #     self,
+    #     X: Float[torch.Tensor, "... N D"],
+    #     Sv: Float[torch.Tensor, "... I K"],
+    #     kernel: Callable[
+    #         [Float[torch.Tensor, "... M1 D"], Float[torch.Tensor, "... M2 D"]],
+    #         Float[LazyTensor, "... M1 M2"],
+    #     ],
+    # ) -> Float[torch.Tensor, "... I I"]:
+    #     *X_batch_shape, N, D = X.shape
+    #     *Sv_batch_shape, I, K = Sv.shape
+    #     Sv_detached = Sv.detach()
+    #     # ^^^ note we are purposefully detaching Sv here because we can compute its gradient easily and analytically
+    #     # We will use an autograd hack to populate Sv.grad down below
+    #     K_nonzero: Float[LazyTensor, "... I I K K"] = kernel(
+    #         X.view(*X_batch_shape, 1, I, K, D), X.view(*X_batch_shape, I, 1, K, D)
+    #     )
+    #     StK_nonzero: Float[torch.Tensor, "... I I K"] = (
+    #         K_nonzero @ Sv_detached.view(*Sv_batch_shape, I, 1, K, 1)
+    #     ).squeeze(-1)
+    #     StKS: Float[torch.Tensor, "... I I"] = torch.einsum("...ijk,...jk->...ij", StK_nonzero, Sv_detached)
+    #     StKS = self.__class__.GetSvGradThroughStKS.apply(StKS, StK_nonzero.detach(), Sv)
+    #     # ^^^ note this functions is an autograd hack to ensure that the gradients of Sv get populated on the backward pass
+    #     # the forward pass is a no-op; it just returns StKS
+    #     # on the backward pass, we set Sv's gradient to be what it would have been if we hadn't detached it a few lines above
+    #     return StKS
