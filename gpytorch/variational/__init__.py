@@ -19,10 +19,11 @@ from .nearest_neighbor_variational_strategy import NNVariationalStrategy
 from .orthogonally_decoupled_variational_strategy import OrthogonallyDecoupledVariationalStrategy
 from .tril_natural_variational_distribution import TrilNaturalVariationalDistribution
 from .unwhitened_variational_strategy import UnwhitenedVariationalStrategy
-from .variational_strategy import VariationalStrategy
+from .variational_strategy import VariationalStrategy, VariationalStrategyIndexed
 
 __all__ = [
     "_VariationalStrategy",
+    "_VariationalStrategyIndexed",
     "AdditiveGridInterpolationVariationalStrategy",
     "BatchDecoupledVariationalStrategy",
     "CiqVariationalStrategy",
