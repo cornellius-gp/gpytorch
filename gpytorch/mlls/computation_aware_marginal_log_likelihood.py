@@ -719,13 +719,13 @@ class ComputationAwareELBOCustomBackward(MarginalLogLikelihood):
             K_lazy = kernel_forward_fn(
                 self.model.train_inputs[0]
                 .div(lengthscale)
-                .view(self.model.num_iter, self.model.num_non_zero, self.model.train_inputs[0].shape[-1]),
+                .view(self.model.projection_dim, self.model.num_non_zero, self.model.train_inputs[0].shape[-1]),
                 self.model.train_inputs[0]
                 .div(lengthscale)
-                .view(self.model.num_iter, 1, self.model.num_non_zero, self.model.train_inputs[0].shape[-1]),
+                .view(self.model.projection_dim, 1, self.model.num_non_zero, self.model.train_inputs[0].shape[-1]),
             )
             StK_block_shape = (
-                K_lazy @ actions_op.blocks.view(self.model.num_iter, 1, self.model.num_non_zero, 1)
+                K_lazy @ actions_op.blocks.view(self.model.projection_dim, 1, self.model.num_non_zero, 1)
             ).squeeze(-1)
             gram_SKS = (StK_block_shape * actions_op.blocks).sum(-1).mul(outputscale)
             StK = StK_block_shape.view(num_actions, num_actions * self.model.num_non_zero).mul(outputscale)
@@ -754,9 +754,9 @@ class ComputationAwareELBOCustomBackward(MarginalLogLikelihood):
                         train_inputs_batch.div(lengthscale),
                         self.model.train_inputs[0]
                         .div(lengthscale)
-                        .view(self.model.num_iter, self.model.num_non_zero, self.model.train_inputs[0].shape[-1]),
+                        .view(self.model.projection_dim, self.model.num_non_zero, self.model.train_inputs[0].shape[-1]),
                     )
-                    @ actions_op.blocks.view(self.model.num_iter, self.model.num_non_zero, 1)
+                    @ actions_op.blocks.view(self.model.projection_dim, self.model.num_non_zero, 1)
                 )
                 .squeeze(-1)
                 .mT.mul(outputscale)
