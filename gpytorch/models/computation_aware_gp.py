@@ -76,7 +76,7 @@ class ComputationAwareGP(ExactGP):
         else:
             raise ValueError(f"Unknown initialization: '{initialization}'.")
 
-        self.actions = (
+        self.actions_op = (
             operators.BlockSparseLinearOperator(  # TODO: Can we speed this up by allowing ranges as non-zero indices?
                 non_zero_idcs=non_zero_idcs,
                 blocks=self.non_zero_action_entries,
@@ -125,14 +125,14 @@ class ComputationAwareGP(ExactGP):
                 )
                 gram_SKS = (
                     (
-                        (K_lazy @ self.actions.blocks.view(self.projection_dim, 1, self.num_non_zero, 1)).squeeze(-1)
-                        * self.actions.blocks
+                        (K_lazy @ self.actions_op.blocks.view(self.projection_dim, 1, self.num_non_zero, 1)).squeeze(-1)
+                        * self.actions_op.blocks
                     )
                     .sum(-1)
                     .mul(outputscale)
                 )
 
-                StrS_diag = (self.actions.blocks**2).sum(-1)  # NOTE: Assumes orthogonal actions.
+                StrS_diag = (self.actions_op.blocks**2).sum(-1)  # NOTE: Assumes orthogonal actions.
                 gram_SKhatS = gram_SKS + torch.diag(self.likelihood.noise * StrS_diag)
                 self.cholfac_gram_SKhatS = linop_utils.cholesky.psd_safe_cholesky(
                     gram_SKhatS.to(dtype=torch.float64), upper=False
@@ -147,7 +147,7 @@ class ComputationAwareGP(ExactGP):
                             self.projection_dim, self.num_non_zero, self.train_inputs[0].shape[-1]
                         ),
                     )
-                    @ self.actions.blocks.view(self.projection_dim, self.num_non_zero, 1)
+                    @ self.actions_op.blocks.view(self.projection_dim, self.num_non_zero, 1)
                 )
                 .squeeze(-1)
                 .mT.mul(outputscale)
@@ -159,7 +159,7 @@ class ComputationAwareGP(ExactGP):
             ).mT
 
             # "Projected" training data (with mean correction)
-            actions_target = self.actions @ (self.train_targets - self.mean_module(self.train_inputs[0]))
+            actions_target = self.actions_op @ (self.train_targets - self.mean_module(self.train_inputs[0]))
 
             # Compressed representer weights
             compressed_repr_weights = (

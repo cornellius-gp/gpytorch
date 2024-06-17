@@ -4,12 +4,10 @@ from __future__ import annotations
 import math
 import warnings
 from collections import deque
-from typing import Callable, Optional, Tuple, Union
+from typing import Tuple, Union
 
 import torch
-from jaxtyping import Float
 from linear_operator import operators, utils
-from pykeops.torch import LazyTensor
 
 from .. import kernels
 
@@ -148,37 +146,6 @@ class ComputationAwareMarginalLogLikelihoodAutoDiff(MarginalLogLikelihood):
             # Normalize log-marginal likelihood
             normalized_lml = lml.div(num_actions)
         else:
-            # # LML via preconditioner only
-            # # TODO: REMOVE ME?
-            # warnings.warn("Computing LML via preconditioner only!")
-
-            # num_data = target.shape[0]
-            # cholfac_Pinv = torch.linalg.cholesky(
-            #     self.model.preconditioner.inv_matmul(
-            #         torch.eye(num_data),
-            #         kernel=self.model.covar_module,
-            #         noise=self.likelihood.noise,
-            #         X=self.model.train_inputs[0],
-            #     )
-            # )
-            # target_minus_prior_mean = target - self.model.mean_module(self.model.train_inputs[0])
-            # lml = -(
-            #     0.5
-            #     * torch.inner(
-            #         target_minus_prior_mean,
-            #         self.model.preconditioner.inv_matmul(
-            #             target_minus_prior_mean,
-            #             kernel=self.model.covar_module,
-            #             noise=self.likelihood.noise,
-            #             X=self.model.train_inputs[0],
-            #         ),
-            #     )
-            #     + torch.sum(torch.log(cholfac_Pinv.diagonal()))
-            #     + 0.5 * num_data * math.log(2 * math.pi)
-            # )
-            # # Normalize log-marginal likelihood
-            # normalized_lml = lml.div(num_data)
-
             # LML for preconditioner-augmented prior
             warnings.warn("Computing LML via preconditioner-augmented prior only!")
             prior_dist = self.model.preconditioner_augmented_forward(self.model.train_inputs[0])
@@ -426,17 +393,17 @@ def _custom_gradient_wrt_kernel_hyperparameters(
     return tuple(grads)
 
 
-class ComputationAwareELBO(MarginalLogLikelihood):
+class ComputationAwareIterativeELBO(MarginalLogLikelihood):
     """Computation-aware ELBO."""
 
     def __init__(
         self,
         likelihood: GaussianLikelihood,
-        model: "ComputationAwareIterativeGP",
+        model: "gpytorch.models.ComputationAwareIterativeGP",
         use_sparse_bilinear_form: bool = False,
     ):
         if not isinstance(likelihood, _GaussianLikelihoodBase):
-            raise RuntimeError("Likelihood must be Gaussian for exact inference.")
+            raise NotImplementedError("Likelihood must be Gaussian for computation-aware inference.")
         super().__init__(likelihood, model)
         self.use_sparse_bilinear_form = use_sparse_bilinear_form
 
@@ -667,19 +634,15 @@ class ComputationAwareELBOCustomBackward(MarginalLogLikelihood):
     def __init__(
         self,
         likelihood: GaussianLikelihood,
-        model: "ComputationAwareIterativeGP",
-        num_blocks_with_grad: Optional[int] = None,
+        model: "gpytorch.models.ComputationAwareGP",
     ):
         if not isinstance(likelihood, _GaussianLikelihoodBase):
-            raise RuntimeError("Likelihood must be Gaussian for exact inference.")
+            raise NotImplementedError("Likelihood must be Gaussian for computation-aware inference.")
         super().__init__(likelihood, model)
-        self.num_blocks_with_grad = num_blocks_with_grad
 
     def forward(self, outputs_batch: torch.Tensor, targets_batch: torch.Tensor, **kwargs):
 
-        # Actions
-        actions_op = self.model.actions
-        num_actions = actions_op.shape[-2]
+        num_actions = self.model.actions_op.shape[-2]
 
         # Training data
         train_inputs = self.model.train_inputs[0]
@@ -715,31 +678,21 @@ class ComputationAwareELBOCustomBackward(MarginalLogLikelihood):
         # Gramian S'KS
         del self.model.cholfac_gram_SKhatS  # Explicitly free up memory from prediction
 
-        if self.num_blocks_with_grad is None:
-            K_lazy = kernel_forward_fn(
-                self.model.train_inputs[0]
-                .div(lengthscale)
-                .view(self.model.projection_dim, self.model.num_non_zero, self.model.train_inputs[0].shape[-1]),
-                self.model.train_inputs[0]
-                .div(lengthscale)
-                .view(self.model.projection_dim, 1, self.model.num_non_zero, self.model.train_inputs[0].shape[-1]),
-            )
-            StK_block_shape = (
-                K_lazy @ actions_op.blocks.view(self.model.projection_dim, 1, self.model.num_non_zero, 1)
-            ).squeeze(-1)
-            gram_SKS = (StK_block_shape * actions_op.blocks).sum(-1).mul(outputscale)
-            StK = StK_block_shape.view(num_actions, num_actions * self.model.num_non_zero).mul(outputscale)
-        else:
-            gram_SKS, StK = self._compute_StKS_stochastic_gradient(
-                X=train_inputs.div(lengthscale),
-                Sv=actions_op.blocks,
-                kernel=kernel_forward_fn,
-                num_blocks_with_grad=self.num_blocks_with_grad,
-            )
-            gram_SKS = gram_SKS.mul(outputscale)
-            StK = StK.mul(outputscale)
+        K_lazy = kernel_forward_fn(
+            train_inputs.div(lengthscale).view(
+                self.model.projection_dim, self.model.num_non_zero, train_inputs.shape[-1]
+            ),
+            train_inputs.div(lengthscale).view(
+                self.model.projection_dim, 1, self.model.num_non_zero, train_inputs.shape[-1]
+            ),
+        )
+        StK_block_shape = (
+            K_lazy @ self.model.actions_op.blocks.view(self.model.projection_dim, 1, self.model.num_non_zero, 1)
+        ).squeeze(-1)
+        gram_SKS = (StK_block_shape * self.model.actions_op.blocks).sum(-1).mul(outputscale)
+        StK = StK_block_shape.view(num_actions, num_actions * self.model.num_non_zero).mul(outputscale)
 
-        StrS_diag = (actions_op.blocks**2).sum(-1)  # NOTE: Assumes orthogonal actions.
+        StrS_diag = (self.model.actions_op.blocks**2).sum(-1)  # NOTE: Assumes orthogonal actions.
         gram_SKhatS = gram_SKS + torch.diag(self.likelihood.noise * StrS_diag)
 
         cholfac_gram_SKhatS = utils.cholesky.psd_safe_cholesky(gram_SKhatS.to(dtype=torch.float64), upper=False)
@@ -752,11 +705,11 @@ class ComputationAwareELBOCustomBackward(MarginalLogLikelihood):
                 (
                     kernel_forward_fn(
                         train_inputs_batch.div(lengthscale),
-                        self.model.train_inputs[0]
-                        .div(lengthscale)
-                        .view(self.model.projection_dim, self.model.num_non_zero, self.model.train_inputs[0].shape[-1]),
+                        train_inputs.div(lengthscale).view(
+                            self.model.projection_dim, self.model.num_non_zero, train_inputs.shape[-1]
+                        ),
                     )
-                    @ actions_op.blocks.view(self.model.projection_dim, self.model.num_non_zero, 1)
+                    @ self.model.actions_op.blocks.view(self.model.projection_dim, self.model.num_non_zero, 1)
                 )
                 .squeeze(-1)
                 .mT.mul(outputscale)
@@ -765,7 +718,9 @@ class ComputationAwareELBOCustomBackward(MarginalLogLikelihood):
             covar_x_batch_X_train_actions = StK.mT
 
         # Compressed representer weights
-        actions_targets = actions_op._matmul(torch.atleast_2d(train_targets - prior_train_inputs.mean).mT).squeeze(-1)
+        actions_targets = self.model.actions_op._matmul(
+            torch.atleast_2d(train_targets - prior_train_inputs.mean).mT
+        ).squeeze(-1)
         compressed_repr_weights = torch.cholesky_solve(
             actions_targets.unsqueeze(1).to(dtype=torch.float64), cholfac_gram_SKhatS, upper=False
         ).squeeze(-1)
@@ -798,65 +753,3 @@ class ComputationAwareELBOCustomBackward(MarginalLogLikelihood):
 
         elbo = torch.squeeze(expected_log_likelihood_term - kl_prior_term.to(dtype=targets_batch.dtype))
         return elbo
-
-    def _compute_StKS_stochastic_gradient(
-        self,
-        X: Float[torch.Tensor, "... N D"],
-        Sv: Float[torch.Tensor, "... I K"],
-        kernel: Callable[
-            [Float[torch.Tensor, "... M1 D"], Float[torch.Tensor, "... M2 D"]],
-            Float[LazyTensor, "... M1 M2"],
-        ],
-        num_blocks_with_grad: Optional[int] = None,
-    ) -> Float[torch.Tensor, "... I I"]:
-        """
-        num_blocks_with_grad: if we divide S^T K S into rows, how many of the rows do we want contributing
-            to the gradient
-        """
-
-        *X_batch_shape, N, D = X.shape
-        *Sv_batch_shape, I, K = Sv.shape
-
-        if num_blocks_with_grad is None:
-            num_blocks_with_grad = I
-        num_blocks_no_grad = I - num_blocks_with_grad
-
-        Sv_detached = Sv
-
-        # Randomly shuffle X blocks and Sv blocks
-        # This ensures that we are randomly detaching parts of X for the stochastic gradient computation
-        sv_order = torch.randperm(I, device=Sv.device)
-        arange = torch.arange(K, device=Sv.device)
-        x_order = (sv_order.mul(K)[:, None] + arange).view(N)
-        Sv_detached_perm = Sv_detached  # [..., sv_order, :]
-        X_perm = X[..., x_order, :]
-
-        # Detach parts of X
-        X_with_grad = X_perm[..., : num_blocks_with_grad * K, :]
-        if X.requires_grad:
-            X_with_grad.register_hook(lambda grad: grad * (I / float(num_blocks_with_grad)))
-            # Up-weight the stochastic gradient terms based on how much we are dropping out
-        X_no_grad = X_perm[..., num_blocks_with_grad * K :, :].detach()
-
-        # Compute StK
-        K_nonzero_with_grad = kernel(
-            X_with_grad.view(*X_batch_shape, 1, num_blocks_with_grad, K, D),
-            X.view(*X_batch_shape, I, 1, K, D),
-        )
-        StK_nonzero_with_grad = (K_nonzero_with_grad @ Sv_detached_perm.view(*Sv_batch_shape, I, 1, K, 1)).squeeze(-1)
-        K_nonzero_no_grad = kernel(
-            X_no_grad.view(*X_batch_shape, 1, num_blocks_no_grad, K, D),
-            X.view(*X_batch_shape, I, 1, K, D).detach(),
-        )
-        StK_nonzero_no_grad = (K_nonzero_no_grad @ Sv_detached_perm.view(*Sv_batch_shape, I, 1, K, 1)).squeeze(-1)
-        StK_nonzero = torch.cat([StK_nonzero_with_grad, StK_nonzero_no_grad], dim=-2)
-
-        # Unshuffle the entries of StK
-        orig_sv_order = torch.empty_like(sv_order)
-        orig_sv_order[sv_order] = torch.arange(sv_order.size(0), device=sv_order.device)
-        StK_nonzero = StK_nonzero[..., :, orig_sv_order, :]
-
-        # Now compute StKS
-        StKS = torch.einsum("...ijk,...jk->...ij", StK_nonzero, Sv_detached)
-
-        return StKS, StK_nonzero.view(I, I * K)
