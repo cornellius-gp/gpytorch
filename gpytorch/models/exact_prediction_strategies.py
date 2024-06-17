@@ -29,8 +29,8 @@ from .. import settings
 from ..distributions import MultitaskMultivariateNormal
 from ..lazy import LazyEvaluatedKernelTensor
 from ..utils.memoize import add_to_cache, cached, clear_cache_hook, pop_from_cache
-from .computation_aware_gp.linear_solvers import LinearSolver, LinearSolverState
-from .computation_aware_gp.preconditioners import Preconditioner
+from .computation_aware_iterative_gp.linear_solvers import LinearSolver, LinearSolverState
+from .computation_aware_iterative_gp.preconditioners import Preconditioner
 
 
 def prediction_strategy(train_inputs, train_prior_dist, train_labels, likelihood):

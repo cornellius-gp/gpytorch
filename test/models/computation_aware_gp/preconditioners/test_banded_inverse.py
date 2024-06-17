@@ -2,7 +2,7 @@
 
 import unittest
 
-from gpytorch.models.computation_aware_gp import preconditioners
+from gpytorch.models.computation_aware_iterative_gp import preconditioners
 from .test_preconditioner import BasePreconditionerTestCase
 
 N_PTS = 100

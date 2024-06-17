@@ -6,14 +6,14 @@ import torch
 
 import gpytorch
 
-from gpytorch.models import ComputationAwareGP
-from gpytorch.models.computation_aware_gp.linear_solvers import PLS, policies
+from gpytorch.models import ComputationAwareIterativeGP
+from gpytorch.models.computation_aware_iterative_gp.linear_solvers import PLS, policies
 from gpytorch.test.model_test_case import BaseModelTestCase
 
 N_PTS = 100
 
 
-class ComputationAwareGPModel(ComputationAwareGP):
+class ComputationAwareIterativeGPModel(ComputationAwareIterativeGP):
     def __init__(self, train_x, train_y, likelihood):
         super().__init__(
             train_x,
@@ -33,9 +33,9 @@ class ComputationAwareGPModel(ComputationAwareGP):
         return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
 
 
-class TestComputationAwareGP(BaseModelTestCase, unittest.TestCase):
+class TestComputationAwareIterativeGP(BaseModelTestCase, unittest.TestCase):
     def create_model(self, train_x, train_y, likelihood):
-        model = ComputationAwareGPModel(train_x, train_y, likelihood)
+        model = ComputationAwareIterativeGPModel(train_x, train_y, likelihood)
         return model
 
     def create_test_data(self):

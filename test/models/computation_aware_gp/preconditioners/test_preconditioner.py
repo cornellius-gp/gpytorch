@@ -8,7 +8,7 @@ import torch
 
 import gpytorch
 from gpytorch import kernels
-from gpytorch.models.computation_aware_gp import preconditioners
+from gpytorch.models.computation_aware_iterative_gp import preconditioners
 
 N_PTS = 100
 

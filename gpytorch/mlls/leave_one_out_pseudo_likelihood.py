@@ -171,14 +171,14 @@ class LeaveOneActionOutPseudoLikelihood(MarginalLogLikelihood):
 
     .. note::
         This module will not work with anything other than a :obj:`~gpytorch.likelihoods.GaussianLikelihood`
-        and a :obj:`~gpytorch.models.ComputationAwareGP`. It also cannot be used in conjunction with
+        and a :obj:`~gpytorch.models.ComputationAwareIterativeGP`. It also cannot be used in conjunction with
         stochastic optimization.
 
     :param ~gpytorch.likelihoods.GaussianLikelihood likelihood: The Gaussian likelihood for the model.
-    :param ~gpytorch.models.ComputationAwareGP model: The computation-aware iterative GP model.
+    :param ~gpytorch.models.ComputationAwareIterativeGP model: The computation-aware iterative GP model.
 
     Example:
-        >>> # model is a gpytorch.models.ComputationAwareGP
+        >>> # model is a gpytorch.models.ComputationAwareIterativeGP
         >>> # likelihood is a gpytorch.likelihoods.GaussianLikelihood
         >>> loocv = gpytorch.mlls.ComputationAwareLeaveOneOutPseudoLikelihood(likelihood, model)
         >>>

@@ -21,7 +21,10 @@ class ComputationAwareMarginalLogLikelihoodAutoDiff(MarginalLogLikelihood):
     """Computation-aware marginal log-likelihood with gradients via automatic differentiation."""
 
     def __init__(
-        self, likelihood: GaussianLikelihood, model: "ComputationAwareGP", use_sparse_bilinear_form: bool = False
+        self,
+        likelihood: GaussianLikelihood,
+        model: "ComputationAwareIterativeGP",
+        use_sparse_bilinear_form: bool = False,
     ):
         if not isinstance(likelihood, _GaussianLikelihoodBase):
             raise RuntimeError("Likelihood must be Gaussian for exact inference.")
@@ -220,7 +223,7 @@ class ComputationAwareMarginalLogLikelihood(MarginalLogLikelihood):
         # TODO
     """
 
-    def __init__(self, likelihood: GaussianLikelihood, model: "ComputationAwareGP"):
+    def __init__(self, likelihood: GaussianLikelihood, model: "ComputationAwareIterativeGP"):
         if not isinstance(likelihood, _GaussianLikelihoodBase):
             raise RuntimeError("Likelihood must be Gaussian for exact inference.")
         super().__init__(likelihood, model)
@@ -427,7 +430,10 @@ class ComputationAwareELBO(MarginalLogLikelihood):
     """Computation-aware ELBO."""
 
     def __init__(
-        self, likelihood: GaussianLikelihood, model: "ComputationAwareGP", use_sparse_bilinear_form: bool = False
+        self,
+        likelihood: GaussianLikelihood,
+        model: "ComputationAwareIterativeGP",
+        use_sparse_bilinear_form: bool = False,
     ):
         if not isinstance(likelihood, _GaussianLikelihoodBase):
             raise RuntimeError("Likelihood must be Gaussian for exact inference.")
@@ -659,7 +665,10 @@ class ComputationAwareELBOCustomBackward(MarginalLogLikelihood):
     """Computation-aware ELBO."""
 
     def __init__(
-        self, likelihood: GaussianLikelihood, model: "ComputationAwareGP", num_blocks_with_grad: Optional[int] = None
+        self,
+        likelihood: GaussianLikelihood,
+        model: "ComputationAwareIterativeGP",
+        num_blocks_with_grad: Optional[int] = None,
     ):
         if not isinstance(likelihood, _GaussianLikelihoodBase):
             raise RuntimeError("Likelihood must be Gaussian for exact inference.")

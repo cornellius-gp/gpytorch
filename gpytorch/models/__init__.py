@@ -2,9 +2,10 @@
 
 import warnings
 
-from . import computation_aware_gp, deep_gps, exact_prediction_strategies, gplvm, pyro
+from . import computation_aware_iterative_gp, deep_gps, exact_prediction_strategies, gplvm, pyro
 from .approximate_gp import ApproximateGP
-from .computation_aware_gp import ComputationAwareGP, ComputationAwareGPOpt
+from .computation_aware_gp import ComputationAwareGP
+from .computation_aware_iterative_gp import ComputationAwareIterativeGP
 from .exact_gp import ExactGP
 from .gp import GP
 from .model_list import AbstractModelList, IndependentModelList
@@ -13,8 +14,8 @@ from .pyro import PyroGP
 # Alternative name for ApproximateGP
 VariationalGP = ApproximateGP
 
-# Alternative name for ComputationAwareGP
-IterGP = ComputationAwareGP
+# Alternative name for ComputationAwareIterativeGP
+IterGP = ComputationAwareIterativeGP
 
 
 # Deprecated for 0.4 release
@@ -36,15 +37,15 @@ class PyroVariationalGP(ApproximateGP):
 __all__ = [
     "AbstractModelList",
     "ApproximateGP",
+    "ComputationAwareIterativeGP",
     "ComputationAwareGP",
-    "ComputationAwareGPOpt",
     "IterGP",
     "ExactGP",
     "GP",
     "IndependentModelList",
     "PyroGP",
     "VariationalGP",
-    "computation_aware_gp",
+    "computation_aware_iterative_gp",
     "deep_gps",
     "gplvm",
     "exact_prediction_strategies",
