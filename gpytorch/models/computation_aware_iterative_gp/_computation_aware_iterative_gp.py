@@ -2,6 +2,7 @@
 """Computation-aware iterative Gaussian processes."""
 
 import warnings
+from typing import Optional
 
 import torch
 
@@ -32,8 +33,8 @@ class ComputationAwareIterativeGP(ExactGP):
         train_inputs: torch.Tensor,
         train_targets: torch.Tensor,
         likelihood,
-        preconditioner: Preconditioner,
         linear_solver: LinearSolver,
+        preconditioner: Optional[Preconditioner] = None,
     ):
         super().__init__(train_inputs, train_targets, likelihood)
         self.preconditioner = preconditioner  # Registers preconditioner's parameters as hyperparameters
