@@ -17,6 +17,9 @@ VariationalGP = ApproximateGP
 # Alternative name for ComputationAwareIterativeGP
 IterGP = ComputationAwareIterativeGP
 
+# Alternative name for ComputationAwareGP
+CAGP = ComputationAwareGP
+
 
 # Deprecated for 0.4 release
 class AbstractVariationalGP(ApproximateGP):
@@ -39,6 +42,7 @@ __all__ = [
     "ApproximateGP",
     "ComputationAwareIterativeGP",
     "ComputationAwareGP",
+    "CAGP",
     "IterGP",
     "ExactGP",
     "GP",
