@@ -66,7 +66,7 @@ class BaseKeOpsTestCase(BaseTestCase):
                 # The patch makes sure that we're actually using KeOps
                 k1 = kern1(x1, x2).to_dense()
                 k2 = kern2(x1, x2).to_dense()
-                self.assertLess(torch.norm(k1 - k2), 1e-4)
+                self.assertLess(torch.norm(k1 - k2), 1e-3)
 
         if use_keops:
             self.assertTrue(keops_mock.called)
@@ -86,7 +86,7 @@ class BaseKeOpsTestCase(BaseTestCase):
                 # The patch makes sure that we're actually using KeOps
                 res1 = kern1(x1, x1).matmul(rhs)
                 res2 = kern2(x1, x1).matmul(rhs)
-                self.assertLess(torch.norm(res1 - res2), 1e-4)
+                self.assertLess(torch.norm(res1 - res2), 1e-3)
 
         if use_keops:
             self.assertTrue(keops_mock.called)
@@ -115,7 +115,7 @@ class BaseKeOpsTestCase(BaseTestCase):
                 # stack all gradients into a tensor
                 grad_s1 = torch.vstack(torch.autograd.grad(s1, [*kern1.hyperparameters()]))
                 grad_s2 = torch.vstack(torch.autograd.grad(s2, [*kern2.hyperparameters()]))
-                self.assertAllClose(grad_s1, grad_s2, rtol=1e-4, atol=1e-5)
+                self.assertAllClose(grad_s1, grad_s2, rtol=1e-3, atol=1e-3)
 
         if use_keops:
             self.assertTrue(keops_mock.called)

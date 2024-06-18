@@ -2,6 +2,7 @@
 from . import keops
 from .additive_structure_kernel import AdditiveStructureKernel
 from .arc_kernel import ArcKernel
+from .constant_kernel import ConstantKernel
 from .cosine_kernel import CosineKernel
 from .cylindrical_kernel import CylindricalKernel
 from .distributional_input_kernel import DistributionalInputKernel
@@ -40,6 +41,7 @@ __all__ = [
     "ArcKernel",
     "AdditiveKernel",
     "AdditiveStructureKernel",
+    "ConstantKernel",
     "CylindricalKernel",
     "MultiDeviceKernel",
     "CosineKernel",

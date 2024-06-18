@@ -35,7 +35,7 @@ class RFFKernel(Kernel):
 
     .. math::
         \begin{equation}
-        k(\Delta) = \exp{(-\frac{\Delta^2}{2\sigma^2})}$ and $p(\omega) = \exp{(-\frac{\sigma^2\omega^2}{2})}
+        k(\Delta) = \exp{(-\frac{\Delta^2}{2\sigma^2})} \text{ and } p(\omega) = \exp{(-\frac{\sigma^2\omega^2}{2})}
         \end{equation}
 
     where :math:`\Delta = x - x'`.
