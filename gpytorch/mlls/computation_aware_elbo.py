@@ -32,12 +32,12 @@ class ComputationAwareELBO(MarginalLogLikelihood):
         num_train_data = len(train_targets)
         prior_evaluated_at_train_inputs = outputs[
             0:num_train_data
-        ]  # Training data size might not exactly match self.model.num_non_zero * self.model.projection_dim
+        ]  # Training data size might not exactly match NNZ * PROJ_DIM
 
         if settings.debug.on():
             # Check whether training objective is evaluated at the training data
             # Note that subsetting is needed here, since a block sparse projection with equal block size
-            # necessitates that num_train_data = self.model.num_non_zero * self.model.projection_dim
+            # necessitates that num_train_data = NNZ * PROJ_DIM
             if (not torch.equal(train_inputs, outputs.lazy_covariance_matrix.x1[0:num_train_data])) or (
                 not torch.equal(train_targets, targets[0:num_train_data])
             ):
