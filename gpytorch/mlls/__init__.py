@@ -3,12 +3,8 @@
 import warnings
 
 from .added_loss_term import AddedLossTerm
-from .computation_aware_marginal_log_likelihood import (
-    ComputationAwareELBOCustomBackward,
-    ComputationAwareIterativeELBO,
-    ComputationAwareMarginalLogLikelihood,
-    ComputationAwareMarginalLogLikelihoodAutoDiff,
-)
+from .computation_aware_elbo import ComputationAwareELBO
+from .computation_aware_iterative_elbo import ComputationAwareIterativeELBO
 from .deep_approximate_mll import DeepApproximateMLL
 from .deep_predictive_log_likelihood import DeepPredictiveLogLikelihood
 from .exact_marginal_log_likelihood import ExactMarginalLogLikelihood
@@ -23,6 +19,10 @@ from .leave_one_out_pseudo_likelihood import (
 from .marginal_log_likelihood import MarginalLogLikelihood
 from .noise_model_added_loss_term import NoiseModelAddedLossTerm
 from .predictive_log_likelihood import PredictiveLogLikelihood
+from .projected_data_marginal_log_likelihood import (
+    ProjectedDataMarginalLogLikelihood,
+    ProjectedDataMarginalLogLikelihoodCustomBackward,
+)
 from .sum_marginal_log_likelihood import SumMarginalLogLikelihood
 from .variational_elbo import VariationalELBO
 
@@ -46,10 +46,10 @@ class VariationalELBOEmpirical(VariationalELBO):
 
 __all__ = [
     "AddedLossTerm",
-    "ComputationAwareMarginalLogLikelihood",
-    "ComputationAwareMarginalLogLikelihoodAutoDiff",
+    "ProjectedDataMarginalLogLikelihoodCustomBackward",
+    "ProjectedDataMarginalLogLikelihood",
     "ComputationAwareIterativeELBO",
-    "ComputationAwareELBOCustomBackward",
+    "ComputationAwareELBO",
     "DeepApproximateMLL",
     "DeepPredictiveLogLikelihood",
     "ExactMarginalLogLikelihood",
