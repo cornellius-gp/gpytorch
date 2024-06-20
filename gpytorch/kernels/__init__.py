@@ -19,6 +19,7 @@ from .matern_kernel import MaternKernel
 from .multi_device_kernel import MultiDeviceKernel
 from .multitask_kernel import MultitaskKernel
 from .newton_girard_additive_kernel import NewtonGirardAdditiveKernel
+from .parallel_partial_kernel import ParallelPartialKernel
 from .periodic_kernel import PeriodicKernel
 from .piecewise_polynomial_kernel import PiecewisePolynomialKernel
 from .polynomial_kernel import PolynomialKernel
@@ -55,6 +56,7 @@ __all__ = [
     "MaternKernel",
     "MultitaskKernel",
     "NewtonGirardAdditiveKernel",
+    "ParallelPartialKernel",
     "PeriodicKernel",
     "PiecewisePolynomialKernel",
     "PolynomialKernel",
