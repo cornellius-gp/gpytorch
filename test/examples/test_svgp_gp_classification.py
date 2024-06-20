@@ -16,7 +16,7 @@ from gpytorch.variational import CholeskyVariationalDistribution, VariationalStr
 
 
 def train_data(cuda=False):
-    train_x = torch.linspace(0, 1, 260)
+    train_x = torch.linspace(0, 1, 150)
     train_y = torch.cos(train_x * (2 * math.pi)).gt(0).float()
     if cuda:
         return train_x.cuda(), train_y.cuda()
@@ -49,7 +49,7 @@ class TestSVGPClassification(BaseTestCase, unittest.TestCase):
     def test_classification_error(self, cuda=False, mll_cls=gpytorch.mlls.VariationalELBO):
         train_x, train_y = train_data(cuda=cuda)
         likelihood = BernoulliLikelihood()
-        model = SVGPClassificationModel(torch.linspace(0, 1, 25))
+        model = SVGPClassificationModel(torch.linspace(0, 1, 64))
         mll = mll_cls(likelihood, model, num_data=len(train_y))
         if cuda:
             likelihood = likelihood.cuda()
@@ -59,12 +59,12 @@ class TestSVGPClassification(BaseTestCase, unittest.TestCase):
         # Find optimal model hyperparameters
         model.train()
         likelihood.train()
-        optimizer = optim.Adam([{"params": model.parameters()}, {"params": likelihood.parameters()}], lr=0.1)
+        optimizer = optim.Adam([{"params": model.parameters()}, {"params": likelihood.parameters()}], lr=0.03)
 
         _wrapped_cg = MagicMock(wraps=linear_operator.utils.linear_cg)
         _cg_mock = patch("linear_operator.utils.linear_cg", new=_wrapped_cg)
         with _cg_mock as cg_mock:
-            for _ in range(400):
+            for _ in range(100):
                 optimizer.zero_grad()
                 output = model(train_x)
                 loss = -mll(output, train_y)

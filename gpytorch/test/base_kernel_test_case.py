@@ -122,23 +122,21 @@ class BaseKernelTestCase(BaseTestCase):
         actual_diag = actual_covar_mat.diagonal(dim1=-1, dim2=-2)
         self.assertAllClose(kernel_diag, actual_diag, rtol=1e-3, atol=1e-5)
 
-    def test_smoke_double_batch_kernel_double_batch_x_no_ard(self):
+    def test_smoke_double_batch_kernel_double_batch_x_no_ard(self) -> None:
         kernel = self.create_kernel_no_ard(batch_shape=torch.Size([3, 2]))
         x = self.create_data_double_batch()
-        batch_covar_mat = kernel(x).evaluate_kernel().to_dense()
+        kernel(x).evaluate_kernel().to_dense()
         kernel(x, diag=True)
-        return batch_covar_mat
 
-    def test_smoke_double_batch_kernel_double_batch_x_ard(self):
+    def test_smoke_double_batch_kernel_double_batch_x_ard(self) -> None:
         try:
             kernel = self.create_kernel_ard(num_dims=2, batch_shape=torch.Size([3, 2]))
         except NotImplementedError:
             return
 
         x = self.create_data_double_batch()
-        batch_covar_mat = kernel(x).evaluate_kernel().to_dense()
+        kernel(x).evaluate_kernel().to_dense()
         kernel(x, diag=True)
-        return batch_covar_mat
 
     def test_kernel_getitem_single_batch(self):
         kernel = self.create_kernel_no_ard(batch_shape=torch.Size([2]))

@@ -47,7 +47,7 @@ class LeaveOneOutPseudoLikelihood(ExactMarginalLogLikelihood):
 
     def forward(self, function_dist: MultivariateNormal, target: Tensor, *params) -> Tensor:
         r"""
-        Computes the leave one out likelihood given :math:`p(\mathbf f)` and `\mathbf y`
+        Computes the leave one out likelihood given :math:`p(\mathbf f)` and :math:`\mathbf y`
 
         :param ~gpytorch.distributions.MultivariateNormal output: the outputs of the latent function
             (the :obj:`~gpytorch.models.GP`)
