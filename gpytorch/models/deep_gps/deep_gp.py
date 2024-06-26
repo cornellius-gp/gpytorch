@@ -9,7 +9,7 @@ from ... import settings
 from ...distributions import MultitaskMultivariateNormal
 from ...likelihoods import Likelihood
 from ..approximate_gp import ApproximateGP
-from ..gp import GP
+from ..module import Module
 
 
 class _DeepGPVariationalStrategy(object):
@@ -110,7 +110,7 @@ class DeepGPLayer(ApproximateGP):
         return output
 
 
-class DeepGP(GP):
+class DeepGP(Module):
     """
     A container module to build a DeepGP.
     This module should contain :obj:`~gpytorch.models.deep.DeepGPLayer`

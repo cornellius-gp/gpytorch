@@ -5,13 +5,13 @@ from typing import Any, Optional
 from torch import Tensor
 
 from ..distributions import MultivariateNormal
-from .exact_gp import ExactGP
 
-from .gp import GP
+from ..module import Module
+from .exact_gp import ExactGP
 from .pyro import _PyroMixin  # This will only contain functions if Pyro is installed
 
 
-class ApproximateGP(GP, _PyroMixin):
+class ApproximateGP(Module, _PyroMixin):
     r"""
     The base class for any Gaussian process latent function to be used in conjunction
     with approximate inference (typically stochastic variational inference).

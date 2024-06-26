@@ -6,11 +6,11 @@ import torch
 from torch.nn import ModuleList
 
 from gpytorch.likelihoods import LikelihoodList
-from gpytorch.models import GP
 from gpytorch.utils.generic import length_safe_zip
+from ..module import Module
 
 
-class AbstractModelList(GP, ABC):
+class AbstractModelList(Module, ABC):
     def forward_i(self, i, *args, **kwargs):
         """Forward restricted to the i-th model only."""
         raise NotImplementedError

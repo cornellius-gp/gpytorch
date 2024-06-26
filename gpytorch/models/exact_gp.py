@@ -8,13 +8,13 @@ import torch
 from .. import settings
 from ..distributions import MultitaskMultivariateNormal, MultivariateNormal
 from ..likelihoods import _GaussianLikelihoodBase
+from ..module import Module
 from ..utils.generic import length_safe_zip
 from ..utils.warnings import GPInputWarning
 from .exact_prediction_strategies import prediction_strategy
-from .gp import GP
 
 
-class ExactGP(GP):
+class ExactGP(Module):
     r"""
     The base class for any Gaussian process latent function to be used in conjunction
     with exact inference.

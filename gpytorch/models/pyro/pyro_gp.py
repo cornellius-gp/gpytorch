@@ -2,11 +2,11 @@
 
 import pyro
 
-from ..gp import GP
+from ...module import Module
 from ._pyro_mixin import _PyroMixin
 
 
-class PyroGP(GP, _PyroMixin):
+class PyroGP(Module, _PyroMixin):
     """
     A :obj:`~gpytorch.models.ApproximateGP` designed to work with Pyro.
 
