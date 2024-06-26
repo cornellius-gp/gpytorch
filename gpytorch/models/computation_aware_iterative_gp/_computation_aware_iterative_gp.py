@@ -5,14 +5,147 @@ import warnings
 from typing import Optional
 
 import torch
+from linear_operator.operators import BlockSparseLinearOperator, LinearOperator, RootLinearOperator, ZeroLinearOperator
 
 from ... import settings
 from ...distributions import MultivariateNormal
+from ...utils.memoize import cached
 from ...utils.warnings import GPInputWarning
 from ..exact_gp import ExactGP
-from ..exact_prediction_strategies import ComputationAwarePredictionStrategy
-from .linear_solvers import LinearSolver
+from ..exact_prediction_strategies import DefaultPredictionStrategy
+from .linear_solvers import LinearSolver, LinearSolverState
 from .preconditioners import Preconditioner
+
+
+class ComputationAwarePredictionStrategy(DefaultPredictionStrategy):
+    """A Gaussian process prediction strategy which considers the performed computation."""
+
+    def __init__(
+        self,
+        train_inputs: torch.Tensor,
+        train_prior_dist,
+        train_labels: torch.Tensor,
+        likelihood,
+        kernel,
+        preconditioner: Preconditioner,
+        linear_solver: LinearSolver,
+        solver_state: LinearSolverState,
+    ):
+        super().__init__(
+            train_inputs,
+            train_prior_dist,
+            train_labels,
+            likelihood,
+            root=None,
+            inv_root=None,
+        )
+        if solver_state is not None:
+            if solver_state.cache["actions_op"].shape[1] == train_inputs[0].shape[0]:
+                # Linear solver was run during loss computation, therefore we can recycle the solver state.
+                self._solver_state = solver_state
+                return None
+
+        # We only want to predict using the posterior, nothing has been precomputed (e.g. if we evaluated the loss on a batch).
+
+        # Evaluate preconditioner-augmented prior
+        mvn = self.likelihood(self.train_prior_dist, self.train_inputs)
+        train_mean, train_train_covar = mvn.loc, mvn.lazy_covariance_matrix
+
+        # Compute the representer weights
+        with torch.no_grad():  # Ensure gradients are not taken through the solve
+            self._solver_state = linear_solver.solve(
+                train_train_covar,
+                self.train_labels - train_mean,
+                # TODO: arguments below are only needed for sparse bilinear form
+                # train_inputs=train_inputs[0],
+                # kernel=kernel,
+                # noise=likelihood.noise,
+            )
+
+    def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output, **kwargs):
+        raise NotImplementedError(
+            "Fantasy observation updates not (yet) supported for computation-aware Gaussian processes."
+        )
+
+    @property
+    def solver_state(self) -> LinearSolverState:
+        """State of the linear solver solving for the representer weights."""
+        return self._solver_state
+
+    def exact_prediction(self, joint_mean, joint_covar):
+        # Find the components of the distribution that contain test data
+        test_mean = joint_mean[..., self.num_train :]
+        # For efficiency - we can make things more efficient
+        if joint_covar.size(-1) <= settings.max_eager_kernel_size.value():
+            test_covar = joint_covar[..., self.num_train :, :].to_dense()
+            test_test_covar = test_covar[..., self.num_train :]
+            test_train_covar = test_covar[..., : self.num_train]
+        else:
+            test_test_covar = joint_covar[..., self.num_train :, self.num_train :]
+            test_train_covar = joint_covar[..., self.num_train :, : self.num_train]
+
+        # Precompute K(X_*, X) S
+        covar_test_train_actions = (
+            (self.solver_state.cache["actions_op"]._matmul(test_train_covar.mT)).mT
+            if isinstance(self.solver_state.cache["actions_op"], BlockSparseLinearOperator)
+            else test_train_covar @ self.solver_state.cache["actions_op"].mT
+        )
+
+        return (
+            self.predictive_mean(test_mean, covar_test_train_actions),
+            self.predictive_covar(test_test_covar, covar_test_train_actions),
+        )
+
+    @property
+    @cached(name="mean_cache")
+    def mean_cache(self) -> torch.Tensor:
+        """Compute the representer weights."""
+        raise NotImplementedError  # Note: Want to avoid quadratic cost of multiplying with representer weights.
+
+    def predictive_mean(self, test_mean: torch.Tensor, covar_test_train_actions: torch.Tensor) -> torch.Tensor:
+        """
+        Computes the posterior predictive mean.
+
+        :param Tensor test_mean: The test prior mean
+        :param Tensor covar_test_train_actions: Kernel evaluated at test and train points, multiplied by the
+        actions: :math:`K_{X_*, X} S`.
+
+        :return: The predictive posterior mean of the test points
+        """
+        return test_mean + covar_test_train_actions @ self.solver_state.cache["compressed_solution"]
+
+    @property
+    @cached(name="covar_cache")
+    def covar_cache(self):
+        raise NotImplementedError
+
+    def _exact_predictive_covar_inv_quad_form_root(self, covar_test_train_actions: torch.Tensor):
+        r"""
+        Computes :math:`K_{X_*, X} S L^{-T}`.
+
+        :param Tensor covar_test_train_actions: Kernel evaluated at test and train points, multiplied by the
+        actions: :math:`K_{X_*, X} S`.
+
+        Returns
+            :obj:`~linear_operator.operators.LinearOperator`: :math:`K_{X_*, X} S L^{-T}`
+        """
+        # Compute a triangular solve to obtain k(X_*, X)S L^{-T}
+        return torch.linalg.solve_triangular(
+            self.solver_state.cache["cholfac_gram"],
+            covar_test_train_actions.mT,
+            upper=False,
+            left=True,
+        ).mT
+
+    def predictive_covar(self, test_test_covar: LinearOperator, test_train_covar: LinearOperator):
+        """Computes the posterior predictive covariance."""
+        if settings.skip_posterior_variances.on():
+            return ZeroLinearOperator(*test_test_covar.size())
+
+        covar_inv_quad_form_root = self._exact_predictive_covar_inv_quad_form_root(test_train_covar)
+
+        # TODO: mode for marginals only that vmaps over the test points to reduce memory complexity to O(n_test)
+        return test_test_covar - RootLinearOperator(root=covar_inv_quad_form_root)
 
 
 class ComputationAwareIterativeGP(ExactGP):
