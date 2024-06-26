@@ -8,8 +8,8 @@ from linear_operator.operators import BlockDiagLinearOperator
 from ... import settings
 from ...distributions import MultitaskMultivariateNormal
 from ...likelihoods import Likelihood
+from ...module import Module
 from ..approximate_gp import ApproximateGP
-from ..module import Module
 
 
 class _DeepGPVariationalStrategy(object):

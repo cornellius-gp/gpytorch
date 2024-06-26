@@ -1,38 +1,22 @@
-#!/usr/bin/env python3
-
-import warnings
+"""Gaussian process models."""
 
 from . import deep_gps, exact_prediction_strategies, gplvm, pyro
 from .approximate_gp import ApproximateGP
 from .exact_gp import ExactGP
-from .gp import GP
+from .gaussian_process import GaussianProcess
 from .model_list import AbstractModelList, IndependentModelList
 from .pyro import PyroGP
 
-# Alternative name for ApproximateGP
+# Aliases
+GP = GaussianProcess
 VariationalGP = ApproximateGP
-
-
-# Deprecated for 0.4 release
-class AbstractVariationalGP(ApproximateGP):
-    # Remove after 1.0
-    def __init__(self, *args, **kwargs):
-        warnings.warn("AbstractVariationalGP has been renamed to ApproximateGP.", DeprecationWarning)
-        super().__init__(*args, **kwargs)
-
-
-# Deprecated for 0.4 release
-class PyroVariationalGP(ApproximateGP):
-    # Remove after 1.0
-    def __init__(self, *args, **kwargs):
-        warnings.warn("PyroVariationalGP has been renamed to PyroGP.", DeprecationWarning)
-        super().__init__(*args, **kwargs)
 
 
 __all__ = [
     "AbstractModelList",
     "ApproximateGP",
     "ExactGP",
+    "GaussianProcess",
     "GP",
     "IndependentModelList",
     "PyroGP",
