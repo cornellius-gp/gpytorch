@@ -26,7 +26,7 @@
 
 ## Other Changes
 - Removed [shebang lines](https://stackoverflow.com/questions/9783482/should-python-library-modules-start-with-usr-bin-env-python?rq=3) from modules that are not intended to be executed in the command line.
-- [Ignored ``F722`` error by ``flake8`` to enable compatibility with ``jaxtyping``.](https://docs.kidger.site/jaxtyping/faq/#flake8-or-ruff-are-throwing-an-error)
+- [Ignored ``F722`` error by ``flake8`` to enable compatibility of forward annotation with ``jaxtyping``.](https://docs.kidger.site/jaxtyping/faq/#flake8-or-ruff-are-throwing-an-error)
 
 ## Ideas
 - Separate class for ``MultiOutputGaussianProcess`` (alternatively ``VectorValuedGaussianProcess``, ``MultiTaskGaussianProcess``)
