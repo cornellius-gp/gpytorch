@@ -15,6 +15,7 @@ from .inducing_point_kernel import InducingPointKernel
 from .kernel import AdditiveKernel, Kernel, ProductKernel
 from .lcm_kernel import LCMKernel
 from .linear_kernel import LinearKernel
+from .matern52_kernel_grad import Matern52KernelGrad
 from .matern_kernel import MaternKernel
 from .multi_device_kernel import MultiDeviceKernel
 from .multitask_kernel import MultitaskKernel
@@ -75,4 +76,5 @@ __all__ = [
     "SparseLinearForms",
     "SpectralDeltaKernel",
     "SpectralMixtureKernel",
+    "Matern52KernelGrad",
 ]
