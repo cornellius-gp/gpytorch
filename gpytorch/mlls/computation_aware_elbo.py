@@ -54,7 +54,7 @@ class ComputationAwareELBO(MarginalLogLikelihood):
             kernel_forward_fn = self.model.covar_module._forward_no_kernel_linop
 
         # Explicitly free up memory from prediction to avoid unnecessary memory overhead
-        # TODO: does this really do much if we zero the gradients anyway?
+        # TODO: does this really do much, since we detach it from the graph anyway?
         del self.model.cholfac_gram_SKhatS
 
         # Lazily evaluate kernel at training inputs as a 4D tensor with shape (PROJ_DIM, PROJ_DIM, NNZ, NNZ)

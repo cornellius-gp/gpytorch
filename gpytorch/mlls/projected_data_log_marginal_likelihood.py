@@ -15,8 +15,8 @@ from ..likelihoods import _GaussianLikelihoodBase, GaussianLikelihood
 from .marginal_log_likelihood import MarginalLogLikelihood
 
 
-class ProjectedDataMarginalLogLikelihood(MarginalLogLikelihood):
-    """Projected data marginal log-likelihood with gradients via automatic differentiation."""
+class ProjectedDataLogMarginalLikelihood(MarginalLogLikelihood):
+    """Projected data log marginal likelihood with gradients via automatic differentiation."""
 
     def __init__(
         self,
@@ -177,7 +177,7 @@ class ProjectedDataMarginalLogLikelihood(MarginalLogLikelihood):
             return self._forward_sparse_linop(output=output, target=target, **kwargs)
 
 
-class ProjectedDataMarginalLogLikelihoodCustomBackward(MarginalLogLikelihood):
+class ProjectedDataLogMarginalLikelihoodCustomBackward(MarginalLogLikelihood):
     """Projected data marginal log-likelihood using a custom backward pass."""
 
     def __init__(self, likelihood: GaussianLikelihood, model: "ComputationAwareIterativeGP"):
@@ -210,7 +210,7 @@ class ProjectedDataMarginalLogLikelihoodCustomBackward(MarginalLogLikelihood):
         # Implementing this via an autograd function is the recommended pattern by
         # PyTorch for extending nn.Module with a custom backward pass.
         # See also: https://pytorch.org/docs/stable/notes/extending.html#extending-torch-nn
-        return _ProjectedDataMarginalLogLikelihoodFunction.apply(
+        return _ProjectedDataLogMarginalLikelihoodFunction.apply(
             Khat.representation_tree(),
             target,
             compressed_repr_weights,
@@ -223,7 +223,7 @@ class ProjectedDataMarginalLogLikelihoodCustomBackward(MarginalLogLikelihood):
         )
 
 
-class _ProjectedDataMarginalLogLikelihoodFunction(torch.autograd.Function):
+class _ProjectedDataLogMarginalLikelihoodFunction(torch.autograd.Function):
     """Autograd function computing the computation-aware marginal log-likelihood."""
 
     @staticmethod

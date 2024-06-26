@@ -19,9 +19,9 @@ from .leave_one_out_pseudo_likelihood import (
 from .marginal_log_likelihood import MarginalLogLikelihood
 from .noise_model_added_loss_term import NoiseModelAddedLossTerm
 from .predictive_log_likelihood import PredictiveLogLikelihood
-from .projected_data_marginal_log_likelihood import (
-    ProjectedDataMarginalLogLikelihood,
-    ProjectedDataMarginalLogLikelihoodCustomBackward,
+from .projected_data_log_marginal_likelihood import (
+    ProjectedDataLogMarginalLikelihood,
+    ProjectedDataLogMarginalLikelihoodCustomBackward,
 )
 from .sum_marginal_log_likelihood import SumMarginalLogLikelihood
 from .variational_elbo import VariationalELBO
@@ -46,8 +46,8 @@ class VariationalELBOEmpirical(VariationalELBO):
 
 __all__ = [
     "AddedLossTerm",
-    "ProjectedDataMarginalLogLikelihoodCustomBackward",
-    "ProjectedDataMarginalLogLikelihood",
+    "ProjectedDataLogMarginalLikelihoodCustomBackward",
+    "ProjectedDataLogMarginalLikelihood",
     "ComputationAwareIterativeELBO",
     "ComputationAwareELBO",
     "DeepApproximateMLL",
