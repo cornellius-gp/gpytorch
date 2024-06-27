@@ -5,9 +5,9 @@ name: Run Test Suite
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main, develop ]
   pull_request:
-    branches: [ master ]
+    branches: [ main, develop ]
   workflow_call:
 
 jobs:
