@@ -7,6 +7,7 @@ import torch
 from linear_operator import LinearOperator
 from torch import Tensor
 
+from .module import Module  # isort:skip
 from . import (
     beta_features,
     distributions,
@@ -26,7 +27,7 @@ from . import (
 from .functions import inv_matmul, log_normal_cdf, logdet, matmul  # Deprecated
 from .lazy import cat, delazify, lazify
 from .mlls import ExactMarginalLogLikelihood
-from .module import Module
+
 
 Anysor = Union[LinearOperator, Tensor]
 

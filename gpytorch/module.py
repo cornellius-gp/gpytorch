@@ -294,7 +294,7 @@ class Module(nn.Module):
             self.initialize(**{param_name: new_constraint.initial_value})
 
     def train(self, mode=True):
-        # If we're going in training mode, we need to clear any pre-comptued caches from eval mode
+        # If we're going in training mode, we need to clear any pre-computed caches from eval mode
         if (self.training and not mode) or mode:
             self._clear_cache()
         return super().train(mode=mode)

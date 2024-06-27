@@ -21,8 +21,8 @@
 
 - [ ] ``PredictionStrategy``
 - Deprecated modules
-    - [ ] ``AbstractVariationalGP``
-    - [ ] ``PyroVariationalGP``
+    - [x] ``AbstractVariationalGP``
+    - [x] ``PyroVariationalGP``
 
 ## Other Changes
 - Removed [shebang lines](https://stackoverflow.com/questions/9783482/should-python-library-modules-start-with-usr-bin-env-python?rq=3) from modules that are not intended to be executed in the command line.
@@ -37,6 +37,7 @@
 - How diligent should we about deprecating? Or do we just accept breaking backwards compatibility.
 - How to deal with updating a model with new training data? What role does ``get_fantasy_model`` play?
 - Why can train inputs be lists / tuples of tensors?
+- **How can we ensure we delete the cache each training loop?** How is this done currently?
 
 ## Nice-to-have but optional
 - [ ] Modernize configuration a bit
