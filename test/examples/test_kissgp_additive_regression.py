@@ -9,7 +9,7 @@ from torch import optim
 
 import gpytorch
 from gpytorch.distributions import MultivariateNormal
-from gpytorch.kernels import AdditiveStructureKernel, GridInterpolationKernel, RBFKernel, ScaleKernel
+from gpytorch.kernels import GridInterpolationKernel, RBFKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ZeroMean
 
@@ -36,14 +36,12 @@ class GPRegressionModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood):
         super(GPRegressionModel, self).__init__(train_x, train_y, likelihood)
         self.mean_module = ZeroMean()
-        self.base_covar_module = ScaleKernel(RBFKernel(ard_num_dims=2))
-        self.covar_module = AdditiveStructureKernel(
-            GridInterpolationKernel(self.base_covar_module, grid_size=100, num_dims=1), num_dims=2
-        )
+        self.base_covar_module = ScaleKernel(RBFKernel(batch_shape=torch.Size([2])))
+        self.covar_module = GridInterpolationKernel(self.base_covar_module, grid_size=100, num_dims=1)
 
     def forward(self, x):
         mean_x = self.mean_module(x)
-        covar_x = self.covar_module(x)
+        covar_x = self.covar_module(x.mT[..., None]).sum(dim=-3)
         return MultivariateNormal(mean_x, covar_x)
 
 
