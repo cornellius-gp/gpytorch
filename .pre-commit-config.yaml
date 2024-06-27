@@ -16,7 +16,7 @@ repos:
     hooks:
     -   id: flake8
         args: [--config=setup.cfg]
-        exclude: ^(examples/*)|(docs/*)
+        exclude: ^(examples/.*)|(docs/.*)
 -   repo: https://github.com/omnilib/ufmt
     rev: v2.0.0
     hooks:
@@ -24,15 +24,15 @@ repos:
         additional_dependencies:
         - black == 22.3.0
         - usort == 1.0.3
-        exclude: ^(build/*)|(docs/*)|(examples/*)
+        exclude: ^(build/.*)|(docs/.*)|(examples/.*)
 -   repo: https://github.com/jumanjihouse/pre-commit-hooks
     rev: 2.1.6
     hooks:
     -   id: require-ascii
-        exclude: ^(examples/.*\.ipynb)|(.github/ISSUE_TEMPLATE/*)
+        exclude: ^(examples/.*\.ipynb)|(.github/ISSUE_TEMPLATE/.*)
     -   id: script-must-have-extension
     -   id: forbid-binary
-        exclude: ^(examples/*)|(test/examples/old_variational_strategy_model.pth)
+        exclude: ^(examples/.*)|(test/examples/old_variational_strategy_model.pth)
 -   repo: https://github.com/Lucas-C/pre-commit-hooks
     rev: v1.1.13
     hooks:
