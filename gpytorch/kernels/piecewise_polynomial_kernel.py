@@ -101,20 +101,13 @@ class PiecewisePolynomialKernel(Kernel):
             raise ValueError("q expected to be 0, 1, 2 or 3")
         self.q = q
 
-    def forward(self, x1: Tensor, x2: Tensor, last_dim_is_batch: bool = False, diag: bool = False, **params) -> Tensor:
+    def forward(self, x1: Tensor, x2: Tensor, diag: bool = False, **params) -> Tensor:
         x1_ = x1.div(self.lengthscale)
         x2_ = x2.div(self.lengthscale)
-        if last_dim_is_batch is True:
-            D = x1.shape[1]
-        else:
-            D = x1.shape[-1]
+        D = x1.shape[-1]
         j = math.floor(D / 2.0) + self.q + 1
-        if last_dim_is_batch and diag:
-            r = self.covar_dist(x1_, x2_, last_dim_is_batch=True, diag=True)
-        elif diag:
+        if diag:
             r = self.covar_dist(x1_, x2_, diag=True)
-        elif last_dim_is_batch:
-            r = self.covar_dist(x1_, x2_, last_dim_is_batch=True)
         else:
             r = self.covar_dist(x1_, x2_)
         cov_matrix = _fmax(r, j, self.q) * _get_cov(r, j, self.q)

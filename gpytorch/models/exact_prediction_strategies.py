@@ -835,7 +835,6 @@ class SGPRPredictionStrategy(DefaultPredictionStrategy):
                 test_test_covar.x1,
                 test_test_covar.x2,
                 test_test_covar.kernel.base_kernel,
-                test_test_covar.last_dim_is_batch,
                 **test_test_covar.params,
             )
 
