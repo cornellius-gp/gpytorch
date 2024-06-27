@@ -51,19 +51,6 @@ class TestPiecewisePolynomialKernel(unittest.TestCase, BaseKernelTestCase):
         res = kernel(a, b).diagonal(dim1=-1, dim2=-2)
         self.assertLess(torch.norm(res - actual), 1e-5)
 
-        # batch_dims
-        actual = torch.zeros(2, 3, 3)
-        for i in range(2):
-            actual[i] = kernel(a[:, i].unsqueeze(-1), b[:, i].unsqueeze(-1)).to_dense()
-
-        res = kernel(a, b, last_dim_is_batch=True).to_dense()
-        self.assertLess(torch.norm(res - actual), 1e-5)
-
-        # batch_dims + diag
-        res = kernel(a, b, last_dim_is_batch=True).diagonal(dim1=-1, dim2=-2)
-        actual = torch.cat([actual[i].diagonal(dim1=-1, dim2=-2).unsqueeze(0) for i in range(actual.size(0))])
-        self.assertLess(torch.norm(res - actual), 1e-5)
-
     def test_piecewise_polynomial_kernel_batch(self):
         a = torch.tensor([[4, 2, 8], [1, 2, 3]], dtype=torch.float).view(2, 3, 1)
         b = torch.tensor([[0, 2, 1], [-1, 2, 0]], dtype=torch.float).view(2, 3, 1)

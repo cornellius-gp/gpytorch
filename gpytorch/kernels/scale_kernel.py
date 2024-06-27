@@ -105,11 +105,9 @@ class ScaleKernel(Kernel):
             value = torch.as_tensor(value).to(self.raw_outputscale)
         self.initialize(raw_outputscale=self.raw_outputscale_constraint.inverse_transform(value))
 
-    def forward(self, x1, x2, last_dim_is_batch=False, diag=False, **params):
-        orig_output = self.base_kernel.forward(x1, x2, diag=diag, last_dim_is_batch=last_dim_is_batch, **params)
+    def forward(self, x1, x2, diag=False, **params):
+        orig_output = self.base_kernel.forward(x1, x2, diag=diag, **params)
         outputscales = self.outputscale
-        if last_dim_is_batch:
-            outputscales = outputscales.unsqueeze(-1)
         if diag:
             outputscales = outputscales.unsqueeze(-1)
             return to_dense(orig_output) * outputscales

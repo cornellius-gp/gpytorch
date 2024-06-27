@@ -124,23 +124,20 @@ class PeriodicKernel(Kernel):
         self.initialize(raw_period_length=self.raw_period_length_constraint.inverse_transform(value))
 
     def forward(self, x1, x2, diag=False, **params):
-        # Pop this argument so that we can manually sum over dimensions
-        last_dim_is_batch = params.pop("last_dim_is_batch", False)
         # Get lengthscale
         lengthscale = self.lengthscale
 
         x1_ = x1.div(self.period_length / math.pi)
         x2_ = x2.div(self.period_length / math.pi)
-        # We are automatically overriding last_dim_is_batch here so that we can manually sum over dimensions.
-        diff = self.covar_dist(x1_, x2_, diag=diag, last_dim_is_batch=True, **params)
+        diff = self.covar_dist(
+            x1_.transpose(-1, -2).unsqueeze(-1), x2_.transpose(-1, -2).unsqueeze(-1), diag=diag, **params
+        )  # A ... x D x N x N kernel
 
         if diag:
             lengthscale = lengthscale[..., 0, :, None]
         else:
             lengthscale = lengthscale[..., 0, :, None, None]
         exp_term = diff.sin().pow(2.0).div(lengthscale).mul(-2.0)
-
-        if not last_dim_is_batch:
-            exp_term = exp_term.sum(dim=(-2 if diag else -3))
+        exp_term = exp_term.sum(dim=(-2 if diag else -3))
 
         return exp_term.exp()

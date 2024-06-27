@@ -111,10 +111,7 @@ class RFFKernel(Kernel):
             )
         self.register_buffer("randn_weights", randn_weights)
 
-    def forward(self, x1: Tensor, x2: Tensor, diag: bool = False, last_dim_is_batch: bool = False, **kwargs) -> Tensor:
-        if last_dim_is_batch:
-            x1 = x1.transpose(-1, -2).unsqueeze(-1)
-            x2 = x2.transpose(-1, -2).unsqueeze(-1)
+    def forward(self, x1: Tensor, x2: Tensor, diag: bool = False, **kwargs) -> Tensor:
         num_dims = x1.size(-1)
         if not hasattr(self, "randn_weights"):
             self._init_weights(num_dims, self.num_samples)

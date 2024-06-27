@@ -46,31 +46,11 @@ class TestConstantKernel(unittest.TestCase, BaseKernelTestCase):
             # standard deviation is zero iff KM is constant
             self.assertAlmostEqual(KM.std().item(), 0, places=places)
 
-            # testing last_dim_is_batch
-            with self.subTest(last_dim_is_batch=True):
-                KD = constant_kernel(X, last_dim_is_batch=True).to(device=device)
-                self.assertIsInstance(KD, LazyEvaluatedKernelTensor)
-                KM = KD.to_dense()
-                self.assertIsInstance(KM, Tensor)
-                self.assertEqual(KM.shape, (*batch_shape, d, n, n))
-                self.assertAlmostEqual(KM.std().item(), 0, places=places)
-                self.assertEqual(KM.dtype, dtype)
-                self.assertEqual(KM.device.type, device.type)
-
             # testing diag
             with self.subTest(diag=True):
                 KD = constant_kernel(X, diag=True)
                 self.assertIsInstance(KD, Tensor)
                 self.assertEqual(KD.shape, (*batch_shape, n))
-                self.assertAlmostEqual(KD.std().item(), 0, places=places)
-                self.assertEqual(KD.dtype, dtype)
-                self.assertEqual(KD.device.type, device.type)
-
-            # testing diag and last_dim_is_batch
-            with self.subTest(diag=True, last_dim_is_batch=True):
-                KD = constant_kernel(X, diag=True, last_dim_is_batch=True)
-                self.assertIsInstance(KD, Tensor)
-                self.assertEqual(KD.shape, (*batch_shape, d, n))
                 self.assertAlmostEqual(KD.std().item(), 0, places=places)
                 self.assertEqual(KD.dtype, dtype)
                 self.assertEqual(KD.device.type, device.type)
