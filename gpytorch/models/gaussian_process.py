@@ -68,7 +68,7 @@ class GaussianProcess(Module):
         self.kernel = kernel
         self.train_inputs = train_inputs
         self.train_targets = train_targets
-        self.likelihood = likelihood
+        self.likelihood = likelihood  # TODO: is it a problem that this is its own Module?
         if approximation_strategy is not None or (self.train_inputs is None and self.train_targets is None):
             self.approximation_strategy = approximation_strategy
         elif self.train_inputs.shape[-1] <= settings.max_cholesky_size.value():
@@ -77,7 +77,8 @@ class GaussianProcess(Module):
             # TODO: Choose a default approximation strategy here when not using Cholesky
             raise NotImplementedError
 
-        # TODO: initialize cache of approximation strategy with mean and kernel matrix?
+        # TODO: initialize approximation strategy by passing mean, kernel, likelihood and data and initialize its cache?
+        # TODO: or: just initialize cache here via self.approximation_strategy.__class__.Cache(mean=...)
 
     @property
     def train_inputs(self) -> Float[Tensor, "N D"]:
