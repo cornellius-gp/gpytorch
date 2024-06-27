@@ -9,7 +9,7 @@ from linear_operator.operators import KroneckerProductLinearOperator, ToeplitzLi
 from torch import Tensor
 
 from .. import settings
-from ..utils.grid import convert_legacy_grid, create_data_from_grid
+from ..utils.grid import create_data_from_grid
 from .kernel import Kernel
 
 
@@ -58,8 +58,6 @@ class GridKernel(Kernel):
             raise RuntimeError("The base_kernel for GridKernel must be stationary.")
 
         super().__init__(active_dims=active_dims)
-        if torch.is_tensor(grid):
-            grid = convert_legacy_grid(grid)
         self.interpolation_mode = interpolation_mode
         self.base_kernel = base_kernel
         self.num_dims = len(grid)
@@ -84,9 +82,6 @@ class GridKernel(Kernel):
         """
         Supply a new `grid` if it ever changes.
         """
-        if torch.is_tensor(grid):
-            grid = convert_legacy_grid(grid)
-
         if len(grid) != self.num_dims:
             raise RuntimeError("New grid should have the same number of dimensions as before.")
 

@@ -8,8 +8,6 @@ from typing import List
 import torch
 from linear_operator.utils.interpolation import left_interp as _left_interp, left_t_interp as _left_t_interp
 
-from .grid import convert_legacy_grid
-
 
 class Interpolation(object):
     def _cubic_interpolation_kernel(self, scaled_grid_dist):
@@ -41,8 +39,6 @@ class Interpolation(object):
         return res
 
     def interpolate(self, x_grid: List[torch.Tensor], x_target: torch.Tensor, interp_points=range(-2, 2), eps=1e-10):
-        if torch.is_tensor(x_grid):
-            x_grid = convert_legacy_grid(x_grid)
         num_target_points = x_target.size(0)
         num_dim = x_target.size(-1)
         assert num_dim == len(x_grid)

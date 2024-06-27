@@ -99,10 +99,6 @@ def choose_grid_size(train_inputs, ratio=1.0, kronecker_structure=True):
         return ratio * num_data
 
 
-def convert_legacy_grid(grid: torch.Tensor) -> List[torch.Tensor]:
-    return [grid[:, i] for i in range(grid.size(-1))]
-
-
 def create_data_from_grid(grid: List[torch.Tensor]) -> torch.Tensor:
     """
     :param grid: Each Tensor is a 1D set of increments for the grid in that dimension
@@ -110,8 +106,6 @@ def create_data_from_grid(grid: List[torch.Tensor]) -> torch.Tensor:
     :return: The set of points on the grid going by column-major order
     :rtype: torch.Tensor
     """
-    if torch.is_tensor(grid):
-        grid = convert_legacy_grid(grid)
     ndims = len(grid)
     assert all(axis.dim() == 1 for axis in grid)
     projections = torch.meshgrid(*grid, indexing="ij")
