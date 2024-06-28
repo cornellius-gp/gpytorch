@@ -7,12 +7,12 @@ from typing import Optional, TYPE_CHECKING
 from jaxtyping import Float
 from torch import Tensor
 
-from .. import distributions, likelihoods, settings
+from .. import likelihoods, settings
 from ..module import Module
 from . import approximation_strategies
 
 if TYPE_CHECKING:
-    from .. import kernels, means
+    from .. import distributions, kernels, means
 
 
 class GaussianProcess(Module):
@@ -53,9 +53,9 @@ class GaussianProcess(Module):
         self,
         mean: means.Mean,
         kernel: kernels.Kernel,
+        likelihood: likelihoods._GaussianLikelihoodBase = likelihoods.GaussianLikelihood(),
         train_inputs: Optional[Float[Tensor, "N D"]] = None,
         train_targets: Optional[Float[Tensor, " N"]] = None,
-        likelihood: likelihoods._GaussianLikelihoodBase = likelihoods.GaussianLikelihood(),
         approximation_strategy: Optional[approximation_strategies.ApproximationStrategy] = None,
     ):
         # Input checking
@@ -64,61 +64,88 @@ class GaussianProcess(Module):
 
         super().__init__()
 
-        self.mean = mean
-        self.kernel = kernel
-        self.train_inputs = train_inputs
-        self.train_targets = train_targets
-        self.likelihood = likelihood  # TODO: is it a problem that this is its own Module?
-        if approximation_strategy is not None or (self.train_inputs is None and self.train_targets is None):
+        self._mean = mean
+        self._kernel = kernel
+        self._likelihood = likelihood
+        if approximation_strategy is not None:
             self.approximation_strategy = approximation_strategy
-        elif self.train_inputs.shape[-1] <= settings.max_cholesky_size.value():
+        elif (train_inputs is None) or (train_targets is None):
+            self.approximation_strategy = approximation_strategies.Cholesky()
+        elif train_inputs.shape[-1] <= settings.max_cholesky_size.value():
             self.approximation_strategy = approximation_strategies.Cholesky()
         else:
             # TODO: Choose a default approximation strategy here when not using Cholesky
             raise NotImplementedError
 
+        self.approximation_strategy.init_cache(
+            mean=self.mean,
+            kernel=self.kernel,
+            train_inputs=train_inputs,
+            train_targets=train_targets,
+            likelihood=self.likelihood,
+        )
         # TODO: initialize approximation strategy by passing mean, kernel, likelihood and data and initialize its cache?
-        # TODO: or: just initialize cache here via self.approximation_strategy.__class__.Cache(mean=...)
+        # TODO: or: just initialize cache here via approximation_strategy.__class__.Cache(mean=...) and
+        #  just call approximation_strategy.some_fn(args, cache), which reads from and writes to the cache
+
+    @property
+    def mean(self) -> means.Mean:
+        return self._mean
+
+    @mean.setter
+    def mean(self, value: means.Mean):
+        raise AttributeError("Cannot set mean of the GP after instantiation. Create a new model instead.")
+
+    @property
+    def kernel(self) -> means.Mean:
+        return self._kernel
+
+    @kernel.setter
+    def kernel(self, value: kernels.Kernel):
+        raise AttributeError("Cannot set kernel of the GP after instantiation. Create a new model instead.")
+
+    @property
+    def likelihood(self) -> means.Mean:
+        return self._likelihood
+
+    @likelihood.setter
+    def likelihood(self, value: likelihoods._GaussianLikelihoodBase):
+        raise AttributeError("Cannot set likelihood of the GP after instantiation. Create a new model instead.")
 
     @property
     def train_inputs(self) -> Float[Tensor, "N D"]:
-        return self._train_inputs
+        return self.approximation_strategy.train_inputs
 
     @train_inputs.setter
     def train_inputs(self, value: Optional[Float[Tensor, "N D"]]):
-        # Reshape train inputs into a 2D tensor in case a 1D tensor is passed.
-        if value is None:
-            self._train_inputs = value
-        else:
-            self._train_inputs = value.unsqueeze(-1) if value.ndimension() <= 1 else value
+        self.approximation_strategy.train_inputs = value
 
     @property
     def train_targets(self) -> Optional[Float[Tensor, " N"]]:
-        return self._train_targets
+        return self.approximation_strategy.train_targets
 
     @train_targets.setter
     def train_targets(self, value: Optional[Float[Tensor, " N"]]):
-        self._train_targets = value
+        self.approximation_strategy.train_targets = value
 
     def eval(self):
         self.likelihood.eval()
         return super().eval()
 
     def train(self, mode=True):
-        self.likelihood.train()
+        self.likelihood.train(mode)
         return super().train(mode)
 
     def forward(self, inputs: Float[Tensor, "M D"]) -> distributions.MultivariateNormal:
-
         # Reshape train inputs into a 2D tensor in case a 1D tensor is passed.
         inputs = inputs.unsqueeze(-1) if inputs.ndimension() <= 1 else inputs
 
-        # TODO: check whether this is a vector-valued / multitask GP here to use the right distribution?
-        return distributions.MultivariateNormal(self.mean(inputs), self.kernel(inputs))
+        return self.approximation_strategy.prior(inputs)
 
     def prior(self, inputs: Float[Tensor, "M D"]) -> distributions.MultivariateNormal:
         """Evaluate the prior distribution of the Gaussian process at the given inputs."""
-        return self.forward(inputs)
+        # This is just a more familiar interface for .forward
+        return self.approximation_strategy.prior(inputs)
 
     def __call__(self, inputs: Float[Tensor, "M D"]) -> distributions.MultivariateNormal:
 
@@ -130,7 +157,8 @@ class GaussianProcess(Module):
             if self.train_inputs is None or self.train_targets is None:
                 raise RuntimeError(
                     "Training inputs or targets cannot be 'None' in training mode. "
-                    "Call .eval() for prior predictions, or call .set_train_data() to add training data."
+                    "Call my_model.eval() for prior predictions, or add training data "
+                    "via my_model.train_inputs = ..., my_model.train_targets = ..."
                 )
 
             return self.forward(inputs)

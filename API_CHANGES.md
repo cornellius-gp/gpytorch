@@ -20,9 +20,13 @@
 ### Classes and Modules which were removed
 
 - [ ] ``PredictionStrategy``
+- [ ] ``beta_features``
 - Deprecated modules
     - [x] ``AbstractVariationalGP``
     - [x] ``PyroVariationalGP``
+
+### Naming
+- [ ] `gpytorch.mlls` -> `gpytorch.loss_fns/losses`
 
 ## Other Changes
 - Removed [shebang lines](https://stackoverflow.com/questions/9783482/should-python-library-modules-start-with-usr-bin-env-python?rq=3) from modules that are not intended to be executed in the command line.
@@ -37,9 +41,15 @@
 - How diligent should we about deprecating? Or do we just accept breaking backwards compatibility.
 - How to deal with updating a model with new training data? What role does ``get_fantasy_model`` play?
 - Why can train inputs be lists / tuples of tensors?
-- **How can we ensure we delete the cache each training loop?** How is this done currently?
+- **How can we ensure we delete the cache each training loop?**
+    - How is this done currently?
+        - When calling ``model.train()`` on any ``Module``, ``self._clear_cache`` gets called, which should be overwritten.
+    - cache object vs cached methods of ``ApproximationStrategy``
 
 ## Nice-to-have but optional
 - [ ] Modernize configuration a bit
     - [ ] move setup info into ``setup.cfg`` or ``pyproject.toml``
     - [ ] move tooling settings into ``pyproject.toml``
+
+## TODOs
+- [ ] Write a test that checks consistency between approximation strategy cache and the objects in the GP (e.g. if i update parameters in GP, the cache just points to those objects)
