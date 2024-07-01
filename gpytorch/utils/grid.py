@@ -106,6 +106,8 @@ def create_data_from_grid(grid: List[torch.Tensor]) -> torch.Tensor:
     :return: The set of points on the grid going by column-major order
     :rtype: torch.Tensor
     """
+    if torch.is_tensor(grid):
+        raise RuntimeError("grid must be a list of 1D Tensors, not a Tensor.")
     ndims = len(grid)
     assert all(axis.dim() == 1 for axis in grid)
     projections = torch.meshgrid(*grid, indexing="ij")
