@@ -33,6 +33,15 @@ class Module(nn.Module):
             return [_validate_module_outputs(output) for output in outputs]
         return _validate_module_outputs(outputs)
 
+    def __setattr__(self, name: str, value: Tensor | nn.Module) -> None:
+        # Check if a property setter exists. If it does, use it.
+        # Enables the use of setters in modules. See also: https://github.com/pytorch/pytorch/pull/92044
+        class_attr = getattr(self.__class__, name, None)
+        if isinstance(class_attr, property) and class_attr.fset is not None:
+            return class_attr.fset(self, value)
+
+        return super().__setattr__(name, value)
+
     def _clear_cache(self):
         """
         Clear any precomputed caches.

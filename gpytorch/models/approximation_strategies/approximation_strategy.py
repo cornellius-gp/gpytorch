@@ -4,19 +4,15 @@ from __future__ import annotations
 
 import abc
 
-from typing import Optional, TYPE_CHECKING
+from typing import Optional
 
 from jaxtyping import Float
 from torch import Tensor
 
 from ... import distributions, Module
 
-if TYPE_CHECKING:
-    from ... import kernels, likelihoods, means
 
-
-# TODO: Should this inherit from Module? Probably, since we might want to autodiff through its parameters (e.g. actions)
-class ApproximationStrategy(Module, abc.ABC):
+class ApproximationStrategy(abc.ABC, Module):
     """Abstract base class for Gaussian process approximation strategies."""
 
     def __init__(self) -> None:
@@ -24,15 +20,15 @@ class ApproximationStrategy(Module, abc.ABC):
 
     def init_cache(
         self,
-        mean: means.Mean,
-        kernel: kernels.Kernel,
-        likelihood: likelihoods._GaussianLikelihoodBase,
+        model: Module,
         train_inputs: Optional[Float[Tensor, "N D"]] = None,
         train_targets: Optional[Float[Tensor, " N"]] = None,
     ) -> None:
-        self.mean = mean
-        self.kernel = kernel
-        self.likelihood = likelihood
+
+        # Set model as an attribute of the ApproximationStrategy without registering it as a
+        # submodule of ApproximationStrategy by bypassing Module.__setattr__ explicitly.
+        object.__setattr__(self, "model", model)
+
         self.train_inputs = train_inputs
         self.train_targets = train_targets
 
@@ -59,7 +55,7 @@ class ApproximationStrategy(Module, abc.ABC):
     def prior(self, inputs: Float[Tensor, "M D"]) -> distributions.MultivariateNormal:
         """Evaluate the prior distribution of the Gaussian process at the given inputs."""
         # TODO: check whether this is a vector-valued / multitask GP here to use the right distribution?
-        return distributions.MultivariateNormal(self.mean(inputs), self.kernel(inputs))
+        return distributions.MultivariateNormal(self.model.mean(inputs), self.model.kernel(inputs))
 
     @abc.abstractmethod
     def posterior(self, inputs: Float[Tensor, "M D"]) -> distributions.MultivariateNormal:

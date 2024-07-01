@@ -13,12 +13,14 @@ from .approximation_strategy import ApproximationStrategy
 
 
 class Cholesky(ApproximationStrategy):
+    """Approximation strategy using a Cholesky decomposition."""
+
     def __init__(self) -> None:
         super().__init__()
 
     @property
     def prior_predictive_train(self) -> distributions.MultivariateNormal:
-        return self.likelihood(self.prior(self.train_inputs))
+        return self.model.likelihood(self.prior(self.train_inputs))
 
     @property
     @utils.memoize.cached()
@@ -35,14 +37,19 @@ class Cholesky(ApproximationStrategy):
     def predictive_covariance_train_cholesky_factor(self) -> Float[Tensor, "N N"]:
         return psd_safe_cholesky(self.predictive_covariance_train)
 
+    def _clear_cache(self):
+        return (
+            super()._clear_cache()
+        )  # TODO: implement releasing the cache (when model.train() or after parameters of any modules are updated)
+
     def posterior(self, inputs: Float[Tensor, "M D"]) -> distributions.MultivariateNormal:
 
         # Prior at test inputs
-        prior_mean_test = self.mean(inputs)
-        prior_covariance_test = self.kernel(inputs)
+        prior_mean_test = self.model.mean(inputs)
+        prior_covariance_test = self.model.kernel(inputs)
 
         # Matrix-square root of the covariance downdate: k(x, X)L^{-1}
-        covariance_train_test = self.kernel(self.train_inputs, inputs).to_dense()
+        covariance_train_test = self.model.kernel(self.train_inputs, inputs).to_dense()
         covariance_test_train_inverse_cholesky_factor = torch.linalg.solve_triangular(
             self.predictive_covariance_train_cholesky_factor, covariance_train_test, upper=False
         ).transpose(-2, -1)

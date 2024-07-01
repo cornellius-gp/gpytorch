@@ -64,9 +64,10 @@ class GaussianProcess(Module):
 
         super().__init__()
 
-        self._mean = mean
-        self._kernel = kernel
-        self._likelihood = likelihood
+        self.mean = mean
+        self.kernel = kernel
+        self.likelihood = likelihood
+
         if approximation_strategy is not None:
             self.approximation_strategy = approximation_strategy
         elif (train_inputs is None) or (train_targets is None):
@@ -77,40 +78,14 @@ class GaussianProcess(Module):
             # TODO: Choose a default approximation strategy here when not using Cholesky
             raise NotImplementedError
 
+        # Do not allow instantiation of a GP without specifying an approximation strategy.
+        assert self.approximation_strategy is not None, "Trying to instantiate a GP without an ApproximationStrategy."
+
         self.approximation_strategy.init_cache(
-            mean=self.mean,
-            kernel=self.kernel,
+            model=self,  # NOTE: Introduces circular reference.
             train_inputs=train_inputs,
             train_targets=train_targets,
-            likelihood=self.likelihood,
         )
-        # TODO: initialize approximation strategy by passing mean, kernel, likelihood and data and initialize its cache?
-        # TODO: or: just initialize cache here via approximation_strategy.__class__.Cache(mean=...) and
-        #  just call approximation_strategy.some_fn(args, cache), which reads from and writes to the cache
-
-    @property
-    def mean(self) -> means.Mean:
-        return self._mean
-
-    @mean.setter
-    def mean(self, value: means.Mean):
-        raise AttributeError("Cannot set mean of the GP after instantiation. Create a new model instead.")
-
-    @property
-    def kernel(self) -> means.Mean:
-        return self._kernel
-
-    @kernel.setter
-    def kernel(self, value: kernels.Kernel):
-        raise AttributeError("Cannot set kernel of the GP after instantiation. Create a new model instead.")
-
-    @property
-    def likelihood(self) -> means.Mean:
-        return self._likelihood
-
-    @likelihood.setter
-    def likelihood(self, value: likelihoods._GaussianLikelihoodBase):
-        raise AttributeError("Cannot set likelihood of the GP after instantiation. Create a new model instead.")
 
     @property
     def train_inputs(self) -> Float[Tensor, "N D"]:
