@@ -19,6 +19,7 @@ requirements:
     - python>=3.8
     - pytorch>=1.11
     - scikit-learn
+    - jaxtyping>=0.2.9
     - linear_operator>=0.5.2
 
 test:
