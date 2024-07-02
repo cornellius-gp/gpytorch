@@ -253,6 +253,8 @@ def _convert_internal_and_external_class_to_strings(annotation):
     module = annotation.__module__ + "."
     if module.split(".")[0] == "gpytorch":
         module = "~" + module
+    elif module == "torch.":
+        module = "~torch."
     elif module == "linear_operator.operators._linear_operator.":
         module = "~linear_operator."
     elif module == "builtins.":
