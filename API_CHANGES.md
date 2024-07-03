@@ -50,6 +50,7 @@
 - [ ] Modernize configuration a bit
     - [ ] move setup info into ``setup.cfg`` or ``pyproject.toml``
     - [ ] move tooling settings into ``pyproject.toml``
+- [ ] Refactor RFFKernel into an approximation strategy?
 
 ## TODOs
 - [ ] Write a test that checks consistency between approximation strategy cache and the objects in the GP (e.g. if i update parameters in GP, the cache just points to those objects)

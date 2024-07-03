@@ -39,6 +39,7 @@ class ApproximationStrategy(abc.ABC, Module):
     @train_inputs.setter
     def train_inputs(self, value: Optional[Float[Tensor, "N D"]]):
         # Reshape train inputs into a 2D tensor in case a 1D tensor is passed.
+        # TODO: release cache here
         if value is None:
             self._train_inputs = value
         else:
@@ -50,6 +51,7 @@ class ApproximationStrategy(abc.ABC, Module):
 
     @train_targets.setter
     def train_targets(self, value: Optional[Float[Tensor, " N"]]):
+        # TODO: release cache here
         self._train_targets = value
 
     def prior(self, inputs: Float[Tensor, "M D"]) -> distributions.MultivariateNormal:
