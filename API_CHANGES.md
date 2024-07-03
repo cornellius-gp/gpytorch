@@ -3,11 +3,11 @@
 ## Philosophy
 - Composition over inheritance
 - Keep abstractions at a minimum
-- Make it simple to instantiate and use common models (e.g. via sensible defaults).
+- Keep things easily extendable
 
 ## Goals
+- Make it simple to instantiate and use common models (e.g. via sensible defaults).
 - Ensure models are fast on small datasets
-- Keep things easily extendable
 - Condense down to core functionality
 - Improve the documentation, type hints and shape hints
 
