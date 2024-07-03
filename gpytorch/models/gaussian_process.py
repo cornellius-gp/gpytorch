@@ -2,21 +2,24 @@
 
 from __future__ import annotations
 
+import abc
+
 from typing import Optional, TYPE_CHECKING
 
 from jaxtyping import Float
 from torch import Tensor
 
-from .. import likelihoods, settings
+from .. import likelihoods
+
 from ..module import Module
-from . import approximation_strategies
 
 if TYPE_CHECKING:
-    from .. import distributions, kernels, means
+    from .. import distributions
+    from . import approximation_strategies
 
 
-class GaussianProcess(Module):
-    """Gaussian process model.
+class GaussianProcess(Module, abc.ABC):
+    """Base class for Gaussian process models.
 
     :param mean: Prior mean function.
     :param kernel: Prior kernel / covariance function.
@@ -33,30 +36,32 @@ class GaussianProcess(Module):
     >>> # train_y = ...
     >>> # test_x = ...
     >>>
-    >>> # Define model
-    >>> model = models.GaussianProcess(
-    ...     means.ZeroMean(),
-    ...     kernels.MaternKernel(nu=2.5),
-    ...     train_inputs=train_x,
-    ...     train_targets=train_y,
-    ... )
+    >>> # Define Gaussian process model
+    >>> class MyGP(gpytorch.models.GaussianProcess):
+    >>>     def __init__(self, train_x, train_y, likelihood):
+    >>>         super().__init__(train_x, train_y, likelihood)
+    >>>         self.mean_module = gpytorch.means.ZeroMean()
+    >>>         self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
+    >>>
+    >>>     def forward(self, x):
+    >>>         mean = self.mean_module(x)
+    >>>         covar = self.covar_module(x)
+    >>>         return gpytorch.distributions.MultivariateNormal(mean, covar)
     >>>
     >>> # GP posterior for the latent function
     >>> model(test_x)
     >>>
     >>> # Posterior predictive distribution for the observations
-    >>> model.predictive(test_x)
+    >>> model.predictive(test_x)    # Equivalent to model.likelihood(model(test_x))
 
     """
 
     def __init__(
         self,
-        mean: means.Mean,
-        kernel: kernels.Kernel,
-        likelihood: likelihoods._GaussianLikelihoodBase = likelihoods.GaussianLikelihood(),
+        likelihood: likelihoods._GaussianLikelihoodBase,
+        approximation_strategy: approximation_strategies.ApproximationStrategy,
         train_inputs: Optional[Float[Tensor, "N D"]] = None,
         train_targets: Optional[Float[Tensor, " N"]] = None,
-        approximation_strategy: Optional[approximation_strategies.ApproximationStrategy] = None,
     ):
         # Input checking
         if not isinstance(likelihood, likelihoods._GaussianLikelihoodBase):
@@ -64,22 +69,8 @@ class GaussianProcess(Module):
 
         super().__init__()
 
-        self.mean = mean
-        self.kernel = kernel
         self.likelihood = likelihood
-
-        if approximation_strategy is not None:
-            self.approximation_strategy = approximation_strategy
-        elif (train_inputs is None) or (train_targets is None):
-            self.approximation_strategy = approximation_strategies.Cholesky()
-        elif train_inputs.shape[-1] <= settings.max_cholesky_size.value():
-            self.approximation_strategy = approximation_strategies.Cholesky()
-        else:
-            # TODO: Choose a default approximation strategy here when not using Cholesky
-            raise NotImplementedError
-
-        # Do not allow instantiation of a GP without specifying an approximation strategy.
-        assert self.approximation_strategy is not None, "Trying to instantiate a GP without an ApproximationStrategy."
+        self.approximation_strategy = approximation_strategy
 
         self.approximation_strategy.init_cache(
             model=self,  # NOTE: Introduces circular reference.
@@ -111,16 +102,14 @@ class GaussianProcess(Module):
         self.likelihood.train(mode)
         return super().train(mode)
 
+    @abc.abstractmethod
     def forward(self, inputs: Float[Tensor, "M D"]) -> distributions.MultivariateNormal:
-        # Reshape train inputs into a 2D tensor in case a 1D tensor is passed.
-        inputs = inputs.unsqueeze(-1) if inputs.ndimension() <= 1 else inputs
-
-        return self.approximation_strategy.prior(inputs)
+        raise NotImplementedError()
 
     def prior(self, inputs: Float[Tensor, "M D"]) -> distributions.MultivariateNormal:
         """Evaluate the prior distribution of the Gaussian process at the given inputs."""
         # This is just a more familiar interface for .forward
-        return self.approximation_strategy.prior(inputs)
+        return self.forward(inputs)
 
     def __call__(self, inputs: Float[Tensor, "M D"]) -> distributions.MultivariateNormal:
 

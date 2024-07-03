@@ -20,7 +20,7 @@ class Cholesky(ApproximationStrategy):
 
     @property
     def prior_predictive_train(self) -> distributions.MultivariateNormal:
-        return self.model.likelihood(self.prior(self.train_inputs))
+        return self.model.likelihood(self.model.forward(self.train_inputs))
 
     @property
     @utils.memoize.cached()
@@ -45,11 +45,11 @@ class Cholesky(ApproximationStrategy):
     def posterior(self, inputs: Float[Tensor, "M D"]) -> distributions.MultivariateNormal:
 
         # Prior at test inputs
-        prior_mean_test = self.model.mean(inputs)
-        prior_covariance_test = self.model.kernel(inputs)
+        prior_mean_test = self.model.mean_module(inputs)
+        prior_covariance_test = self.model.covar_module(inputs)
 
         # Matrix-square root of the covariance downdate: k(x, X)L^{-1}
-        covariance_train_test = self.model.kernel(self.train_inputs, inputs).to_dense()
+        covariance_train_test = self.model.covar_module(self.train_inputs, inputs).to_dense()
         covariance_test_train_inverse_cholesky_factor = torch.linalg.solve_triangular(
             self.predictive_covariance_train_cholesky_factor, covariance_train_test, upper=False
         ).transpose(-2, -1)

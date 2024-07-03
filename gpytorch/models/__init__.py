@@ -1,6 +1,6 @@
 """Gaussian process models."""
 
-from . import deep_gps, exact_prediction_strategies, gplvm, pyro
+from . import deep_gps, exact_prediction_strategies, gplvm, pyro, zoo
 from .approximate_gp import ApproximateGP
 from .exact_gp import ExactGP
 from .gaussian_process import GaussianProcess
@@ -8,7 +8,6 @@ from .model_list import AbstractModelList, IndependentModelList
 from .pyro import PyroGP
 
 # Aliases
-GP = GaussianProcess
 VariationalGP = ApproximateGP
 
 
@@ -17,7 +16,6 @@ __all__ = [
     "ApproximateGP",
     "ExactGP",
     "GaussianProcess",
-    "GP",
     "IndependentModelList",
     "PyroGP",
     "VariationalGP",
@@ -25,4 +23,5 @@ __all__ = [
     "gplvm",
     "exact_prediction_strategies",
     "pyro",
+    "zoo",
 ]

@@ -54,11 +54,6 @@ class ApproximationStrategy(abc.ABC, Module):
         # TODO: release cache here
         self._train_targets = value
 
-    def prior(self, inputs: Float[Tensor, "M D"]) -> distributions.MultivariateNormal:
-        """Evaluate the prior distribution of the Gaussian process at the given inputs."""
-        # TODO: check whether this is a vector-valued / multitask GP here to use the right distribution?
-        return distributions.MultivariateNormal(self.model.mean(inputs), self.model.kernel(inputs))
-
     @abc.abstractmethod
     def posterior(self, inputs: Float[Tensor, "M D"]) -> distributions.MultivariateNormal:
         """Evaluate the approximate posterior distribution of the Gaussian process."""
