@@ -42,7 +42,7 @@ install_requires = [
     "jaxtyping>=0.2.9",
     "mpmath>=0.19,<=1.3",  # avoid incompatibiltiy with torch+sympy with mpmath 1.4
     "scikit-learn",
-    "scipy",
+    "scipy>=1.6.0",
     "linear_operator>=0.5.2",
 ]
 # if recent dev version of PyTorch is installed, no need to install stable
