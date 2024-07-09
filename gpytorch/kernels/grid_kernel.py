@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import warnings
 from typing import Optional
 
 import torch
@@ -139,7 +140,9 @@ class GridKernel(Kernel):
                 # Use padded grid for batch mode
                 first_grid_point = torch.stack([proj[0].unsqueeze(0) for proj in grid], dim=-1)
                 full_grid = torch.stack(padded_grid, dim=-1)
-                covars = to_dense(self.base_kernel(first_grid_point, full_grid, last_dim_is_batch=True, **params))
+                with warnings.catch_warnings():  # Hide the GPyTorch 2.0 deprecation warning
+                    warnings.simplefilter("ignore", DeprecationWarning)
+                    covars = to_dense(self.base_kernel(first_grid_point, full_grid, last_dim_is_batch=True, **params))
 
                 if last_dim_is_batch:
                     # Toeplitz expects batches of columns so we concatenate the
@@ -155,7 +158,9 @@ class GridKernel(Kernel):
                     covar = KroneckerProductLinearOperator(*covars[::-1])
             else:
                 full_grid = torch.stack(padded_grid, dim=-1)
-                covars = to_dense(self.base_kernel(full_grid, full_grid, last_dim_is_batch=True, **params))
+                with warnings.catch_warnings():  # Hide the GPyTorch 2.0 deprecation warning
+                    warnings.simplefilter("ignore", DeprecationWarning)
+                    covars = to_dense(self.base_kernel(full_grid, full_grid, last_dim_is_batch=True, **params))
                 if last_dim_is_batch:
                     # Note that this requires all the dimensions to have the same number of grid points
                     covar = covars

@@ -485,6 +485,15 @@ class Kernel(Module):
             * `diag`: `... x N`
             * `diag` with `last_dim_is_batch=True`: `... x K x N`
         """
+        if last_dim_is_batch:
+            warnings.warn(
+                "The last_dim_is_batch argument is deprecated, and will be removed in GPyTorch 2.0. "
+                "If you are using it as part of AdditiveStructureKernel or ProductStructureKernel, "
+                'please update your code according to the "Kernels with Additive or Product Structure" '
+                "tutorial in the GPyTorch docs.",
+                DeprecationWarning,
+            )
+
         x1_, x2_ = x1, x2
 
         # Select the active dimensions

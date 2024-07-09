@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+
+import warnings
 from typing import Optional, Tuple
 
 import torch
@@ -23,6 +26,13 @@ class NewtonGirardAdditiveKernel(Kernel):
         :param active_dims:
         :param kwargs:
         """
+
+        warnings.warn(
+            "NewtonGirardAdditiveKernel is deprecated, and will be removed in GPyTorch 2.0. "
+            'Please refer to the "Kernels with Additive or Product Structure" tutorial '
+            "in the GPyTorch docs for how to implement GPs with additive structure.",
+            DeprecationWarning,
+        )
         super(NewtonGirardAdditiveKernel, self).__init__(active_dims=active_dims, **kwargs)
 
         self.base_kernel = base_kernel
