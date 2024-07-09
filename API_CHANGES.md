@@ -30,7 +30,6 @@
 
 ## Other Changes
 - Removed [shebang lines](https://stackoverflow.com/questions/9783482/should-python-library-modules-start-with-usr-bin-env-python?rq=3) from modules that are not intended to be executed in the command line.
-- [Ignored ``F722`` error by ``flake8`` to enable compatibility of forward annotation with ``jaxtyping``.](https://docs.kidger.site/jaxtyping/faq/#flake8-or-ruff-are-throwing-an-error)
 
 ## Ideas
 - Separate class for ``MultiOutputGaussianProcess`` (alternatively ``VectorValuedGaussianProcess``, ``MultiTaskGaussianProcess``)
@@ -45,6 +44,13 @@
     - How is this done currently?
         - When calling ``model.train()`` on any ``Module``, ``self._clear_cache`` gets called, which should be overwritten.
     - cache object vs cached methods of ``ApproximationStrategy``
+    - Idea:
+        - register backward hook for every parameter to clear the cache (ideally only of those objects along the compute graph)
+        - automatically clear cache for every property that has a @cached decorator
+    - Idea (improved):
+        - for every property of an ApproximationStrategy() use a @cached decorator, which registers a certain backward hook that clears the cache
+            - https://pytorch.org/docs/stable/notes/autograd.html#backward-hooks-execution
+        - What about if the training data gets modified? How do we ensure the cache is cleared?
 
 ## Nice-to-have but optional
 - [ ] Modernize configuration a bit

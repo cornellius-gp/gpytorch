@@ -9,7 +9,7 @@ from typing import Optional, TYPE_CHECKING
 from jaxtyping import Float
 from torch import Tensor
 
-from .. import likelihoods
+from .. import likelihoods, settings
 
 from ..module import Module
 
@@ -29,7 +29,7 @@ class GaussianProcess(Module, abc.ABC):
     :param approximation_strategy: Defines how to approximate costly computations necessary for large-scale datasets.
 
     Example:
-    >>> from gpytorch import models, means, kernels
+    >>> from gpytorch import models, means, kernels, likelihoods
     >>>
     >>> # Prepare dataset
     >>> # train_x = ...
@@ -38,8 +38,8 @@ class GaussianProcess(Module, abc.ABC):
     >>>
     >>> # Define Gaussian process model
     >>> class MyGP(gpytorch.models.GaussianProcess):
-    >>>     def __init__(self, train_x, train_y, likelihood):
-    >>>         super().__init__(train_x, train_y, likelihood)
+    >>>     def __init__(self, train_inputs, train_targets, likelihood):
+    >>>         super().__init__(train_inputs, train_targets, likelihood)
     >>>         self.mean_module = gpytorch.means.ZeroMean()
     >>>         self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
     >>>
@@ -47,6 +47,12 @@ class GaussianProcess(Module, abc.ABC):
     >>>         mean = self.mean_module(x)
     >>>         covar = self.covar_module(x)
     >>>         return gpytorch.distributions.MultivariateNormal(mean, covar)
+    >>>
+    >>> model = MyGP(
+    ...     train_inputs=train_x,
+    ...     train_targets=train_y,
+    ...     likelihood=likelihoods.GaussianLikelihood(),
+    ... )
     >>>
     >>> # GP posterior for the latent function
     >>> model(test_x)
@@ -59,9 +65,9 @@ class GaussianProcess(Module, abc.ABC):
     def __init__(
         self,
         likelihood: likelihoods._GaussianLikelihoodBase,
-        approximation_strategy: approximation_strategies.ApproximationStrategy,
         train_inputs: Optional[Float[Tensor, "N D"]] = None,
         train_targets: Optional[Float[Tensor, " N"]] = None,
+        approximation_strategy: Optional[approximation_strategies.ApproximationStrategy] = None,
     ):
         # Input checking
         if not isinstance(likelihood, likelihoods._GaussianLikelihoodBase):
@@ -70,7 +76,20 @@ class GaussianProcess(Module, abc.ABC):
         super().__init__()
 
         self.likelihood = likelihood
-        self.approximation_strategy = approximation_strategy
+
+        # TODO: Do we want to choose defaults here or do we want to force the user to make a decision when subclassing?
+        if approximation_strategy is not None:
+            self.approximation_strategy = approximation_strategy
+        elif (train_inputs is None) or (train_targets is None):
+            self.approximation_strategy = approximation_strategies.Cholesky()
+        elif train_inputs.shape[-1] <= settings.max_cholesky_size.value():
+            self.approximation_strategy = approximation_strategies.Cholesky()
+        else:
+            # TODO: Choose a default approximation strategy here when not using Cholesky
+            raise NotImplementedError
+
+        # Do not allow instantiation of a GP without specifying an approximation strategy.
+        assert self.approximation_strategy is not None, "Trying to instantiate a GP without an ApproximationStrategy."
 
         self.approximation_strategy.init_cache(
             model=self,  # NOTE: Introduces circular reference.
