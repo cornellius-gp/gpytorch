@@ -39,7 +39,7 @@ readme = open("README.md").read()
 
 torch_min = "1.11"
 install_requires = [
-    "jaxtyping>=0.2.9",
+    "jaxtyping==0.2.19",
     "mpmath>=0.19,<=1.3",  # avoid incompatibiltiy with torch+sympy with mpmath 1.4
     "scikit-learn",
     "scipy>=1.6.0",
