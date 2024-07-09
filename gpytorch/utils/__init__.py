@@ -10,6 +10,7 @@ import linear_operator
 from . import deprecation, errors, generic, grid, interpolation, quadrature, transforms, warnings
 from .memoize import cached
 from .nearest_neighbors import NNUtil
+from .sum_interaction_terms import sum_interaction_terms
 
 __all__ = [
     "cached",
@@ -19,6 +20,7 @@ __all__ = [
     "grid",
     "interpolation",
     "quadrature",
+    "sum_interaction_terms",
     "transforms",
     "warnings",
     "NNUtil",
