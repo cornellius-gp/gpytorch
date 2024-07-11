@@ -51,6 +51,7 @@
         - for every property of an ApproximationStrategy() use a @cached decorator, which registers a certain backward hook that clears the cache
             - https://pytorch.org/docs/stable/notes/autograd.html#backward-hooks-execution
         - What about if the training data gets modified? How do we ensure the cache is cleared?
+            - Can we provide a set of arguments to the @cached decorator which specify when this cached property gets cleared (i.e. on model.train(), model.eval(), when updating the training data, on the backward pass at this node)?
 
 ## Nice-to-have but optional
 - [ ] Modernize configuration a bit
