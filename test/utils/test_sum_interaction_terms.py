@@ -33,5 +33,5 @@ class TestSumInteractionTerms(BaseTestCase, unittest.TestCase):
             for interaction_term_indices in combinations(range(D), degree):
                 actual = actual + prod([to_dense(covars[..., i, :, :]) for i in interaction_term_indices])
 
-        res = to_dense(gpytorch.utils.sum_interaction_terms(covars, max_degree=M))
+        res = gpytorch.utils.sum_interaction_terms(covars, max_degree=M)
         self.assertAllClose(res, actual)

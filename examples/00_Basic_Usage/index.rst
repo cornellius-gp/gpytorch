@@ -10,7 +10,7 @@ Before checking these out, you may want to check out our `simple GP regression t
   parameters, constraints, priors and more.
 * The `Saving and Loading Models`_ notebook details how to save and load GPyTorch models
   on disk.
-* The `Kernels with Additive or Product Structure`_ notebook describes how to compose kernels additively or multiplicitavely,
+* The `Kernels with Additive or Product Structure`_ notebook describes how to compose kernels additively or multiplicatively,
   whether for expressivity, sample efficiency, or scalability.
 * The `Implementing a Custom Kernel`_ notebook details how to write your own custom kernel in GPyTorch.
 * The `Tutorial on Metrics`_ describes various metrics provided by GPyTorch for assessing the generalization of GP models.

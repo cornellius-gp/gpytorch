@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 
 from typing import Optional, Union
 
@@ -39,7 +38,8 @@ def sum_interaction_terms(
     :param dim: The dimension to sum over (i.e. the batch dimension containing the base covariance matrices).
         Note that dim must be a negative integer (i.e. -3, not 0).
     """
-    assert dim < 0, "dim must be a negative integer"
+    if dim >= 0:
+        raise ValueError("Argument 'dim' must be a negative integer.")
 
     covars = to_dense(covars)
     ks = torch.arange(max_degree, dtype=covars.dtype, device=covars.device)
