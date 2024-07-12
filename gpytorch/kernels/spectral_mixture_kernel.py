@@ -72,8 +72,6 @@ class SpectralMixtureKernel(Kernel):
         https://arxiv.org/pdf/1302.4245.pdf
     """
 
-    is_stationary = True  # kernel is stationary even though it does not have a lengthscale
-
     def __init__(
         self,
         num_mixtures: Optional[int] = None,
@@ -115,6 +113,11 @@ class SpectralMixtureKernel(Kernel):
         self.register_constraint("raw_mixture_scales", mixture_scales_constraint)
         self.register_constraint("raw_mixture_means", mixture_means_constraint)
         self.register_constraint("raw_mixture_weights", mixture_weights_constraint)
+
+    @property
+    def is_stationary(self) -> bool:
+        # kernel is stationary even though it does not have a lengthscale
+        return True
 
     @property
     def mixture_scales(self):

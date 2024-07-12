@@ -116,6 +116,13 @@ class GridInterpolationKernel(GridKernel):
         self.register_buffer("has_initialized_grid", torch.tensor(has_initialized_grid, dtype=torch.bool))
 
     @property
+    def _lazily_evaluate(self) -> bool:
+        # GridInterpolationKernels should not lazily evaluate; there are few gains (the inducing point kernel
+        # matrix always needs to be evaluated; regardless of the size of x1 and x2), and the
+        # InterpolatedLinearOperator structure is needed for fast predictions.
+        return False
+
+    @property
     def _tight_grid_bounds(self):
         grid_spacings = tuple((bound[1] - bound[0]) / self.grid_sizes[i] for i, bound in enumerate(self.grid_bounds))
         return tuple(

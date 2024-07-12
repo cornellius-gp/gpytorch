@@ -48,6 +48,12 @@ class InducingPointKernel(Kernel):
             del self._cached_kernel_inv_root
 
     @property
+    def _lazily_evaluate(self) -> bool:
+        # InducingPointKernels kernels should not lazily evaluate; to use the Woodbury formula,
+        # we want the Kernel to return a LowRankLinearOperator, not a KernelLinaerOperator.
+        return False
+
+    @property
     def _inducing_mat(self):
         if not self.training and hasattr(self, "_cached_kernel_mat"):
             return self._cached_kernel_mat

@@ -41,10 +41,6 @@ class GridKernel(Kernel):
         http://www.cs.cmu.edu/~andrewgw/manet.pdf
     """
 
-    # TODO: update doc
-
-    is_stationary = True
-
     def __init__(
         self,
         base_kernel: Kernel,
@@ -75,6 +71,15 @@ class GridKernel(Kernel):
         # Update the ragged_grid buffer
         # Also create the full_grid buffer
         self.update_grid(grid)
+
+    @property
+    def _lazily_evaluate(self) -> bool:
+        # Toeplitz structure is very efficient; no need to lazily evaluate
+        return False
+
+    @property
+    def is_stationary(self) -> bool:
+        return True
 
     def _clear_cache(self):
         if hasattr(self, "_cached_kernel_mat"):

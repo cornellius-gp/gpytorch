@@ -4,7 +4,6 @@ from typing import Optional
 
 import torch
 
-from .. import settings
 from ..constraints import Interval, Positive
 from ..priors import Prior
 from .kernel import Kernel
@@ -152,8 +151,7 @@ class CylindricalKernel(Kernel):
                 else:
                     angular_kernel = angular_kernel + self.angular_weights[..., p, None].mul(gram_mat.pow(p))
 
-        with settings.lazily_evaluate_kernels(False):
-            radial_kernel = self.radial_base_kernel(self.kuma(r1), self.kuma(r2), diag=diag, **params)
+        radial_kernel = self.radial_base_kernel.forward(self.kuma(r1), self.kuma(r2), diag=diag, **params)
         return radial_kernel.mul(angular_kernel)
 
     def kuma(self, x: torch.Tensor) -> torch.Tensor:

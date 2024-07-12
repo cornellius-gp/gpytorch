@@ -41,9 +41,9 @@ class TestRQKernel(unittest.TestCase, BaseKernelTestCase):
     def test_ard_batch(self):
         a = torch.tensor([[[1, 2, 3], [2, 4, 0]], [[-1, 1, 2], [2, 1, 4]]], dtype=torch.float)
         b = torch.tensor([[[1, 3, 1]], [[2, -1, 0]]], dtype=torch.float).repeat(1, 2, 1)
-        lengthscales = torch.tensor([[[1, 2, 1]]], dtype=torch.float)
+        lengthscales = torch.tensor([[1, 2, 1]], dtype=torch.float)
 
-        kernel = RQKernel(batch_shape=torch.Size([2]), ard_num_dims=3)
+        kernel = RQKernel(batch_shape=torch.Size([]), ard_num_dims=3)
         kernel.initialize(lengthscale=lengthscales)
         kernel.initialize(alpha=3.0)
         kernel.eval()

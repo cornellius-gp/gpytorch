@@ -34,7 +34,7 @@ class TestCosineKernel(unittest.TestCase):
         a = torch.tensor([[4, 2, 8], [1, 2, 3]], dtype=torch.float).view(2, 3, 1)
         b = torch.tensor([[0, 2, 1], [-1, 2, 0]], dtype=torch.float).view(2, 3, 1)
         period = torch.tensor(1, dtype=torch.float).view(1, 1, 1)
-        kernel = CosineKernel().initialize(period_length=period)
+        kernel = CosineKernel(batch_shape=torch.Size([1])).initialize(period_length=period)
         kernel.eval()
 
         actual = torch.zeros(2, 3, 3)
