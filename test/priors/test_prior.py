@@ -7,9 +7,9 @@ from gpytorch.priors import GammaPrior, HalfCauchyPrior, LogNormalPrior, NormalP
 from torch import Tensor
 
 
-TRANSFORMED_ERROR_MSG = """Priors of TransformedDistributions should not have their 
-'_transformed' attributes modified, these are just copies of the base attribute. 
-Please modify the base attribute \(e.g. {}\) instead."""
+TRANSFORMED_ERROR_MSG = """Priors of TransformedDistributions should not have their \
+'_transformed' attributes modified, these are just copies of the base attribute. \
+Please modify the base attribute (e.g. {}) instead."""
 
 
 class TestPrior(unittest.TestCase):
