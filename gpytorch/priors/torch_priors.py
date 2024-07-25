@@ -1,15 +1,7 @@
 #!/usr/bin/env python3
 
 import torch
-from torch.distributions import (
-    Gamma,
-    HalfCauchy,
-    HalfNormal,
-    LogNormal,
-    MultivariateNormal,
-    Normal,
-    Uniform,
-)
+from torch.distributions import Gamma, HalfCauchy, HalfNormal, LogNormal, MultivariateNormal, Normal, Uniform
 from torch.nn import Module as TModule
 
 from .prior import Prior

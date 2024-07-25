@@ -2,9 +2,9 @@
 
 import unittest
 
-from gpytorch.priors import GammaPrior, HalfCauchyPrior, LogNormalPrior, NormalPrior
-
 from torch import Tensor
+
+from gpytorch.priors import GammaPrior, HalfCauchyPrior, LogNormalPrior, NormalPrior
 
 
 TRANSFORMED_ERROR_MSG = """Priors of TransformedDistributions should not have their \

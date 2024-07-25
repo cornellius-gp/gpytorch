@@ -2,8 +2,9 @@
 
 import unittest
 
-from gpytorch.priors import GammaPrior, HalfCauchyPrior, LogNormalPrior, NormalPrior
 from torch import Tensor
+
+from gpytorch.priors import GammaPrior, HalfCauchyPrior, LogNormalPrior, NormalPrior
 
 
 class TestPrior(unittest.TestCase):
