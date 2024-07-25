@@ -10,6 +10,11 @@ from ..distributions import Distribution
 from .utils import _load_transformed_to_base_dist
 
 
+TRANSFORMED_ERROR_MSG = """Priors of TransformedDistributions should not have their \
+'_transformed' attributes modified, these are just copies of the base attribute. \
+Please modify the base attribute (e.g. {}) instead."""
+
+
 class Prior(Distribution, Module, ABC):
     """
     Base class for Priors in GPyTorch.
@@ -37,12 +42,7 @@ class Prior(Distribution, Module, ABC):
     def __setattr__(self, name: str, value: Any) -> None:
         if hasattr(self, name) and "_transformed_" in name:
             base_attr_name = name.replace("_transformed_", "")
-            raise AttributeError(
-                "Priors of TransformedDistributions "
-                "should not have their '_transformed' attributes modified, these are "
-                "just copies of the base attribute. "
-                f"Please modify the base attribute (e.g. {base_attr_name}) instead."
-            )
+            raise AttributeError(TRANSFORMED_ERROR_MSG.format(base_attr_name))
 
         elif hasattr(self, f"_transformed_{name}"):
             self.base_dist.__setattr__(name, value)

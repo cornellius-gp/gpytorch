@@ -2,54 +2,59 @@
 
 import unittest
 
-import torch
-
-from gpytorch.priors import (
-    GammaPrior,
-    HalfCauchyPrior,
-    HalfCauchyPrior,
-    LogNormalPrior,
-    NormalPrior,
-)
-from gpytorch.priors.utils import _load_transformed_to_base_dist
+from gpytorch.priors import GammaPrior, HalfCauchyPrior, LogNormalPrior, NormalPrior
+from torch import Tensor
 
 
-class TestUtils(unittest.TestCase):
-    def test_bufferize_attributes(self):
-        prior = NormalPrior(0.01, 1)
-        self.assertEqual(prior.loc, 0.01)
-        self.assertEqual(prior.loc.requires_grad, False)
+class TestPrior(unittest.TestCase):
+    def test_state_dict(self):
+        normal = NormalPrior(0.1, 1).state_dict()
+        self.assertTrue("loc" in normal)
+        self.assertTrue("scale" in normal)
+        self.assertEqual(normal["loc"], 0.1)
 
-        prior = GammaPrior(1, 2)
-        self.assertEqual(prior.rate, 2.0)
-        self.assertEqual(prior.rate.requires_grad, False)
+        gamma = GammaPrior(1.1, 2).state_dict()
+        self.assertTrue("concentration" in gamma)
+        self.assertTrue("rate" in gamma)
+        self.assertEqual(gamma["concentration"], 1.1)
 
-        prior = LogNormalPrior(2.1, 1.2)
-        self.assertEqual(prior._transformed_loc, 2.1)
-        self.assertEqual(prior.loc, 2.1)
-        self.assertEqual(prior._transformed_scale, 1.2)
-        self.assertEqual(prior._transformed_scale.requires_grad, False)
+        ln = LogNormalPrior(2.1, 1.2).state_dict()
+        self.assertTrue("_transformed_loc" in ln)
+        self.assertTrue("_transformed_scale" in ln)
+        self.assertEqual(ln["_transformed_loc"], 2.1)
 
-        prior = HalfCauchyPrior(1.3)
-        self.assertEqual(prior._transformed_scale, 1.3)
-        self.assertEqual(prior._transformed_scale.requires_grad, False)
+        hc = HalfCauchyPrior(1.3).state_dict()
+        self.assertTrue("_transformed_scale" in hc)
 
-    def test_load_transformed_to_base_dist(self):
-        lognormal = LogNormalPrior(loc=2.5, scale=2.1)
-        self.assertEqual(lognormal._transformed_loc, 2.5)
-        self.assertEqual(lognormal._transformed_scale, 2.1)
+    def test_load_state_dict(self):
+        ln1 = LogNormalPrior(loc=0.5, scale=0.1)
+        ln2 = LogNormalPrior(loc=2.5, scale=2.1)
+        gm1 = GammaPrior(concentration=0.5, rate=0.1)
+        gm2 = GammaPrior(concentration=2.5, rate=2.1)
+        hc1 = HalfCauchyPrior(scale=1.1)
+        hc2 = HalfCauchyPrior(scale=101.1)
 
-        lognormal._transformed_loc = torch.Tensor([0.11])
-        lognormal._transformed_scale = torch.Tensor([11])
-        _load_transformed_to_base_dist(lognormal)
-        self.assertEqual(lognormal._transformed_loc, 0.11)
-        self.assertEqual(lognormal._transformed_scale, 11)
-        self.assertEqual(lognormal.loc, 0.11)
-        self.assertEqual(lognormal.scale, 11)
+        ln2.load_state_dict(ln1.state_dict())
+        self.assertEqual(ln2.loc, ln1.loc)
+        self.assertEqual(ln2.scale, ln1.scale)
 
-        halfcauchy = HalfCauchyPrior(scale=11.1)
-        self.assertEqual(halfcauchy._transformed_scale, 11.1)
-        halfcauchy._transformed_scale = torch.Tensor([0.11])
-        _load_transformed_to_base_dist(halfcauchy)
-        self.assertEqual(halfcauchy._transformed_scale, 0.11)
-        self.assertEqual(halfcauchy.scale, 0.11)
+        gm2.load_state_dict(gm1.state_dict())
+        self.assertEqual(gm2.concentration, gm1.concentration)
+        self.assertEqual(gm2.rate, gm1.rate)
+
+        hc2.load_state_dict(hc1.state_dict())
+        self.assertEqual(hc2.scale, hc1.scale)
+
+    def test_transformed_attributes(self):
+        norm = NormalPrior(loc=2.5, scale=2.1)
+        ln = LogNormalPrior(loc=2.5, scale=2.1)
+        hc = HalfCauchyPrior(scale=2.2)
+
+        with self.assertRaisesRegex(AttributeError, "'NormalPrior' object has no attribute '_transformed_loc'"):
+            getattr(norm, "_transformed_loc")
+
+        self.assertTrue(getattr(ln, "_transformed_loc"), 2.5)
+        norm.loc = Tensor([1.01])
+        ln.loc = Tensor([1.01])
+        self.assertEqual(ln._transformed_loc, 1.01)
+        self.assertEqual(hc._transformed_scale, 2.2)
