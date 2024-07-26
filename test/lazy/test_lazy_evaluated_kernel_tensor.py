@@ -181,33 +181,3 @@ class TestLazyEvaluatedKernelTensorMultitaskBatch(TestLazyEvaluatedKernelTensorB
         lazy_tensor = self.create_linear_op()
         lazy_tensor.kernel.data_covar_module.raw_lengthscale_constraint.transform = lambda x: x + 0.1
         self._test_half(lazy_tensor)
-
-
-class TestLazyEvaluatedKernelTensorAdditive(TestLazyEvaluatedKernelTensorBatch):
-    seed = 0
-
-    def create_linear_op(self):
-        kern = gpytorch.kernels.AdditiveStructureKernel(gpytorch.kernels.RBFKernel(), num_dims=6)
-        mat1 = torch.randn(5, 6)
-        mat2 = mat1.detach().clone()
-        return kern(mat1, mat2)
-
-    def evaluate_linear_op(self, lazy_tensor):
-        res = to_dense(
-            gpytorch.Module.__call__(
-                lazy_tensor.kernel.base_kernel,
-                lazy_tensor.x1.transpose(-1, -2).unsqueeze(-1),
-                lazy_tensor.x2.transpose(-1, -2).unsqueeze(-1),
-            )
-        ).sum(0)
-        return res
-
-    def test_inv_matmul_matrix_with_checkpointing(self):
-        pass
-
-    def test_half(self):
-        # many transform operations aren't supported in half so we overwrite
-        # this test
-        lazy_tensor = self.create_linear_op()
-        lazy_tensor.kernel.base_kernel.raw_lengthscale_constraint.transform = lambda x: x + 0.1
-        self._test_half(lazy_tensor)

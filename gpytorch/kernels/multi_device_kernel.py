@@ -43,8 +43,16 @@ class MultiDeviceKernel(DataParallel, Kernel):
         self.__cached_x2 = torch.empty(1)
 
     @property
+    def _lazily_evaluate(self) -> bool:
+        return self.base_kernel._lazily_evaluate
+
+    @property
     def base_kernel(self):
         return self.module
+
+    @property
+    def is_stationary(self):
+        return self.base_kernel.is_stationary
 
     def forward(self, x1, x2, diag=False, **kwargs):
         if diag:

@@ -19,8 +19,8 @@ class TestRBFKernel(unittest.TestCase, BaseKernelTestCase):
         return RBFKernel(ard_num_dims=num_dims, **kwargs)
 
     def test_ard(self):
-        a = torch.tensor([[1, 2], [2, 4]], dtype=torch.float)
-        b = torch.tensor([[1, 3], [0, 4]], dtype=torch.float)
+        a = torch.tensor([[1, 2], [2, 4], [1, 2]], dtype=torch.float)
+        b = torch.tensor([[1, 3], [0, 4], [0, 3]], dtype=torch.float)
         lengthscales = torch.tensor([1, 2], dtype=torch.float).view(1, 2)
 
         kernel = RBFKernel(ard_num_dims=2)
@@ -35,17 +35,6 @@ class TestRBFKernel(unittest.TestCase, BaseKernelTestCase):
 
         # Diag
         res = kernel(a, b).diagonal(dim1=-1, dim2=-2)
-        actual = actual.diagonal(dim1=-1, dim2=-2)
-        self.assertLess(torch.norm(res - actual), 1e-5)
-
-        # batch_dims
-        actual = scaled_a.transpose(-1, -2).unsqueeze(-1) - scaled_b.transpose(-1, -2).unsqueeze(-2)
-        actual = actual.pow(2).mul_(-0.5).exp()
-        res = kernel(a, b, last_dim_is_batch=True).to_dense()
-        self.assertLess(torch.norm(res - actual), 1e-5)
-
-        # batch_dims and diag
-        res = kernel(a, b, last_dim_is_batch=True).diagonal(dim1=-1, dim2=-2)
         actual = actual.diagonal(dim1=-1, dim2=-2)
         self.assertLess(torch.norm(res - actual), 1e-5)
 
@@ -67,19 +56,6 @@ class TestRBFKernel(unittest.TestCase, BaseKernelTestCase):
         # diag
         res = kernel(a, b).diagonal(dim1=-1, dim2=-2)
         actual = actual.diagonal(dim1=-1, dim2=-2)
-        self.assertLess(torch.norm(res - actual), 1e-5)
-
-        # batch_dims
-        double_batch_a = scaled_a.transpose(-1, -2).unsqueeze(-1)
-        double_batch_b = scaled_b.transpose(-1, -2).unsqueeze(-2)
-        actual = double_batch_a - double_batch_b
-        actual = actual.pow(2).mul_(-0.5).exp()
-        res = kernel(a, b, last_dim_is_batch=True).to_dense()
-        self.assertLess(torch.norm(res - actual), 1e-5)
-
-        # batch_dims and diag
-        res = kernel(a, b, last_dim_is_batch=True).diagonal(dim1=-1, dim2=-2)
-        actual = actual.diagonal(dim1=-2, dim2=-1)
         self.assertLess(torch.norm(res - actual), 1e-5)
 
     def test_ard_separate_batch(self):

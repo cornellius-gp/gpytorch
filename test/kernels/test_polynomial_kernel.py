@@ -31,19 +31,6 @@ class TestPolynomialKernel(unittest.TestCase, BaseKernelTestCase):
         actual = actual.diagonal(dim1=-1, dim2=-2)
         self.assertLess(torch.norm(res - actual), 1e-5)
 
-        # batch_dims
-        actual = torch.zeros(2, 3, 3)
-        for i in range(2):
-            actual[i] = kernel(a[:, i].unsqueeze(-1), b[:, i].unsqueeze(-1)).to_dense()
-
-        res = kernel(a, b, last_dim_is_batch=True).to_dense()
-        self.assertLess(torch.norm(res - actual), 1e-5)
-
-        # batch_dims + diag
-        res = kernel(a, b, last_dim_is_batch=True).diagonal(dim1=-1, dim2=-2)
-        actual = torch.cat([actual[i].diagonal(dim1=-1, dim2=-2).unsqueeze(0) for i in range(actual.size(0))])
-        self.assertLess(torch.norm(res - actual), 1e-5)
-
     def test_computes_cubic_kernel(self):
         a = torch.tensor([[4, 1], [2, 2], [8, 0]], dtype=torch.float)
         b = torch.tensor([[0, 0], [2, 1], [1, 0]], dtype=torch.float)
@@ -61,19 +48,6 @@ class TestPolynomialKernel(unittest.TestCase, BaseKernelTestCase):
         # diag
         res = kernel(a, b).diagonal(dim1=-1, dim2=-2)
         actual = actual.diagonal(dim1=-1, dim2=-2)
-        self.assertLess(torch.norm(res - actual), 1e-5)
-
-        # batch_dims
-        actual = torch.zeros(2, 3, 3)
-        for i in range(2):
-            actual[i] = kernel(a[:, i].unsqueeze(-1), b[:, i].unsqueeze(-1)).to_dense()
-
-        res = kernel(a, b, last_dim_is_batch=True).to_dense()
-        self.assertLess(torch.norm(res - actual), 1e-5)
-
-        # batch_dims + diag
-        res = kernel(a, b, last_dim_is_batch=True).diagonal(dim1=-1, dim2=-2)
-        actual = torch.cat([actual[i].diagonal(dim1=-1, dim2=-2).unsqueeze(0) for i in range(actual.size(0))])
         self.assertLess(torch.norm(res - actual), 1e-5)
 
     def test_quadratic_kernel_batch(self):

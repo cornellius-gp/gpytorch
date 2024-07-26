@@ -54,13 +54,6 @@ class ScaleKernel(Kernel):
         >>> covar = scaled_covar_module(x)  # Output: LinearOperator of size (10 x 10)
     """
 
-    @property
-    def is_stationary(self) -> bool:
-        """
-        Kernel is stationary if base kernel is stationary.
-        """
-        return self.base_kernel.is_stationary
-
     def __init__(
         self,
         base_kernel: Kernel,
@@ -86,6 +79,17 @@ class ScaleKernel(Kernel):
 
         self.register_constraint("raw_outputscale", outputscale_constraint)
 
+    @property
+    def _lazily_evaluate(self) -> bool:
+        return self.base_kernel._lazily_evaluate
+
+    @property
+    def is_stationary(self) -> bool:
+        """
+        Kernel is stationary if base kernel is stationary.
+        """
+        return self.base_kernel.is_stationary
+
     def _outputscale_param(self, m):
         return m.outputscale
 
@@ -105,11 +109,9 @@ class ScaleKernel(Kernel):
             value = torch.as_tensor(value).to(self.raw_outputscale)
         self.initialize(raw_outputscale=self.raw_outputscale_constraint.inverse_transform(value))
 
-    def forward(self, x1, x2, last_dim_is_batch=False, diag=False, **params):
-        orig_output = self.base_kernel.forward(x1, x2, diag=diag, last_dim_is_batch=last_dim_is_batch, **params)
+    def forward(self, x1, x2, diag=False, **params):
+        orig_output = self.base_kernel.forward(x1, x2, diag=diag, **params)
         outputscales = self.outputscale
-        if last_dim_is_batch:
-            outputscales = outputscales.unsqueeze(-1)
         if diag:
             outputscales = outputscales.unsqueeze(-1)
             return to_dense(orig_output) * outputscales

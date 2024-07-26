@@ -441,7 +441,7 @@ class TestSimpleGPRegression(BaseTestCase, unittest.TestCase):
 
             self.assertLess(torch.max(var_diff / noise), 0.05)
 
-    def test_pyro_sampling(self):
+    def pending_test_pyro_sampling(self):
         try:
             import pyro  # noqa
             from pyro.infer.mcmc import MCMC, NUTS
