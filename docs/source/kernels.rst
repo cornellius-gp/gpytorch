@@ -119,22 +119,10 @@ Composition/Decoration Kernels
 .. autoclass:: MultiDeviceKernel
    :members:
 
-:hidden:`AdditiveStructureKernel`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: AdditiveStructureKernel
-   :members:
-
 :hidden:`ProductKernel`
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: ProductKernel
-   :members:
-
-:hidden:`ProductStructureKernel`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: ProductStructureKernel
    :members:
 
 :hidden:`ScaleKernel`

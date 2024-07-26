@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 from . import keops
-from .additive_structure_kernel import AdditiveStructureKernel
 from .arc_kernel import ArcKernel
 from .constant_kernel import ConstantKernel
 from .cosine_kernel import CosineKernel
@@ -19,12 +18,10 @@ from .matern52_kernel_grad import Matern52KernelGrad
 from .matern_kernel import MaternKernel
 from .multi_device_kernel import MultiDeviceKernel
 from .multitask_kernel import MultitaskKernel
-from .newton_girard_additive_kernel import NewtonGirardAdditiveKernel
 from .periodic_kernel import PeriodicKernel
 from .piecewise_polynomial_kernel import PiecewisePolynomialKernel
 from .polynomial_kernel import PolynomialKernel
 from .polynomial_kernel_grad import PolynomialKernelGrad
-from .product_structure_kernel import ProductStructureKernel
 from .rbf_kernel import RBFKernel
 from .rbf_kernel_grad import RBFKernelGrad
 from .rbf_kernel_gradgrad import RBFKernelGradGrad
@@ -39,7 +36,6 @@ __all__ = [
     "Kernel",
     "ArcKernel",
     "AdditiveKernel",
-    "AdditiveStructureKernel",
     "ConstantKernel",
     "CylindricalKernel",
     "MultiDeviceKernel",
@@ -55,13 +51,11 @@ __all__ = [
     "LinearKernel",
     "MaternKernel",
     "MultitaskKernel",
-    "NewtonGirardAdditiveKernel",
     "PeriodicKernel",
     "PiecewisePolynomialKernel",
     "PolynomialKernel",
     "PolynomialKernelGrad",
     "ProductKernel",
-    "ProductStructureKernel",
     "RBFKernel",
     "RFFKernel",
     "RBFKernelGrad",

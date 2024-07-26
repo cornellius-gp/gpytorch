@@ -30,6 +30,11 @@ class GridInterpolationVariationalStrategy(_VariationalStrategy):
     :param list grid_bounds: Bounds of each dimension of the grid (should be a list of (float, float) tuples)
     :param ~gpytorch.variational.VariationalDistribution variational_distribution: A
         VariationalDistribution object that represents the form of the variational distribution :math:`q(\mathbf u)`
+
+    :ivar grid: The grid of points that the inducing points are based on.
+        The grid is stored as a matrix, where each column corresponds to the
+        projection of the grid onto one dimension.
+    :type grid: torch.Tensor (M x D)
     """
 
     def __init__(self, model, grid_size, grid_bounds, variational_distribution):
@@ -51,15 +56,14 @@ class GridInterpolationVariationalStrategy(_VariationalStrategy):
             model, inducing_points, variational_distribution, learn_inducing_locations=False
         )
         object.__setattr__(self, "model", model)
-
         self.register_buffer("grid", grid)
 
     def _compute_grid(self, inputs):
-        n_data, n_dimensions = inputs.size(-2), inputs.size(-1)
-        batch_shape = inputs.shape[:-2]
+        *batch_shape, n_data, n_dimensions = inputs.shape
+        grid = tuple(self.grid[..., i] for i in range(n_dimensions))
 
         inputs = inputs.reshape(-1, n_dimensions)
-        interp_indices, interp_values = Interpolation().interpolate(self.grid, inputs)
+        interp_indices, interp_values = Interpolation().interpolate(grid, inputs)
         interp_indices = interp_indices.view(*batch_shape, n_data, -1)
         interp_values = interp_values.view(*batch_shape, n_data, -1)
 

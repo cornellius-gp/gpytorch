@@ -96,18 +96,6 @@ class TestMaternKernel(unittest.TestCase, BaseKernelTestCase):
         actual = actual.diagonal(dim1=-1, dim2=-2)
         self.assertLess(torch.norm(res - actual), 1e-5)
 
-        # batch_dims
-        dist = torch.tensor([[[0, 0], [2, 2]], [[1, 1], [0, 0]]], dtype=torch.float)
-        dist.mul_(math.sqrt(5))
-        actual = (dist**2 / 3 + dist + 1).mul(torch.exp(-dist))
-        res = kernel(a, b, last_dim_is_batch=True).to_dense()
-        self.assertLess(torch.norm(res - actual), 1e-5)
-
-        # batch_dims + diag
-        res = kernel(a, b, last_dim_is_batch=True).diagonal(dim1=-1, dim2=-2)
-        actual = torch.cat([actual[i].diagonal(dim1=-1, dim2=-2).unsqueeze(0) for i in range(actual.size(0))])
-        self.assertLess(torch.norm(res - actual), 1e-5)
-
     def test_ard_batch(self):
         a = torch.tensor([[[1, 2, 3], [2, 4, 3]], [[2, -1, 2], [2, -1, 0]]], dtype=torch.float)
         b = torch.tensor([[[1, 4, 3]], [[2, -1, 0]]], dtype=torch.float)
@@ -139,26 +127,6 @@ class TestMaternKernel(unittest.TestCase, BaseKernelTestCase):
         # diag
         res = kernel(a, b).diagonal(dim1=-1, dim2=-2)
         actual = torch.cat([actual[i].diagonal(dim1=-1, dim2=-2).unsqueeze(0) for i in range(actual.size(0))])
-        self.assertLess(torch.norm(res - actual), 1e-5)
-
-        # batch_dims
-        dist = torch.tensor(
-            [
-                [[[0.0, 0.0], [1.0, 1.0]], [[0.0, 0.0], [0.0, 0.0]]],
-                [[[1.0, 1.0], [0.0, 0.0]], [[0.0, 0.0], [0.0, 0.0]]],
-                [[[0.0, 0.0], [0.0, 0.0]], [[4.0, 4.0], [0.0, 0.0]]],
-            ]
-        )
-
-        dist.mul_(math.sqrt(5))
-        dist = dist.view(3, 2, 2, 2).transpose(0, 1)
-        actual = (dist**2 / 3 + dist + 1).mul(torch.exp(-dist))
-        res = kernel(a, b, last_dim_is_batch=True).to_dense()
-        self.assertLess(torch.norm(res - actual), 1e-5)
-
-        # batch_dims + diag
-        res = kernel(a, b, last_dim_is_batch=True).diagonal(dim1=-1, dim2=-2)
-        actual = actual.diagonal(dim1=-2, dim2=-1)
         self.assertLess(torch.norm(res - actual), 1e-5)
 
     def create_kernel_with_prior(self, lengthscale_prior):

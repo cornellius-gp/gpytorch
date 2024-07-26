@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
-from typing import List, Optional, Tuple, Union
+from typing import Iterable, Optional, Tuple, Union
 
 import torch
+from jaxtyping import Float
 from linear_operator import to_linear_operator
-from linear_operator.operators import InterpolatedLinearOperator
+from linear_operator.operators import InterpolatedLinearOperator, LinearOperator
+from torch import Tensor
 
 from ..models.exact_prediction_strategies import InterpolatedPredictionStrategy
 from ..utils.grid import create_grid
@@ -25,14 +27,14 @@ class GridInterpolationKernel(GridKernel):
     .. math::
 
        \begin{equation*}
-          k(\mathbf{x_1}, \mathbf{x_2}) = \mathbf{w_{x_1}}^\top K_{U,U} \mathbf{w_{x_2}}
+          k(\mathbf{x_1}, \mathbf{x_2}) = \mathbf{w_{x_1}}^\top K_{\boldsymbol Z, \boldsymbol Z} \mathbf{w_{x_2}}
        \end{equation*}
 
     where
 
-    * :math:`U` is the set of gridded inducing points
+    * :math:`\boldsymbol Z` is the set of gridded inducing points
 
-    * :math:`K_{U,U}` is the kernel matrix between the inducing points
+    * :math:`K_{\boldsymbol Z, \boldsymbol Z}` is the kernel matrix between the inducing points
 
     * :math:`\mathbf{w_{x_1}}` and :math:`\mathbf{w_{x_2}}` are sparse vectors based on
       :math:`\mathbf{x_1}` and :math:`\mathbf{x_2}` that apply cubic interpolation.
@@ -50,20 +52,13 @@ class GridInterpolationKernel(GridKernel):
         `GridInterpolationKernel` can only wrap **stationary kernels** (such as RBF, Matern,
         Periodic, Spectral Mixture, etc.)
 
-    Args:
-        base_kernel (Kernel):
-            The kernel to approximate with KISS-GP
-        grid_size (Union[int, List[int]]):
-            The size of the grid in each dimension.
-            If a single int is provided, then every dimension will have the same grid size.
-        num_dims (int):
-            The dimension of the input data. Required if `grid_bounds=None`
-        grid_bounds (tuple(float, float), optional):
-            The bounds of the grid, if known (high performance mode).
-            The length of the tuple must match the number of dimensions.
-            The entries represent the min/max values for each dimension.
-        active_dims (tuple of ints, optional):
-            Passed down to the `base_kernel`.
+    :param base_kernel: The kernel to approximate with KISS-GP.
+    :param grid_size: The size of the grid in each dimension.
+        If a single int is provided, then every dimension will have the same grid size.
+    :param num_dims: The dimension of the input data. Required if `grid_bounds=None`
+    :param grid_bounds: The bounds of the grid, if known (high performance mode).
+        The length of the tuple must match the number of dimensions.
+        The entries represent the min/max values for each dimension.
 
     .. _Kernel Interpolation for Scalable Structured Gaussian Processes:
         http://proceedings.mlr.press/v37/wilson15.pdf
@@ -72,10 +67,10 @@ class GridInterpolationKernel(GridKernel):
     def __init__(
         self,
         base_kernel: Kernel,
-        grid_size: Union[int, List[int]],
+        grid_size: Union[int, Iterable[int]],
         num_dims: Optional[int] = None,
         grid_bounds: Optional[Tuple[float, float]] = None,
-        active_dims: Optional[Tuple[int, ...]] = None,
+        **kwargs,
     ):
         has_initialized_grid = 0
         grid_is_dynamic = True
@@ -116,8 +111,7 @@ class GridInterpolationKernel(GridKernel):
         super(GridInterpolationKernel, self).__init__(
             base_kernel=base_kernel,
             grid=grid,
-            interpolation_mode=True,
-            active_dims=active_dims,
+            **kwargs,
         )
         self.register_buffer("has_initialized_grid", torch.tensor(has_initialized_grid, dtype=torch.bool))
 
@@ -129,23 +123,26 @@ class GridInterpolationKernel(GridKernel):
             for bound, spacing in zip(self.grid_bounds, grid_spacings)
         )
 
-    def _compute_grid(self, inputs, last_dim_is_batch=False):
-        n_data, n_dimensions = inputs.size(-2), inputs.size(-1)
-        if last_dim_is_batch:
-            inputs = inputs.transpose(-1, -2).unsqueeze(-1)
-            n_dimensions = 1
-        batch_shape = inputs.shape[:-2]
-
+    def _compute_grid(self, inputs):
+        *batch_shape, n_data, n_dimensions = inputs.shape
         inputs = inputs.reshape(-1, n_dimensions)
         interp_indices, interp_values = Interpolation().interpolate(self.grid, inputs)
         interp_indices = interp_indices.view(*batch_shape, n_data, -1)
         interp_values = interp_values.view(*batch_shape, n_data, -1)
         return interp_indices, interp_values
 
-    def _inducing_forward(self, last_dim_is_batch, **params):
-        return super().forward(self.grid, self.grid, last_dim_is_batch=last_dim_is_batch, **params)
+    def _create_or_update_full_grid(self, grid: Iterable[Tensor]):
+        pass
 
-    def forward(self, x1, x2, diag=False, last_dim_is_batch=False, **params):
+    def _validate_inputs(self, x: Float[Tensor, "... N D"]) -> bool:
+        return True
+
+    def _inducing_forward(self, **params):
+        return super().forward(None, None, **params)
+
+    def forward(
+        self, x1: Float[Tensor, "... N_1 D"], x2: Float[Tensor, "... N_2 D"], diag: bool = False, **params
+    ) -> Float[Union[Tensor, LinearOperator], "... N_1 N_2"]:
         # See if we need to update the grid or not
         if self.grid_is_dynamic:  # This is true if a grid_bounds wasn't passed in
             if torch.equal(x1, x2):
@@ -180,16 +177,13 @@ class GridInterpolationKernel(GridKernel):
                 )
                 self.update_grid(grid)
 
-        base_lazy_tsr = to_linear_operator(self._inducing_forward(last_dim_is_batch=last_dim_is_batch, **params))
-        if last_dim_is_batch and base_lazy_tsr.size(-3) == 1:
-            base_lazy_tsr = base_lazy_tsr.repeat(*x1.shape[:-2], x1.size(-1), 1, 1)
-
-        left_interp_indices, left_interp_values = self._compute_grid(x1, last_dim_is_batch)
+        base_lazy_tsr = to_linear_operator(self._inducing_forward(**params))
+        left_interp_indices, left_interp_values = self._compute_grid(x1)
         if torch.equal(x1, x2):
             right_interp_indices = left_interp_indices
             right_interp_values = left_interp_values
         else:
-            right_interp_indices, right_interp_values = self._compute_grid(x2, last_dim_is_batch)
+            right_interp_indices, right_interp_values = self._compute_grid(x2)
 
         batch_shape = torch.broadcast_shapes(
             base_lazy_tsr.batch_shape,

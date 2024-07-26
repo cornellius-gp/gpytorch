@@ -5,6 +5,7 @@ import unittest
 import torch
 from linear_operator.operators import InterpolatedLinearOperator
 
+import gpytorch
 from gpytorch.kernels import GridInterpolationKernel, RBFKernel
 
 
@@ -14,7 +15,8 @@ class TestGridInterpolationKernel(unittest.TestCase):
         kernel = GridInterpolationKernel(base_kernel, num_dims=2, grid_size=128, grid_bounds=[(-1.2, 1.2)] * 2)
 
         xs = torch.randn(5, 2).clamp(-1, 1)
-        interp_covar = kernel(xs, xs).evaluate_kernel()
+        with gpytorch.settings.lazily_evaluate_kernels(False):
+            interp_covar = kernel(xs, xs)
         self.assertIsInstance(interp_covar, InterpolatedLinearOperator)
 
         xs = torch.randn(5, 2).clamp(-1, 1)

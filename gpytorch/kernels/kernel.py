@@ -231,9 +231,7 @@ class Kernel(Module):
         self.initialize(raw_lengthscale=self.raw_lengthscale_constraint.inverse_transform(value))
 
     @abstractmethod
-    def forward(
-        self, x1: Tensor, x2: Tensor, diag: bool = False, last_dim_is_batch: bool = False, **params
-    ) -> Union[Tensor, LinearOperator]:
+    def forward(self, x1: Tensor, x2: Tensor, diag: bool = False, **params) -> Union[Tensor, LinearOperator]:
         r"""
         Computes the covariance between :math:`\mathbf x_1` and :math:`\mathbf x_2`.
         This method should be implemented by all Kernel subclasses.
@@ -242,16 +240,11 @@ class Kernel(Module):
         :param x2: Second set of data (... x M x D).
         :param diag: Should the Kernel compute the whole kernel, or just the diag?
             If True, it must be the case that `x1 == x2`. (Default: False.)
-        :param last_dim_is_batch: If True, treat the last dimension
-            of `x1` and `x2` as another batch dimension.
-            (Useful for additive structure over the dimensions). (Default: False.)
 
         :return: The kernel matrix or vector. The shape depends on the kernel's evaluation mode:
 
             * `full_covar`: `... x N x M`
-            * `full_covar` with `last_dim_is_batch=True`: `... x K x N x M`
             * `diag`: `... x N`
-            * `diag` with `last_dim_is_batch=True`: `... x K x N`
         """
         raise NotImplementedError()
 
@@ -314,7 +307,6 @@ class Kernel(Module):
         x1: Tensor,
         x2: Tensor,
         diag: bool = False,
-        last_dim_is_batch: bool = False,
         square_dist: bool = False,
         **params,
     ) -> Tensor:
@@ -326,22 +318,13 @@ class Kernel(Module):
         :param x2: Second set of data (... x M x D).
         :param diag: Should the Kernel compute the whole kernel, or just the diag?
             If True, it must be the case that `x1 == x2`. (Default: False.)
-        :param last_dim_is_batch: If True, treat the last dimension
-            of `x1` and `x2` as another batch dimension.
-            (Useful for additive structure over the dimensions). (Default: False.)
         :param square_dist:
             If True, returns the squared distance rather than the standard distance. (Default: False.)
         :return: The kernel matrix or vector. The shape depends on the kernel's evaluation mode:
 
             * `full_covar`: `... x N x M`
-            * `full_covar` with `last_dim_is_batch=True`: `... x K x N x M`
             * `diag`: `... x N`
-            * `diag` with `last_dim_is_batch=True`: `... x K x N`
         """
-        if last_dim_is_batch:
-            x1 = x1.transpose(-1, -2).unsqueeze(-1)
-            x2 = x2.transpose(-1, -2).unsqueeze(-1)
-
         x1_eq_x2 = torch.equal(x1, x2)
         res = None
 
@@ -457,7 +440,7 @@ class Kernel(Module):
             yield kernel
 
     def __call__(
-        self, x1: Tensor, x2: Optional[Tensor] = None, diag: bool = False, last_dim_is_batch: bool = False, **params
+        self, x1: Tensor, x2: Optional[Tensor] = None, diag: bool = False, **params
     ) -> Union[LazyEvaluatedKernelTensor, LinearOperator, Tensor]:
         r"""
         Computes the covariance between :math:`\mathbf x_1` and :math:`\mathbf x_2`.
@@ -473,27 +456,13 @@ class Kernel(Module):
             (If `None`, then `x2` is set to `x1`.)
         :param diag: Should the Kernel compute the whole kernel, or just the diag?
             If True, it must be the case that `x1 == x2`. (Default: False.)
-        :param last_dim_is_batch: If True, treat the last dimension
-            of `x1` and `x2` as another batch dimension.
-            (Useful for additive structure over the dimensions). (Default: False.)
 
         :return: An object that will lazily evaluate to the kernel matrix or vector.
             The shape depends on the kernel's evaluation mode:
 
             * `full_covar`: `... x N x M`
-            * `full_covar` with `last_dim_is_batch=True`: `... x K x N x M`
             * `diag`: `... x N`
-            * `diag` with `last_dim_is_batch=True`: `... x K x N`
         """
-        if last_dim_is_batch:
-            warnings.warn(
-                "The last_dim_is_batch argument is deprecated, and will be removed in GPyTorch 2.0. "
-                "If you are using it as part of AdditiveStructureKernel or ProductStructureKernel, "
-                'please update your code according to the "Kernels with Additive or Product Structure" '
-                "tutorial in the GPyTorch docs.",
-                DeprecationWarning,
-            )
-
         x1_, x2_ = x1, x2
 
         # Select the active dimensions
@@ -523,7 +492,7 @@ class Kernel(Module):
                 )
 
         if diag:
-            res = super(Kernel, self).__call__(x1_, x2_, diag=True, last_dim_is_batch=last_dim_is_batch, **params)
+            res = super(Kernel, self).__call__(x1_, x2_, diag=True, **params)
             # Did this Kernel eat the diag option?
             # If it does not return a LazyEvaluatedKernelTensor, we can call diag on the output
             if not isinstance(res, LazyEvaluatedKernelTensor):
@@ -533,11 +502,9 @@ class Kernel(Module):
 
         else:
             if settings.lazily_evaluate_kernels.on():
-                res = LazyEvaluatedKernelTensor(x1_, x2_, kernel=self, last_dim_is_batch=last_dim_is_batch, **params)
+                res = LazyEvaluatedKernelTensor(x1_, x2_, kernel=self, **params)
             else:
-                res = to_linear_operator(
-                    super(Kernel, self).__call__(x1_, x2_, last_dim_is_batch=last_dim_is_batch, **params)
-                )
+                res = to_linear_operator(super(Kernel, self).__call__(x1_, x2_, **params))
             return res
 
     def __getstate__(self):

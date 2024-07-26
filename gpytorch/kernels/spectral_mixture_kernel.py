@@ -268,7 +268,7 @@ class SpectralMixtureKernel(Kernel):
             self.mixture_weights = train_y.std().div(self.num_mixtures)
 
     def _create_input_grid(
-        self, x1: torch.Tensor, x2: torch.Tensor, diag: bool = False, last_dim_is_batch: bool = False, **params
+        self, x1: torch.Tensor, x2: torch.Tensor, diag: bool = False, **params
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         This is a helper method for creating a grid of the kernel's inputs.
@@ -280,33 +280,20 @@ class SpectralMixtureKernel(Kernel):
         :param torch.Tensor x2: ... x m x d (for diag mode, these must be the same inputs)
         :param diag: Should the Kernel compute the whole kernel, or just the diag? (Default: True.)
         :type diag: bool, optional
-        :param last_dim_is_batch: If this is true, it treats the last dimension
-            of the data as another batch dimension.  (Useful for additive
-            structure over the dimensions). (Default: False.)
-        :type last_dim_is_batch: bool, optional
 
         :rtype: torch.Tensor, torch.Tensor
         :return: Grid corresponding to x1 and x2. The shape depends on the kernel's mode:
             * `full_covar`: (`... x n x 1 x d` and `... x 1 x m x d`)
-            * `full_covar` with `last_dim_is_batch=True`: (`... x k x n x 1 x 1` and `... x k x 1 x m x 1`)
             * `diag`: (`... x n x d` and `... x n x d`)
-            * `diag` with `last_dim_is_batch=True`: (`... x k x n x 1` and `... x k x n x 1`)
         """
         x1_, x2_ = x1, x2
-        if last_dim_is_batch:
-            x1_ = x1_.transpose(-1, -2).unsqueeze(-1)
-            if torch.equal(x1, x2):
-                x2_ = x1_
-            else:
-                x2_ = x2_.transpose(-1, -2).unsqueeze(-1)
-
         if diag:
             return x1_, x2_
         else:
             return x1_.unsqueeze(-2), x2_.unsqueeze(-3)
 
     def forward(
-        self, x1: torch.Tensor, x2: torch.Tensor, diag: bool = False, last_dim_is_batch: bool = False, **params
+        self, x1: torch.Tensor, x2: torch.Tensor, diag: bool = False, **params
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         n, num_dims = x1.shape[-2:]
 
@@ -344,10 +331,5 @@ class SpectralMixtureKernel(Kernel):
         res = (res * mixture_weights).sum(-3 if diag else -4)
 
         # Product over dimensions
-        if last_dim_is_batch:
-            # Put feature-dimension in front of data1/data2 dimensions
-            res = res.permute(*list(range(0, res.dim() - 3)), -1, -3, -2)
-        else:
-            res = res.prod(-1)
-
+        res = res.prod(-1)
         return res
