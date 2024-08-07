@@ -865,5 +865,5 @@ class SGPRPredictionStrategy(DefaultPredictionStrategy):
                 "This is likely a bug in GPyTorch."
             )
 
-        res = test_test_covar - (L @ (covar_cache @ L.transpose(-1, -2)))
+        res = test_test_covar - MatmulLinearOperator(L, covar_cache @ L.mT)
         return res
