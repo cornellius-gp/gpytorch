@@ -90,7 +90,6 @@ class ConstantKernel(Kernel):
         x1: Tensor,
         x2: Tensor,
         diag: Optional[bool] = False,
-        last_dim_is_batch: Optional[bool] = False,
     ) -> Tensor:
         """Evaluates the constant kernel.
 
@@ -98,26 +97,17 @@ class ConstantKernel(Kernel):
             x1: First input tensor of shape (batch_shape x n1 x d).
             x2: Second input tensor of shape (batch_shape x n2 x d).
             diag: If True, returns the diagonal of the covariance matrix.
-            last_dim_is_batch: If True, the last dimension of size `d` of the input
-                tensors are treated as a batch dimension.
 
         Returns:
             A (batch_shape x n1 x n2)-dim, resp. (batch_shape x n1)-dim, tensor of
             constant covariance values if diag is False, resp. True.
         """
-        if last_dim_is_batch:
-            x1 = x1.transpose(-1, -2).unsqueeze(-1)
-            x2 = x2.transpose(-1, -2).unsqueeze(-1)
-
         dtype = torch.promote_types(x1.dtype, x2.dtype)
         batch_shape = torch.broadcast_shapes(x1.shape[:-2], x2.shape[:-2])
         shape = batch_shape + (x1.shape[-2],) + (() if diag else (x2.shape[-2],))
         constant = self.constant.to(dtype=dtype, device=x1.device)
 
         if not diag:
-            constant = constant.unsqueeze(-1)
-
-        if last_dim_is_batch:
             constant = constant.unsqueeze(-1)
 
         return constant.expand(shape)

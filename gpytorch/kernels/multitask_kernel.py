@@ -43,9 +43,7 @@ class MultitaskKernel(Kernel):
         self.data_covar_module = data_covar_module
         self.num_tasks = num_tasks
 
-    def forward(self, x1, x2, diag=False, last_dim_is_batch=False, **params):
-        if last_dim_is_batch:
-            raise RuntimeError("MultitaskKernel does not accept the last_dim_is_batch argument.")
+    def forward(self, x1, x2, diag=False, **params):
         covar_i = self.task_covar_module.covar_matrix
         if len(x1.shape[:-2]):
             covar_i = covar_i.repeat(*x1.shape[:-2], 1, 1)

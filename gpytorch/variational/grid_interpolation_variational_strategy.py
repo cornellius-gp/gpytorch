@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 
+from typing import Iterable, Optional, Tuple
+
 import torch
+from jaxtyping import Float
 from linear_operator.operators import InterpolatedLinearOperator
 from linear_operator.utils.interpolation import left_interp
+from torch import Tensor
 
 from ..distributions import MultivariateNormal
+from ..models import ApproximateGP
 from ..utils.interpolation import Interpolation
 from ..utils.memoize import cached
+from ._variational_distribution import _VariationalDistribution
 from ._variational_strategy import _VariationalStrategy
 
 
@@ -26,13 +32,24 @@ class GridInterpolationVariationalStrategy(_VariationalStrategy):
     :param ~gpytorch.models.ApproximateGP model: Model this strategy is applied to.
         Typically passed in when the VariationalStrategy is created in the
         __init__ method of the user defined model.
-    :param int grid_size: Size of the grid
-    :param list grid_bounds: Bounds of each dimension of the grid (should be a list of (float, float) tuples)
-    :param ~gpytorch.variational.VariationalDistribution variational_distribution: A
+    :param grid_size: Size of the grid
+    :param grid_bounds: Bounds of each dimension of the grid (should be a list of (float, float) tuples)
+    :param variational_distribution: A
         VariationalDistribution object that represents the form of the variational distribution :math:`q(\mathbf u)`
+
+    :ivar grid: The grid of points that the inducing points are based on.
+        The grid is stored as a matrix, where each column corresponds to the
+        projection of the grid onto one dimension.
+    :type grid: torch.Tensor (M x D)
     """
 
-    def __init__(self, model, grid_size, grid_bounds, variational_distribution):
+    def __init__(
+        self,
+        model: ApproximateGP,
+        grid_size: int,
+        grid_bounds: Iterable[Tuple[float, float]],
+        variational_distribution: _VariationalDistribution,
+    ):
         grid = torch.zeros(grid_size, len(grid_bounds))
         for i in range(len(grid_bounds)):
             grid_diff = float(grid_bounds[i][1] - grid_bounds[i][0]) / (grid_size - 2)
@@ -51,15 +68,17 @@ class GridInterpolationVariationalStrategy(_VariationalStrategy):
             model, inducing_points, variational_distribution, learn_inducing_locations=False
         )
         object.__setattr__(self, "model", model)
-
         self.register_buffer("grid", grid)
 
-    def _compute_grid(self, inputs):
-        n_data, n_dimensions = inputs.size(-2), inputs.size(-1)
-        batch_shape = inputs.shape[:-2]
+    def _compute_grid(
+        self,
+        inputs: Float[Tensor, "... N D"],
+    ) -> Tuple[Float[Tensor, "... N num_interp"], Float[Tensor, "... N num_interp"]]:
+        *batch_shape, n_data, n_dimensions = inputs.shape
+        grid = tuple(self.grid[..., i] for i in range(n_dimensions))
 
         inputs = inputs.reshape(-1, n_dimensions)
-        interp_indices, interp_values = Interpolation().interpolate(self.grid, inputs)
+        interp_indices, interp_values = Interpolation().interpolate(grid, inputs)
         interp_indices = interp_indices.view(*batch_shape, n_data, -1)
         interp_values = interp_values.view(*batch_shape, n_data, -1)
 
@@ -71,13 +90,19 @@ class GridInterpolationVariationalStrategy(_VariationalStrategy):
 
     @property
     @cached(name="prior_distribution_memo")
-    def prior_distribution(self):
+    def prior_distribution(self) -> Float[MultivariateNormal, "M"]:  # noqa: F821
         out = self.model.forward(self.inducing_points)
         # TODO: investigate why smaller than 1e-3 breaks some tests
         res = MultivariateNormal(out.mean, out.lazy_covariance_matrix.add_jitter(1e-3))
         return res
 
-    def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None):
+    def forward(
+        self,
+        x: Float[Tensor, "... N D"],
+        inducing_points: Float[Tensor, "... M D"],
+        inducing_values: Float[Tensor, "... M"],
+        variational_inducing_covar: Optional[Float[Tensor, "... M M"]] = None,
+    ) -> Float[MultivariateNormal, "... N"]:
         if variational_inducing_covar is None:
             raise RuntimeError(
                 "GridInterpolationVariationalStrategy is only compatible with Gaussian variational "

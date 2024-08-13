@@ -85,12 +85,8 @@ class LinearKernel(Kernel):
             value = torch.as_tensor(value).to(self.raw_variance)
         self.initialize(raw_variance=self.raw_variance_constraint.inverse_transform(value))
 
-    def forward(
-        self, x1: Tensor, x2: Tensor, diag: Optional[bool] = False, last_dim_is_batch: Optional[bool] = False, **params
-    ) -> LinearOperator:
+    def forward(self, x1: Tensor, x2: Tensor, diag: bool = False, **params) -> LinearOperator:
         x1_ = x1 * self.variance.sqrt()
-        if last_dim_is_batch:
-            x1_ = x1_.transpose(-1, -2).unsqueeze(-1)
 
         if x1.size() == x2.size() and torch.equal(x1, x2):
             # Use RootLinearOperator when x1 == x2 for efficiency when composing
@@ -99,9 +95,6 @@ class LinearKernel(Kernel):
 
         else:
             x2_ = x2 * self.variance.sqrt()
-            if last_dim_is_batch:
-                x2_ = x2_.transpose(-1, -2).unsqueeze(-1)
-
             prod = MatmulLinearOperator(x1_, x2_.transpose(-2, -1))
 
         if diag:

@@ -13,7 +13,6 @@ class PolynomialKernelGrad(PolynomialKernel):
         x1: torch.Tensor,
         x2: torch.Tensor,
         diag: Optional[bool] = False,
-        last_dim_is_batch: Optional[bool] = False,
         **params,
     ) -> torch.Tensor:
         offset = self.offset.view(*self.batch_shape, 1, 1)

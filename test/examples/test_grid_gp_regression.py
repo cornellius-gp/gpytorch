@@ -61,12 +61,12 @@ class TestGridGPRegression(unittest.TestCase):
         device = torch.device("cuda") if cuda else torch.device("cpu")
         grid_bounds = [(0, 1)] if num_dim == 1 else [(0, 1), (0, 2)]
         grid_size = 25
-        grid = torch.zeros(grid_size, len(grid_bounds), device=device)
+        grid = []
         for i in range(len(grid_bounds)):
             grid_diff = float(grid_bounds[i][1] - grid_bounds[i][0]) / (grid_size - 2)
-            grid[:, i] = torch.linspace(
+            grid.append(torch.linspace(
                 grid_bounds[i][0] - grid_diff, grid_bounds[i][1] + grid_diff, grid_size, device=device
-            )
+            ))
 
         train_x, train_y, test_x, test_y = make_data(grid, cuda=cuda)
         likelihood = gpytorch.likelihoods.GaussianLikelihood()
