@@ -30,18 +30,15 @@ class GridKernel(Kernel):
     :param base_kernel: The stationary kernel to speed up with grid methods.
     :param grid: A list of tensors where tensor `i` consists of the projections
         of the grid in dimension i.
-    :param active_dims:
 
     :ivar ragged_grid: A concatenation of all grid projections
     :type ragged_grid: Tensor (max(M_i) x D)
     :ivar full_grid: A full representation of the grid
-    :type ragged_grid: Tensor (N x D)
+    :type full_grid: Tensor (N x D)
 
     .. _Fast kernel learning for multidimensional pattern extrapolation:
         http://www.cs.cmu.edu/~andrewgw/manet.pdf
     """
-
-    # TODO: update doc
 
     is_stationary = True
 

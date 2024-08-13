@@ -85,7 +85,7 @@ class LinearKernel(Kernel):
             value = torch.as_tensor(value).to(self.raw_variance)
         self.initialize(raw_variance=self.raw_variance_constraint.inverse_transform(value))
 
-    def forward(self, x1: Tensor, x2: Tensor, diag: Optional[bool] = False, **params) -> LinearOperator:
+    def forward(self, x1: Tensor, x2: Tensor, diag: bool = False, **params) -> LinearOperator:
         x1_ = x1 * self.variance.sqrt()
 
         if x1.size() == x2.size() and torch.equal(x1, x2):
