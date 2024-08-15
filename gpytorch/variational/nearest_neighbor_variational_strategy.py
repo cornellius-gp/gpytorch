@@ -141,11 +141,16 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
             return self.model.forward(x, **kwargs)
 
         if x is not None:
-            assert self.inducing_points.shape[:-2] == x.shape[:-2], (
-                f"x batch shape must matches inducing points batch shape, "
-                f"but got x batch shape = {x.shape[:-2]}, "
-                f"inducing points batch shape = {self.inducing_points.shape[:-2]}."
-            )
+            # Make sure x and inducing points have the same batch shape
+            if not (self.inducing_points.shape[:-2] == x.shape[:-2]):
+                try:
+                    x = x.expand(*self.inducing_points.shape[:-2], *x.shape[-2:])
+                except RuntimeError:
+                    raise RuntimeError(
+                        f"x batch shape must match or broadcast with the inducing points' batch shape, "
+                        f"but got x batch shape = {x.shape[:-2]}, "
+                        f"inducing points batch shape = {self.inducing_points.shape[:-2]}."
+                    )
 
         # Delete previously cached items from the training distribution
         if self.training:
