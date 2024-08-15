@@ -9,7 +9,6 @@ from linear_operator.operators import DiagLinearOperator, LinearOperator, Triang
 from linear_operator.utils.cholesky import psd_safe_cholesky
 from torch import LongTensor, Tensor
 
-from .. import settings
 from ..distributions import MultivariateNormal
 from ..models import ApproximateGP, ExactGP
 from ..module import Module
@@ -325,8 +324,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
         variational_inducing_covar = DiagLinearOperator(variational_covar_fisrtk)
 
         variational_distribution = MultivariateNormal(inducing_values, variational_inducing_covar)
-        with settings.max_preconditioner_size(0):
-            kl = torch.distributions.kl.kl_divergence(variational_distribution, prior_dist)  # model_batch_shape
+        kl = torch.distributions.kl.kl_divergence(variational_distribution, prior_dist)  # model_batch_shape
         return kl
 
     def _stochastic_kl_helper(self, kl_indices: Float[Tensor, "n_batch"]) -> Float[Tensor, "..."]:  # noqa: F821
