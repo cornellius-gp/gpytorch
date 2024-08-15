@@ -56,7 +56,10 @@ class TestVNNGP(VariationalTestCase, unittest.TestCase):
                 else:
                     self.mean_module = gpytorch.means.ZeroMean()
 
-                self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
+                self.covar_module = gpytorch.kernels.ScaleKernel(
+                    gpytorch.kernels.RBFKernel(batch_shape=batch_shape, ard_num_dims=2),
+                    batch_shape=batch_shape,
+                )
 
             def forward(self, x):
                 mean_x = self.mean_module(x)
@@ -85,7 +88,6 @@ class TestVNNGP(VariationalTestCase, unittest.TestCase):
     ):
         # We cannot inheret the superclass method
         # Because it sets the training data to be the inducing points
-
         train_x = model.variational_strategy.inducing_points
         train_y = torch.randn(train_x.shape[:-1])
         mll = mll_cls(likelihood, model, num_data=train_x.size(-2))
@@ -98,8 +100,10 @@ class TestVNNGP(VariationalTestCase, unittest.TestCase):
         # Single optimization iteration
         model.train()
         likelihood.train()
-        output = model(train_x)
-        loss = -mll(output, train_y)
+        output = model(x=None)
+        current_training_indices = model.variational_strategy.current_training_indices
+        y_batch = train_y[..., current_training_indices]
+        loss = -mll(output, y_batch)
         loss.sum().backward()
 
         # Make sure we have gradients for all parameters
@@ -136,6 +140,8 @@ class TestVNNGP(VariationalTestCase, unittest.TestCase):
     ):
         # We cannot inheret the superclass method
         # Because it expects `variational_params_intialized` to be set to 0
+        # Also, the expected output.event_shape should be the training_batch_size
+        #    not self.event_shape (which is reserved for test_eval_iteration)
 
         # Batch shapes
         model_batch_shape = model_batch_shape if model_batch_shape is not None else self.batch_shape
@@ -170,7 +176,7 @@ class TestVNNGP(VariationalTestCase, unittest.TestCase):
             cuda=self.cuda,
         )
         self.assertEqual(output.batch_shape, expected_batch_shape)
-        self.assertEqual(output.event_shape, self.event_shape)
+        self.assertEqual(output.event_shape, torch.Size([model.variational_strategy.training_batch_size]))
         self.assertEqual(loss.shape, expected_batch_shape)
 
     def test_training_iteration_batch_inducing(self):
