@@ -220,7 +220,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
             nn_indices = self.nn_util.find_nn_idx(x.float())
 
             x_batch_shape = x.shape[:-2]
-            batch_shape = torch.broadcast_shapes(self._model_batch_shape, x_batch_shape)
+            batch_shape = torch.broadcast_shapes(self._batch_shape, x_batch_shape)
             x_bsz = x.shape[-2]
             assert nn_indices.shape == (*x_batch_shape, x_bsz, self.k), nn_indices.shape
 
@@ -340,30 +340,31 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
 
         # (2) compute lodet_p
         # Select a mini-batch of inducing points according to kl_indices
-        inducing_points = self.inducing_points[..., kl_indices, :]  # (*inducing_bs, kl_bs, D)
+        inducing_points = self.inducing_points[..., kl_indices, :].expand(*self._batch_shape, kl_bs, self.D)
+        # (*bs, kl_bs, D)
         # Select their K nearest neighbors
         nearest_neighbor_indices = self.nn_xinduce_idx[..., kl_indices - self.k, :].to(inducing_points.device)
-        # (*inducing_bs, kl_bs, K)
+        # (*bs, kl_bs, K)
         expanded_inducing_points_all = self.inducing_points.unsqueeze(-2).expand(
-            *self._inducing_batch_shape, self.M, self.k, self.D
+            *self._batch_shape, self.M, self.k, self.D
         )
         expanded_nearest_neighbor_indices = nearest_neighbor_indices.unsqueeze(-1).expand(
-            *self._inducing_batch_shape, kl_bs, self.k, self.D
+            *self._batch_shape, kl_bs, self.k, self.D
         )
         nearest_neighbors = expanded_inducing_points_all.gather(-3, expanded_nearest_neighbor_indices)
-        # (*inducing_bs, kl_bs, K, D)
+        # (*bs, kl_bs, K, D)
 
         # Compute prior distribution
         # Move the kl_bs dimension to the first dimension to enable batch covar_module computation
-        nearest_neighbors_ = nearest_neighbors.permute((-3,) + tuple(range(len(self._inducing_batch_shape))) + (-2, -1))
-        # (kl_bs, *inducing_bs, K, D)
-        inducing_points_ = inducing_points.permute((-2,) + tuple(range(len(self._inducing_batch_shape))) + (-1,))
-        # (kl_bs, *inducing_bs, D)
+        nearest_neighbors_ = nearest_neighbors.permute((-3,) + tuple(range(len(self._batch_shape))) + (-2, -1))
+        # (kl_bs, *bs, K, D)
+        inducing_points_ = inducing_points.permute((-2,) + tuple(range(len(self._batch_shape))) + (-1,))
+        # (kl_bs, *bs, D)
         full_output = self.model.forward(torch.cat([nearest_neighbors_, inducing_points_.unsqueeze(-2)], dim=-2))
         full_mean, full_covar = full_output.mean, full_output.covariance_matrix
 
         # Mean terms
-        _undo_permute_dims = tuple(range(1, 1 + len(self._inducing_batch_shape))) + (0, -1)
+        _undo_permute_dims = tuple(range(1, 1 + len(self._batch_shape))) + (0, -1)
         nearest_neighbors_prior_mean = full_mean[..., : self.k].permute(_undo_permute_dims)  # (*inducing_bs, kl_bs, K)
         inducing_prior_mean = full_mean[..., self.k :].permute(_undo_permute_dims).squeeze(-1)  # (*inducing_bs, kl_bs)
         # Covar terms
@@ -371,7 +372,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
         nearest_neighbors_inducing_prior_cross_cov = full_covar[..., : self.k, self.k :]
         inducing_prior_cov = full_covar[..., self.k :, self.k :]
         inducing_prior_cov = (
-            inducing_prior_cov.squeeze(-1).squeeze(-1).permute((-1,) + tuple(range(len(self._inducing_batch_shape))))
+            inducing_prior_cov.squeeze(-1).squeeze(-1).permute((-1,) + tuple(range(len(self._batch_shape))))
         )
 
         # Interpolation term K_nn^{-1} k_{nu}
