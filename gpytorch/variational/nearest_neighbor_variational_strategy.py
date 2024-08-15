@@ -3,6 +3,7 @@
 from typing import Any, Optional
 
 import torch
+from jaxtyping import Float
 from linear_operator import to_dense
 from linear_operator.operators import DiagLinearOperator, LinearOperator, TriangularLinearOperator
 from linear_operator.utils.cholesky import psd_safe_cholesky
@@ -77,10 +78,10 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
     def __init__(
         self,
         model: ApproximateGP,
-        inducing_points: Tensor,
-        variational_distribution: _VariationalDistribution,
+        inducing_points: Float[Tensor, "... M D"],
+        variational_distribution: Float[_VariationalDistribution, "... M"],
         k: int,
-        training_batch_size: int,
+        training_batch_size: Optional[int] = None,
         jitter_val: Optional[float] = 1e-3,
         compute_full_kl: Optional[bool] = False,
     ):
@@ -96,8 +97,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
         object.__setattr__(self, "model", model)
 
         self.inducing_points = inducing_points
-        self.M: int = inducing_points.shape[-2]
-        self.D: int = inducing_points.shape[-1]
+        self.M, self.D = inducing_points.shape[-2:]
         self.k = k
         assert self.k <= self.M, (
             f"Number of nearest neighbors k must be smaller than or equal to number of inducing points, "
@@ -114,24 +114,28 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
         self._compute_nn()
         # otherwise, no nearest neighbor approximation is used
 
-        self.training_batch_size = training_batch_size
+        self.training_batch_size = training_batch_size if training_batch_size is not None else self.M
         self._set_training_iterator()
 
         self.compute_full_kl = compute_full_kl
 
     @property
     @cached(name="prior_distribution_memo")
-    def prior_distribution(self) -> MultivariateNormal:
+    def prior_distribution(self) -> Float[MultivariateNormal, "... M"]:
         out = self.model.forward(self.inducing_points)
         res = MultivariateNormal(out.mean, out.lazy_covariance_matrix.add_jitter(self.jitter_val))
         return res
 
-    def _cholesky_factor(self, induc_induc_covar: LinearOperator) -> TriangularLinearOperator:
+    def _cholesky_factor(
+        self, induc_induc_covar: Float[LinearOperator, "... M M"]
+    ) -> Float[TriangularLinearOperator, "... M M"]:
         # Uncached version
         L = psd_safe_cholesky(to_dense(induc_induc_covar))
         return TriangularLinearOperator(L)
 
-    def __call__(self, x: Tensor, prior: bool = False, **kwargs: Any) -> MultivariateNormal:
+    def __call__(
+        self, x: Float[Tensor, "... N D"], prior: bool = False, **kwargs: Any
+    ) -> Float[MultivariateNormal, "... N"]:
         # If we're in prior mode, then we're done!
         if prior:
             return self.model.forward(x, **kwargs)
@@ -168,12 +172,12 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
 
     def forward(
         self,
-        x: Tensor,
-        inducing_points: Tensor,
-        inducing_values: Optional[Tensor] = None,
-        variational_inducing_covar: Optional[LinearOperator] = None,
+        x: Float[Tensor, "... N D"],
+        inducing_points: Float[Tensor, "... M D"],
+        inducing_values: Float[Tensor, "... M"],
+        variational_inducing_covar: Optional[Float[LinearOperator, "... M M"]] = None,
         **kwargs: Any,
-    ) -> MultivariateNormal:
+    ) -> Float[MultivariateNormal, "... N"]:
         if self.training:
             # In training mode, note that the full inducing points set = full training dataset
             # Users have the option to choose input None or a tensor of training data for x
@@ -270,8 +274,8 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
 
     def get_fantasy_model(
         self,
-        inputs: Tensor,
-        targets: Tensor,
+        inputs: Float[Tensor, "... N D"],
+        targets: Float[Tensor, "... N"],
         mean_module: Optional[Module] = None,
         covar_module: Optional[Module] = None,
         **kwargs,
@@ -297,7 +301,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
             self._set_training_iterator()
         return self.current_training_indices
 
-    def _firstk_kl_helper(self) -> Tensor:
+    def _firstk_kl_helper(self) -> Float[Tensor, "..."]:
         # Compute the KL divergence for first k inducing points
         train_x_firstk = self.inducing_points[..., : self.k, :]
         full_output = self.model.forward(train_x_firstk)
@@ -316,7 +320,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
             kl = torch.distributions.kl.kl_divergence(variational_distribution, prior_dist)  # model_batch_shape
         return kl
 
-    def _stochastic_kl_helper(self, kl_indices: Tensor) -> Tensor:
+    def _stochastic_kl_helper(self, kl_indices: Float[Tensor, "n_batch"]) -> Float[Tensor, "..."]:  # noqa: F821
         # Compute the KL divergence for a mini batch of the rest M-k inducing points
         # See paper appendix for kl breakdown
         kl_bs = len(kl_indices)  # training_batch_size
@@ -418,7 +422,9 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
 
         return kl
 
-    def _kl_divergence(self, kl_indices: Optional[LongTensor] = None, batch_size: Optional[int] = None) -> Tensor:
+    def _kl_divergence(
+        self, kl_indices: Optional[LongTensor] = None, batch_size: Optional[int] = None
+    ) -> Float[Tensor, "..."]:
         if self.compute_full_kl:
             if batch_size is None:
                 batch_size = self.training_batch_size
@@ -438,7 +444,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
                 kl = self._stochastic_kl_helper(kl_indices) * self.M / len(kl_indices)
         return kl
 
-    def kl_divergence(self) -> Tensor:
+    def kl_divergence(self) -> Float[Tensor, "..."]:
         try:
             return pop_from_cache(self, "kl_divergence_memo")
         except CachingError:
