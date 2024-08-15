@@ -292,11 +292,15 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
 
     def _set_training_iterator(self) -> None:
         self._training_indices_iter = 0
-        if self.k < self.M:
+        if self.training_batch_size == self.M:
+            self._training_indices_iterator = (torch.arange(self.M, device=self.inducing_points.device),)
+        else:
+            # The first training batch always contains the first k inducing points
+            # This is because computing the KL divergence for the first k inducing points is special-cased
+            # (since the first k inducing points have < k neighbors)
+            # Note that there is a special function _firstk_kl_helper for this
             training_indices = torch.randperm(self.M - self.k, device=self.inducing_points.device) + self.k
             self._training_indices_iterator = (torch.arange(self.k),) + training_indices.split(self.training_batch_size)
-        else:
-            self._training_indices_iterator = (torch.arange(self.k),)
         self._total_training_batches = len(self._training_indices_iterator)
 
     def _get_training_indices(self) -> LongTensor:
@@ -430,7 +434,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
     def _kl_divergence(
         self, kl_indices: Optional[LongTensor] = None, batch_size: Optional[int] = None
     ) -> Float[Tensor, "..."]:
-        if self.compute_full_kl:
+        if self.compute_full_kl or (self._total_training_batches == 1):
             if batch_size is None:
                 batch_size = self.training_batch_size
             kl = self._firstk_kl_helper()
