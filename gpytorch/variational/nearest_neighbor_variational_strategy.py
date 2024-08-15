@@ -98,8 +98,8 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
         self.inducing_points = inducing_points
         self.M, self.D = inducing_points.shape[-2:]
         self.k = k
-        assert self.k <= self.M, (
-            f"Number of nearest neighbors k must be smaller than or equal to number of inducing points, "
+        assert self.k < self.M, (
+            f"Number of nearest neighbors k must be smaller than the number of inducing points, "
             f"but got k = {k}, M = {self.M}."
         )
 
@@ -441,7 +441,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
         else:
             # compute a stochastic estimate
             assert kl_indices is not None
-            if (self._training_indices_iter == 1) or (self.M == self.k):
+            if self._training_indices_iter == 1:
                 assert len(kl_indices) == self.k, (
                     f"kl_indices sould be the first batch data of length k, "
                     f"but got len(kl_indices) = {len(kl_indices)} and k = {self.k}."
@@ -461,7 +461,6 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
         with torch.no_grad():
             inducing_points_fl = self.inducing_points.data.float()
             self.nn_util.set_nn_idx(inducing_points_fl)
-            if self.k < self.M:
-                self.nn_xinduce_idx = self.nn_util.build_sequential_nn_idx(inducing_points_fl)
-                #  shape (*_inducing_batch_shape, M-k, k)
+            self.nn_xinduce_idx = self.nn_util.build_sequential_nn_idx(inducing_points_fl)
+            #  shape (*_inducing_batch_shape, M-k, k)
         return self
