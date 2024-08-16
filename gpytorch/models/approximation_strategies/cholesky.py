@@ -37,10 +37,10 @@ class Cholesky(ApproximationStrategy):
     def predictive_covariance_train_cholesky_factor(self) -> Float[Tensor, "N N"]:
         return psd_safe_cholesky(self.predictive_covariance_train)
 
-    def _clear_cache(self):
-        return (
-            super()._clear_cache()
-        )  # TODO: implement releasing the cache (when model.train() or after parameters of any modules are updated)
+    # def _clear_cache(self):
+    #     return (
+    #         super()._clear_cache()
+    #     )  # TODO: implement releasing the cache (when model.train() or after parameters of any modules are updated)
 
     def posterior(self, inputs: Float[Tensor, "M D"]) -> distributions.MultivariateNormal:
 
