@@ -6,16 +6,14 @@
 - Keep things easily extendable
 
 ## Goals
-- Make it simple to instantiate and use common models (e.g. via sensible defaults).
 - Ensure models are fast on small datasets
 - Condense down to core functionality
 - Improve the documentation, type hints and shape hints
+- Make it simple to instantiate and use common models (e.g. via sensible defaults).
 
 ## API Changes
 
 ### GP Models
-
-- **Do not force the user to write a subclass just to instantiate a standard (approximate) GP.** All the user should need to pass is a prior mean, kernel and likelihood, where the mean and likelihood could even have sensible defaults. Forcing subclassing creates unnecessary boilerplate and increases the time to get an initial model up and running.
 
 ### Classes and Modules which were removed
 
@@ -48,12 +46,13 @@
 
 #### What we would like
 - Cache computed quantities when predicting (eval mode) multiple times
+- Cache quantities computed during training for reuse (e.g. in explicit backward pass)
 - Cache quantities computed during training for eval mode
 - Make it easier for developers to use the caching
 
 #### Implementation Ideas
-- cache object vs cached methods/properties of ``ApproximationStrategy``
-- Idea (improved):
+- cache ``ApproximationStrategy`` object vs cached methods/properties of ``ApproximationStrategy``?
+- Idea:
     - for every property of an ApproximationStrategy() use a @cached decorator, which registers a certain backward hook that clears the cache
         - https://pytorch.org/docs/stable/notes/autograd.html#backward-hooks-execution
     - What about if the training data gets modified? How do we ensure the cache is cleared?
