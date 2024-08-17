@@ -143,7 +143,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
             # Make sure x and inducing points have the same batch shape
             if not (self.inducing_points.shape[:-2] == x.shape[:-2]):
                 try:
-                    x = x.expand(*self.inducing_points.shape[:-2], *x.shape[-2:])
+                    x = x.expand(*self.inducing_points.shape[:-2], *x.shape[-2:]).contiguous()
                 except RuntimeError:
                     raise RuntimeError(
                         f"x batch shape must match or broadcast with the inducing points' batch shape, "
