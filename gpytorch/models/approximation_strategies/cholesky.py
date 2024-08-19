@@ -33,19 +33,19 @@ class Cholesky(ApproximationStrategy):
             "prior_predictive_train_mean",
             tensor=None,
             persistent=True,
-            clear_cache_on=["model_parameter_backward", "set_train_inputs"],
+            clear_cache_on=["backward", "set_train_inputs"],
         )
         self.register_cached_quantity(
             "prior_predictive_train_covariance_cholesky_factor",
             tensor=None,
             persistent=True,
-            clear_cache_on=["model_parameter_backward", "set_train_inputs"],
+            clear_cache_on=["backward", "set_train_inputs"],
         )
         self.register_cached_quantity(
             "representer_weights",
             tensor=None,
             persistent=True,
-            clear_cache_on=["model_parameter_backward", "set_train_inputs"],
+            clear_cache_on=["backward", "set_train_inputs"],
         )
 
     def cache_prior_predictive_mean_and_covariance_cholesky_factor(
