@@ -73,7 +73,13 @@ class ApproximationStrategy(abc.ABC, Module):
             )
 
         # Register cached quantity as a PyTorch buffer
-        self.register_buffer(name=name, tensor=tensor, persistent=persistent)
+        self.register_buffer(
+            name=name,
+            tensor=(
+                tensor.detach() if tensor is not None else None
+            ),  # Ensure cached quantity is detached from the graph.
+            persistent=persistent,
+        )
 
         # Automatically clear cache on certain events
         if clear_cache_on is not None:
@@ -90,6 +96,19 @@ class ApproximationStrategy(abc.ABC, Module):
         if clear_cache_on_backward_of_params is not None:
             for param in clear_cache_on_backward_of_params:
                 param.register_hook(lambda _: self.__setattr__(name, None))
+
+    def __setattr__(self, name: str, value: Tensor | nn.Module) -> None:
+
+        # Ensure buffers / caches never require grad.
+        if name in self._buffers.keys():
+            if self._buffers[name] is not None:
+                if self._buffers[name].requires_grad:
+                    raise ValueError(
+                        f"Trying to set buffer / cache `{name}`, which requires a gradient. "
+                        "Make sure you .detach() cached quantities from the graph first."
+                    )
+
+        super().__setattr__(name, value)
 
     @property
     def train_inputs(self) -> Float[Tensor, "N D"]:
