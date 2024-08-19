@@ -38,11 +38,14 @@
 - How diligent should we about deprecating? Or do we just accept breaking backwards compatibility.
 - How to deal with updating a model with new training data? What role does ``get_fantasy_model`` play?
 - Why can train inputs be lists / tuples of tensors?
+- Should training data be saved with the model (i.e. be a persistent or non-persistent buffer?)
 
 ### Caching
 
 #### How it works currently
 - When calling ``model.train()`` on any ``gpytorch.Module``, ``self._clear_cache`` gets called, which should be overwritten.
+- context manager to determine whether caches should remain on computation graph
+- variational strategy: flag for Pytorch buffers: https://github.com/cornellius-gp/gpytorch/blob/main/gpytorch/variational/_variational_strategy.py
 
 #### What we would like
 - Cache computed quantities when predicting (eval mode) multiple times
@@ -57,6 +60,14 @@
         - https://pytorch.org/docs/stable/notes/autograd.html#backward-hooks-execution
     - What about if the training data gets modified? How do we ensure the cache is cleared?
         - Can we provide a set of arguments to the @cached decorator which specify when this cached property gets cleared (i.e. on model.train(), model.eval(), when updating the training data, on the backward pass at this node)?
+
+- Discussion with Geoff:
+    - be explicit when buffers are released / populated (rather than doing it implicitly like memoization or cached_property)
+    - be offensive in releasing to avoid hard to debug situation
+    - designs
+        1. Flag for buffers, which we check everytime we would use a buffer, and if necessary overwrite buffer. Pytorch buffers are always detached from the graph.
+        2. Add-on: backward hook, add data hook which automatically release the buffer
+        3. .register_cache[d_quantity/tensor]() pattern like .register_parameter() / .register_prior() in ``gpytorch.Module`` (see also https://github.com/cornellius-gp/gpytorch/blob/main/gpytorch/module.py#L203), could even have an argument on what hook is registered for that buffer.
 
 ## Nice-to-have but optional
 - [ ] Modernize configuration a bit
