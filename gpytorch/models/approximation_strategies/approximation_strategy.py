@@ -56,7 +56,7 @@ class ApproximationStrategy(abc.ABC, Module):
             given name.
         :param tensor: Cached quantity to be registered. If ``None``, then operations that run on buffers, such
             as cuda, are ignored. If ``None``, the cached quantity is not included in the module's ``state_dict``
-            until it is set to a tensor.
+            (unless it is set to a tensor later on).
         :param persistent: Whether the cached quantity is part of the module's ``state_dict``.
         :param clear_cache_on: When to automatically clear the cached quantity.
             Zero or more of: ``["backward", "set_train_inputs", "set_train_targets"]``.
