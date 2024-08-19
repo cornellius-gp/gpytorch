@@ -135,8 +135,8 @@ class GaussianProcess(Module, abc.ABC):
         # Reshape train inputs into a 2D tensor in case a 1D tensor is passed.
         inputs = inputs.unsqueeze(-1) if inputs.ndimension() <= 1 else inputs
 
-        # Training mode (Model selection / Hyperparameter optimization)
         if self.training:
+            # Training mode (Model selection / Hyperparameter optimization)
             if self.train_inputs is None or self.train_targets is None:
                 raise RuntimeError(
                     "Training inputs or targets cannot be 'None' in training mode. "
@@ -145,8 +145,11 @@ class GaussianProcess(Module, abc.ABC):
                 )
 
             return self.forward(inputs)
+        elif settings.prior_mode.on() or (self.train_inputs is None) or (self.train_targets is None):
+            # Prior mode
+            return self.forward(inputs)
         else:
-            # Evaluation / posterior mode
+            # Posterior / evaluation mode
             return self.approximation_strategy.posterior(inputs)
 
     def predictive(self, inputs: Float[Tensor, "M D"]) -> distributions.MultivariateNormal:

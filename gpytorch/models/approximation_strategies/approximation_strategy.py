@@ -101,8 +101,8 @@ class ApproximationStrategy(abc.ABC, Module):
 
         # Ensure buffers / caches never require grad.
         if name in self._buffers.keys():
-            if self._buffers[name] is not None:
-                if self._buffers[name].requires_grad:
+            if value is not None:
+                if value.requires_grad:
                     raise ValueError(
                         f"Trying to set buffer / cache `{name}`, which requires a gradient. "
                         "Make sure you .detach() cached quantities from the graph before caching them. "
