@@ -105,7 +105,8 @@ class ApproximationStrategy(abc.ABC, Module):
                 if self._buffers[name].requires_grad:
                     raise ValueError(
                         f"Trying to set buffer / cache `{name}`, which requires a gradient. "
-                        "Make sure you .detach() cached quantities from the graph first."
+                        "Make sure you .detach() cached quantities from the graph before caching them. "
+                        "Alternatively, you may be in .eval() mode while requiring gradients."
                     )
 
         super().__setattr__(name, value)
