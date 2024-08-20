@@ -41,7 +41,11 @@ class ApproximationStrategy(abc.ABC, Module):
         name: str,
         tensor: Optional[Tensor] = None,
         persistent: bool = True,
-        clear_cache_on: Optional[Iterable[str]] = ["backward", "train_inputs_set", "train_targets_set"],
+        clear_cache_on: Optional[Iterable[str]] = [
+            "backward",
+            "train_inputs_set",
+            "train_targets_set",
+        ],  # TODO: Should this be type hinted with a typing.Literal?
         clear_cache_on_backward_of_params: Optional[Iterable[nn.Parameter]] = None,
     ) -> None:
         """Register a cached quantity used to save computation.
@@ -75,9 +79,10 @@ class ApproximationStrategy(abc.ABC, Module):
         # Register cached quantity as a PyTorch buffer
         self.register_buffer(
             name=name,
-            tensor=(
-                tensor.detach() if tensor is not None else None
-            ),  # Ensure cached quantity is detached from the graph.
+            tensor=tensor,  # TODO: Do we want to detach here or not?
+            # tensor=(
+            #     tensor.detach() if tensor is not None else None
+            # ),  # Ensure cached quantity is detached from the graph.
             persistent=persistent,
         )
 
@@ -97,19 +102,19 @@ class ApproximationStrategy(abc.ABC, Module):
             for param in clear_cache_on_backward_of_params:
                 param.register_hook(lambda _: self.__setattr__(name, None))
 
-    def __setattr__(self, name: str, value: Tensor | nn.Module) -> None:
+    # def __setattr__(self, name: str, value: Tensor | nn.Module) -> None:
 
-        # Ensure buffers / caches never require grad.
-        if name in self._buffers.keys():
-            if value is not None:
-                if value.requires_grad:
-                    raise ValueError(
-                        f"Trying to set buffer / cache `{name}`, which requires a gradient. "
-                        "Make sure you .detach() cached quantities from the graph before caching them. "
-                        "Alternatively, you may be in .eval() mode while requiring gradients."
-                    )
+    #     # Ensure buffers / caches never require grad.
+    #     if name in self._buffers.keys():
+    #         if value is not None:
+    #             if value.requires_grad:
+    #                 raise ValueError(
+    #                     f"Trying to set buffer / cache `{name}`, which requires a gradient. "
+    #                     "Make sure you .detach() cached quantities from the graph before caching them. "
+    #                     "Alternatively, you may be in .eval() mode while requiring gradients."
+    #                 )
 
-        super().__setattr__(name, value)
+    #     super().__setattr__(name, value)
 
     @property
     def train_inputs(self) -> Float[Tensor, "N D"]:

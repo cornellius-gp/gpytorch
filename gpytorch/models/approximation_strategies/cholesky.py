@@ -48,15 +48,19 @@ class Cholesky(ApproximationStrategy):
             clear_cache_on=["backward", "set_train_inputs"],
         )
 
-    def cache_prior_predictive_mean_and_covariance_cholesky_factor(
+    def _cache_prior_predictive_mean_and_covariance_cholesky_factor(
         self,
     ) -> None:
         """Computes prior predictive mean and Cholesky factor and fills the respective buffers."""
         prior_predictive_train = self.model.likelihood(self.model.forward(self.train_inputs))
         self.prior_predictive_train_mean = prior_predictive_train.mean
-        self.prior_predictive_train_covariance_cholesky_factor = psd_safe_cholesky(
-            prior_predictive_train.covariance_matrix
+        # self.prior_predictive_train_covariance_cholesky_factor = psd_safe_cholesky(
+        #     prior_predictive_train.covariance_matrix
+        # )
+        self.prior_predictive_train_covariance_cholesky_factor = (
+            prior_predictive_train.lazy_covariance_matrix.cholesky()
         )
+        # TODO: How can we cache linear operators in buffers?
 
     def posterior(self, inputs: Float[Tensor, "M D"]) -> distributions.MultivariateNormal:
 
@@ -66,7 +70,7 @@ class Cholesky(ApproximationStrategy):
 
         # Prior predictive at training inputs
         if self.prior_predictive_train_covariance_cholesky_factor is None:
-            self.cache_prior_predictive_mean_and_covariance_cholesky_factor()
+            self._cache_prior_predictive_mean_and_covariance_cholesky_factor()
 
         # Matrix-square root of the covariance downdate: k(x, X)L^{-1}
         covariance_train_test = self.model.covar_module(self.train_inputs, inputs).to_dense()
