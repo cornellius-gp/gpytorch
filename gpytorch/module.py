@@ -5,12 +5,13 @@ import inspect
 import itertools
 import operator
 from collections import OrderedDict
-from typing import Union
+from typing import Optional, Union
 
 import torch
 from linear_operator.operators import LinearOperator
 from torch import nn, Tensor
 from torch.distributions import Distribution
+from torch.nn.modules.module import _global_buffer_registration_hooks
 
 from .constraints import Interval
 
@@ -40,7 +41,39 @@ class Module(nn.Module):
         if isinstance(class_attr, property) and class_attr.fset is not None:
             return class_attr.fset(self, value)
 
-        return super().__setattr__(name, value)
+        # If assigning a buffer, override nn.Module.__setattr__ to allow for LinearOperator buffers.
+        params = self.__dict__.get("_parameters")
+        if isinstance(value, nn.Parameter) or (params is not None and name in params):
+            return super().__setattr__(name, value)
+        else:
+            modules = self.__dict__.get("_modules")
+            if isinstance(value, Module) or (modules is not None and name in modules):
+                return super().__setattr__(name, value)
+            else:
+                buffers = self.__dict__.get("_buffers")
+                if buffers is not None and name in buffers:
+                    if value is not None:
+
+                        if not isinstance(value, (torch.Tensor, LinearOperator)):
+                            # Differs from nn.Module, in that it allows for LinearOperator buffers.
+                            raise TypeError(
+                                "cannot assign '{}' as buffer '{}' "
+                                "(torch.Tensor, LinearOperator or None expected)".format(torch.typename(value), name)
+                            )
+
+                        # Ensure buffers are always detached from the computation graph.
+                        # See also the Buffer class in https://github.com/pytorch/pytorch/pull/125971
+                        detached_value = value.detach().requires_grad_(value.requires_grad)
+                        value = detached_value
+
+                    # Apply global buffer registration hooks defined in torch.nn.modules.module
+                    for hook in _global_buffer_registration_hooks.values():
+                        output = hook(self, name, value)
+                        if output is not None:
+                            value = output
+                    buffers[name] = value
+                else:
+                    super().__setattr__(name, value)
 
     def _clear_cache(self):
         """
@@ -209,6 +242,61 @@ class Module(nn.Module):
             raise AttributeError("Cannot assign parameter before Module.__init__() call")
         super().register_parameter(name, parameter)
 
+    def register_buffer(self, name: str, tensor: Optional[Tensor], persistent: bool = True) -> None:
+        r"""Adds a buffer to the module.
+
+        This is typically used to register a buffer that should not to be
+        considered a model parameter. For example, BatchNorm's ``running_mean``
+        is not a parameter, but is part of the module's state. Buffers, by
+        default, are persistent and will be saved alongside parameters. This
+        behavior can be changed by setting :attr:`persistent` to ``False``. The
+        only difference between a persistent buffer and a non-persistent buffer
+        is that the latter will not be a part of this module's
+        :attr:`state_dict`.
+
+        Buffers can be accessed as attributes using given names.
+
+        Args:
+            name (str): name of the buffer. The buffer can be accessed
+                from this module using the given name
+            tensor (Tensor or None): buffer to be registered. If ``None``, then operations
+                that run on buffers, such as :attr:`cuda`, are ignored. If ``None``,
+                the buffer is **not** included in the module's :attr:`state_dict`.
+            persistent (bool): whether the buffer is part of this module's
+                :attr:`state_dict`.
+
+        Example::
+
+            >>> # xdoctest: +SKIP("undefined vars")
+            >>> self.register_buffer('running_mean', torch.zeros(num_features))
+
+        """
+        # Override how to register buffers to enable LinearOperator buffers
+        if (
+            (persistent is False and isinstance(self, torch.jit.ScriptModule))
+            or ("_buffers" not in self.__dict__)
+            or (not isinstance(name, str))
+            or ("." in name)
+            or (hasattr(self, name) and name not in self._buffers)
+        ):
+            # Raise errors according to nn.Module.register_buffer
+            super().register_buffer(name=name, tensor=tensor, persistent=persistent)
+        elif tensor is not None and not isinstance(tensor, (torch.Tensor, LinearOperator)):
+            raise TypeError(
+                "cannot assign '{}' object to buffer '{}' "
+                "(torch.Tensor, LinearOperator or None required)".format(torch.typename(tensor), name)
+            )
+        else:
+            for hook in _global_buffer_registration_hooks.values():
+                output = hook(self, name, tensor)
+                if output is not None:
+                    tensor = output
+            self._buffers[name] = tensor
+            if persistent:
+                self._non_persistent_buffers_set.discard(name)
+            else:
+                self._non_persistent_buffers_set.add(name)
+
     def register_prior(self, name, prior, param_or_closure, setting_closure=None):
         """
         Adds a prior to the module. The prior can be accessed as an attribute using the given name.
@@ -229,7 +317,7 @@ class Module(nn.Module):
             setting_closure (callable, optional):
                 A function taking in the module instance and a tensor in (transformed) parameter space,
                 initializing the internal parameter representation to the proper value by applying the
-                inverse transform. Enables setting parametres directly in the transformed space, as well
+                inverse transform. Enables setting parameters directly in the transformed space, as well
                 as sampling parameter values from priors (see `sample_from_prior`)
 
         """

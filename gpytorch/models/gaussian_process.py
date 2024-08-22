@@ -91,27 +91,38 @@ class GaussianProcess(Module, abc.ABC):
         # Do not allow instantiation of a GP without specifying an approximation strategy.
         assert self.approximation_strategy is not None, "Trying to instantiate a GP without an ApproximationStrategy."
 
-        self.approximation_strategy.init_cache(
-            model=self,  # NOTE: Introduces circular reference.
-            train_inputs=train_inputs,
-            train_targets=train_targets,
-        )
+        self.train_inputs = train_inputs
+        self.train_targets = train_targets
 
     @property
     def train_inputs(self) -> Float[Tensor, "N D"]:
-        return self.approximation_strategy.train_inputs
+        return self._train_inputs
 
     @train_inputs.setter
     def train_inputs(self, value: Optional[Float[Tensor, "N D"]]):
-        self.approximation_strategy.train_inputs = value
+
+        # Clear cached quantities which depend on the training inputs.
+        for cached_quantity in self.approximation_strategy._clear_cache_triggers["set_train_inputs"]:
+            self.__setattr__(cached_quantity, None)
+
+        # Reshape train inputs into a 2D tensor in case a 1D tensor is passed.
+        if value is None:
+            self._train_inputs = value
+        else:
+            self._train_inputs = value.unsqueeze(-1) if value.ndimension() <= 1 else value
 
     @property
     def train_targets(self) -> Optional[Float[Tensor, " N"]]:
-        return self.approximation_strategy.train_targets
+        return self._train_targets
 
     @train_targets.setter
     def train_targets(self, value: Optional[Float[Tensor, " N"]]):
-        self.approximation_strategy.train_targets = value
+
+        # Clear cached quantities which depend on the training targets.
+        for cached_quantity in self.approximation_strategy._clear_cache_triggers["set_train_targets"]:
+            self.__setattr__(cached_quantity, None)
+
+        self._train_targets = value
 
     def eval(self):
         self.likelihood.eval()
@@ -131,6 +142,10 @@ class GaussianProcess(Module, abc.ABC):
         return self.forward(inputs)
 
     def __call__(self, inputs: Float[Tensor, "M D"]) -> distributions.MultivariateNormal:
+
+        if not self.approximation_strategy._cache_initialized:
+            # Initialize cache of the approximation strategy when the model is called for the first time.
+            self.approximation_strategy.init_cache(model=self)
 
         # Reshape train inputs into a 2D tensor in case a 1D tensor is passed.
         inputs = inputs.unsqueeze(-1) if inputs.ndimension() <= 1 else inputs
