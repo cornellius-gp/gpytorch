@@ -5,13 +5,13 @@ from __future__ import annotations
 import abc
 from collections import defaultdict
 
-from typing import Iterable, Optional, Union
+from typing import Iterable, Literal, Optional, Union
 
 from jaxtyping import Float
 from linear_operator import operators
 from torch import nn, Tensor
 
-from ... import distributions, Module
+from ... import distributions, Module, settings
 
 
 class ApproximationStrategy(abc.ABC, Module):
@@ -42,11 +42,11 @@ class ApproximationStrategy(abc.ABC, Module):
         name: str,
         quantity: Optional[Union[Tensor, operators.LinearOperator]] = None,
         persistent: bool = True,
-        clear_cache_on: Optional[Iterable[str]] = [
+        clear_cache_on: Optional[Iterable[Literal["backward", "train_inputs_set", "train_targets_set"]]] = [
             "backward",
             "train_inputs_set",
             "train_targets_set",
-        ],  # TODO: Should this be type hinted with a typing.Literal?
+        ],
         clear_cache_on_backward_of_params: Optional[Iterable[nn.Parameter]] = None,
     ) -> None:
         """Register a cached quantity used to save computation.
@@ -63,8 +63,7 @@ class ApproximationStrategy(abc.ABC, Module):
             as cuda, are ignored. If ``None``, the cached quantity is not included in the module's ``state_dict``
             (unless it is set to a quantity later on).
         :param persistent: Whether the cached quantity is part of the module's ``state_dict``.
-        :param clear_cache_on: When to automatically clear the cached quantity.
-            Zero or more of: ``["backward", "set_train_inputs", "set_train_targets"]``.
+        :param clear_cache_on: What events / function calls trigger clearing the cached quantity.
         :param clear_cache_on_backward_of_params: If you need more control over which parameters of the model
             should trigger releasing the cache during a backward pass you can pass model parameters here.
             If you specify ``"backward"`` in ``clear_cache_on``, passing parameters here does nothing.
@@ -92,9 +91,18 @@ class ApproximationStrategy(abc.ABC, Module):
             for clear_cache_trigger in clear_cache_on:
                 if clear_cache_trigger == "backward":
                     # Register backward hook to clear cache
-                    for _, param in self.model.named_parameters():
+                    for param_name, param in self.model.named_parameters():
                         if param.requires_grad:
-                            param.register_hook(lambda _: self.__setattr__(name, None))
+
+                            def clear_cache(_):
+                                if settings.verbose_caches.on():
+                                    settings.verbose_caches.logger.debug(
+                                        f"Clearing cache of ApproximationStrategy: '{self.__class__.__name__}.{name}' "
+                                        f"via hook registered to {param_name}."
+                                    )
+                                self.__setattr__(name, None)
+
+                            param.register_hook(clear_cache)
                 else:
                     # Custom triggers to clear cache
                     self._clear_cache_triggers[clear_cache_trigger].append(name)
@@ -103,7 +111,16 @@ class ApproximationStrategy(abc.ABC, Module):
         if clear_cache_on_backward_of_params is not None:
             for param in clear_cache_on_backward_of_params:
                 if param.requires_grad:
-                    param.register_hook(lambda _: self.__setattr__(name, None))
+
+                    def clear_cache(_):
+                        if settings.verbose_caches.on():
+                            settings.verbose_caches.logger.debug(
+                                f"Clearing cache of ApproximationStrategy: '{self.__class__.__name__}.{name}' "
+                                "via hook registered to a model parameter."
+                            )
+                        self.__setattr__(name, None)
+
+                    param.register_hook(clear_cache)
 
     @abc.abstractmethod
     def posterior(self, inputs: Float[Tensor, "M D"]) -> distributions.MultivariateNormal:

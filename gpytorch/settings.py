@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import logging
+
 import torch
 from linear_operator.settings import (
     _linalg_dtype_cholesky,
@@ -461,6 +463,27 @@ class use_keops(_feature_flag):
     _default = True
 
 
+class verbose_caches(_feature_flag):
+    """
+    Print out information whenever caches are modified.
+
+    (Default: False)
+    """
+
+    _default = False
+
+    # Create a global logger
+    logger = logging.getLogger("Caching (Verbose)")
+    logger.setLevel(logging.DEBUG)
+
+    # Output logging results to the stdout stream
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+    formatter = logging.Formatter("%(name)s - %(levelname)s - %(message)s")
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+
+
 __all__ = [
     "_linalg_dtype_symeig",
     "_linalg_dtype_cholesky",
@@ -504,4 +527,5 @@ __all__ = [
     "use_toeplitz",
     "variational_cholesky_jitter",
     "verbose_linalg",
+    "verbose_caches",
 ]
