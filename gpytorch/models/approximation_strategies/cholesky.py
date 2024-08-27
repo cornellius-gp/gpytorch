@@ -40,6 +40,23 @@ class Cholesky(ApproximationStrategy):
 
     def posterior(self, inputs: Float[Tensor, "M D"]) -> distributions.MultivariateNormal:
 
+        # TODO: leverage this code:
+        # # Concatenate the input to the training input
+        # train_batch_shape = self.model.train_inputs.shape[:-2]
+        # # Make sure the batch shapes agree for training/test data
+        # if train_batch_shape != self.model.train_inputs.shape[:-2]:
+        #     train_batch_shape = torch.broadcast_shapes(train_batch_shape, self.model.train_inputs.shape[:-2])
+        #     self.model.train_inputs = self.model.train_inputs.expand(
+        #         *train_batch_shape, *self.model.train_inputs.shape[-2:]
+        #     )
+        # if train_batch_shape != input.shape[:-2]:
+        #     train_batch_shape = torch.broadcast_shapes(train_batch_shape, input.shape[:-2])
+        #     self.model.train_inputs = self.model.train_inputs.expand(
+        #         *train_batch_shape, *self.model.train_inputs.shape[-2:]
+        #     )
+        #     input = input.expand(*train_batch_shape, *input.shape[-2:])
+        # all_inputs = torch.cat([self.model.train_inputs, input], dim=-2)
+
         # Prior at train and test inputs
         prior_train_test = self.model.prior(torch.cat((self.model.train_inputs, inputs), dim=-2))
         prior_train = prior_train_test[..., 0 : self.model.train_inputs.shape[-2]]
@@ -69,7 +86,9 @@ class Cholesky(ApproximationStrategy):
                 (self.model.train_targets - prior_train.mean).unsqueeze(-1)
             ).squeeze(-1)
 
-        posterior_mean_test = prior_test.mean + covariance_train_test.transpose(-2, -1) @ self.representer_weights
+        posterior_mean_test = prior_test.mean + (
+            covariance_train_test.transpose(-2, -1) @ self.representer_weights.unsqueeze(-1)
+        ).squeeze(-1)
 
         # Posterior covariance evaluated at test inputs
         posterior_covariance_test = prior_test.lazy_covariance_matrix - operators.RootLinearOperator(
