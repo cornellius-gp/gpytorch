@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Tuple
+import torch
 
 from jaxtyping import Float
 from linear_operator import operators
@@ -26,12 +26,6 @@ class Cholesky(ApproximationStrategy):
 
         # Buffers which cache repeatedly used quantities
         self.register_cached_quantity(
-            "prior_predictive_train_mean",
-            quantity=None,
-            persistent=True,
-            clear_cache_on=["backward", "set_train_inputs"],
-        )
-        self.register_cached_quantity(
             "prior_predictive_train_covariance_cholesky_decomposition",
             quantity=None,
             persistent=True,
@@ -44,36 +38,25 @@ class Cholesky(ApproximationStrategy):
             clear_cache_on=["backward", "set_train_inputs"],
         )
 
-    def _compute_representer_weights(self) -> Tensor:
-        return self.prior_predictive_train_covariance_cholesky_decomposition.solve(
-            (self.model.train_targets - self.prior_predictive_train_mean).unsqueeze(-1)
-        ).squeeze(-1)
-
-    def _compute_prior_predictive_mean_and_covariance_cholesky_decomposition(
-        self,
-    ) -> Tuple[Tensor, operators.CholLinearOperator]:
-        prior_predictive_train = self.model.likelihood(self.model.forward(self.model.train_inputs))
-        return prior_predictive_train.mean, operators.CholLinearOperator(
-            prior_predictive_train.lazy_covariance_matrix.cholesky()
-        )
-
     def posterior(self, inputs: Float[Tensor, "M D"]) -> distributions.MultivariateNormal:
 
-        # Prior at test inputs
-        prior_mean_test = self.model.mean_module(inputs)
-        prior_covariance_test = self.model.covar_module(inputs)
+        # Prior at train and test inputs
+        prior_train_test = self.model.prior(torch.cat((self.model.train_inputs, inputs), dim=-2))
+        prior_train = prior_train_test[..., 0 : self.model.train_inputs.shape[-2]]
+        prior_test = prior_train_test[..., -inputs.shape[-2] :]
+        covariance_train_test = prior_train_test.lazy_covariance_matrix[
+            ..., 0 : self.model.train_inputs.shape[-2], -inputs.shape[-2] :
+        ].to_dense()
 
-        # Prior predictive at training inputs
-        if (self.prior_predictive_train_mean is None) or (
-            self.prior_predictive_train_covariance_cholesky_decomposition is None
-        ):
-            (
-                self.prior_predictive_train_mean,
-                self.prior_predictive_train_covariance_cholesky_decomposition,
-            ) = self._compute_prior_predictive_mean_and_covariance_cholesky_decomposition()
+        # Prior predictive and Cholesky decomposition of Gramian
+        if self.prior_predictive_train_covariance_cholesky_decomposition is None:
+            prior_predictive_train = self.model.likelihood(prior_train)
+
+            self.prior_predictive_train_covariance_cholesky_decomposition = operators.CholLinearOperator(
+                prior_predictive_train.lazy_covariance_matrix.cholesky()
+            )
 
         # Matrix-square root of the covariance downdate: k(x, X)L^{-1}
-        covariance_train_test = self.model.covar_module(self.model.train_inputs, inputs).to_dense()
         covariance_test_train_inverse_cholesky_factor = (
             self.prior_predictive_train_covariance_cholesky_decomposition.cholesky()
             .solve(covariance_train_test)
@@ -82,12 +65,14 @@ class Cholesky(ApproximationStrategy):
 
         # Posterior mean evaluated at test inputs
         if self.representer_weights is None:
-            self.representer_weights = self._compute_representer_weights()
+            self.representer_weights = self.prior_predictive_train_covariance_cholesky_decomposition.solve(
+                (self.model.train_targets - prior_train.mean).unsqueeze(-1)
+            ).squeeze(-1)
 
-        posterior_mean_test = prior_mean_test + covariance_train_test.transpose(-2, -1) @ self.representer_weights
+        posterior_mean_test = prior_test.mean + covariance_train_test.transpose(-2, -1) @ self.representer_weights
 
         # Posterior covariance evaluated at test inputs
-        posterior_covariance_test = prior_covariance_test - operators.RootLinearOperator(
+        posterior_covariance_test = prior_test.lazy_covariance_matrix - operators.RootLinearOperator(
             covariance_test_train_inverse_cholesky_factor
         )
 

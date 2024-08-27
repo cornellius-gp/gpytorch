@@ -5,88 +5,111 @@ from abc import abstractmethod
 import torch
 
 import gpytorch
+from gpytorch import likelihoods
+
+
+N_TRAIN = 50
+N_TEST = 20
 
 
 class BaseModelTestCase(object):
     @abstractmethod
-    def create_model(self, train_x, train_y, likelihood):
+    def create_model(self, train_inputs, train_targets, likelihood) -> gpytorch.Module:
         raise NotImplementedError()
 
     @abstractmethod
-    def create_test_data(self):
+    def create_train_data(self, batch_shape=()):
         raise NotImplementedError()
 
     @abstractmethod
-    def create_likelihood_and_labels(self):
+    def create_test_data(self, batch_shape=()):
         raise NotImplementedError()
 
     @abstractmethod
-    def create_batch_test_data(self, batch_shape=torch.Size([3])):
-        raise NotImplementedError()
-
-    @abstractmethod
-    def create_batch_likelihood_and_labels(self, batch_shape=torch.Size([3])):
+    def create_likelihood(self) -> likelihoods.Likelihood:
         raise NotImplementedError()
 
     def test_forward_train(self):
-        data = self.create_test_data()
-        likelihood, labels = self.create_likelihood_and_labels()
-        model = self.create_model(data, labels, likelihood)
+        train_inputs, train_targets = self.create_train_data()
+        test_inputs, _ = self.create_test_data()
+        model = self.create_model(
+            train_inputs=train_inputs, train_targets=train_targets, likelihood=self.create_likelihood()
+        )
         model.train()
-        output = model(data)
+        output = model(test_inputs)
+
         self.assertTrue(output.lazy_covariance_matrix.dim() == 2)
-        self.assertTrue(output.lazy_covariance_matrix.size(-1) == data.size(-2))
-        self.assertTrue(output.lazy_covariance_matrix.size(-2) == data.size(-2))
+        self.assertTrue(output.lazy_covariance_matrix.size(-1) == test_inputs.size(-2))
+        self.assertTrue(output.lazy_covariance_matrix.size(-2) == test_inputs.size(-2))
 
     def test_batch_forward_train(self):
-        batch_data = self.create_batch_test_data()
-        likelihood, labels = self.create_batch_likelihood_and_labels()
-        model = self.create_model(batch_data, labels, likelihood)
+        batch_shape = torch.Size((5,))
+        train_inputs, train_targets = self.create_train_data(batch_shape=batch_shape)
+        test_inputs, _ = self.create_test_data(batch_shape=batch_shape)
+        model = self.create_model(
+            train_inputs=train_inputs, train_targets=train_targets, likelihood=self.create_likelihood()
+        )
         model.train()
-        output = model(batch_data)
+        output = model(test_inputs)
+
         self.assertTrue(output.lazy_covariance_matrix.dim() == 3)
-        self.assertTrue(output.lazy_covariance_matrix.size(-1) == batch_data.size(-2))
-        self.assertTrue(output.lazy_covariance_matrix.size(-2) == batch_data.size(-2))
+        self.assertTrue(output.lazy_covariance_matrix.size(-1) == test_inputs.size(-2))
+        self.assertTrue(output.lazy_covariance_matrix.size(-2) == test_inputs.size(-2))
 
     def test_multi_batch_forward_train(self):
-        batch_data = self.create_batch_test_data(batch_shape=torch.Size([2, 3]))
-        likelihood, labels = self.create_batch_likelihood_and_labels(batch_shape=torch.Size([2, 3]))
-        model = self.create_model(batch_data, labels, likelihood)
+        batch_shape = torch.Size((2, 3))
+        train_inputs, train_targets = self.create_train_data(batch_shape=batch_shape)
+        test_inputs, _ = self.create_test_data(batch_shape=batch_shape)
+        model = self.create_model(
+            train_inputs=train_inputs, train_targets=train_targets, likelihood=self.create_likelihood()
+        )
         model.train()
-        output = model(batch_data)
+        output = model(test_inputs)
+
         self.assertTrue(output.lazy_covariance_matrix.dim() == 4)
-        self.assertTrue(output.lazy_covariance_matrix.size(-1) == batch_data.size(-2))
-        self.assertTrue(output.lazy_covariance_matrix.size(-2) == batch_data.size(-2))
+        self.assertTrue(output.lazy_covariance_matrix.size(-1) == test_inputs.size(-2))
+        self.assertTrue(output.lazy_covariance_matrix.size(-2) == test_inputs.size(-2))
 
     def test_forward_eval(self):
-        data = self.create_test_data()
-        likelihood, labels = self.create_likelihood_and_labels()
-        model = self.create_model(data, labels, likelihood)
+        train_inputs, train_targets = self.create_train_data()
+        test_inputs, _ = self.create_test_data()
+        model = self.create_model(
+            train_inputs=train_inputs, train_targets=train_targets, likelihood=self.create_likelihood()
+        )
         model.eval()
-        output = model(data)
+        output = model(test_inputs)
+
         self.assertTrue(output.lazy_covariance_matrix.dim() == 2)
-        self.assertTrue(output.lazy_covariance_matrix.size(-1) == data.size(-2))
-        self.assertTrue(output.lazy_covariance_matrix.size(-2) == data.size(-2))
+        self.assertTrue(output.lazy_covariance_matrix.size(-1) == test_inputs.size(-2))
+        self.assertTrue(output.lazy_covariance_matrix.size(-2) == test_inputs.size(-2))
 
     def test_batch_forward_eval(self):
-        batch_data = self.create_batch_test_data()
-        likelihood, labels = self.create_batch_likelihood_and_labels()
-        model = self.create_model(batch_data, labels, likelihood)
+        batch_shape = torch.Size((5,))
+        train_inputs, train_targets = self.create_train_data(batch_shape=batch_shape)
+        test_inputs, _ = self.create_test_data(batch_shape=batch_shape)
+        model = self.create_model(
+            train_inputs=train_inputs, train_targets=train_targets, likelihood=self.create_likelihood()
+        )
         model.eval()
-        output = model(batch_data)
+        output = model(test_inputs)
+
         self.assertTrue(output.lazy_covariance_matrix.dim() == 3)
-        self.assertTrue(output.lazy_covariance_matrix.size(-1) == batch_data.size(-2))
-        self.assertTrue(output.lazy_covariance_matrix.size(-2) == batch_data.size(-2))
+        self.assertTrue(output.lazy_covariance_matrix.size(-1) == test_inputs.size(-2))
+        self.assertTrue(output.lazy_covariance_matrix.size(-2) == test_inputs.size(-2))
 
     def test_multi_batch_forward_eval(self):
-        batch_data = self.create_batch_test_data(batch_shape=torch.Size([2, 3]))
-        likelihood, labels = self.create_batch_likelihood_and_labels(batch_shape=torch.Size([2, 3]))
-        model = self.create_model(batch_data, labels, likelihood)
+        batch_shape = torch.Size((2, 3))
+        train_inputs, train_targets = self.create_train_data(batch_shape=batch_shape)
+        test_inputs, _ = self.create_test_data(batch_shape=batch_shape)
+        model = self.create_model(
+            train_inputs=train_inputs, train_targets=train_targets, likelihood=self.create_likelihood()
+        )
         model.eval()
-        output = model(batch_data)
+        output = model(test_inputs)
+
         self.assertTrue(output.lazy_covariance_matrix.dim() == 4)
-        self.assertTrue(output.lazy_covariance_matrix.size(-1) == batch_data.size(-2))
-        self.assertTrue(output.lazy_covariance_matrix.size(-2) == batch_data.size(-2))
+        self.assertTrue(output.lazy_covariance_matrix.size(-1) == test_inputs.size(-2))
+        self.assertTrue(output.lazy_covariance_matrix.size(-2) == test_inputs.size(-2))
 
 
 class VariationalModelTestCase(BaseModelTestCase):

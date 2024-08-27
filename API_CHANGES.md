@@ -72,5 +72,6 @@
 
 ## TODOs
 - [ ] Enable Multi-task models for Gaussian Process
+- [ ] Ensure `gpytorch.settings.fast_pred_var(True)` still works
 - [ ] Add `TestGaussianProcess` test case
     - [ ] Move tests in `TestCholeskyGP` to appropriate files
