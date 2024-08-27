@@ -13,7 +13,7 @@ class CachingError(RuntimeError):
     pass
 
 
-def raise_caching_error_if_overwriting_accidentally(
+def raise_caching_error_if_cache_filled_and_overwrite_false(
     cached_quantity: Union[torch.Tensor, operators.LinearOperator], overwrite: bool
 ):
     if not overwrite:

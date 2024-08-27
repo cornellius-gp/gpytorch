@@ -48,7 +48,9 @@ class Cholesky(ApproximationStrategy):
         :param overwrite: Whether to replace the existing cache with the newly computed quantity.
         """
 
-        utils.errors.raise_caching_error_if_overwriting_accidentally(self.representer_weights, overwrite=overwrite)
+        utils.errors.raise_caching_error_if_cache_filled_and_overwrite_false(
+            self.representer_weights, overwrite=overwrite
+        )
 
         self.representer_weights = self.prior_predictive_train_covariance_cholesky_decomposition.solve(
             (self.model.train_targets - self.prior_predictive_train_mean).unsqueeze(-1)
@@ -59,10 +61,10 @@ class Cholesky(ApproximationStrategy):
 
         :param overwrite: Whether to replace the existing cache with the newly computed quantity.
         """
-        utils.errors.raise_caching_error_if_overwriting_accidentally(
+        utils.errors.raise_caching_error_if_cache_filled_and_overwrite_false(
             self.prior_predictive_train_mean, overwrite=overwrite
         )
-        utils.errors.raise_caching_error_if_overwriting_accidentally(
+        utils.errors.raise_caching_error_if_cache_filled_and_overwrite_false(
             self.prior_predictive_train_covariance_cholesky_decomposition, overwrite=overwrite
         )
 

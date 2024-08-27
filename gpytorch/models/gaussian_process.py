@@ -103,14 +103,14 @@ class GaussianProcess(Module, abc.ABC):
 
         # Clear cached quantities which depend on the training inputs.
         for cached_quantity in self.approximation_strategy._clear_cache_triggers["set_train_inputs"]:
-            if settings.verbose_caches.on() and self.__getattr__(cached_quantity) is not None:
+            if settings.verbose_caches.on() and self.approximation_strategy.__getattr__(cached_quantity) is not None:
                 settings.verbose_caches.logger.debug(
                     f"Clearing cache of ApproximationStrategy: "
                     f"'{self.approximation_strategy.__class__.__name__}.{cached_quantity}' "
                     "in call of 'train_inputs.setter'."
                 )
 
-            self.__setattr__(cached_quantity, None)
+            self.approximation_strategy.__setattr__(cached_quantity, None)
 
         # Reshape train inputs into a 2D tensor in case a 1D tensor is passed.
         if value is None:
@@ -127,14 +127,14 @@ class GaussianProcess(Module, abc.ABC):
 
         # Clear cached quantities which depend on the training targets.
         for cached_quantity in self.approximation_strategy._clear_cache_triggers["set_train_targets"]:
-            if settings.verbose_caches.on() and self.__getattr__(cached_quantity) is not None:
+            if settings.verbose_caches.on() and self.approximation_strategy.__getattr__(cached_quantity) is not None:
                 settings.verbose_caches.logger.debug(
                     f"Clearing cache of ApproximationStrategy: "
                     f"'{self.approximation_strategy.__class__.__name__}.{cached_quantity}' "
                     "in call of 'train_targets.setter'."
                 )
 
-            self.__setattr__(cached_quantity, None)
+            self.approximation_strategy.__setattr__(cached_quantity, None)
 
         self._train_targets = value
 
