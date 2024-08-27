@@ -6,7 +6,7 @@ from jaxtyping import Float
 from linear_operator import operators
 from torch import Tensor
 
-from ... import distributions, Module
+from ... import distributions, Module, utils
 from .approximation_strategy import ApproximationStrategy
 
 
@@ -42,10 +42,30 @@ class Cholesky(ApproximationStrategy):
             clear_cache_on=["backward", "set_train_inputs"],
         )
 
-    def _cache_prior_predictive_mean_and_covariance_cholesky_decomposition(
-        self,
-    ) -> None:
-        """Computes prior predictive mean and Cholesky factor and fills the respective buffers."""
+    def _cache_representer_weights(self, overwrite: bool = False) -> None:
+        """Computes representer weights and fills the respective cache.
+
+        :param overwrite: Whether to replace the existing cache with the newly computed quantity.
+        """
+
+        utils.errors.raise_caching_error_if_overwriting_accidentally(self.representer_weights, overwrite=overwrite)
+
+        self.representer_weights = self.prior_predictive_train_covariance_cholesky_decomposition.solve(
+            (self.model.train_targets - self.prior_predictive_train_mean).unsqueeze(-1)
+        ).squeeze(-1)
+
+    def _cache_prior_predictive_mean_and_covariance_cholesky_decomposition(self, overwrite: bool = False) -> None:
+        """Computes prior predictive mean and Cholesky factor and fills the respective cache.
+
+        :param overwrite: Whether to replace the existing cache with the newly computed quantity.
+        """
+        utils.errors.raise_caching_error_if_overwriting_accidentally(
+            self.prior_predictive_train_mean, overwrite=overwrite
+        )
+        utils.errors.raise_caching_error_if_overwriting_accidentally(
+            self.prior_predictive_train_covariance_cholesky_decomposition, overwrite=overwrite
+        )
+
         prior_predictive_train = self.model.likelihood(self.model.forward(self.model.train_inputs))
         self.prior_predictive_train_mean = prior_predictive_train.mean
         self.prior_predictive_train_covariance_cholesky_decomposition = operators.CholLinearOperator(
@@ -59,8 +79,7 @@ class Cholesky(ApproximationStrategy):
         prior_covariance_test = self.model.covar_module(inputs)
 
         # Prior predictive at training inputs
-        if self.prior_predictive_train_covariance_cholesky_decomposition is None:
-            self._cache_prior_predictive_mean_and_covariance_cholesky_decomposition()
+        self._cache_prior_predictive_mean_and_covariance_cholesky_decomposition(overwrite=False)
 
         # Matrix-square root of the covariance downdate: k(x, X)L^{-1}
         covariance_train_test = self.model.covar_module(self.model.train_inputs, inputs).to_dense()
@@ -71,10 +90,7 @@ class Cholesky(ApproximationStrategy):
         )
 
         # Posterior mean evaluated at test inputs
-        if self.representer_weights is None:
-            self.representer_weights = self.prior_predictive_train_covariance_cholesky_decomposition.solve(
-                (self.model.train_targets - self.prior_predictive_train_mean).unsqueeze(-1)
-            ).squeeze(-1)
+        self._cache_representer_weights(overwrite=False)
 
         posterior_mean_test = prior_mean_test + covariance_train_test.transpose(-2, -1) @ self.representer_weights
 

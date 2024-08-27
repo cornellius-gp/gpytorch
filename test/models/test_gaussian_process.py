@@ -224,6 +224,10 @@ class TestCholeskyGP(BaseModelTestCase, unittest.TestCase):
         # TODO
         pass
 
+    def test_overwriting_cache_without_overwrite_option_throws_error(self):
+        # TODO
+        pass
+
 
 if __name__ == "__main__":
     unittest.main()

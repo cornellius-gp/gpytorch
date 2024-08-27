@@ -42,10 +42,11 @@ class ApproximationStrategy(abc.ABC, Module):
         name: str,
         quantity: Optional[Union[Tensor, operators.LinearOperator]] = None,
         persistent: bool = True,
-        clear_cache_on: Optional[Iterable[Literal["backward", "train_inputs_set", "train_targets_set"]]] = [
+        clear_cache_on: Optional[Iterable[Literal["backward", "set_train_inputs", "set_train_targets"]]] = [
             "backward",
-            "train_inputs_set",
-            "train_targets_set",
+            "set_train_inputs",
+            "set_train_targets",
+            # TODO: if needed, add "train_mode", "eval_mode"
         ],
         clear_cache_on_backward_of_params: Optional[Iterable[nn.Parameter]] = None,
     ) -> None:
@@ -73,8 +74,8 @@ class ApproximationStrategy(abc.ABC, Module):
             raise AttributeError(
                 "Cannot register a cached quantity without initializing the cache via "
                 "`ApproximationStrategy.init_cache(model)`."
-                "Make sure you register cached quantities (in `MyApproximationStrategy.init_cache`) "
-                "after calling `super().init_cache(model)`."
+                "Make sure you register cached quantities in `MyApproximationStrategy.init_cache` "
+                "(or after calling `MyApproximationStrategy.init_cache`)."
             )
 
         # Register cached quantity as a PyTorch buffer
@@ -95,10 +96,10 @@ class ApproximationStrategy(abc.ABC, Module):
                         if param.requires_grad:
 
                             def clear_cache(_):
-                                if settings.verbose_caches.on():
+                                if settings.verbose_caches.on() and self.__getattr__(name) is not None:
                                     settings.verbose_caches.logger.debug(
                                         f"Clearing cache of ApproximationStrategy: '{self.__class__.__name__}.{name}' "
-                                        f"via hook registered to {param_name}."
+                                        f"via backward hook registered to {param_name}."
                                     )
                                 self.__setattr__(name, None)
 
@@ -113,10 +114,10 @@ class ApproximationStrategy(abc.ABC, Module):
                 if param.requires_grad:
 
                     def clear_cache(_):
-                        if settings.verbose_caches.on():
+                        if settings.verbose_caches.on() and self.__getattr__(name) is not None:
                             settings.verbose_caches.logger.debug(
                                 f"Clearing cache of ApproximationStrategy: '{self.__class__.__name__}.{name}' "
-                                "via hook registered to a model parameter."
+                                "via backward hook registered to a model parameter."
                             )
                         self.__setattr__(name, None)
 
