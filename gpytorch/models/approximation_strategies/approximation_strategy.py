@@ -96,12 +96,14 @@ class ApproximationStrategy(abc.ABC, Module):
                         if param.requires_grad:
 
                             def clear_cache(_):
-                                if settings.verbose_caches.on() and self.__getattr__(name) is not None:
-                                    settings.verbose_caches.logger.debug(
-                                        f"Clearing cache of ApproximationStrategy: '{self.__class__.__name__}.{name}' "
-                                        f"via backward hook registered to {param_name}."
-                                    )
-                                self.__setattr__(name, None)
+                                if self.__getattr__(name) is not None:
+                                    if settings.verbose_caches.on():
+                                        settings.verbose_caches.logger.debug(
+                                            f"Clearing cache of ApproximationStrategy: "
+                                            f"'{self.__class__.__name__}.{name}' "
+                                            f"via backward hook registered to {param_name}."
+                                        )
+                                    self.__setattr__(name, None)
 
                             param.register_hook(clear_cache)
                 else:
@@ -114,12 +116,13 @@ class ApproximationStrategy(abc.ABC, Module):
                 if param.requires_grad:
 
                     def clear_cache(_):
-                        if settings.verbose_caches.on() and self.__getattr__(name) is not None:
-                            settings.verbose_caches.logger.debug(
-                                f"Clearing cache of ApproximationStrategy: '{self.__class__.__name__}.{name}' "
-                                "via backward hook registered to a model parameter."
-                            )
-                        self.__setattr__(name, None)
+                        if self.__getattr__(name) is not None:
+                            if settings.verbose_caches.on():
+                                settings.verbose_caches.logger.debug(
+                                    f"Clearing cache of ApproximationStrategy: '{self.__class__.__name__}.{name}' "
+                                    "via backward hook registered to a model parameter."
+                                )
+                            self.__setattr__(name, None)
 
                     param.register_hook(clear_cache)
 

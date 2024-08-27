@@ -25,6 +25,7 @@
 
 ### Naming
 - [ ] `gpytorch.mlls` -> `gpytorch.loss_fns/losses`
+- [ ] `ExactMarginalLogLikelihood` -> `LogMarginalLikelihood`
 
 ## Other Changes
 - Removed [shebang lines](https://stackoverflow.com/questions/9783482/should-python-library-modules-start-with-usr-bin-env-python?rq=3) from modules that are not intended to be executed in the command line.
@@ -76,4 +77,6 @@
 - [ ] Refactor RFFKernel / InducingPointKernel into an approximation strategy?
 
 ## TODOs
-- [ ] Write a test that checks consistency between approximation strategy cache and the objects in the GP (e.g. if i update parameters in GP, the cache just points to those objects)
+- [ ] Enable Multi-task models for Gaussian Process
+- [ ] Add `TestGaussianProcess` test case
+    - [ ] Move tests in `TestCholeskyGP` to appropriate files
