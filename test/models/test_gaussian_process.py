@@ -5,7 +5,6 @@ import torch
 from linear_operator import operators
 
 import gpytorch
-from gpytorch import utils
 
 from gpytorch.models.zoo import CholeskyGP
 from gpytorch.test.model_test_case import BaseModelTestCase
@@ -234,24 +233,6 @@ class TestCholeskyGP(BaseModelTestCase, unittest.TestCase):
 
         for _, cached_quantity in model.approximation_strategy.named_buffers():
             self.assertTrue(cached_quantity is None)
-
-    def test_overwriting_cache_without_overwrite_option_throws_error(self):
-
-        x_train = torch.randn(N_PTS, 1)
-        likelihood, y_train = self.create_likelihood_and_labels()
-        model = self.create_model(x_train, y_train, likelihood)
-
-        # Predict with model to ensure cached quantities are computed
-        model.eval()
-        model(x_train)
-
-        with self.assertRaises(utils.errors.CachingError):
-            model.approximation_strategy._cache_representer_weights(overwrite=False)
-
-        with self.assertRaises(utils.errors.CachingError):
-            model.approximation_strategy._cache_prior_predictive_mean_and_covariance_cholesky_decomposition(
-                overwrite=False
-            )
 
 
 if __name__ == "__main__":
