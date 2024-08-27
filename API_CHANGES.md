@@ -55,13 +55,6 @@
 - Make it easier for developers to use the caching
 
 #### Implementation Ideas
-- cache ``ApproximationStrategy`` object vs cached methods/properties of ``ApproximationStrategy``?
-- Idea:
-    - for every property of an ApproximationStrategy() use a @cached decorator, which registers a certain backward hook that clears the cache
-        - https://pytorch.org/docs/stable/notes/autograd.html#backward-hooks-execution
-    - What about if the training data gets modified? How do we ensure the cache is cleared?
-        - Can we provide a set of arguments to the @cached decorator which specify when this cached property gets cleared (i.e. on model.train(), model.eval(), when updating the training data, on the backward pass at this node)?
-
 - Discussion with Geoff:
     - be explicit when buffers are released / populated (rather than doing it implicitly like memoization or cached_property)
     - be offensive in releasing to avoid hard to debug situation
@@ -71,6 +64,7 @@
         3. .register_cache[d_quantity/tensor]() pattern like .register_parameter() / .register_prior() in ``gpytorch.Module`` (see also https://github.com/cornellius-gp/gpytorch/blob/main/gpytorch/module.py#L203), could even have an argument on what hook is registered for that buffer.
 
 ## Nice-to-have but optional
+- [ ] Go through all the `DeprecationWarning`s and remove obsolete code.
 - [ ] Modernize configuration a bit
     - [ ] move setup info into ``setup.cfg`` or ``pyproject.toml``
     - [ ] move tooling settings into ``pyproject.toml``
