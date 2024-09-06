@@ -55,7 +55,5 @@ jobs:
         conda config --append channels conda-forge
         /usr/share/miniconda/bin/anaconda login --username ${{ secrets.CONDA_USERNAME }} --password ${{ secrets.CONDA_PASSWORD }}
         python -m setuptools_scm
-        cd .conda
-        conda build .
+        conda build .conda
         /usr/share/miniconda/bin/anaconda logout
-        cd ..
