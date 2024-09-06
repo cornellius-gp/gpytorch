@@ -1,4 +1,4 @@
-{% set data = load_setup_py_data(setup_file="../setup.py", from_recipe_dir=True) %}
+{% set data = load_setup_py_data() %}
 
 package:
   name: {{ data.get("name")|lower }}
