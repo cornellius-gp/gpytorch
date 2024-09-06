@@ -1,8 +1,12 @@
-{% set data = load_setup_py_data() %}
+{% set _version_match = load_file_regex(
+  load_file="gpytorch/version.py",
+  regex_pattern="__version__ = version = '(.+)'"
+) %}
+{% set version = _version_match[1] %}
 
 package:
-  name: {{ data.get("name")|lower }}
-  version: {{ data.get("version") }}
+  name: gpytorch
+  version: {{ version }}
 
 source:
   path: ../
