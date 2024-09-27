@@ -48,7 +48,6 @@ class LinearKernel(Kernel):
     def __init__(
         self,
         ard_num_dims: Optional[int] = None,
-        offset_prior: Optional[Prior] = None,
         variance_prior: Optional[Prior] = None,
         variance_constraint: Optional[Interval] = None,
         **kwargs,
