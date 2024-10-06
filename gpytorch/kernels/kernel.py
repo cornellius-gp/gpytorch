@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import warnings
 from abc import abstractmethod
+from collections import defaultdict, OrderedDict
 from copy import deepcopy
-from typing import Callable, Dict, Iterable, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Union
 
 import torch
 from linear_operator import to_dense, to_linear_operator
-from linear_operator.operators import LinearOperator, ZeroLinearOperator
+from linear_operator.operators import KernelLinearOperator, LinearOperator, ZeroLinearOperator
 from torch import Tensor
 from torch.nn import ModuleList
 
@@ -79,6 +80,44 @@ class Distance(torch.nn.Module):
     def _dist(self, x1, x2, x1_eq_x2=False, postprocess=False):
         res = dist(x1, x2, x1_eq_x2=x1_eq_x2)
         return self._postprocess(res) if postprocess else res
+
+
+class _autograd_kernel_hack:
+    """
+    Helper class.
+
+    When using KernelLinearOperator, the `covar_func` cannot close over any Tensors that require gradients.
+    (Any Tensor that `covar_func` closes over will not backpropagate gradients.)
+    Unfortunately, for most kernels, `covar_func=self.forward`, which closes over all of the kernel's parameters.
+
+    This context manager temporarily replaces a kernel (and its submodules') parameter assignments with an
+    external set of references to these parameters.
+    The external set of references will be passed in by KernelLinearOperator.
+
+    This way, when calling self.forward, no parameter references are closed over, and so all parameters
+    will receive the appropriate gradients.
+    """
+
+    def __init__(
+        self,
+        kernel: Kernel,
+        params: Dict[str, torch.nn.Parameters],
+        module_params: Dict[torch.nn.Module, Iterable[str]],
+    ):
+        self.temp_module_param_dicts = defaultdict(OrderedDict)
+        for module, param_names in module_params.items():
+            self.temp_module_param_dicts[module] = OrderedDict(
+                (param_name.rsplit(".", 1)[-1], params[param_name]) for param_name in param_names
+            )
+        self.orig_model_param_dicts = dict((module, module._parameters) for module in self.temp_module_param_dicts)
+
+    def __enter__(self):
+        for module, temp_param_dict in self.temp_module_param_dicts.items():
+            object.__setattr__(module, "_parameters", temp_param_dict)
+
+    def __exit__(self, type, value, traceback):
+        for module, orig_param_dict in self.orig_model_param_dicts.items():
+            object.__setattr__(module, "_parameters", orig_param_dict)
 
 
 class Kernel(Module):
@@ -212,6 +251,45 @@ class Kernel(Module):
         # TODO: Remove this on next official PyTorch release.
         self.__pdist_supports_batch = True
 
+    @property
+    def _lazily_evaluate(self) -> bool:
+        r"""
+        Determines whether or not the kernel is lazily evaluated.
+
+        If False, kernel(x1, x2) produces a Tensor/LinearOperator where the covariance function has been evaluated
+        over x1 and x2.
+
+        If True, kernel(x1, x2) produces a KernelLinearOperator that delays evaluation of the kernel function.
+        The kernel function will only be evaluated when either
+            - An mathematical operation is performed on the kernel matrix (e.g. solves, logdets, etc.), or
+            - An indexing operation is performed on the kernel matrix to select specific covariance entries.
+
+        In general, _lazily_evaluate should return True (this option is more efficient), unless lazy evaluation
+        offers no gains and there is specific structure that will be lost with lazy evaluation
+        (e.g. low-rank/Nystrom approximations).
+        """
+        return True
+
+    def _kernel_linear_operator_covar_func(
+        self,
+        x1: Tensor,
+        x2: Tensor,
+        non_param_kwargs: Dict[str, Any],
+        module_params: Dict[torch.nn.Module, Iterable[str]],
+        **params: torch.nn.Parameter,
+    ) -> Union[Tensor, LinearOperator]:
+        # This is the `covar_function` that is passed into KernelLinearOperator
+        # This function calls self.forward, but does so in a way so that no parameters are closed over
+        # (by using the _autograd_kernel_hack context manager)
+        try:
+            if any(param.requires_grad for param in params.values()):
+                with _autograd_kernel_hack(self, params, module_params):
+                    return self.forward(x1, x2, **non_param_kwargs)
+            else:
+                return self.forward(x1, x2, **non_param_kwargs)
+        except Exception as e:
+            raise e
+
     def _lengthscale_param(self, m: Kernel) -> Tensor:
         # Used by the lengthscale_prior
         return m.lengthscale
@@ -231,9 +309,7 @@ class Kernel(Module):
         self.initialize(raw_lengthscale=self.raw_lengthscale_constraint.inverse_transform(value))
 
     @abstractmethod
-    def forward(
-        self, x1: Tensor, x2: Tensor, diag: bool = False, last_dim_is_batch: bool = False, **params
-    ) -> Union[Tensor, LinearOperator]:
+    def forward(self, x1: Tensor, x2: Tensor, diag: bool = False, **params) -> Union[Tensor, LinearOperator]:
         r"""
         Computes the covariance between :math:`\mathbf x_1` and :math:`\mathbf x_2`.
         This method should be implemented by all Kernel subclasses.
@@ -242,16 +318,11 @@ class Kernel(Module):
         :param x2: Second set of data (... x M x D).
         :param diag: Should the Kernel compute the whole kernel, or just the diag?
             If True, it must be the case that `x1 == x2`. (Default: False.)
-        :param last_dim_is_batch: If True, treat the last dimension
-            of `x1` and `x2` as another batch dimension.
-            (Useful for additive structure over the dimensions). (Default: False.)
 
         :return: The kernel matrix or vector. The shape depends on the kernel's evaluation mode:
 
             * `full_covar`: `... x N x M`
-            * `full_covar` with `last_dim_is_batch=True`: `... x K x N x M`
             * `diag`: `... x N`
-            * `diag` with `last_dim_is_batch=True`: `... x K x N`
         """
         raise NotImplementedError()
 
@@ -314,7 +385,6 @@ class Kernel(Module):
         x1: Tensor,
         x2: Tensor,
         diag: bool = False,
-        last_dim_is_batch: bool = False,
         square_dist: bool = False,
         **params,
     ) -> Tensor:
@@ -326,22 +396,13 @@ class Kernel(Module):
         :param x2: Second set of data (... x M x D).
         :param diag: Should the Kernel compute the whole kernel, or just the diag?
             If True, it must be the case that `x1 == x2`. (Default: False.)
-        :param last_dim_is_batch: If True, treat the last dimension
-            of `x1` and `x2` as another batch dimension.
-            (Useful for additive structure over the dimensions). (Default: False.)
         :param square_dist:
             If True, returns the squared distance rather than the standard distance. (Default: False.)
         :return: The kernel matrix or vector. The shape depends on the kernel's evaluation mode:
 
             * `full_covar`: `... x N x M`
-            * `full_covar` with `last_dim_is_batch=True`: `... x K x N x M`
             * `diag`: `... x N`
-            * `diag` with `last_dim_is_batch=True`: `... x K x N`
         """
-        if last_dim_is_batch:
-            x1 = x1.transpose(-1, -2).unsqueeze(-1)
-            x2 = x2.transpose(-1, -2).unsqueeze(-1)
-
         x1_eq_x2 = torch.equal(x1, x2)
         res = None
 
@@ -457,7 +518,7 @@ class Kernel(Module):
             yield kernel
 
     def __call__(
-        self, x1: Tensor, x2: Optional[Tensor] = None, diag: bool = False, last_dim_is_batch: bool = False, **params
+        self, x1: Tensor, x2: Optional[Tensor] = None, diag: bool = False, **params
     ) -> Union[LazyEvaluatedKernelTensor, LinearOperator, Tensor]:
         r"""
         Computes the covariance between :math:`\mathbf x_1` and :math:`\mathbf x_2`.
@@ -473,27 +534,13 @@ class Kernel(Module):
             (If `None`, then `x2` is set to `x1`.)
         :param diag: Should the Kernel compute the whole kernel, or just the diag?
             If True, it must be the case that `x1 == x2`. (Default: False.)
-        :param last_dim_is_batch: If True, treat the last dimension
-            of `x1` and `x2` as another batch dimension.
-            (Useful for additive structure over the dimensions). (Default: False.)
 
         :return: An object that will lazily evaluate to the kernel matrix or vector.
             The shape depends on the kernel's evaluation mode:
 
             * `full_covar`: `... x N x M`
-            * `full_covar` with `last_dim_is_batch=True`: `... x K x N x M`
             * `diag`: `... x N`
-            * `diag` with `last_dim_is_batch=True`: `... x K x N`
         """
-        if last_dim_is_batch:
-            warnings.warn(
-                "The last_dim_is_batch argument is deprecated, and will be removed in GPyTorch 2.0. "
-                "If you are using it as part of AdditiveStructureKernel or ProductStructureKernel, "
-                'please update your code according to the "Kernels with Additive or Product Structure" '
-                "tutorial in the GPyTorch docs.",
-                DeprecationWarning,
-            )
-
         x1_, x2_ = x1, x2
 
         # Select the active dimensions
@@ -523,7 +570,7 @@ class Kernel(Module):
                 )
 
         if diag:
-            res = super(Kernel, self).__call__(x1_, x2_, diag=True, last_dim_is_batch=last_dim_is_batch, **params)
+            res = super(Kernel, self).__call__(x1_, x2_, diag=True, **params)
             # Did this Kernel eat the diag option?
             # If it does not return a LazyEvaluatedKernelTensor, we can call diag on the output
             if not isinstance(res, LazyEvaluatedKernelTensor):
@@ -532,12 +579,65 @@ class Kernel(Module):
             return res
 
         else:
-            if settings.lazily_evaluate_kernels.on():
-                res = LazyEvaluatedKernelTensor(x1_, x2_, kernel=self, last_dim_is_batch=last_dim_is_batch, **params)
-            else:
-                res = to_linear_operator(
-                    super(Kernel, self).__call__(x1_, x2_, last_dim_is_batch=last_dim_is_batch, **params)
+            if settings.lazily_evaluate_kernels.on() and self._lazily_evaluate:
+                num_outputs_per_input = self.num_outputs_per_input(x1_, x2_)
+                if isinstance(num_outputs_per_input, int):
+                    num_outputs_per_input = (num_outputs_per_input, num_outputs_per_input)
+
+                def _get_parameter_parent_module_and_batch_shape(module):
+                    num_module_batch_dimension = len(module.batch_shape) if isinstance(module, Kernel) else 0
+                    for name, param in module._parameters.items():
+                        yield name, (param, module, param.dim() - num_module_batch_dimension)
+
+                # The following returns a list of tuples for each parameter + parameters of sub-modules:
+                # (param_name, (param_val, param_parent_module, param_batch_shape))
+                named_parameters_parent_modules_and_batch_dimensions = tuple(
+                    self._named_members(
+                        _get_parameter_parent_module_and_batch_shape,
+                        prefix="",
+                        recurse=True,
+                    )
                 )
+
+                if len(named_parameters_parent_modules_and_batch_dimensions):
+                    # Information we need for the KernelLinearOperator, as well as the autograd hack:
+                    # - the names/values of all parameters
+                    # - the parent module associated with each parameter
+                    # - the number of non-batch dimensions associated with each parameter
+                    # WE get this information from the list constructed in the previous step
+                    params = dict()
+                    module_params = defaultdict(list)
+                    num_nonbatch_dimensions = dict()
+                    for name, (
+                        param,
+                        parent_module,
+                        num_nonbatch_dimension,
+                    ) in named_parameters_parent_modules_and_batch_dimensions:
+                        params[name] = param
+                        module_params[parent_module].append(name)
+                        num_nonbatch_dimensions[name] = num_nonbatch_dimension
+
+                    # Construct the KernelLinearOperator
+                    res = KernelLinearOperator(
+                        x1_,
+                        x2_,
+                        covar_func=self._kernel_linear_operator_covar_func,
+                        num_outputs_per_input=num_outputs_per_input,
+                        num_nonbatch_dimensions=num_nonbatch_dimensions,
+                        module_params=module_params,  # params for _kernel_linear_operator_covar_func
+                        non_param_kwargs=dict(**params),  # params for forward
+                        **params,
+                    )
+                else:
+                    res = KernelLinearOperator(
+                        x1_,
+                        x2_,
+                        covar_func=self.forward,
+                        num_outputs_per_input=num_outputs_per_input,
+                        non_param_kwargs=dict(**params),  # params for forward
+                    )
+            else:
+                res = to_linear_operator(super(Kernel, self).__call__(x1_, x2_, **params))
             return res
 
     def __getstate__(self):
@@ -608,13 +708,17 @@ class AdditiveKernel(Kernel):
     :param kernels: Kernels to add together.
     """
 
+    def __init__(self, *kernels: Iterable[Kernel]):
+        super(AdditiveKernel, self).__init__()
+        self.kernels = ModuleList(kernels)
+
     @property
     def is_stationary(self) -> bool:
         return all(k.is_stationary for k in self.kernels)
 
-    def __init__(self, *kernels: Iterable[Kernel]):
-        super(AdditiveKernel, self).__init__()
-        self.kernels = ModuleList(kernels)
+    @property
+    def _lazily_evaluate(self) -> bool:
+        return all(k._lazily_evaluate for k in self.kernels)
 
     def forward(self, x1: Tensor, x2: Tensor, diag: bool = False, **params) -> Union[Tensor, LinearOperator]:
         res = ZeroLinearOperator() if not diag else 0
@@ -650,13 +754,17 @@ class ProductKernel(Kernel):
     :param kernels: Kernels to multiply together.
     """
 
+    def __init__(self, *kernels: Iterable[Kernel]):
+        super(ProductKernel, self).__init__()
+        self.kernels = ModuleList(kernels)
+
     @property
     def is_stationary(self) -> bool:
         return all(k.is_stationary for k in self.kernels)
 
-    def __init__(self, *kernels: Iterable[Kernel]):
-        super(ProductKernel, self).__init__()
-        self.kernels = ModuleList(kernels)
+    @property
+    def _lazily_evaluate(self) -> bool:
+        return False
 
     def forward(self, x1: Tensor, x2: Tensor, diag: bool = False, **params) -> Union[Tensor, LinearOperator]:
         x1_eq_x2 = torch.equal(x1, x2)

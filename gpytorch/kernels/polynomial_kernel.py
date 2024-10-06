@@ -81,14 +81,9 @@ class PolynomialKernel(Kernel):
         x1: torch.Tensor,
         x2: torch.Tensor,
         diag: Optional[bool] = False,
-        last_dim_is_batch: Optional[bool] = False,
         **params,
     ) -> torch.Tensor:
         offset = self.offset.view(*self.batch_shape, 1, 1)
-
-        if last_dim_is_batch:
-            x1 = x1.transpose(-1, -2).unsqueeze(-1)
-            x2 = x2.transpose(-1, -2).unsqueeze(-1)
 
         if diag:
             return ((x1 * x2).sum(dim=-1) + self.offset).pow(self.power)

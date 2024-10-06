@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-# from linear_operator.operators import KeOpsLinearOperator
 from linear_operator.operators import KernelLinearOperator
 
 from .keops_kernel import _lazify_and_expand_inputs, KeOpsKernel

@@ -56,8 +56,6 @@ class CosineKernel(Kernel):
         >>> covar = covar_module(x)  # Output: LazyVariable of size (2 x 10 x 10)
     """
 
-    is_stationary = True
-
     def __init__(
         self,
         period_length_prior: Optional[Prior] = None,
@@ -84,6 +82,10 @@ class CosineKernel(Kernel):
             )
 
         self.register_constraint("raw_period_length", period_length_constraint)
+
+    @property
+    def is_stationary(self):
+        return True
 
     @property
     def period_length(self):

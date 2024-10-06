@@ -31,20 +31,17 @@ def recall_grad_state(method: Callable) -> Callable:
 class LazyEvaluatedKernelTensor(LinearOperator):
     _check_size = False
 
-    def _check_args(self, x1, x2, kernel, last_dim_is_batch=False, **params):
+    def _check_args(self, x1, x2, kernel, **params):
         if not torch.is_tensor(x1):
             return "x1 must be a tensor. Got {}".format(x1.__class__.__name__)
         if not torch.is_tensor(x2):
             return "x1 must be a tensor. Got {}".format(x1.__class__.__name__)
 
-    def __init__(self, x1, x2, kernel, last_dim_is_batch=False, **params):
-        super(LazyEvaluatedKernelTensor, self).__init__(
-            x1, x2, kernel=kernel, last_dim_is_batch=last_dim_is_batch, **params
-        )
+    def __init__(self, x1, x2, kernel, **params):
+        super(LazyEvaluatedKernelTensor, self).__init__(x1, x2, kernel=kernel, **params)
         self.kernel = kernel
         self.x1 = x1
         self.x2 = x2
-        self.last_dim_is_batch = last_dim_is_batch
         self.params = params
         self._is_grad_enabled = torch.is_grad_enabled()  # records grad state at instantiation
 
@@ -92,7 +89,6 @@ class LazyEvaluatedKernelTensor(LinearOperator):
                         sub_x1,
                         x2,
                         diag=False,
-                        last_dim_is_batch=self.last_dim_is_batch,
                         **self.params,
                     )
                 )
@@ -115,9 +111,7 @@ class LazyEvaluatedKernelTensor(LinearOperator):
         x1 = self.x1
         x2 = self.x2
 
-        res = super(Kernel, self.kernel).__call__(
-            x1, x2, diag=True, last_dim_is_batch=self.last_dim_is_batch, **self.params
-        )
+        res = super(Kernel, self.kernel).__call__(x1, x2, diag=True, **self.params)
 
         # Now we'll make sure that the shape we're getting from diag makes sense
         if settings.debug.on():
@@ -193,12 +187,7 @@ class LazyEvaluatedKernelTensor(LinearOperator):
             col_index = slice(col_start // num_outs_per_in_cols, col_end // num_outs_per_in_cols, None)
 
         # Define the index we're using for the last index
-        # If the last index corresponds to a batch, then we'll use the appropriate batch_index
-        # Otherwise, we'll use the _noop_index
-        if self.last_dim_is_batch:
-            *batch_indices, dim_index = batch_indices
-        else:
-            dim_index = _noop_index
+        dim_index = _noop_index
 
         # Get the indices of x1 and x2 that matter for the kernel
         # Call x1[*batch_indices, row_index, :]
@@ -238,7 +227,6 @@ class LazyEvaluatedKernelTensor(LinearOperator):
             x1,
             x2,
             kernel=new_kernel,
-            last_dim_is_batch=self.last_dim_is_batch,
             **self.params,
         )
 
@@ -265,7 +253,6 @@ class LazyEvaluatedKernelTensor(LinearOperator):
                         sub_x1,
                         x2,
                         diag=False,
-                        last_dim_is_batch=self.last_dim_is_batch,
                         **self.params,
                     )
                 )
@@ -312,9 +299,6 @@ class LazyEvaluatedKernelTensor(LinearOperator):
                     f"Got x1.shape = {x1.shape} and x2.shape = {x2.shape}"
                 )
 
-        # Handle when the last dim is batch
-        if self.last_dim_is_batch:
-            expected_size = expected_size[:-2] + x1.shape[-1:] + expected_size[-2:]
         return expected_size
 
     @recall_grad_state
@@ -323,7 +307,6 @@ class LazyEvaluatedKernelTensor(LinearOperator):
             self.x2,
             self.x1,
             kernel=self.kernel,
-            last_dim_is_batch=self.last_dim_is_batch,
             **self.params,
         )
 
@@ -335,7 +318,6 @@ class LazyEvaluatedKernelTensor(LinearOperator):
             x1,
             x2,
             kernel=self.kernel,
-            last_dim_is_batch=self.last_dim_is_batch,
             **self.params,
         )
 
@@ -356,7 +338,6 @@ class LazyEvaluatedKernelTensor(LinearOperator):
                 x1,
                 x2,
                 diag=False,
-                last_dim_is_batch=self.last_dim_is_batch,
                 **self.params,
             )
             self.kernel.active_dims = temp_active_dims
@@ -383,7 +364,6 @@ class LazyEvaluatedKernelTensor(LinearOperator):
             x1,
             x2,
             kernel=self.kernel,
-            last_dim_is_batch=self.last_dim_is_batch,
             **self.params,
         )
 
