@@ -12,6 +12,8 @@ try:
     import pykeops  # noqa F401
     from pykeops.torch import LazyTensor
 
+    _Anysor = Union[Tensor, LazyTensor]
+
     def _lazify_and_expand_inputs(
         x1: Tensor, x2: Tensor
     ) -> Tuple[Union[Tensor, LazyTensor], Union[Tensor, LazyTensor]]:
@@ -48,6 +50,8 @@ try:
             return super().__call__(*args, **kwargs)
 
 except ImportError:
+
+    _Anysor = Tensor
 
     def _lazify_and_expand_inputs(x1: Tensor, x2: Tensor) -> Tuple[Tensor, Tensor]:
         x1_ = x1[..., :, None, :]
