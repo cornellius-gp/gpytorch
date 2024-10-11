@@ -42,6 +42,11 @@ class BaseKeOpsTestCase(BaseTestCase):
                 k2 = kern2(x1, x1).to_dense()
                 self.assertLess(torch.norm(k1 - k2), 1e-4)
 
+                # Test diagonal
+                d1 = kern1(x1, x1).diagonal(dim1=-1, dim2=-2)
+                d2 = kern2(x1, x1).diagonal(dim1=-1, dim2=-2)
+                self.assertLess(torch.norm(d1 - d2), 1e-4)
+
         if use_keops:
             self.assertTrue(keops_mock.called)
 
@@ -67,6 +72,11 @@ class BaseKeOpsTestCase(BaseTestCase):
                 k1 = kern1(x1, x2).to_dense()
                 k2 = kern2(x1, x2).to_dense()
                 self.assertLess(torch.norm(k1 - k2), 1e-3)
+
+                # Test diagonal
+                d1 = kern1(x1, x1).diagonal(dim1=-1, dim2=-2)
+                d2 = kern2(x1, x1).diagonal(dim1=-1, dim2=-2)
+                self.assertLess(torch.norm(d1 - d2), 1e-4)
 
         if use_keops:
             self.assertTrue(keops_mock.called)
