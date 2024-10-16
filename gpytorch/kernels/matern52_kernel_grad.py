@@ -94,15 +94,14 @@ class Matern52KernelGrad(MaternKernel):
 
             # 2) First gradient block, cov(f^m, omega^n_d)
             outer1 = outer.view(*batch_shape, n1, n2 * d)
-            K[..., :n1, n2:] = outer1 * (-five_thirds * (1 + sqrt5 * distance_matrix) * exp_neg_sqrt5r).repeat(
+            K[..., :n1, n2:] = outer1 * (five_thirds * (1 + sqrt5 * distance_matrix) * exp_neg_sqrt5r).repeat(
                 [*([1] * (n_batch_dims + 1)), d]
             )
 
             # 3) Second gradient block, cov(omega^m_d, f^n)
             outer2 = outer.transpose(-1, -3).reshape(*batch_shape, n2, n1 * d)
             outer2 = outer2.transpose(-1, -2)
-            # the - signs on -outer2 and -five_thirds cancel out
-            K[..., n1:, :n2] = outer2 * (five_thirds * (1 + sqrt5 * distance_matrix) * exp_neg_sqrt5r).repeat(
+            K[..., n1:, :n2] = -outer2 * (five_thirds * (1 + sqrt5 * distance_matrix) * exp_neg_sqrt5r).repeat(
                 [*([1] * n_batch_dims), d, 1]
             )
 
