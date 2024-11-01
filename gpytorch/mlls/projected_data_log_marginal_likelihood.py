@@ -141,6 +141,9 @@ class ProjectedDataLogMarginalLikelihood(MarginalLogLikelihood):
             lml = -(
                 0.5 * torch.inner(actions_target, compressed_repr_weights)
                 + torch.sum(torch.log(cholfac_gram.diagonal()))
+                - torch.sum(
+                    torch.log(torch.diagonal(torch.linalg.cholesky(actions_op @ actions_op.mT)))
+                )  # Ensure objective only depends on colspan(S)
                 + 0.5 * num_actions * math.log(2 * math.pi)
             )
             # Normalize log-marginal likelihood
