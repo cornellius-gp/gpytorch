@@ -6,10 +6,14 @@ parameter constraints and priors, and saving and loading models.
 
 Before checking these out, you may want to check out our `simple GP regression tutorial`_ that details the anatomy of a GPyTorch model.
 
-- Check out our `Tutorial on Hyperparameters`_ for information on things like raw versus actual
+* Check out our `Tutorial on Hyperparameters`_ for information on things like raw versus actual
   parameters, constraints, priors and more.
-- The `Saving and Loading Models`_ notebook details how to save and load GPyTorch models
+* The `Saving and Loading Models`_ notebook details how to save and load GPyTorch models
   on disk.
+* The `Kernels with Additive or Product Structure`_ notebook describes how to compose kernels additively or multiplicatively,
+  whether for expressivity, sample efficiency, or scalability.
+* The `Implementing a Custom Kernel`_ notebook details how to write your own custom kernel in GPyTorch.
+* The `Tutorial on Metrics`_ describes various metrics provided by GPyTorch for assessing the generalization of GP models.
 
 .. toctree::
    :maxdepth: 1
@@ -17,6 +21,7 @@ Before checking these out, you may want to check out our `simple GP regression t
 
    Hyperparameters.ipynb
    Saving_and_Loading_Models.ipynb
+   kernels_with_additive_or_product_structure.ipynb
    Implementing_a_custom_Kernel.ipynb
    Metrics.ipynb
 
@@ -28,6 +33,9 @@ Before checking these out, you may want to check out our `simple GP regression t
 
 .. _Saving and Loading Models:
   Saving_and_Loading_Models.ipynb
+
+.. _Kernels with Additive or Product Structure:
+  kernels_with_additive_or_product_structure.ipynb
 
 .. _Implementing a custom Kernel:
   Implementing_a_custom_Kernel.ipynb

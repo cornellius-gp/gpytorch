@@ -78,7 +78,7 @@ class PeriodicKernel(Kernel):
         >>> covar = covar_module(x)  # Output: LazyVariable of size (2 x 10 x 10)
 
     .. _David Mackay's Introduction to Gaussian Processes equation 47:
-        http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.81.1927&rep=rep1&type=pdf
+        https://inference.org.uk/mackay/gpB.pdf
     """
 
     has_lengthscale = True
