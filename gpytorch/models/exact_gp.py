@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import warnings
 
-from collections.abc import Sequence
+from collections.abc import Iterable
 from copy import deepcopy
 
 import torch
@@ -59,13 +59,13 @@ class ExactGP(GP):
 
     def __init__(
         self,
-        train_inputs: Tensor | Sequence[Tensor] | None,
+        train_inputs: Tensor | Iterable[Tensor] | None,
         train_targets: Tensor | None,
         likelihood: _GaussianLikelihoodBase,
     ):
-        if train_inputs is not None and torch.is_tensor(train_inputs):
+        if train_inputs is not None and isinstance(train_inputs, Tensor):
             train_inputs = (train_inputs,)
-        if train_inputs is not None and not all(torch.is_tensor(train_input) for train_input in train_inputs):
+        if train_inputs is not None and not all(isinstance(train_input, Tensor) for train_input in train_inputs):
             raise RuntimeError("Train inputs must be a tensor, or a list/tuple of tensors")
         if not isinstance(likelihood, _GaussianLikelihoodBase):
             raise RuntimeError("ExactGP can only handle Gaussian likelihoods")
@@ -110,19 +110,19 @@ class ExactGP(GP):
         super().local_load_samples(samples_dict, memo, prefix)
 
     def set_train_data(
-        self, inputs: Tensor | Sequence[Tensor] | None = None, targets: Tensor | None = None, strict: bool = True
+        self, inputs: Tensor | Iterable[Tensor] | None = None, targets: Tensor | None = None, strict: bool = True
     ) -> None:
         """
         Set training data (does not re-fit model hyper-parameters).
 
-        :param torch.Tensor inputs: The new training inputs.
-        :param torch.Tensor targets: The new training targets.
-        :param bool strict: (default True) If `True`, the new inputs and
-            targets must have the same shape, dtype, and device
-            as the current inputs and targets. Otherwise, any shape/dtype/device are allowed.
+        :param inputs: The new training inputs.
+        :param targets: The new training targets.
+        :param strict: If `True`, the new inputs and targets must have the same shape,
+            dtype, and device as the current inputs and targets. Otherwise, any
+            shape/dtype/device are allowed.
         """
         if inputs is not None:
-            if torch.is_tensor(inputs):
+            if isinstance(inputs, Tensor):
                 inputs = (inputs,)
             inputs = tuple(input_.unsqueeze(-1) if input_.ndimension() == 1 else input_ for input_ in inputs)
             if strict:
