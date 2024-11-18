@@ -5,7 +5,7 @@ gpytorch.distributions
 ===================================
 
 GPyTorch distribution objects are essentially the same as torch distribution objects.
-For the most part, GpyTorch relies on torch's distribution library.
+For the most part, GPyTorch relies on torch's distribution library.
 However, we offer two custom distributions.
 
 We implement a custom :obj:`~gpytorch.distributions.MultivariateNormal` that accepts
