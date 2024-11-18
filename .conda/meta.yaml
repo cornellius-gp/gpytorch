@@ -1,8 +1,12 @@
-{% set data = load_setup_py_data(setup_file="../setup.py", from_recipe_dir=True) %}
+{% set _version_match = load_file_regex(
+  load_file="gpytorch/version.py",
+  regex_pattern="__version__ = version = '(.+)'"
+) %}
+{% set version = _version_match[1] %}
 
 package:
-  name: {{ data.get("name")|lower }}
-  version: {{ data.get("version") }}
+  name: gpytorch
+  version: {{ version }}
 
 source:
   path: ../
@@ -17,9 +21,10 @@ requirements:
 
   run:
     - python>=3.8
-    - pytorch>=1.11
+    - pytorch>=2.0
     - scikit-learn
-    - linear_operator>=0.5.2
+    - jaxtyping==0.2.19
+    - linear_operator>=0.5.3
 
 test:
   imports:

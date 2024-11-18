@@ -5,9 +5,9 @@ name: Run Test Suite
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main, develop ]
   pull_request:
-    branches: [ master ]
+    branches: [ main, develop ]
   workflow_call:
 
 jobs:
@@ -50,7 +50,7 @@ jobs:
         if [[ ${{ matrix.pytorch-version }} = "master" ]]; then
           pip install --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html;
         else
-          pip install torch==1.11+cpu -f https://download.pytorch.org/whl/torch_stable.html;
+          pip install torch==2.0.1 --index-url https://download.pytorch.org/whl/cpu
         fi
         pip install -e .
         if [[ ${{ matrix.extras }} == "with-extras" ]]; then

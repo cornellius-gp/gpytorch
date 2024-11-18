@@ -20,6 +20,12 @@ Interpolation Utilities
 .. automodule:: gpytorch.utils.interpolation
    :members:
 
+Nearest Neighbors Utilities
+---------------------------------
+
+.. automodule:: gpytorch.utils.nearest_neighbors
+   :members:
+
 Quadrature Utilities
 ----------------------------
 
@@ -30,10 +36,4 @@ Transform Utilities
 --------------------------
 
 .. automodule:: gpytorch.utils.transforms
-   :members:
-
-Nearest Neighbors Utilities
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: gpytorch.utils.nearest_neighbors
    :members:
