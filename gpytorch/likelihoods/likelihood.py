@@ -326,7 +326,7 @@ try:
                 analytic_marginal_likelihood = gpytorch.likelihoods.GaussianLikelihood()
                 marginal = analytic_marginal_likelihood(f)
                 print(type(marginal), marginal.batch_shape, marginal.event_shape)
-                # >>> <class 'gpytorch.distributions.multivariate_normal.MultivariateNormal'> torch.Size([]) torch.Size([20])
+                # >>> <class 'gpytorch.distributions.multivariate_normal.MultivariateNormal'> torch.Size([]) torch.Size([20])  # noqa: E501
 
                 # MC marginal computation - all other likelihoods
                 mc_marginal_likelihood = gpytorch.likelihoods.BetaLikelihood()
