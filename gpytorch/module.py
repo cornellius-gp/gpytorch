@@ -237,6 +237,18 @@ class Module(nn.Module):
     def register_added_loss_term(self, name):
         self._added_loss_terms[name] = None
 
+    def register_parameter(self, name: str, parameter: Optional[nn.Parameter]) -> None:
+        r"""
+        Adds a parameter to the module. The parameter can be accessed as an attribute using the given name.
+
+        Args:
+            name:
+                The name of the parameter
+            parameter:
+                The parameter
+        """
+        super().register_parameter(name, parameter)
+
     def register_prior(
         self,
         name: str,
