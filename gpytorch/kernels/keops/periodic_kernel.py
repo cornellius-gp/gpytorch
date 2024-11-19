@@ -3,12 +3,13 @@
 import math
 
 from linear_operator.operators import KernelLinearOperator
+from torch import Tensor
 
 from ..periodic_kernel import PeriodicKernel as GPeriodicKernel
-from .keops_kernel import _lazify_and_expand_inputs, KeOpsKernel
+from .keops_kernel import _Anysor, _lazify_and_expand_inputs, KeOpsKernel
 
 
-def _covar_func(x1, x2, lengthscale, **kwargs):
+def _covar_func(x1: _Anysor, x2: _Anysor, lengthscale: Tensor, **kwargs) -> _Anysor:
     x1_, x2_ = _lazify_and_expand_inputs(x1, x2)
     lengthscale = lengthscale[..., None, None, 0, :]  # 1 x 1 x ndim
     # do not use .power(2.0) as it gives NaN values on cuda
@@ -56,9 +57,16 @@ class PeriodicKernel(KeOpsKernel, GPeriodicKernel):
 
     has_lengthscale = True
 
-    def forward(self, x1, x2, **kwargs):
+    def forward(self, x1: Tensor, x2: Tensor, diag: bool = False, **kwargs) -> KernelLinearOperator:
         x1_ = x1.div(self.period_length / math.pi)
         x2_ = x2.div(self.period_length / math.pi)
         # return KernelLinearOperator inst only when calculating the whole covariance matrix
         # pass any parameters which are used inside _covar_func as *args to get gradients computed for them
-        return KernelLinearOperator(x1_, x2_, lengthscale=self.lengthscale, covar_func=_covar_func, **kwargs)
+        res = KernelLinearOperator(x1_, x2_, lengthscale=self.lengthscale, covar_func=_covar_func, **kwargs)
+
+        # TODO: diag=True mode will be removed with the GpyTorch 2.0 PR to remove LazyEvaluatedKernelTensor
+        # (it will be replaced by a `_symmetric_diag` method for quickly computing the diagonals of symmetric matrices)
+        if diag:
+            return res.diagonal(dim1=-1, dim2=-2)
+        else:
+            return res
