@@ -61,3 +61,7 @@ class TestSoftmaxLikelihoodNoMixing(TestSoftmaxLikelihood):
 
     def create_likelihood(self):
         return SoftmaxLikelihood(num_features=6, num_classes=6, mixing_weights=False)
+
+    def _test_learnable_parameters(self):
+        likelihood = self.create_likelihood()
+        self.assertEqual(len(list(likelihood.parameters())), 0)
