@@ -21,8 +21,8 @@ NnModuleSelf = TypeVar("NnModuleSelf", bound=nn.Module)  # TODO: replace w/ typi
 ModuleSelf = TypeVar("ModuleSelf", bound="Module")  # TODO: replace w/ typing.Self in Python 3.11
 RandomModuleSelf = TypeVar("RandomModuleSelf", bound="RandomModuleMixin")  # TODO: replace w/ typing.Self in Python 3.11
 
-Closure = Callable[[nn.Module], Tensor]
-SettingClosure = Callable[[ModuleSelf, Union[Tensor, float]], ModuleSelf]
+Closure = Callable[[NnModuleSelf], Tensor]
+SettingClosure = Callable[[ModuleSelf, Union[Tensor, float]], None]
 SamplesDict = Mapping[str, Union[Tensor, float]]
 
 
@@ -294,8 +294,8 @@ class Module(nn.Module):
             if setting_closure is not None:
                 raise RuntimeError("Must specify a closure instead of a parameter name when providing setting_closure")
 
-            def setting_closure_new(module: ModuleSelf, val: Union[Tensor, float]) -> ModuleSelf:
-                return module.initialize(**{param: val})
+            def setting_closure_new(module: Module, val: Union[Tensor, float]) -> None:
+                module.initialize(**{param: val})
 
             setting_closure = setting_closure_new
 
