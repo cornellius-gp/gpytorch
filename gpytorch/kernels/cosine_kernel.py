@@ -91,7 +91,7 @@ class CosineKernel(Kernel):
 
     @period_length.setter
     def period_length(self, value):
-        return self._set_period_length(value)
+        self._set_period_length(value)
 
     def _set_period_length(self, value):
         if not torch.is_tensor(value):
