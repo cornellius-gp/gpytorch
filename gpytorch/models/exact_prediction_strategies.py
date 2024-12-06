@@ -211,7 +211,10 @@ class DefaultPredictionStrategy(object):
         # now update the root and root inverse
         new_lt = self.lik_train_train_covar.cat_rows(fant_train_covar, fant_fant_covar)
         new_root = new_lt.root_decomposition().root
-        new_covar_cache = new_lt.root_inv_decomposition().root
+        if settings.detach_test_caches.on():
+            new_covar_cache = new_lt.root_inv_decomposition().root.detach()
+        else:
+            new_covar_cache = new_lt.root_inv_decomposition().root
 
         # Expand inputs accordingly if necessary (for fantasies at the same points)
         if full_inputs[0].dim() <= full_targets.dim():
