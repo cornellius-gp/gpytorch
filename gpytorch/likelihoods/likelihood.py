@@ -158,7 +158,7 @@ try:
             with pyro.plate(plate_name, size=num_samples, dim=(-max_plate_nesting - 1)):
                 if sample_shape is None:
                     function_samples = pyro.sample(self.name_prefix, function_dist.mask(False))
-                    # Deal with the fact that we're not assuming conditional indendence over data points here
+                    # Deal with the fact that we're not assuming conditional independence over data points here
                     function_samples = function_samples.squeeze(-len(function_dist.event_shape) - 1)
                 else:
                     sample_shape = sample_shape[: -len(function_dist.batch_shape)]
@@ -182,8 +182,8 @@ try:
 
             :param observations: Values of :math:`y`.
             :param function_dist: Distribution for :math:`f(x)`.
-            :param args: Additional args (passed to the foward function).
-            :param kwargs: Additional kwargs (passed to the foward function).
+            :param args: Additional args (passed to the forward function).
+            :param kwargs: Additional kwargs (passed to the forward function).
             """
             return super().expected_log_prob(observations, function_dist, *args, **kwargs)
 
@@ -225,8 +225,8 @@ try:
 
             :param observations: Values of :math:`y`.
             :param function_dist: Distribution for :math:`f(x)`.
-            :param args: Additional args (passed to the foward function).
-            :param kwargs: Additional kwargs (passed to the foward function).
+            :param args: Additional args (passed to the forward function).
+            :param kwargs: Additional kwargs (passed to the forward function).
             """
             return super().log_marginal(observations, function_dist, *args, **kwargs)
 
@@ -243,8 +243,8 @@ try:
             (co)variance of :math:`p(\mathbf f|...)`.
 
             :param function_dist: Distribution for :math:`f(x)`.
-            :param args: Additional args (passed to the foward function).
-            :param kwargs: Additional kwargs (passed to the foward function).
+            :param args: Additional args (passed to the forward function).
+            :param kwargs: Additional kwargs (passed to the forward function).
             :return: The marginal distribution, or samples from it.
             """
             return super().marginal(function_dist, *args, **kwargs)
@@ -259,8 +259,8 @@ try:
             :param function_dist: Distribution of latent function
                 :math:`q(\mathbf f)`.
             :param target: Observed :math:`\mathbf y`.
-            :param args: Additional args (passed to the foward function).
-            :param kwargs: Additional kwargs (passed to the foward function).
+            :param args: Additional args (passed to the forward function).
+            :param kwargs: Additional kwargs (passed to the forward function).
             """
             with pyro.plate(self.name_prefix + ".data_plate", dim=-1):
                 pyro.sample(self.name_prefix + ".f", function_dist)
@@ -276,8 +276,8 @@ try:
             :param function_dist: Distribution of latent function
                 :math:`p(\mathbf f)`.
             :param target: Observed :math:`\mathbf y`.
-            :param args: Additional args (passed to the foward function).
-            :param kwargs: Additional kwargs (passed to the foward function).
+            :param args: Additional args (passed to the forward function).
+            :param kwargs: Additional kwargs (passed to the forward function).
             """
             with pyro.plate(self.name_prefix + ".data_plate", dim=-1):
                 function_samples = pyro.sample(self.name_prefix + ".f", function_dist)
@@ -324,17 +324,17 @@ try:
 
                 # Analytic marginal computation - Bernoulli and Gaussian likelihoods only
                 analytic_marginal_likelihood = gpytorch.likelihoods.GaussianLikelihood()
-                marginal = analytic_marginal_likeihood(f)
+                marginal = analytic_marginal_likelihood(f)
                 print(type(marginal), marginal.batch_shape, marginal.event_shape)
-                # >>> gpytorch.distributions.MultivariateNormal, torch.Size([]), torch.Size([20])
+                # >>> <class 'gpytorch.distributions.multivariate_normal.MultivariateNormal'> torch.Size([]) torch.Size([20])  # noqa: E501
 
                 # MC marginal computation - all other likelihoods
                 mc_marginal_likelihood = gpytorch.likelihoods.BetaLikelihood()
                 with gpytorch.settings.num_likelihood_samples(15):
-                    marginal = analytic_marginal_likeihood(f)
+                    marginal = mc_marginal_likelihood(f)
                 print(type(marginal), marginal.batch_shape, marginal.event_shape)
-                # >>> torch.distributions.Beta, torch.Size([15, 20]), torch.Size([])
-                # (The batch_shape of torch.Size([15, 20]) represents 15 MC samples for 20 data points.
+                # >>> <class 'torch.distributions.beta.Beta'> torch.Size([15, 20]) torch.Size([])
+                # The batch_shape torch.Size([15, 20]) represents 15 MC samples for 20 data points.
 
             .. note::
 
@@ -344,8 +344,8 @@ try:
 
             :param input: Either a (... x N) sample from :math:`\mathbf f`
                 or a (... x N) MVN distribution of :math:`\mathbf f`.
-            :param args: Additional args (passed to the foward function).
-            :param kwargs: Additional kwargs (passed to the foward function).
+            :param args: Additional args (passed to the forward function).
+            :param kwargs: Additional kwargs (passed to the forward function).
             :return: Either a conditional :math:`p(\mathbf y \mid \mathbf f)`
                 or marginal :math:`p(\mathbf y)`
                 based on whether :attr:`input` is a Tensor or a MultivariateNormal (see above).
@@ -377,21 +377,21 @@ except ImportError:
     class Likelihood(_Likelihood):
         @property
         def num_data(self) -> int:
-            warnings.warn("num_data is only used for likehoods that are integrated with Pyro.", RuntimeWarning)
+            warnings.warn("num_data is only used for likelihoods that are integrated with Pyro.", RuntimeWarning)
             return 0
 
         @num_data.setter
         def num_data(self, val: int) -> None:
-            warnings.warn("num_data is only used for likehoods that are integrated with Pyro.", RuntimeWarning)
+            warnings.warn("num_data is only used for likelihoods that are integrated with Pyro.", RuntimeWarning)
 
         @property
         def name_prefix(self) -> str:
-            warnings.warn("name_prefix is only used for likehoods that are integrated with Pyro.", RuntimeWarning)
+            warnings.warn("name_prefix is only used for likelihoods that are integrated with Pyro.", RuntimeWarning)
             return ""
 
         @name_prefix.setter
         def name_prefix(self, val: str) -> None:
-            warnings.warn("name_prefix is only used for likehoods that are integrated with Pyro.", RuntimeWarning)
+            warnings.warn("name_prefix is only used for likelihoods that are integrated with Pyro.", RuntimeWarning)
 
 
 class _OneDimensionalLikelihood(Likelihood, ABC):
