@@ -24,6 +24,43 @@ class Matern52KernelGrad(MaternKernel):
         This kernel does not have an `outputscale` parameter. To add a scaling parameter,
         decorate this kernel with a :class:`gpytorch.kernels.ScaleKernel`.
 
+    .. note::
+
+        A perfect shuffle permutation is applied after the calculation of the matrix blocks
+        in order to match the MutiTask ordering.
+
+    The Matern52 kernel is defined as
+
+    .. math::
+
+        k(r) = (1 + \sqrt{5}r + \frac{5}{3} r^2) \exp(- \sqrt{5}r)
+
+    where :math:`r` is defined as
+
+    .. math::
+
+        r(\mathbf{x}^m , \mathbf{x}^n) = \sqrt{\sum_d{\frac{(x^m_d - x^n_d)^2}{l^2_d}}}
+
+    The first gradient block containing :math:`\frac{\partial k}{\partial x^n_i}` is defined as
+
+    .. math::
+
+        \frac{\partial k}{\partial x^n_i} = \frac{5}{3} \left( 1 + \sqrt{5}r \right) \exp(- \sqrt{5}r) \left(\frac{x^m_i - x^n_i}{l^2_i} \right)
+
+    The second gradient block containing :math:`\frac{\partial k}{\partial x^m_j}` is defined as
+
+    .. math::
+
+        \frac{\partial k}{\partial x^m_j} = - \frac{5}{3} \left( 1 + \sqrt{5}r \right) \exp(- \sqrt{5}r) \left(\frac{x^m_j - x^n_j}{l^2_j} \right)
+
+    The Hessian block containing :math:`\frac{\partial^2 k}{\partial x^m_j \partial x^n_i}` is defined as
+
+    .. math::
+
+        \frac{\partial^2 k}{\partial x^m_j \partial x^n_i} = - \frac{5}{3} \exp(- \sqrt{5}r) \left[ 5\left(\frac{x^m_i - x^n_i}{l^2_i} \right) \left( \frac{x^m_j - x^n_j}{l^2_j} \right) - \frac{\delta_{ij}}{l^2_i} \left( 1 + \sqrt{5}r \right) \right]
+
+    The derivations can be found `here <https://github.com/cornellius-gp/gpytorch/pull/2512>`__.
+
     :param ard_num_dims: Set this if you want a separate lengthscale for each input
         dimension. It should be `d` if x1 is a `n x d` matrix. (Default: `None`.)
     :param batch_shape: Set this if you want a separate lengthscale for each batch of input
@@ -92,21 +129,20 @@ class Matern52KernelGrad(MaternKernel):
 
             K[..., :n1, :n2] = constant_component * exp_component
 
-            # 2) First gradient block, cov(f^m, omega^n_d)
+            # 2) First gradient block, cov(f^m, omega^n_i)
             outer1 = outer.view(*batch_shape, n1, n2 * d)
-            K[..., :n1, n2:] = outer1 * (-five_thirds * (1 + sqrt5 * distance_matrix) * exp_neg_sqrt5r).repeat(
+            K[..., :n1, n2:] = outer1 * (five_thirds * (1 + sqrt5 * distance_matrix) * exp_neg_sqrt5r).repeat(
                 [*([1] * (n_batch_dims + 1)), d]
             )
 
-            # 3) Second gradient block, cov(omega^m_d, f^n)
+            # 3) Second gradient block, cov(omega^m_j, f^n)
             outer2 = outer.transpose(-1, -3).reshape(*batch_shape, n2, n1 * d)
             outer2 = outer2.transpose(-1, -2)
-            # the - signs on -outer2 and -five_thirds cancel out
-            K[..., n1:, :n2] = outer2 * (five_thirds * (1 + sqrt5 * distance_matrix) * exp_neg_sqrt5r).repeat(
+            K[..., n1:, :n2] = -outer2 * (five_thirds * (1 + sqrt5 * distance_matrix) * exp_neg_sqrt5r).repeat(
                 [*([1] * n_batch_dims), d, 1]
             )
 
-            # 4) Hessian block, cov(omega^m_d, omega^n_d)
+            # 4) Hessian block, cov(omega^m_j, omega^n_i)
             outer3 = outer1.repeat([*([1] * n_batch_dims), d, 1]) * outer2.repeat([*([1] * (n_batch_dims + 1)), d])
             kp = KroneckerProductLinearOperator(
                 torch.eye(d, d, device=x1.device, dtype=x1.dtype).repeat(*batch_shape, 1, 1) / lengthscale**2,

@@ -189,6 +189,11 @@ Specialty Kernels
 .. autoclass:: RBFKernelGradGrad
    :members:
 
+:hidden:`Matern52KernelGrad`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: Matern52KernelGrad
+   :members:
 
 Kernels for Scalable GP Regression Methods
 --------------------------------------------
