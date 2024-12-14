@@ -2,11 +2,12 @@
 import math
 
 from linear_operator.operators import KernelLinearOperator
+from torch import Tensor
 
-from .keops_kernel import _lazify_and_expand_inputs, KeOpsKernel
+from .keops_kernel import _Anysor, _lazify_and_expand_inputs, KeOpsKernel
 
 
-def _covar_func(x1, x2, nu=2.5, **params):
+def _covar_func(x1: _Anysor, x2: _Anysor, nu: float = 2.5, **params) -> _Anysor:
     x1_, x2_ = _lazify_and_expand_inputs(x1, x2)
 
     sq_distance = ((x1_ - x2_) ** 2).sum(-1)
@@ -57,15 +58,22 @@ class MaternKernel(KeOpsKernel):
 
     has_lengthscale = True
 
-    def __init__(self, nu=2.5, **kwargs):
+    def __init__(self, nu: float = 2.5, **kwargs):
         if nu not in {0.5, 1.5, 2.5}:
             raise RuntimeError("nu expected to be 0.5, 1.5, or 2.5")
         super().__init__(**kwargs)
         self.nu = nu
 
-    def forward(self, x1, x2, **kwargs):
+    def forward(self, x1: Tensor, x2: Tensor, diag: bool = False, **kwargs) -> KernelLinearOperator:
         mean = x1.reshape(-1, x1.size(-1)).mean(0)[(None,) * (x1.dim() - 1)]
         x1_ = (x1 - mean) / self.lengthscale
         x2_ = (x2 - mean) / self.lengthscale
         # return KernelLinearOperator inst only when calculating the whole covariance matrix
-        return KernelLinearOperator(x1_, x2_, covar_func=_covar_func, nu=self.nu, **kwargs)
+        res = KernelLinearOperator(x1_, x2_, covar_func=_covar_func, nu=self.nu, **kwargs)
+
+        # TODO: diag=True mode will be removed with the GpyTorch 2.0 PR to remove LazyEvaluatedKernelTensor
+        # (it will be replaced by a `_symmetric_diag` method for quickly computing the diagonals of symmetric matrices)
+        if diag:
+            return res.diagonal(dim1=-1, dim2=-2)
+        else:
+            return res
