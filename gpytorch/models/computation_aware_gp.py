@@ -1,15 +1,82 @@
-#!/usr/bin/env python3
 """Computation-aware Gaussian process."""
 
 import math
+from typing import Union
 
 import torch
+from jaxtyping import Float
+
 from linear_operator import operators, utils as linop_utils
+from torch import Tensor
 
 from .. import kernels, likelihoods, means, settings
 
 from ..distributions import MultivariateNormal
 from .exact_gp import ExactGP
+
+
+class _BlockDiagonalSparseLinearOperator(operators.LinearOperator):
+    """A sparse linear operator (which when reordered) has dense blocks on its diagonal.
+
+    Linear operator with a matrix representation that has sparse rows, with an equal number of
+    non-zero entries per row. The non-zero entries are stored in a tensor of size M x NNZ, where M is
+    the number of rows and NNZ is the number of non-zero entries per row. When appropriately re-ordering
+    the columns of the matrix, it is a block-diagonal matrix.
+
+    Note:
+        This currently only supports equally sized blocks of size 1 x NNZ.
+
+    :param non_zero_idcs: Tensor of non-zero indices.
+    :param blocks: Tensor of non-zero entries.
+    :param size_input_dim: Size of the (sparse) input dimension, equivalently the number of columns.
+    """
+
+    # NOTE: Since linear_operator currently primarily supports square linear operators and the
+    # functionality of this class is only used in "ComputationAwareGP", this class is defined locally.
+
+    def __init__(
+        self,
+        non_zero_idcs: Float[torch.Tensor, "M NNZ"],  # noqa F722
+        blocks: Float[torch.Tensor, "M NNZ"],  # noqa F722
+        size_input_dim: int,
+    ):
+        super().__init__(non_zero_idcs, blocks, size_input_dim=size_input_dim)
+        self.non_zero_idcs = torch.atleast_2d(non_zero_idcs)
+        self.non_zero_idcs.requires_grad = False  # Ensure indices cannot be optimized
+        self.blocks = torch.atleast_2d(blocks)
+        self.size_input_dim = size_input_dim
+
+    def _matmul(
+        self: Float[operators.LinearOperator, "*batch M N"],  # noqa F722
+        rhs: Float[torch.Tensor, "*batch2 N C"],  # noqa F722
+    ) -> Union[Float[torch.Tensor, "... M C"], Float[torch.Tensor, "... M"]]:  # noqa F722
+        # Workarounds for (Added)DiagLinearOperator
+        # There seems to be a bug in DiagLinearOperator, which doesn't allow subsetting the way we do here.
+        if isinstance(rhs, operators.AddedDiagLinearOperator):
+            return self._matmul(rhs._linear_op) + self._matmul(rhs._diag_tensor)
+
+        if isinstance(rhs, operators.DiagLinearOperator):
+            return _BlockDiagonalSparseLinearOperator(
+                non_zero_idcs=self.non_zero_idcs,
+                blocks=rhs.diag()[self.non_zero_idcs] * self.blocks,
+                size_input_dim=self.size_input_dim,
+            ).to_dense()
+
+        # Subset rhs via index tensor
+        rhs_non_zero = rhs[..., self.non_zero_idcs, :]
+
+        # Multiply on sparse dimension
+        return (self.blocks.unsqueeze(-2) @ rhs_non_zero).squeeze(-2)
+
+    def _size(self) -> torch.Size:
+        return torch.Size((self.non_zero_idcs.shape[0], self.size_input_dim))
+
+    def to_dense(self: operators.LinearOperator) -> Tensor:
+        if self.size() == self.blocks.shape:
+            return self.blocks
+        return torch.zeros(
+            (self.blocks.shape[0], self.size_input_dim), dtype=self.blocks.dtype, device=self.blocks.device
+        ).scatter_(src=self.blocks, index=self.non_zero_idcs, dim=1)
 
 
 class ComputationAwareGP(ExactGP):
@@ -56,30 +123,15 @@ class ComputationAwareGP(ExactGP):
                     device=train_inputs.device,
                 ).div(math.sqrt(self.num_non_zero))
             )
-        elif initialization == "targets":
-            # Initialize with training targets
-            self.non_zero_action_entries = torch.nn.Parameter(
-                train_targets.clone()[: self.num_non_zero * projection_dim].reshape(self.projection_dim, -1)
-            )
-            self.non_zero_action_entries.div(
-                torch.linalg.vector_norm(self.non_zero_action_entries, dim=1).reshape(-1, 1)
-            )
-        elif initialization == "eigen":
-            # Initialize via top eigenvectors of kernel submatrices
-            with torch.no_grad():
-                X = train_inputs.clone()[0 : num_non_zero * projection_dim].reshape(
-                    projection_dim, num_non_zero, train_inputs.shape[-1]
-                )
-                K_sub_matrices = self.covar_module(X)
-                _, evecs = torch.linalg.eigh(K_sub_matrices.to_dense())
-            self.non_zero_action_entries = torch.nn.Parameter(evecs[:, -1])
         else:
             raise ValueError(f"Unknown initialization: '{initialization}'.")
 
-        self.actions_op = operators.BlockDiagonalSparseLinearOperator(  # TODO: Can we speed this up by allowing ranges as non-zero indices?
-            non_zero_idcs=non_zero_idcs,
-            blocks=self.non_zero_action_entries,
-            size_input_dim=self.projection_dim * self.num_non_zero,
+        self.actions_op = (
+            _BlockDiagonalSparseLinearOperator(  # TODO: Can we speed this up by allowing ranges as non-zero indices?
+                non_zero_idcs=non_zero_idcs,
+                blocks=self.non_zero_action_entries,
+                size_input_dim=self.projection_dim * self.num_non_zero,
+            )
         )
 
     def __call__(self, x: torch.Tensor) -> MultivariateNormal:
