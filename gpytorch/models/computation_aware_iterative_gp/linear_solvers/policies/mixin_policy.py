@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import torch
-from linear_operator.operators import BlockSparseLinearOperator
+from linear_operator.operators import BlockDiagonalSparseLinearOperator
 
 from .linear_solver_policy import LinearSolverPolicy
 
@@ -42,7 +42,9 @@ class MixinPolicy(LinearSolverPolicy):
         if isinstance(base_action, torch.Tensor) and isinstance(mixin_action, torch.Tensor):
             # Compute resulting convex combination of actions
             action = (1.0 - self.mixin_coeff) * base_action + self.mixin_coeff * mixin_action
-        elif isinstance(base_action, BlockSparseLinearOperator) and isinstance(mixin_action, BlockSparseLinearOperator):
+        elif isinstance(base_action, BlockDiagonalSparseLinearOperator) and isinstance(
+            mixin_action, BlockDiagonalSparseLinearOperator
+        ):
             # Create union of non-zero index tensors
             intersection_mask = base_action.non_zero_idcs.view(1, -1) == mixin_action.non_zero_idcs.view(-1, 1)
             intersection_mask_base_action = (intersection_mask).any(dim=0)
@@ -67,7 +69,7 @@ class MixinPolicy(LinearSolverPolicy):
             )
             blocks.requires_grad_(self._mixin_coeff_logit_transformed.requires_grad)
 
-            action = BlockSparseLinearOperator(
+            action = BlockDiagonalSparseLinearOperator(
                 non_zero_idcs=non_zero_idcs, blocks=blocks, size_sparse_dim=base_action.size_sparse_dim
             )
         else:

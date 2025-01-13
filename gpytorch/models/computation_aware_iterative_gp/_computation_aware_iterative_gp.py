@@ -5,7 +5,12 @@ import warnings
 from typing import Optional
 
 import torch
-from linear_operator.operators import BlockSparseLinearOperator, LinearOperator, RootLinearOperator, ZeroLinearOperator
+from linear_operator.operators import (
+    BlockDiagonalSparseLinearOperator,
+    LinearOperator,
+    RootLinearOperator,
+    ZeroLinearOperator,
+)
 
 from ... import settings
 from ...distributions import MultivariateNormal
@@ -87,7 +92,7 @@ class ComputationAwarePredictionStrategy(DefaultPredictionStrategy):
         # Precompute K(X_*, X) S
         covar_test_train_actions = (
             (self.solver_state.cache["actions_op"]._matmul(test_train_covar.mT)).mT
-            if isinstance(self.solver_state.cache["actions_op"], BlockSparseLinearOperator)
+            if isinstance(self.solver_state.cache["actions_op"], BlockDiagonalSparseLinearOperator)
             else test_train_covar @ self.solver_state.cache["actions_op"].mT
         )
 

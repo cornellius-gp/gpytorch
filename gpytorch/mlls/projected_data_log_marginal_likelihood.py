@@ -123,7 +123,7 @@ class ProjectedDataLogMarginalLikelihood(MarginalLogLikelihood):
             # Should avoid an extra O(nik) operation
             gram_SKS = (
                 actions_op._matmul(actions_op._matmul(Khat).mT)
-                if isinstance(actions_op, operators.BlockSparseLinearOperator)
+                if isinstance(actions_op, operators.BlockDiagonalSparseLinearOperator)
                 else actions_op @ (actions_op @ Khat).mT
             )
 
@@ -312,7 +312,7 @@ def _custom_gradient_wrt_policy_hyperparameters(
     with torch.no_grad():
         actions_linear_op = (
             actions_op._matmul(Khat)
-            if isinstance(actions_op, operators.BlockSparseLinearOperator)
+            if isinstance(actions_op, operators.BlockDiagonalSparseLinearOperator)
             else actions_op @ Khat
         )
 
@@ -325,7 +325,9 @@ def _custom_gradient_wrt_policy_hyperparameters(
             )
             * (
                 actions_op.to_dense()
-                if isinstance(actions_op, operators.BlockSparseLinearOperator)  # TODO:  Allocates unnecessary memory
+                if isinstance(
+                    actions_op, operators.BlockDiagonalSparseLinearOperator
+                )  # TODO:  Allocates unnecessary memory
                 else actions_op
             )
         )
@@ -361,7 +363,7 @@ def _custom_gradient_wrt_kernel_hyperparameters(
             actions_op._matmul(actions_op._matmul(lin_op_copy).mT)
             # TODO: we can possibly do better here by pulling the diagonal matrix out: S'diag S
             # => avoids extra O(ni) memory
-            if isinstance(actions_op, operators.BlockSparseLinearOperator)
+            if isinstance(actions_op, operators.BlockDiagonalSparseLinearOperator)
             else actions_op @ (actions_op @ lin_op_copy).mT
         )
         # Data fit term "gradient" with K instead of dK/dtheta

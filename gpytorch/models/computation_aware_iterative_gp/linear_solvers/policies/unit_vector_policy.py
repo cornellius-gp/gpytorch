@@ -4,7 +4,7 @@ from __future__ import annotations
 import abc
 
 import torch
-from linear_operator.operators import BlockSparseLinearOperator
+from linear_operator.operators import BlockDiagonalSparseLinearOperator
 
 from .linear_solver_policy import LinearSolverPolicy
 
@@ -33,7 +33,7 @@ class UnitVectorPolicy(LinearSolverPolicy):
         super().__init__()
 
     def __call__(self, solver_state: "LinearSolverState") -> torch.Tensor:
-        return BlockSparseLinearOperator(
+        return BlockDiagonalSparseLinearOperator(
             non_zero_idcs=torch.as_tensor(
                 self.ordering(solver_state), dtype=torch.long, device=solver_state.problem.A.device
             ),

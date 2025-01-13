@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Optional
 
 import torch
-from linear_operator.operators import BlockSparseLinearOperator
+from linear_operator.operators import BlockDiagonalSparseLinearOperator
 
 from .linear_solver_policy import LinearSolverPolicy
 
@@ -19,7 +19,7 @@ class LearnedPolicy(LinearSolverPolicy):
         self.blocks = torch.nn.Parameter(blocks)
 
     def __call__(self, solver_state: "LinearSolverState") -> torch.Tensor:
-        return BlockSparseLinearOperator(
+        return BlockDiagonalSparseLinearOperator(
             non_zero_idcs=self.non_zero_idcs[solver_state.iteration, :],
             blocks=self.blocks[solver_state.iteration, :],
             size_sparse_dim=solver_state.problem.b.shape[0],

@@ -6,7 +6,7 @@ from typing import Optional
 
 import torch
 
-from linear_operator.operators import BlockSparseLinearOperator
+from linear_operator.operators import BlockDiagonalSparseLinearOperator
 
 from ._sparsify_vector import sparsify_vector
 from .linear_solver_policy import LinearSolverPolicy
@@ -47,7 +47,7 @@ class KernelJacobianPolicy(LinearSolverPolicy):
             actions_op.requires_grad = False
             lin_op_actions = (
                 (actions_op._matmul(lin_op)).mT
-                if isinstance(actions_op, BlockSparseLinearOperator)
+                if isinstance(actions_op, BlockDiagonalSparseLinearOperator)
                 else lin_op @ actions_op.mT
             )
             return solver_state.cache["seed_vector"] - lin_op_actions @ solver_state.cache["compressed_solution"]

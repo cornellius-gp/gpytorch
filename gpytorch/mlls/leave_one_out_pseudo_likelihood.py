@@ -115,7 +115,7 @@ class BatchedLeaveOneOutPseudoLikelihood(ExactMarginalLogLikelihood):
             loo_mask = actions_op.non_zero_idcs == loo_idx
             loo_blocks = torch.clone(actions_op.blocks)
             loo_blocks[loo_mask] = 0.0
-            actions_op_loo = operators.BlockSparseLinearOperator(
+            actions_op_loo = operators.BlockDiagonalSparseLinearOperator(
                 non_zero_idcs=actions_op.non_zero_idcs, blocks=loo_blocks, size_sparse_dim=actions_op.size_sparse_dim
             )
 
@@ -216,19 +216,19 @@ class LeaveOneActionOutPseudoLikelihood(MarginalLogLikelihood):
 
         actions_Khat_actions = (
             actions_op._matmul(actions_op._matmul(Khat).mT)
-            if isinstance(actions_op, operators.BlockSparseLinearOperator)
+            if isinstance(actions_op, operators.BlockDiagonalSparseLinearOperator)
             else actions_op @ (actions_op @ Khat).mT
         )
         actions_actions = (
             actions_op.to_dense() @ (actions_op.to_dense()).mT
-            if isinstance(actions_op, operators.BlockSparseLinearOperator)
+            if isinstance(actions_op, operators.BlockDiagonalSparseLinearOperator)
             else actions_op @ actions_op.mT
         )
         actions_K_actions = actions_Khat_actions - self.likelihood.noise.item() * actions_actions
         prior_mean = function_dist.mean
         actions_targets_minus_mean = (
             actions_op._matmul((target - prior_mean).reshape(-1, 1)).squeeze()
-            if isinstance(actions_op, operators.BlockSparseLinearOperator)
+            if isinstance(actions_op, operators.BlockDiagonalSparseLinearOperator)
             else actions_op @ (target - prior_mean)
         )
         num_actions = actions_op.shape[0]

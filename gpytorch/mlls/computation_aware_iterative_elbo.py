@@ -56,12 +56,12 @@ class ComputationAwareIterativeELBO(MarginalLogLikelihood):
         # Gramian S'KS
         K_actions = (
             actions_op._matmul(K).mT
-            if isinstance(actions_op, operators.BlockSparseLinearOperator)
+            if isinstance(actions_op, operators.BlockDiagonalSparseLinearOperator)
             else K @ actions_op.mT
         )
         gram_SKS = (
             actions_op._matmul(actions_op._matmul(K).mT)
-            if isinstance(actions_op, operators.BlockSparseLinearOperator)
+            if isinstance(actions_op, operators.BlockDiagonalSparseLinearOperator)
             else actions_op @ K_actions
         )
         if str(self.model.linear_solver.policy) == "GradientPolicy()":
@@ -70,7 +70,7 @@ class ComputationAwareIterativeELBO(MarginalLogLikelihood):
         else:
             StrS = (
                 actions_op._matmul(actions_op.to_dense().mT)
-                if isinstance(actions_op, operators.BlockSparseLinearOperator)
+                if isinstance(actions_op, operators.BlockDiagonalSparseLinearOperator)
                 else actions_op @ actions_op.mT
             )
         gram_SKhatS = gram_SKS + self.likelihood.noise * StrS

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Optional
 
 import torch
-from linear_operator.operators import BlockSparseLinearOperator, LinearOperator
+from linear_operator.operators import BlockDiagonalSparseLinearOperator, LinearOperator
 
 # from ..... import kernels
 
@@ -81,6 +81,6 @@ class StochasticGradientPolicy(LinearSolverPolicy):
                 return action
 
             else:
-                return BlockSparseLinearOperator(
+                return BlockDiagonalSparseLinearOperator(
                     non_zero_idcs=non_zero_idcs, blocks=residual_batch, size_sparse_dim=len(perm)
                 )
