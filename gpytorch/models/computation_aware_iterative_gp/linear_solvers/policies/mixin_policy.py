@@ -70,7 +70,7 @@ class MixinPolicy(LinearSolverPolicy):
             blocks.requires_grad_(self._mixin_coeff_logit_transformed.requires_grad)
 
             action = BlockDiagonalSparseLinearOperator(
-                non_zero_idcs=non_zero_idcs, blocks=blocks, size_sparse_dim=base_action.size_sparse_dim
+                non_zero_idcs=non_zero_idcs, blocks=blocks, size_input_dim=base_action.size_input_dim
             )
         else:
             raise NotImplementedError

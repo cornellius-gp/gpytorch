@@ -38,5 +38,5 @@ class UnitVectorPolicy(LinearSolverPolicy):
                 self.ordering(solver_state), dtype=torch.long, device=solver_state.problem.A.device
             ),
             blocks=torch.as_tensor(1.0, dtype=solver_state.problem.A.dtype, device=solver_state.problem.A.device),
-            size_sparse_dim=solver_state.problem.A.shape[1],
+            size_input_dim=solver_state.problem.A.shape[1],
         )

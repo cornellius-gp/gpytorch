@@ -132,7 +132,7 @@ class ProbabilisticLinearSolver(LinearSolver):
                     BlockDiagonalSparseLinearOperator(
                         non_zero_idcs=action.non_zero_idcs,
                         blocks=action.blocks / torch.linalg.vector_norm(action.blocks),
-                        size_sparse_dim=action.size_sparse_dim,
+                        size_input_dim=action.size_input_dim,
                     )
                     if isinstance(action, BlockDiagonalSparseLinearOperator)
                     else action / torch.linalg.vector_norm(action)
@@ -236,7 +236,7 @@ class ProbabilisticLinearSolver(LinearSolver):
                             (solver_state.cache["actions_op"].non_zero_idcs, action.non_zero_idcs), dim=0
                         ),
                         blocks=torch.cat((solver_state.cache["actions_op"].blocks, action.blocks), dim=0),
-                        size_sparse_dim=solver_state.problem.A.shape[0],
+                        size_input_dim=solver_state.problem.A.shape[0],
                     )
                 else:
                     solver_state.cache["actions_op"] = torch.vstack(
@@ -419,7 +419,7 @@ class ProbabilisticLinearSolver(LinearSolver):
                 action = BlockDiagonalSparseLinearOperator(
                     non_zero_idcs=action.non_zero_idcs,
                     blocks=action.blocks / torch.linalg.vector_norm(action.blocks),
-                    size_sparse_dim=action.size_sparse_dim,
+                    size_input_dim=action.size_input_dim,
                 )
                 action = action.to(rhs.device)
 
@@ -437,7 +437,7 @@ class ProbabilisticLinearSolver(LinearSolver):
                             (solver_state.cache["actions_op"].non_zero_idcs, action.non_zero_idcs), dim=0
                         ),
                         blocks=torch.cat((solver_state.cache["actions_op"].blocks, action.blocks), dim=0),
-                        size_sparse_dim=solver_state.problem.A.shape[0],
+                        size_input_dim=solver_state.problem.A.shape[0],
                     )
 
                 # Compute S'Ks
@@ -484,7 +484,7 @@ class ProbabilisticLinearSolver(LinearSolver):
                         solver_state.cache["actions_op"] = BlockDiagonalSparseLinearOperator(
                             non_zero_idcs=solver_state.cache["actions_op"].non_zero_idcs[0:-1, :],
                             blocks=solver_state.cache["actions_op"].blocks[0:-1, :],
-                            size_sparse_dim=solver_state.cache["actions_op"].size_sparse_dim,
+                            size_input_dim=solver_state.cache["actions_op"].size_input_dim,
                         )
                         break
 

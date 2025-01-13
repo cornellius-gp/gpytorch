@@ -22,5 +22,5 @@ class LearnedPolicy(LinearSolverPolicy):
         return BlockDiagonalSparseLinearOperator(
             non_zero_idcs=self.non_zero_idcs[solver_state.iteration, :],
             blocks=self.blocks[solver_state.iteration, :],
-            size_sparse_dim=solver_state.problem.b.shape[0],
+            size_input_dim=solver_state.problem.b.shape[0],
         )

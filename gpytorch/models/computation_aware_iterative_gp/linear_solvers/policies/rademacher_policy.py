@@ -62,7 +62,7 @@ class RademacherPolicy(LinearSolverPolicy):
                 return rademacher_vec
             else:
                 action = BlockDiagonalSparseLinearOperator(
-                    non_zero_idcs=non_zero_idcs, blocks=rademacher_vec, size_sparse_dim=solver_state.problem.A.shape[0]
+                    non_zero_idcs=non_zero_idcs, blocks=rademacher_vec, size_input_dim=solver_state.problem.A.shape[0]
                 )
 
         return action

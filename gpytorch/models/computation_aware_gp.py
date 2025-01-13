@@ -79,7 +79,7 @@ class ComputationAwareGP(ExactGP):
         self.actions_op = operators.BlockDiagonalSparseLinearOperator(  # TODO: Can we speed this up by allowing ranges as non-zero indices?
             non_zero_idcs=non_zero_idcs,
             blocks=self.non_zero_action_entries,
-            size_sparse_dim=self.projection_dim * self.num_non_zero,
+            size_input_dim=self.projection_dim * self.num_non_zero,
         )
 
     def __call__(self, x: torch.Tensor) -> MultivariateNormal:

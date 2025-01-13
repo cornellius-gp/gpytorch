@@ -116,7 +116,7 @@ class BatchedLeaveOneOutPseudoLikelihood(ExactMarginalLogLikelihood):
             loo_blocks = torch.clone(actions_op.blocks)
             loo_blocks[loo_mask] = 0.0
             actions_op_loo = operators.BlockDiagonalSparseLinearOperator(
-                non_zero_idcs=actions_op.non_zero_idcs, blocks=loo_blocks, size_sparse_dim=actions_op.size_sparse_dim
+                non_zero_idcs=actions_op.non_zero_idcs, blocks=loo_blocks, size_input_dim=actions_op.size_input_dim
             )
 
             # Compute S_{-i}' K S_{-i} and its Cholesky factor

@@ -9,7 +9,7 @@ def sparsify_vector(vector: torch.Tensor, num_non_zero: int, strategy="topk") ->
     if strategy == "topk":
         _, topk_idcs = torch.topk(torch.abs(vector), k=num_non_zero, largest=True)
         return BlockDiagonalSparseLinearOperator(
-            non_zero_idcs=topk_idcs, blocks=vector[topk_idcs], size_sparse_dim=len(vector)
+            non_zero_idcs=topk_idcs, blocks=vector[topk_idcs], size_input_dim=len(vector)
         )
 
     else:

@@ -82,5 +82,5 @@ class StochasticGradientPolicy(LinearSolverPolicy):
 
             else:
                 return BlockDiagonalSparseLinearOperator(
-                    non_zero_idcs=non_zero_idcs, blocks=residual_batch, size_sparse_dim=len(perm)
+                    non_zero_idcs=non_zero_idcs, blocks=residual_batch, size_input_dim=len(perm)
                 )
