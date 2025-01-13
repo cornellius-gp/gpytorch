@@ -51,10 +51,10 @@ class _BlockDiagonalSparseLinearOperator(operators.LinearOperator):
         rhs: Float[torch.Tensor, "*batch2 N C"],  # noqa F722
     ) -> Union[Float[torch.Tensor, "... M C"], Float[torch.Tensor, "... M"]]:  # noqa F722
         # Workarounds for (Added)DiagLinearOperator
-        # There seems to be a bug in DiagLinearOperator, which doesn't allow subsetting the way we do here.
         if isinstance(rhs, operators.AddedDiagLinearOperator):
             return self._matmul(rhs._linear_op) + self._matmul(rhs._diag_tensor)
 
+        # There seems to be a bug in DiagLinearOperator, which doesn't allow subsetting the way we do here.
         if isinstance(rhs, operators.DiagLinearOperator):
             return _BlockDiagonalSparseLinearOperator(
                 non_zero_idcs=self.non_zero_idcs,
@@ -80,7 +80,47 @@ class _BlockDiagonalSparseLinearOperator(operators.LinearOperator):
 
 
 class ComputationAwareGP(ExactGP):
-    """Computation-aware Gaussian process."""
+    """Computation-aware Gaussian process.
+
+    A scalable Gaussian process, which captures the inevitable approximation error as additional
+    uncertainty -- enabling an explicit tradeoff between computational efficiency and precision.
+
+    The method implemented here projects the data onto a learned sparse basis as proposed by
+    `Wenger et al. (2024)`_, leading to linear-time inference and model selection.
+
+    .. _Wenger et al. (2022):
+        https://arxiv.org/abs/2205.15449
+    .. _Wenger et al. (2024):
+        https://arxiv.org/abs/2411.01036
+
+    :param train_inputs: Training inputs.
+    :param train_targets: Training targets.
+    :param likelihood: Likelihood.
+    :param projection_dim: Dimension of the lower-dimensional space which the data is projected onto.
+    :param initialization: Initialization of the action entries. Default is 'random'.
+
+    Example:
+        >>> from gpytorch import models, means, kernels, likelihoods, distributions
+        ...
+        >>> class CaGP(models.ComputationAwareGP):
+        >>>     def __init__(self, train_inputs, train_targets, likelihood, projection_dim):
+        >>>         super().__init__(train_inputs, train_targets, likelihood, projection_dim=projection_dim)
+        >>>         self.mean_module = means.ZeroMean()
+        >>>         self.covar_module = kernels.ScaleKernel(kernels.MaternKernel(nu=1.5))
+        >>>
+        >>>     def forward(self, x):
+        >>>         mean = self.mean_module(x)
+        >>>         covar = self.covar_module(x)
+        >>>         return distributions.MultivariateNormal(mean, covar)
+        >>>
+        >>> # train_inputs = ...; train_targets = ...
+        >>> likelihood = likelihoods.GaussianLikelihood()
+        >>> model = CaGP(train_inputs, train_targets, likelihood, projection_dim=...)
+        >>>
+        >>> # test_x = ...;
+        >>> model(test_x)  # Returns the GP latent function at test_x
+        >>> likelihood(model(test_x))  # Returns the (approximate) predictive posterior distribution at test_x
+    """
 
     def __init__(
         self,
@@ -113,9 +153,8 @@ class ComputationAwareGP(ExactGP):
             device=train_inputs.device,
         ).reshape(self.projection_dim, -1)
 
-        # Initialization of actions
         if initialization == "random":
-            # Random initialization
+            # Random initialization of actions
             self.non_zero_action_entries = torch.nn.Parameter(
                 torch.randn_like(
                     non_zero_idcs,
@@ -126,15 +165,16 @@ class ComputationAwareGP(ExactGP):
         else:
             raise ValueError(f"Unknown initialization: '{initialization}'.")
 
-        self.actions_op = (
-            _BlockDiagonalSparseLinearOperator(  # TODO: Can we speed this up by allowing ranges as non-zero indices?
-                non_zero_idcs=non_zero_idcs,
-                blocks=self.non_zero_action_entries,
-                size_input_dim=self.projection_dim * self.num_non_zero,
-            )
+        self.actions_op = _BlockDiagonalSparseLinearOperator(
+            non_zero_idcs=non_zero_idcs,
+            blocks=self.non_zero_action_entries,
+            size_input_dim=self.projection_dim * self.num_non_zero,
         )
 
     def __call__(self, x: torch.Tensor) -> MultivariateNormal:
+        # TODO: remove usage of mean_module and covar_module and replace with "forward"
+        # TODO: remove explicit calling of kernel_forward_fn and lengthscale
+
         if self.training:
             # In training mode, just return the prior.
             return MultivariateNormal(
