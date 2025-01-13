@@ -33,7 +33,7 @@ class TestLinearKernel(unittest.TestCase, BaseKernelTestCase):
     def test_computes_linear_function_square(self):
         a = torch.tensor([[4, 1], [2, 0], [8, 3]], dtype=torch.float)
 
-        kernel = self.create_kernel_no_ard().initialize(variance=3.14)
+        kernel = self.create_kernel_no_ard().initialize(variance=3.14, offset=0.0)
         kernel.eval()
         actual = torch.matmul(a, a.t()) * 3.14
         res = kernel(a, a).to_dense()
@@ -59,7 +59,7 @@ class TestLinearKernel(unittest.TestCase, BaseKernelTestCase):
     def test_computes_linear_function_square_batch(self):
         a = torch.tensor([[[4, 1], [2, 0], [8, 3]], [[1, 1], [2, 1], [1, 3]]], dtype=torch.float)
 
-        kernel = self.create_kernel_no_ard().initialize(variance=1.0)
+        kernel = self.create_kernel_no_ard().initialize(variance=1.0, offset=0.0)
         kernel.eval()
         actual = torch.matmul(a, a.transpose(-1, -2))
         res = kernel(a, a).to_dense()

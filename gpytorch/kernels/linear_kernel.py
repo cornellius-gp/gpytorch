@@ -67,6 +67,7 @@ class LinearKernel(Kernel):
             self.register_prior("variance_prior", variance_prior, lambda m: m.variance, lambda m, v: m._set_variance(v))
 
         self.register_constraint("raw_variance", variance_constraint)
+        self.register_parameter(name="offset", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, 1 if ard_num_dims is None else ard_num_dims)))
 
     @property
     def variance(self) -> Tensor:
@@ -84,7 +85,7 @@ class LinearKernel(Kernel):
     def forward(
         self, x1: Tensor, x2: Tensor, diag: bool = False, last_dim_is_batch: Optional[bool] = False, **params
     ) -> Union[Tensor, LinearOperator]:
-        x1_ = x1 * self.variance.sqrt()
+        x1_ = (x1-self.offset) * self.variance.sqrt()
         if last_dim_is_batch:
             x1_ = x1_.transpose(-1, -2).unsqueeze(-1)
 
@@ -94,7 +95,7 @@ class LinearKernel(Kernel):
             prod = RootLinearOperator(x1_)
 
         else:
-            x2_ = x2 * self.variance.sqrt()
+            x2_ = (x2 -self.offset)* self.variance.sqrt()
             if last_dim_is_batch:
                 x2_ = x2_.transpose(-1, -2).unsqueeze(-1)
 
