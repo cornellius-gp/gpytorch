@@ -278,6 +278,14 @@ class TestMultiTaskMultivariateNormal(BaseTestCase, unittest.TestCase):
             self.assertEqual(list(mvn.mean.shape), expected_mean_shape)
             self.assertEqual(list(mvn.covariance_matrix.shape), expected_covar_shape)
 
+            # Test mixed batch mode mvns
+            # Second MVN is batched, so the first one will be expanded to match.
+            mvns[1] = mvns[1].expand(torch.Size([3]))
+            expected_mvn = mvn.expand(torch.Size([3]))
+            mvn = MultitaskMultivariateNormal.from_independent_mvns(mvns=mvns)
+            self.assertTrue(torch.equal(mvn.mean, expected_mvn.mean))
+            self.assertTrue(torch.equal(mvn.covariance_matrix, expected_mvn.covariance_matrix))
+
             # Test batch mode mvns
             b = 3
             mvns = [
