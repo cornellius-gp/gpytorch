@@ -349,6 +349,30 @@ class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
             self.assertTrue(torch.allclose(expanded.scale_tril, mvn.scale_tril.expand(2, -1, -1)))
             self.assertEqual(expanded.scale_tril.shape, torch.Size([2, 3, 3]))
 
+    def test_multivariate_normal_unsqueeze(self, cuda=False):
+        device = torch.device("cuda") if cuda else torch.device("cpu")
+        for dtype, lazy in product((torch.float, torch.double), (True, False)):
+            batch_shape = torch.Size([2, 3])
+            mean = torch.tensor([0, 1, 2], device=device, dtype=dtype).expand(*batch_shape, -1)
+            covmat = torch.diag(torch.tensor([1, 0.75, 1.5], device=device, dtype=dtype)).expand(*batch_shape, -1, -1)
+            if lazy:
+                mvn = MultivariateNormal(mean=mean, covariance_matrix=DenseLinearOperator(covmat), validate_args=True)
+                # Initialize scale tril so we can test that it was unsqueezed.
+                mvn.scale_tril
+            else:
+                mvn = MultivariateNormal(mean=mean, covariance_matrix=covmat, validate_args=True)
+            self.assertEqual(mvn.batch_shape, batch_shape)
+            self.assertEqual(mvn.islazy, lazy)
+            for dim, positive_dim, expected_batch in ((1, 1, torch.Size([2, 1, 3])), (-1, 2, torch.Size([2, 3, 1]))):
+                new = mvn.unsqueeze(dim)
+                self.assertIsInstance(new, MultivariateNormal)
+                self.assertEqual(new.islazy, lazy)
+                self.assertEqual(new.batch_shape, expected_batch)
+                self.assertEqual(new.event_shape, mvn.event_shape)
+                self.assertTrue(torch.equal(new.mean, mean.unsqueeze(positive_dim)))
+                self.assertTrue(torch.allclose(new.covariance_matrix, covmat.unsqueeze(positive_dim)))
+                self.assertTrue(torch.allclose(new.scale_tril, mvn.scale_tril.unsqueeze(positive_dim)))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -161,6 +161,38 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             new.covariance_matrix = self.covariance_matrix.expand(batch_size + self.covariance_matrix.shape[-2:])
         return new
 
+    def unsqueeze(self, dim: int) -> MultivariateNormal:
+        r"""
+        Constructs a new MultivariateNormal with the batch shape unsqueezed
+        by the given dimension.
+        For example, if `self.batch_shape = torch.Size([2, 3])` and `dim = 0`, then
+        the returned MultivariateNormal will have `batch_shape = torch.Size([1, 2, 3])`.
+        If `dim = -1`, then the returned MultivariateNormal will have
+        `batch_shape = torch.Size([2, 3, 1])`.
+        """
+        # If dim is negative, get the positive equivalent.
+        if dim < 0:
+            dim = len(self.batch_shape) + dim + 1
+
+        new_loc = self.loc.unsqueeze(dim)
+        if self.islazy:
+            new_covar = self._covar.unsqueeze(dim)
+            new = self.__class__(mean=new_loc, covariance_matrix=new_covar)
+            if self.__unbroadcasted_scale_tril is not None:
+                # Reuse the scale tril if available.
+                new.__unbroadcasted_scale_tril = self.__unbroadcasted_scale_tril.unsqueeze(dim)
+        else:
+            # Non-lazy MVN is represented using scale_tril in PyTorch.
+            # Constructing it from scale_tril will avoid unnecessary computation.
+            # Initialize using  __new__, so that we can skip __init__ and use scale_tril.
+            new = self.__new__(type(self))
+            new._islazy = False
+            new_scale_tril = self.__unbroadcasted_scale_tril.unsqueeze(dim)
+            super(MultivariateNormal, new).__init__(loc=new_loc, scale_tril=new_scale_tril)
+            # Set the covar matrix, since it is always available for GPyTorch MVN.
+            new.covariance_matrix = self.covariance_matrix.unsqueeze(dim)
+        return new
+
     def get_base_samples(self, sample_shape: torch.Size = torch.Size()) -> Tensor:
         r"""
         Returns i.i.d. standard Normal samples to be used with
