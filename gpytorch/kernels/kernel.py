@@ -216,9 +216,9 @@ class Kernel(Module):
         # Used by the lengthscale_prior
         return m.lengthscale
 
-    def _lengthscale_closure(self, m: Kernel, v: Tensor) -> Tensor:
+    def _lengthscale_closure(self, m: Kernel, v: Tensor) -> None:
         # Used by the lengthscale_prior
-        return m._set_lengthscale(v)
+        m._set_lengthscale(v)
 
     def _set_lengthscale(self, value: Tensor):
         # Used by the lengthscale_prior
