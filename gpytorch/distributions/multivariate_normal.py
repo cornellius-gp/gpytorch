@@ -136,6 +136,8 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         See :py:meth:`torch.distributions.Distribution.expand
         <torch.distributions.distribution.Distribution.expand>`.
         """
+        # NOTE: Pyro may call this method with list[int] instead of torch.Size.
+        batch_size = torch.Size(batch_size)
         new_loc = self.loc.expand(batch_size + self.loc.shape[-1:])
         if self.islazy:
             new_covar = self._covar.expand(batch_size + self._covar.shape[-2:])
