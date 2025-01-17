@@ -136,10 +136,28 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         See :py:meth:`torch.distributions.Distribution.expand
         <torch.distributions.distribution.Distribution.expand>`.
         """
-        new_loc = self.loc.expand(torch.Size(batch_size) + self.loc.shape[-1:])
-        new_covar = self._covar.expand(torch.Size(batch_size) + self._covar.shape[-2:])
-        res = self.__class__(new_loc, new_covar)
-        return res
+        new_loc = self.loc.expand(batch_size + self.loc.shape[-1:])
+        if self.islazy:
+            new_covar = self._covar.expand(batch_size + self._covar.shape[-2:])
+            new = self.__class__(mean=new_loc, covariance_matrix=new_covar)
+            if self.__unbroadcasted_scale_tril is not None:
+                # Reuse the scale tril if available.
+                new.__unbroadcasted_scale_tril = self.__unbroadcasted_scale_tril.expand(
+                    batch_size + self.__unbroadcasted_scale_tril.shape[-2:]
+                )
+        else:
+            # Non-lazy MVN is represented using scale_tril in PyTorch.
+            # Constructing it from scale_tril will avoid unnecessary computation.
+            # Initialize using  __new__, so that we can skip __init__ and use scale_tril.
+            new = self.__new__(type(self))
+            new._islazy = False
+            new_scale_tril = self.__unbroadcasted_scale_tril.expand(
+                batch_size + self.__unbroadcasted_scale_tril.shape[-2:]
+            )
+            super(MultivariateNormal, new).__init__(loc=new_loc, scale_tril=new_scale_tril)
+            # Set the covar matrix, since it is always available for GPyTorch MVN.
+            new.covariance_matrix = self.covariance_matrix
+        return new
 
     def get_base_samples(self, sample_shape: torch.Size = torch.Size()) -> Tensor:
         r"""

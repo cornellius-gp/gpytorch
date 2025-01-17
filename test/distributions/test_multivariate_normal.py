@@ -2,6 +2,7 @@
 
 import math
 import unittest
+from itertools import product
 
 import torch
 from linear_operator import to_linear_operator
@@ -322,6 +323,28 @@ class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
 
         samples = dist.rsample(torch.Size((16,)), base_samples=torch.randn(16, 5))
         self.assertEqual(samples.shape, torch.Size((16, 5)))
+
+    def test_multivariate_normal_expand(self, cuda=False):
+        device = torch.device("cuda") if cuda else torch.device("cpu")
+        for dtype, lazy in product((torch.float, torch.double), (True, False)):
+            mean = torch.tensor([0, 1, 2], device=device, dtype=dtype)
+            covmat = torch.diag(torch.tensor([1, 0.75, 1.5], device=device, dtype=dtype))
+            if lazy:
+                mvn = MultivariateNormal(mean=mean, covariance_matrix=DenseLinearOperator(covmat), validate_args=True)
+                # Initialize scale tril so we can test that it was expanded.
+                mvn.scale_tril
+            else:
+                mvn = MultivariateNormal(mean=mean, covariance_matrix=covmat, validate_args=True)
+            self.assertEqual(mvn.batch_shape, torch.Size([]))
+            self.assertEqual(mvn.islazy, lazy)
+            expanded = mvn.expand(torch.Size([2]))
+            self.assertIsInstance(expanded, MultivariateNormal)
+            self.assertEqual(expanded.islazy, lazy)
+            self.assertEqual(expanded.batch_shape, torch.Size([2]))
+            self.assertEqual(expanded.event_shape, mvn.event_shape)
+            self.assertTrue(torch.equal(expanded.mean, mean.expand(2, -1)))
+            self.assertTrue(torch.allclose(expanded.covariance_matrix, covmat.expand(2, -1, -1)))
+            self.assertTrue(torch.allclose(expanded.scale_tril, mvn.scale_tril.expand(2, -1, -1)))
 
 
 if __name__ == "__main__":
