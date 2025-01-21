@@ -170,8 +170,13 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         If `dim = -1`, then the returned MultivariateNormal will have
         `batch_shape = torch.Size([2, 3, 1])`.
         """
-        # If dim is negative, get the positive equivalent.
+        if dim > len(self.batch_shape) or dim < -len(self.batch_shape) - 1:
+            raise IndexError(
+                "Dimension out of range (expected to be in range of "
+                f"[{-len(self.batch_shape) - 1}, {len(self.batch_shape)}], but got {dim})."
+            )
         if dim < 0:
+            # If dim is negative, get the positive equivalent.
             dim = len(self.batch_shape) + dim + 1
 
         new_loc = self.loc.unsqueeze(dim)

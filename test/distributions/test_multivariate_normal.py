@@ -370,8 +370,20 @@ class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
                 self.assertEqual(new.batch_shape, expected_batch)
                 self.assertEqual(new.event_shape, mvn.event_shape)
                 self.assertTrue(torch.equal(new.mean, mean.unsqueeze(positive_dim)))
+                self.assertEqual(new.mean.shape, expected_batch + torch.Size([3]))
                 self.assertTrue(torch.allclose(new.covariance_matrix, covmat.unsqueeze(positive_dim)))
+                self.assertEqual(new.covariance_matrix.shape, expected_batch + torch.Size([3, 3]))
                 self.assertTrue(torch.allclose(new.scale_tril, mvn.scale_tril.unsqueeze(positive_dim)))
+                self.assertEqual(new.scale_tril.shape, expected_batch + torch.Size([3, 3]))
+
+        # Check for dim validation.
+        with self.assertRaisesRegex(IndexError, "Dimension out of range"):
+            mvn.unsqueeze(3)
+        with self.assertRaisesRegex(IndexError, "Dimension out of range"):
+            mvn.unsqueeze(-4)
+        # Should not raise error up to 2 or -3.
+        mvn.unsqueeze(2)
+        mvn.unsqueeze(-3)
 
 
 if __name__ == "__main__":
