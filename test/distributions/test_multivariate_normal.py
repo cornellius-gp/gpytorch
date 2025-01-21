@@ -343,8 +343,11 @@ class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
             self.assertEqual(expanded.batch_shape, torch.Size([2]))
             self.assertEqual(expanded.event_shape, mvn.event_shape)
             self.assertTrue(torch.equal(expanded.mean, mean.expand(2, -1)))
+            self.assertEqual(expanded.mean.shape, torch.Size([2, 3]))
             self.assertTrue(torch.allclose(expanded.covariance_matrix, covmat.expand(2, -1, -1)))
+            self.assertEqual(expanded.covariance_matrix.shape, torch.Size([2, 3, 3]))
             self.assertTrue(torch.allclose(expanded.scale_tril, mvn.scale_tril.expand(2, -1, -1)))
+            self.assertEqual(expanded.scale_tril.shape, torch.Size([2, 3, 3]))
 
 
 if __name__ == "__main__":

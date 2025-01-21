@@ -158,7 +158,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             )
             super(MultivariateNormal, new).__init__(loc=new_loc, scale_tril=new_scale_tril)
             # Set the covar matrix, since it is always available for GPyTorch MVN.
-            new.covariance_matrix = self.covariance_matrix
+            new.covariance_matrix = self.covariance_matrix.expand(batch_size + self.covariance_matrix.shape[-2:])
         return new
 
     def get_base_samples(self, sample_shape: torch.Size = torch.Size()) -> Tensor:
