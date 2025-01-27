@@ -218,7 +218,11 @@ class ExactGP(GP):
         except KeyError:
             fantasy_kwargs = {}
 
-        full_output = super(ExactGP, self).__call__(*full_inputs, **kwargs)
+        # Prediction strategy should have transformed train inputs.
+        prediction_strategy_inputs = [
+            self.apply_input_transforms(X=t_input, is_training_input=True) for t_input in full_inputs
+        ]
+        full_output = super(ExactGP, self).__call__(*prediction_strategy_inputs, **kwargs)
 
         # Copy model without copying training data or prediction strategy (since we'll overwrite those)
         old_pred_strat = self.prediction_strategy
@@ -237,7 +241,7 @@ class ExactGP(GP):
 
         new_model.likelihood = old_likelihood.get_fantasy_likelihood(**fantasy_kwargs)
         new_model.prediction_strategy = old_pred_strat.get_fantasy_strategy(
-            inputs, targets, full_inputs, full_targets, full_output, **fantasy_kwargs
+            inputs, targets, prediction_strategy_inputs, full_targets, full_output, **fantasy_kwargs
         )
 
         # if the fantasies are at the same points, we need to expand the inputs for the new model
@@ -250,8 +254,17 @@ class ExactGP(GP):
         return new_model
 
     def __call__(self, *args, **kwargs):
-        train_inputs = list(self.train_inputs) if self.train_inputs is not None else []
-        inputs = [i.unsqueeze(-1) if i.ndimension() == 1 else i for i in args]
+        train_inputs = (
+            [self.apply_input_transforms(X=t_input, is_training_input=True) for t_input in self.train_inputs]
+            if self.train_inputs is not None
+            else []
+        )
+        inputs = [
+            self.apply_input_transforms(
+                X=i.unsqueeze(-1) if i.ndimension() == 1 else i, is_training_input=self.training
+            )
+            for i in args
+        ]
 
         # Training mode: optimizing
         if self.training:
