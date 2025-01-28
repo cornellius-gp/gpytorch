@@ -24,7 +24,6 @@ from . import (
     variational,
 )
 from .functions import inv_matmul, log_normal_cdf, logdet, matmul  # Deprecated
-from .lazy import cat, delazify, lazify
 from .mlls import ExactMarginalLogLikelihood
 from .module import Module
 
@@ -116,7 +115,10 @@ def inv_quad(input: Anysor, inv_quad_rhs: Tensor, reduce_inv_quad: bool = True) 
 
 
 def inv_quad_logdet(
-    input: Anysor, inv_quad_rhs: Optional[Tensor] = None, logdet: bool = False, reduce_inv_quad: bool = True
+    input: Anysor,
+    inv_quad_rhs: Optional[Tensor] = None,
+    logdet: bool = False,
+    reduce_inv_quad: bool = True,
 ) -> Tuple[Tensor, Tensor]:
     r"""
     Calls both :func:`inv_quad_logdet` and :func:`logdet` on a positive definite matrix (or batch) :math:`\mathbf A`.
@@ -133,12 +135,18 @@ def inv_quad_logdet(
         If `reduce_inv_quad=True`, the inverse quadratic term is of shape (...). Otherwise, it is (... x M).
     """
     return linear_operator.inv_quad_logdet(
-        input=input, inv_quad_rhs=inv_quad_rhs, logdet=logdet, reduce_inv_quad=reduce_inv_quad
+        input=input,
+        inv_quad_rhs=inv_quad_rhs,
+        logdet=logdet,
+        reduce_inv_quad=reduce_inv_quad,
     )
 
 
 def pivoted_cholesky(
-    input: Anysor, rank: int, error_tol: Optional[float] = None, return_pivots: bool = False
+    input: Anysor,
+    rank: int,
+    error_tol: Optional[float] = None,
+    return_pivots: bool = False,
 ) -> Union[Tensor, Tuple[Tensor, Tensor]]:
     r"""
     Performs a partial pivoted Cholesky factorization of a positive definite matrix (or batch of matrices).
@@ -201,7 +209,10 @@ def root_inv_decomposition(
     :return: A tensor :math:`\mathbf R` such that :math:`\mathbf R \mathbf R^\top \approx \mathbf A^{-1}`.
     """
     return linear_operator.root_inv_decomposition(
-        input=input, initial_vectors=initial_vectors, test_vectors=test_vectors, method=method
+        input=input,
+        initial_vectors=initial_vectors,
+        test_vectors=test_vectors,
+        method=method,
     )
 
 
@@ -307,11 +318,7 @@ __all__ = [
     # Other
     "__version__",
     # Deprecated
-    "add_diag",
-    "cat",
-    "delazify",
     "inv_matmul",
-    "lazify",
     "logdet",
     "log_normal_cdf",
     "matmul",

@@ -47,7 +47,8 @@ class IndexKernel(Kernel):
         covar_factor:
             The :math:`B` matrix.
         raw_var:
-            The element-wise log of the :math:`\mathbf v` vector.
+            The element-wise `Softplus <https://pytorch.org/docs/stable/generated/torch.nn.Softplus.html>`_
+            of the :math:`\mathbf v` vector (assuming the default `var_constraint`).
     """
 
     def __init__(
