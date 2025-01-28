@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union
 
 import torch
 from torch import nn, Tensor
@@ -95,13 +95,13 @@ class HammingIMQKernel(Kernel):
         # Used by the alpha_prior
         return m.alpha
 
-    def _alpha_closure(self, m: Kernel, v: Tensor) -> Tensor:
+    def _alpha_closure(self, m: Kernel, v: Union[Tensor, float]) -> None:
         # Used by the alpha_prior
-        return m._set_alpha(v)
+        m._set_alpha(v)
 
-    def _set_alpha(self, value: Tensor):
+    def _set_alpha(self, value: Union[Tensor, float]) -> None:
         # Used by the alpha_prior
-        if not torch.is_tensor(value):
+        if not isinstance(value, Tensor):
             value = torch.as_tensor(value).to(self.raw_alpha)
         self.initialize(raw_alpha=self.raw_alpha_constraint.inverse_transform(value))
 
@@ -117,13 +117,13 @@ class HammingIMQKernel(Kernel):
         # Used by the beta_prior
         return m.beta
 
-    def _beta_closure(self, m: Kernel, v: Tensor) -> Tensor:
+    def _beta_closure(self, m: Kernel, v: Union[Tensor, float]) -> None:
         # Used by the beta_prior
-        return m._set_beta(v)
+        m._set_beta(v)
 
-    def _set_beta(self, value: Tensor):
+    def _set_beta(self, value: Union[Tensor, float]) -> None:
         # Used by the beta_prior
-        if not torch.is_tensor(value):
+        if not isinstance(value, Tensor):
             value = torch.as_tensor(value).to(self.raw_beta)
         self.initialize(raw_beta=self.raw_beta_constraint.inverse_transform(value))
 

@@ -90,7 +90,7 @@ class ScaleKernel(Kernel):
         return m.outputscale
 
     def _outputscale_closure(self, m, v):
-        return m._set_outputscale(v)
+        m._set_outputscale(v)
 
     @property
     def outputscale(self):
