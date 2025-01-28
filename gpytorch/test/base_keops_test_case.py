@@ -46,6 +46,7 @@ class BaseKeOpsTestCase(BaseTestCase):
                 d1 = kern1(x1, x1).diagonal(dim1=-1, dim2=-2)
                 d2 = kern2(x1, x1).diagonal(dim1=-1, dim2=-2)
                 self.assertLess(torch.norm(d1 - d2), 1e-4)
+                self.assertTrue(torch.equal(k1.diag(), d1))
 
         if use_keops:
             self.assertTrue(keops_mock.called)
