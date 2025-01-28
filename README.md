@@ -5,7 +5,7 @@
 [![Documentation Status](https://readthedocs.org/projects/gpytorch/badge/?version=latest)](https://gpytorch.readthedocs.io/en/latest/?badge=latest)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-[![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Conda](https://img.shields.io/conda/v/gpytorch/gpytorch.svg)](https://anaconda.org/gpytorch/gpytorch)
 [![PyPI](https://img.shields.io/pypi/v/gpytorch.svg)](https://pypi.org/project/gpytorch)
 
@@ -29,7 +29,7 @@ See our [**documentation, examples, tutorials**](https://gpytorch.readthedocs.io
 ## Installation
 
 **Requirements**:
-- Python >= 3.8
+- Python >= 3.10
 - PyTorch >= 2.0
 
 Install GPyTorch using pip or conda:
