@@ -8,7 +8,7 @@ import sys
 from setuptools import find_packages, setup
 
 REQUIRED_MAJOR = 3
-REQUIRED_MINOR = 8
+REQUIRED_MINOR = 10
 
 # Check for python version
 if sys.version_info < (REQUIRED_MAJOR, REQUIRED_MINOR):
@@ -43,7 +43,7 @@ install_requires = [
     "mpmath>=0.19,<=1.3",  # avoid incompatibiltiy with torch+sympy with mpmath 1.4
     "scikit-learn",
     "scipy>=1.6.0",
-    "linear_operator>=0.5.3",
+    "linear_operator>=0.6",
 ]
 # if recent dev version of PyTorch is installed, no need to install stable
 try:
@@ -72,7 +72,7 @@ setup(
     license="MIT",
     classifiers=["Development Status :: 5 - Production/Stable", "Programming Language :: Python :: 3"],
     packages=find_packages(exclude=["test", "test.*"]),
-    python_requires=">=3.8",
+    python_requires=f">={REQUIRED_MAJOR}.{REQUIRED_MINOR}",
     install_requires=install_requires,
     extras_require={
         "dev": ["pre-commit", "setuptools_scm", "twine", "ufmt"],
@@ -89,7 +89,6 @@ setup(
             "sphinx<=6.2.1",
             "sphinx_autodoc_typehints<=1.23.0",
             "sphinx_rtd_theme<0.5",
-            "uncompyle6<=3.9.0",
         ],
         "examples": ["ipython", "jupyter", "matplotlib", "scipy", "torchvision", "tqdm"],
         "keops": ["pykeops>=1.1.1"],

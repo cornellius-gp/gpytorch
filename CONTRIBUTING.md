@@ -36,7 +36,7 @@ We use [standard sphinx docstrings](https://sphinx-rtd-tutorial.readthedocs.io/e
 
 ### Type Hints
 
-GPyTorch aims to be fully typed using Python 3.8+
+GPyTorch aims to be fully typed using Python 3.10+
 [type hints](https://www.python.org/dev/peps/pep-0484/).
 
 We recognize that we have a long way to go towards fully typing the library,
