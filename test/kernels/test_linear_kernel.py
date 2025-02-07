@@ -98,6 +98,7 @@ class TestLinearKernelARD(TestLinearKernel):
     def test_kernel_ard(self) -> None:
         self.kernel_kwargs = {"ard_num_dims": 2}
         kernel = self.create_kernel_no_ard()
+        self.assertEqual(kernel.ard_num_dims, 2)
         self.assertEqual(kernel.variance.shape, torch.Size([1, 2]))
 
     def test_computes_linear_function_rectangular(self):

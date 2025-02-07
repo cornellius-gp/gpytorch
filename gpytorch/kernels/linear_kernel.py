@@ -52,7 +52,7 @@ class LinearKernel(Kernel):
         variance_constraint: Optional[Interval] = None,
         **kwargs,
     ):
-        super().__init__(**kwargs)
+        super().__init__(ard_num_dims=ard_num_dims, **kwargs)
         if variance_constraint is None:
             variance_constraint = Positive()
         self.register_parameter(
