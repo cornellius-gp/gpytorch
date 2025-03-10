@@ -5,7 +5,6 @@ from torch import Tensor
 from torch.distributions import Categorical
 
 from ..constraints import Interval, Positive
-from ..distributions import MultivariateNormal
 from ..priors import Prior
 from .likelihood import _OneDimensionalLikelihood
 
@@ -93,9 +92,6 @@ class OrdinalLikelihood(_OneDimensionalLikelihood):
         self.initialize(raw_sigma=self.raw_sigma_constraint.inverse_transform(value))
 
     def forward(self, function_samples: Tensor, *args: Any, data: Dict[str, Tensor] = {}, **kwargs: Any) -> Categorical:
-        if isinstance(function_samples, MultivariateNormal):
-            function_samples = function_samples.sample()
-
         # Compute scaled bin edges
         scaled_edges = self.bin_edges / self.sigma
         scaled_edges_left = torch.cat([scaled_edges, torch.tensor([torch.inf], device=scaled_edges.device)], dim=-1)
