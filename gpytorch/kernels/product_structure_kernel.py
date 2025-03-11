@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import warnings
 from typing import Optional, Tuple
 
 from linear_operator.operators import to_linear_operator
@@ -54,6 +55,13 @@ class ProductStructureKernel(Kernel):
         num_dims: int,
         active_dims: Optional[Tuple[int, ...]] = None,
     ):
+        warnings.warn(
+            "ProductStructureKernel is deprecated, and will be removed in GPyTorch 2.0. "
+            'Please refer to the "Kernels with Additive or Product Structure" tutorial '
+            "in the GPyTorch docs for how to implement GPs with product structure.",
+            DeprecationWarning,
+        )
+
         super(ProductStructureKernel, self).__init__(active_dims=active_dims)
         self.base_kernel = base_kernel
         self.num_dims = num_dims

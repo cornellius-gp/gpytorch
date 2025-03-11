@@ -30,9 +30,9 @@ class RBFKernel(Kernel):
         decorate this kernel with a :class:`gpytorch.kernels.ScaleKernel`.
 
     :param ard_num_dims: Set this if you want a separate lengthscale for each input
-        dimension. It should be `d` if x1 is a `n x d` matrix. (Default: `None`.)
+        dimension. It should be `d` if :math:`\mathbf{x_1}` is a `n x d` matrix. (Default: `None`.)
     :param batch_shape: Set this if you want a separate lengthscale for each batch of input
-        data. It should be :math:`B_1 \times \ldots \times B_k` if :math:`\mathbf x1` is
+        data. It should be :math:`B_1 \times \ldots \times B_k` if :math:`\mathbf{x_1}` is
         a :math:`B_1 \times \ldots \times B_k \times N \times D` tensor.
     :param active_dims: Set this if you want to compute the covariance of only
         a few input dimensions. The ints corresponds to the indices of the

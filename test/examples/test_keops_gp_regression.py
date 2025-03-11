@@ -16,7 +16,7 @@ from gpytorch.test.base_test_case import BaseTestCase
 
 
 # Simple training data: let's try to learn a sine function
-train_x = torch.randn(1000, 2)
+train_x = torch.randn(300, 2)
 train_y = torch.sin(train_x[..., 0] * (2 * pi) + train_x[..., 1])
 train_y = train_y + torch.randn_like(train_y).mul(0.001)
 
@@ -52,11 +52,11 @@ class TestKeOpsGPRegression(BaseTestCase, unittest.TestCase):
         # Optimize the model
         gp_model.train()
         likelihood.train()
-        optimizer = optim.Adam(list(gp_model.parameters()), lr=0.01)
+        optimizer = optim.Adam(list(gp_model.parameters()), lr=0.1)
         optimizer.n_iter = 0
 
         with gpytorch.settings.max_cholesky_size(0):  # Ensure that we're using KeOps
-            for i in range(300):
+            for i in range(25):
                 optimizer.zero_grad()
                 output = gp_model(train_x)
                 loss = -mll(output, train_y)

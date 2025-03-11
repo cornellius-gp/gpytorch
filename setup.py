@@ -8,7 +8,7 @@ import sys
 from setuptools import find_packages, setup
 
 REQUIRED_MAJOR = 3
-REQUIRED_MINOR = 8
+REQUIRED_MINOR = 10
 
 # Check for python version
 if sys.version_info < (REQUIRED_MAJOR, REQUIRED_MINOR):
@@ -37,11 +37,13 @@ def find_version(*file_paths):
 readme = open("README.md").read()
 
 
-torch_min = "1.11"
+torch_min = "2.0"
 install_requires = [
+    "jaxtyping",
+    "mpmath>=0.19,<=1.3",  # avoid incompatibiltiy with torch+sympy with mpmath 1.4
     "scikit-learn",
-    "scipy",
-    "linear_operator>=0.5.2",
+    "scipy>=1.6.0",
+    "linear_operator>=0.6",
 ]
 # if recent dev version of PyTorch is installed, no need to install stable
 try:
@@ -70,7 +72,7 @@ setup(
     license="MIT",
     classifiers=["Development Status :: 5 - Production/Stable", "Programming Language :: Python :: 3"],
     packages=find_packages(exclude=["test", "test.*"]),
-    python_requires=">=3.8",
+    python_requires=f">={REQUIRED_MAJOR}.{REQUIRED_MINOR}",
     install_requires=install_requires,
     extras_require={
         "dev": ["pre-commit", "setuptools_scm", "twine", "ufmt"],
@@ -81,6 +83,7 @@ setup(
             "nbclient<=0.7.3",
             "nbformat<=5.8.0",
             "nbsphinx<=0.9.1",
+            "lxml_html_clean",
             "platformdirs<=3.2.0",
             "setuptools_scm<=7.1.0",
             "sphinx<=6.2.1",

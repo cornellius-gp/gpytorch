@@ -153,7 +153,8 @@ class MultitaskMultivariateNormal(MultivariateNormal):
         if any(isinstance(mvn, MultitaskMultivariateNormal) for mvn in mvns):
             raise ValueError("Cannot accept MultitaskMultivariateNormals")
         if not all(m.batch_shape == mvns[0].batch_shape for m in mvns[1:]):
-            raise ValueError("All MultivariateNormals must have the same batch shape")
+            batch_shape = torch.broadcast_shapes(*(m.batch_shape for m in mvns))
+            mvns = [mvn.expand(batch_shape) for mvn in mvns]
         if not all(m.event_shape == mvns[0].event_shape for m in mvns[1:]):
             raise ValueError("All MultivariateNormals must have the same event shape")
         mean = torch.stack([mvn.mean for mvn in mvns], -1)

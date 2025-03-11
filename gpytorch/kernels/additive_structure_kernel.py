@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import warnings
 from typing import Optional, Tuple
 
 from .kernel import Kernel
@@ -47,6 +48,12 @@ class AdditiveStructureKernel(Kernel):
         num_dims: int,
         active_dims: Optional[Tuple[int, ...]] = None,
     ):
+        warnings.warn(
+            "AdditiveStructureKernel is deprecated, and will be removed in GPyTorch 2.0. "
+            'Please refer to the "Kernels with Additive or Product Structure" tutorial '
+            "in the GPyTorch docs for how to implement GPs with additive structure.",
+            DeprecationWarning,
+        )
         super(AdditiveStructureKernel, self).__init__(active_dims=active_dims)
         self.base_kernel = base_kernel
         self.num_dims = num_dims

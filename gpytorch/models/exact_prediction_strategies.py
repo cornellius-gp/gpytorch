@@ -10,7 +10,6 @@ from linear_operator.operators import (
     AddedDiagLinearOperator,
     BatchRepeatLinearOperator,
     ConstantMulLinearOperator,
-    DenseLinearOperator,
     InterpolatedLinearOperator,
     LinearOperator,
     LowRankRootAddedDiagLinearOperator,
@@ -211,8 +210,11 @@ class DefaultPredictionStrategy(object):
 
         # now update the root and root inverse
         new_lt = self.lik_train_train_covar.cat_rows(fant_train_covar, fant_fant_covar)
-        new_root = new_lt.root_decomposition().root.to_dense()
-        new_covar_cache = new_lt.root_inv_decomposition().root.to_dense()
+        new_root = new_lt.root_decomposition().root
+        if settings.detach_test_caches.on():
+            new_covar_cache = new_lt.root_inv_decomposition().root.detach()
+        else:
+            new_covar_cache = new_lt.root_inv_decomposition().root
 
         # Expand inputs accordingly if necessary (for fantasies at the same points)
         if full_inputs[0].dim() <= full_targets.dim():
@@ -222,7 +224,7 @@ class DefaultPredictionStrategy(object):
             full_inputs = [fi.expand(fant_batch_shape + fi.shape) for fi in full_inputs]
             full_mean = full_mean.expand(fant_batch_shape + full_mean.shape)
             full_covar = BatchRepeatLinearOperator(full_covar, repeat_shape)
-            new_root = BatchRepeatLinearOperator(DenseLinearOperator(new_root), repeat_shape)
+            new_root = BatchRepeatLinearOperator(new_root, repeat_shape)
             # no need to repeat the covar cache, broadcasting will do the right thing
 
         if isinstance(full_output, MultitaskMultivariateNormal):
@@ -238,7 +240,7 @@ class DefaultPredictionStrategy(object):
             inv_root=new_covar_cache,
         )
         add_to_cache(fant_strat, "mean_cache", fant_mean_cache)
-        add_to_cache(fant_strat, "covar_cache", new_covar_cache)
+        add_to_cache(fant_strat, "covar_cache", new_covar_cache.to_dense())
         return fant_strat
 
     @property
@@ -866,5 +868,5 @@ class SGPRPredictionStrategy(DefaultPredictionStrategy):
                 "This is likely a bug in GPyTorch."
             )
 
-        res = test_test_covar - (L @ (covar_cache @ L.transpose(-1, -2)))
+        res = test_test_covar - MatmulLinearOperator(L, covar_cache @ L.mT)
         return res

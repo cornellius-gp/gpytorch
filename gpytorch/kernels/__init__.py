@@ -2,6 +2,7 @@
 from . import keops
 from .additive_structure_kernel import AdditiveStructureKernel
 from .arc_kernel import ArcKernel
+from .constant_kernel import ConstantKernel
 from .cosine_kernel import CosineKernel
 from .cylindrical_kernel import CylindricalKernel
 from .distributional_input_kernel import DistributionalInputKernel
@@ -14,6 +15,7 @@ from .inducing_point_kernel import InducingPointKernel
 from .kernel import AdditiveKernel, Kernel, ProductKernel
 from .lcm_kernel import LCMKernel
 from .linear_kernel import LinearKernel
+from .matern52_kernel_grad import Matern52KernelGrad
 from .matern_kernel import MaternKernel
 from .multi_device_kernel import MultiDeviceKernel
 from .multitask_kernel import MultitaskKernel
@@ -38,6 +40,7 @@ __all__ = [
     "ArcKernel",
     "AdditiveKernel",
     "AdditiveStructureKernel",
+    "ConstantKernel",
     "CylindricalKernel",
     "MultiDeviceKernel",
     "CosineKernel",
@@ -67,4 +70,5 @@ __all__ = [
     "ScaleKernel",
     "SpectralDeltaKernel",
     "SpectralMixtureKernel",
+    "Matern52KernelGrad",
 ]

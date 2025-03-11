@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import warnings
 from typing import Optional, Union
 
 import torch
@@ -40,31 +39,28 @@ class LinearKernel(Kernel):
         \top} \mathbf v)`, where the base multiply :math:`\mathbf X \mathbf v`
         takes only :math:`\mathcal O(ND)` time and space.
 
+    :param ard_num_dims: Set this if you want a separate variance priors for each weight. (Default: `None`)
     :param variance_prior: Prior over the variance parameter. (Default `None`.)
     :param variance_constraint: Constraint to place on variance parameter. (Default: `Positive`.)
-    :param active_dims: List of data dimensions to operate on. `len(active_dims)` should equal `num_dimensions`.
+    :param active_dims: List of data dimensions to operate on.
     """
 
     def __init__(
         self,
-        num_dimensions: Optional[int] = None,
-        offset_prior: Optional[Prior] = None,
+        ard_num_dims: Optional[int] = None,
         variance_prior: Optional[Prior] = None,
         variance_constraint: Optional[Interval] = None,
         **kwargs,
     ):
-        super(LinearKernel, self).__init__(**kwargs)
+        super().__init__(ard_num_dims=ard_num_dims, **kwargs)
         if variance_constraint is None:
             variance_constraint = Positive()
-
-        if num_dimensions is not None:
-            # Remove after 1.0
-            warnings.warn("The `num_dimensions` argument is deprecated and no longer used.", DeprecationWarning)
-            self.register_parameter(name="offset", parameter=torch.nn.Parameter(torch.zeros(1, 1, num_dimensions)))
-        if offset_prior is not None:
-            # Remove after 1.0
-            warnings.warn("The `offset_prior` argument is deprecated and no longer used.", DeprecationWarning)
-        self.register_parameter(name="raw_variance", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, 1)))
+        self.register_parameter(
+            name="raw_variance",
+            parameter=torch.nn.Parameter(
+                torch.zeros(*self.batch_shape, 1, 1 if ard_num_dims is None else ard_num_dims)
+            ),
+        )
         if variance_prior is not None:
             if not isinstance(variance_prior, Prior):
                 raise TypeError("Expected gpytorch.priors.Prior but got " + type(variance_prior).__name__)
@@ -77,17 +73,17 @@ class LinearKernel(Kernel):
         return self.raw_variance_constraint.transform(self.raw_variance)
 
     @variance.setter
-    def variance(self, value: Union[float, Tensor]):
+    def variance(self, value: Union[float, Tensor]) -> None:
         self._set_variance(value)
 
-    def _set_variance(self, value: Union[float, Tensor]):
+    def _set_variance(self, value: Union[float, Tensor]) -> None:
         if not torch.is_tensor(value):
             value = torch.as_tensor(value).to(self.raw_variance)
         self.initialize(raw_variance=self.raw_variance_constraint.inverse_transform(value))
 
     def forward(
-        self, x1: Tensor, x2: Tensor, diag: Optional[bool] = False, last_dim_is_batch: Optional[bool] = False, **params
-    ) -> LinearOperator:
+        self, x1: Tensor, x2: Tensor, diag: bool = False, last_dim_is_batch: Optional[bool] = False, **params
+    ) -> Union[Tensor, LinearOperator]:
         x1_ = x1 * self.variance.sqrt()
         if last_dim_is_batch:
             x1_ = x1_.transpose(-1, -2).unsqueeze(-1)

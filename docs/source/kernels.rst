@@ -9,7 +9,7 @@ gpytorch.kernels
 
 
 If you don't know what kernel to use, we recommend that you start out with a
-:code:`gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel)`.
+:code:`gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel()) + gpytorch.kernels.ConstantKernel()`.
 
 
 Kernel
@@ -21,6 +21,13 @@ Kernel
 
 Standard Kernels
 -----------------------------
+
+:hidden:`ConstantKernel`
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: ConstantKernel
+   :members:
+
 
 :hidden:`CosineKernel`
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -182,6 +189,11 @@ Specialty Kernels
 .. autoclass:: RBFKernelGradGrad
    :members:
 
+:hidden:`Matern52KernelGrad`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: Matern52KernelGrad
+   :members:
 
 Kernels for Scalable GP Regression Methods
 --------------------------------------------

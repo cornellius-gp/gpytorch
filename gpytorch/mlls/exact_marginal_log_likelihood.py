@@ -49,7 +49,7 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
 
         return res
 
-    def forward(self, function_dist, target, *params):
+    def forward(self, function_dist, target, *params, **kwargs):
         r"""
         Computes the MLL given :math:`p(\mathbf f)` and :math:`\mathbf y`.
 
@@ -63,7 +63,7 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
             raise RuntimeError("ExactMarginalLogLikelihood can only operate on Gaussian random variables")
 
         # Determine output likelihood
-        output = self.likelihood(function_dist, *params)
+        output = self.likelihood(function_dist, *params, **kwargs)
 
         # Remove NaN values if enabled
         if settings.observation_nan_policy.value() == "mask":

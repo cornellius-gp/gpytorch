@@ -19,7 +19,8 @@ import shutil
 import sys
 import sphinx_rtd_theme  # noqa
 import warnings
-from typing import ForwardRef
+
+import jaxtyping
 
 
 def read(*names, **kwargs):
@@ -112,7 +113,8 @@ extensions = [
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3/", None),
     "torch": ("https://pytorch.org/docs/stable/", None),
-    "linear_operator": ("https://linear-operator.readthedocs.io/en/stable/", None),
+    "linear_operator": ("https://linear-operator.readthedocs.io/en/stable/", "linear_operator_objects.inv"),
+    # The local mapping here is temporary until we get a new release of linear_operator
 }
 
 # Disable docstring inheritance
@@ -237,41 +239,81 @@ texinfo_documents = [
 ]
 
 
-# -- Function to format  typehints ----------------------------------------------
+# -- Functions to format typehints ----------------------------------------------
 # Adapted from
 # https://github.com/cornellius-gp/linear_operator/blob/2b33b9f83b45f0cb8cb3490fc5f254cc59393c25/docs/source/conf.py
+
+
+# Helper function
+# Convert any class (i.e. torch.Tensor, LinearOperator, etc.) into appropriate strings
+# For external classes, the format will be e.g. "torch.Tensor"
+# For any internal class, the format will be e.g. "~linear_operator.operators.TriangularLinearOperator"
+def _convert_internal_and_external_class_to_strings(annotation):
+    module = annotation.__module__ + "."
+    if module.split(".")[0] == "gpytorch":
+        module = "~" + module
+    elif module == "torch.":
+        module = "~torch."
+    elif module == "linear_operator.operators._linear_operator.":
+        module = "~linear_operator."
+    elif module == "builtins.":
+        module = ""
+    res = f"{module}{annotation.__name__}"
+    return res
+
+
+# Convert jaxtyping dimensions into strings
+def _dim_to_str(dim):
+    if isinstance(dim, jaxtyping._array_types._NamedVariadicDim):
+        return "..."
+    elif isinstance(dim, jaxtyping._array_types._FixedDim):
+        res = str(dim.size)
+        if dim.broadcastable:
+            res = "#" + res
+        return res
+    elif isinstance(dim, jaxtyping._array_types._SymbolicDim):
+        expr = dim.elem
+        return f"({expr})"
+    elif "jaxtyping" not in str(dim.__class__):  # Probably the case that we have an ellipsis
+        return "..."
+    else:
+        res = str(dim.name)
+        if dim.broadcastable:
+            res = "#" + res
+        return res
+
+
+# Function to format type hints
 def _process(annotation, config):
     """
     A function to convert a type/rtype typehint annotation into a :type:/:rtype: string.
     This function is a bit hacky, and specific to the type annotations we use most frequently.
+
     This function is recursive.
     """
     # Simple/base case: any string annotation is ready to go
     if type(annotation) == str:
         return annotation
 
+    # Jaxtyping: shaped tensors or linear operator
+    elif hasattr(annotation, "__module__") and "jaxtyping" == annotation.__module__:
+        cls_annotation = _convert_internal_and_external_class_to_strings(annotation.array_type)
+        shape = " x ".join([_dim_to_str(dim) for dim in annotation.dims])
+        return f"{cls_annotation} ({shape})"
+
     # Convert Ellipsis into "..."
     elif annotation == Ellipsis:
         return "..."
 
-    # Convert any class (i.e. torch.Tensor, LinearOperator, gpytorch, etc.) into appropriate strings
-    # For external classes, the format will be e.g. "torch.Tensor"
-    # For any linear_operator class, the format will be e.g. "~linear_operator.operators.TriangularLinearOperator"
-    # For any internal class, the format will be e.g. "~gpytorch.kernels.RBFKernel"
+    # Convert any class (i.e. torch.Tensor, LinearOperator, etc.) into appropriate strings
     elif hasattr(annotation, "__name__"):
-        module = annotation.__module__ + "."
-        if module.split(".")[0] == "linear_operator":
-            if annotation.__name__.endswith("LinearOperator"):
-                module = "~linear_operator."
-            elif annotation.__name__.endswith("LinearOperator"):
-                module = "~linear_operator.operators."
-            else:
-                module = "~" + module
-        elif module.split(".")[0] == "gpytorch":
-            module = "~" + module
-        elif module == "builtins.":
-            module = ""
-        res = f"{module}{annotation.__name__}"
+        res = _convert_internal_and_external_class_to_strings(annotation)
+
+    elif str(annotation).startswith("typing.Callable"):
+        if len(annotation.__args__) == 2:
+            res = f"Callable[{_process(annotation.__args__[0], config)} -> {_process(annotation.__args__[1], config)}]"
+        else:
+            res = "Callable"
 
     # Convert any Union[*A*, *B*, *C*] into "*A* or *B* or *C*"
     # Also, convert any Optional[*A*] into "*A*, optional"
@@ -291,33 +333,14 @@ def _process(annotation, config):
         args = list(annotation.__args__)
         res = "(" + ", ".join(_process(arg, config) for arg in args) + ")"
 
-    # Convert any List[*A*] into "list(*A*)"
-    elif str(annotation).startswith("typing.List"):
-        arg = annotation.__args__[0]
-        res = "list(" + _process(arg, config) + ")"
+    # Convert any List[*A*] or Iterable[*A*] into "[*A*, ...]"
+    elif str(annotation).startswith("typing.Iterable") or str(annotation).startswith("typing.List"):
+        arg = list(annotation.__args__)[0]
+        res = f"[{_process(arg, config)}, ...]"
 
-    # Convert any List[*A*] into "list(*A*)"
-    elif str(annotation).startswith("typing.Dict"):
-        res = str(annotation)
-
-    # Convert any Iterable[*A*] into "iterable(*A*)"
-    elif str(annotation).startswith("typing.Iterable"):
-        arg = annotation.__args__[0]
-        res = "iterable(" + _process(arg, config) + ")"
-
-    # Handle "Callable"
-    elif str(annotation).startswith("typing.Callable"):
-        res = "callable"
-
-    # Handle "Any"
-    elif str(annotation).startswith("typing.Any"):
-        res = ""
-
-    # Special cases for forward references.
-    # This is brittle, as it only contains case for a select few forward refs
-    # All others that aren't caught by this are handled by the default case
-    elif isinstance(annotation, ForwardRef):
-        res = str(annotation.__forward_arg__)
+    # Callable typing annotation
+    elif str(annotation).startswith("typing."):
+        return str(annotation)[7:]
 
     # For everything we didn't catch: use the simplist string representation
     else:

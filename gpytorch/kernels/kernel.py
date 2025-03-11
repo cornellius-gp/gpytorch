@@ -216,9 +216,9 @@ class Kernel(Module):
         # Used by the lengthscale_prior
         return m.lengthscale
 
-    def _lengthscale_closure(self, m: Kernel, v: Tensor) -> Tensor:
+    def _lengthscale_closure(self, m: Kernel, v: Tensor) -> None:
         # Used by the lengthscale_prior
-        return m._set_lengthscale(v)
+        m._set_lengthscale(v)
 
     def _set_lengthscale(self, value: Tensor):
         # Used by the lengthscale_prior
@@ -236,7 +236,7 @@ class Kernel(Module):
     ) -> Union[Tensor, LinearOperator]:
         r"""
         Computes the covariance between :math:`\mathbf x_1` and :math:`\mathbf x_2`.
-        This method should be imlemented by all Kernel subclasses.
+        This method should be implemented by all Kernel subclasses.
 
         :param x1: First set of data (... x N x D).
         :param x2: Second set of data (... x M x D).
@@ -485,6 +485,15 @@ class Kernel(Module):
             * `diag`: `... x N`
             * `diag` with `last_dim_is_batch=True`: `... x K x N`
         """
+        if last_dim_is_batch:
+            warnings.warn(
+                "The last_dim_is_batch argument is deprecated, and will be removed in GPyTorch 2.0. "
+                "If you are using it as part of AdditiveStructureKernel or ProductStructureKernel, "
+                'please update your code according to the "Kernels with Additive or Product Structure" '
+                "tutorial in the GPyTorch docs.",
+                DeprecationWarning,
+            )
+
         x1_, x2_ = x1, x2
 
         # Select the active dimensions
