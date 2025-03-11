@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Generator, Optional
 
 import torch
-
 from linear_operator import settings
 from linear_operator.operators import (
     BlockDiagonalSparseLinearOperator,
@@ -16,7 +15,6 @@ from linear_operator.operators import (
 from torch import Tensor
 
 from .... import kernels
-
 from .linear_solver import LinearSolver, LinearSolverState, LinearSystem
 
 # from .policies import GradientPolicy
@@ -174,7 +172,8 @@ class ProbabilisticLinearSolver(LinearSolver):
                     break
 
                 # Terminate if actions are not independent
-                if solver_state.iteration > 1:
+                if solver_state.iteration > 1 and not isinstance(action, BlockDiagonalSparseLinearOperator):
+
                     if solver_state.iteration > torch.linalg.matrix_rank(
                         torch.vstack((solver_state.cache["actions_op"], action.reshape(1, -1)))
                     ):
@@ -242,15 +241,6 @@ class ProbabilisticLinearSolver(LinearSolver):
                     solver_state.cache["actions_op"] = torch.vstack(
                         (solver_state.cache["actions_op"], action.reshape(1, -1))
                     )
-
-                # with torch.no_grad():
-                #     # Matrix of actions applied to the kernel matrix
-                #     solver_state.cache["linear_op_actions"] = torch.hstack(
-                #         (
-                #             solver_state.cache["linear_op_actions"],
-                #             linear_op_action.reshape(-1, 1),
-                #         )
-                #     )
 
             with torch.no_grad():
                 # Update compressed solution estimate

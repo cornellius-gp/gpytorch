@@ -5,7 +5,6 @@ import unittest
 import torch
 
 import gpytorch
-
 from gpytorch.models import ComputationAwareIterativeGP
 from gpytorch.models.computation_aware_iterative_gp.linear_solvers import PLS, policies
 from gpytorch.test.model_test_case import BaseModelTestCase

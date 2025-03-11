@@ -10,4 +10,5 @@ __all__ = [
     "LinearSolver",
     "LinearSolverState",
     "ProbabilisticLinearSolver",
+    "policies",
 ]
