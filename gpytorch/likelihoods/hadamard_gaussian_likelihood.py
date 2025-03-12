@@ -17,9 +17,9 @@ class HadamardGaussianLikelihood(_GaussianLikelihoodBase):
     i.e. we learn a different (constant) noise level for each fidelity.
 
     Args:
-        num_of_tasks : number of tasks in the multi output GP
-        noise_prior : any prior you want to put on the noise
-        noise_constraint : constraint to put on the noise
+        num_of_tasks: Number of tasks in the multi-output GP.
+        noise_prior: Prior for the noise.
+        noise_constraint: Constraint on the noise value.
     """
 
     def __init__(
