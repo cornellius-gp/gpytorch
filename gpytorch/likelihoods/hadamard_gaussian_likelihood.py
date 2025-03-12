@@ -13,8 +13,8 @@ from .noise_models import MultitaskHomoskedasticNoise
 
 class HadamardGaussianLikelihood(_GaussianLikelihoodBase):
     r"""
-    Likelihood for input-wise homo-skedastic noise, and task-wise
-    hetero-skedastic, i.e. we learn a different (constant) noise level for each fidelity.
+    Likelihood for input-wise homoskedastic and task-wise heteroskedastic noise,
+    i.e. we learn a different (constant) noise level for each fidelity.
 
     Args:
         num_of_tasks : number of tasks in the multi output GP
