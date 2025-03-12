@@ -57,7 +57,7 @@ class HadamardGaussianLikelihood(_GaussianLikelihoodBase):
 
     def _shaped_noise_covar(self, base_shape: torch.Size, *params: Any, **kwargs: Any):
         # params contains task indexes
-        task_idxs = params[0][-1]
+        task_idcs = params[0][-1]
         noise_base_covar_matrix = self.noise_covar(*params, shape=base_shape, **kwargs)
 
         all_tasks = torch.arange(self.num_tasks)[:, None]
