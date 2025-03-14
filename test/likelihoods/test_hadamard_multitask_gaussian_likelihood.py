@@ -9,7 +9,7 @@ from torch.distributions import Distribution
 import gpytorch
 from gpytorch.distributions import MultivariateNormal
 
-from gpytorch.likelihoods import HadamardGaussianLikelihood, Likelihood
+from gpytorch.likelihoods import GaussianLikelihood, HadamardGaussianLikelihood, Likelihood
 from gpytorch.test.base_likelihood_test_case import BaseLikelihoodTestCase
 
 
@@ -51,6 +51,12 @@ class TestMultitaskGaussianLikelihood(BaseLikelihoodTestCase, unittest.TestCase)
         self.assertTrue(torch.is_tensor(output))
         self.assertEqual(output.shape, batch_shape + torch.Size([5]))
 
+        with gpytorch.settings.num_likelihood_samples(512):
+            # Since all tasks are initialized with the same noise, this is
+            # equivalent to using a shared GaussianLikelihood
+            default_log_prob = Likelihood.log_marginal(GaussianLikelihood(), target, input)
+        self.assertAllClose(output, default_log_prob, rtol=0.25)
+
     def _test_log_prob(self, batch_shape):
         likelihood = self.create_likelihood()
         likelihood.max_plate_nesting += len(batch_shape)
@@ -62,6 +68,12 @@ class TestMultitaskGaussianLikelihood(BaseLikelihoodTestCase, unittest.TestCase)
 
         self.assertTrue(torch.is_tensor(output))
         self.assertEqual(output.shape, batch_shape + torch.Size([5]))
+
+        with gpytorch.settings.num_likelihood_samples(512):
+            # Since all tasks are initialized with the same noise, this is
+            # equivalent to using a shared GaussianLikelihood
+            default_log_prob = Likelihood.expected_log_prob(GaussianLikelihood(), target, input)
+        self.assertAllClose(output, default_log_prob, rtol=0.25)
 
     def _test_marginal(self, batch_shape):
         likelihood = self.create_likelihood()
