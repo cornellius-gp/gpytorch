@@ -14,6 +14,25 @@ from ..priors import Prior
 from .noise_models import MultitaskHomoskedasticNoise
 
 
+def _check_task_indices(task_idcs: torch.Tensor, base_shape: torch.Size) -> None:
+    r"""
+    Check that the task indices have valid dtype, and are the correct shape.
+
+    This is agnostic to additional dimensions in base_shape, which are
+    added in the likelihood's forward method.
+
+    Args:
+        task_idcs: Tensor of task indices.
+        base_shape: Shape of the data.
+    """
+    is_int_dtype = task_idcs.dtype in (torch.uint8, torch.int8, torch.int16, torch.int32, torch.int64)
+    task_batch_shape = task_idcs.shape[:-1]
+    sub_base_shape = base_shape[-len(task_batch_shape) :]
+    shape_matches = task_batch_shape == sub_base_shape and task_idcs.shape[-1] == 1
+    if not (torch.is_tensor(task_idcs) and shape_matches and is_int_dtype):
+        raise ValueError(f"Expected task indexes must be a tensor of shape {(*sub_base_shape, 1)}, with integer dtype.")
+
+
 class HadamardGaussianLikelihood(_GaussianLikelihoodBase):
     r"""
     Likelihood for input-wise homoskedastic and task-wise heteroskedastic noise,
@@ -62,13 +81,11 @@ class HadamardGaussianLikelihood(_GaussianLikelihoodBase):
         self.noise_covar.initialize(raw_noise=value)
 
     def _shaped_noise_covar(self, base_shape: torch.Size, *params: Any, **kwargs: Any) -> LinearOperator:
-        # params contains task indexes, shape (num_data, 1)
+        # params contains task indexes, shape (*task_batch_shape, num_data, 1)
+        if not params or not params[0]:
+            raise ValueError("Task indices must be provided.")
         task_idcs = params[0][-1]
-        is_int_dtype = task_idcs.dtype in (torch.uint8, torch.int8, torch.int16, torch.int32, torch.int64)
-        if not isinstance(task_idcs, torch.Tensor) and task_idcs.shape != (base_shape[0], 1) and is_int_dtype:
-            raise ValueError(
-                f"Expected task indexes must be a tensor of shape ({base_shape[0]}, 1), with integer dtype."
-            )
+        _check_task_indices(task_idcs, base_shape)
 
         # squeeze to remove the `1` dimension returned by `MultitaskHomoskedasticNoise`
         noise_base_covar_matrix = self.noise_covar(*params, shape=base_shape, **kwargs).squeeze(
