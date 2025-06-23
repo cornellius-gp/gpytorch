@@ -9,6 +9,7 @@ from torch import Tensor
 
 from . import (
     beta_features,
+    constraints,
     distributions,
     kernels,
     lazy,
@@ -286,6 +287,7 @@ except Exception:  # pragma: no cover
 
 __all__ = [
     # Submodules
+    "constraints",
     "distributions",
     "kernels",
     "lazy",
