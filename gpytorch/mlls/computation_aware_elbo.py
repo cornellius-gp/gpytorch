@@ -6,7 +6,7 @@ import math
 import torch
 from linear_operator import utils
 
-from .. import kernels, settings
+from .. import settings
 
 from ..likelihoods import _GaussianLikelihoodBase, GaussianLikelihood
 from .marginal_log_likelihood import MarginalLogLikelihood
@@ -43,50 +43,27 @@ class ComputationAwareELBO(MarginalLogLikelihood):
             ):
                 raise RuntimeError("You must evaluate the objective on the training inputs!")
 
-        # Kernel
-        if isinstance(self.model.covar_module, kernels.ScaleKernel):
-            outputscale = self.model.covar_module.outputscale
-            lengthscale = self.model.covar_module.base_kernel.lengthscale
-            kernel_forward_fn = self.model.covar_module.base_kernel._forward_no_kernel_linop
-        else:
-            outputscale = 1.0
-            lengthscale = self.model.covar_module.lengthscale
-            kernel_forward_fn = self.model.covar_module._forward_no_kernel_linop
-
-        # Explicitly free up memory from prediction to avoid unnecessary memory overhead
-        # TODO: does this really do much, since we detach it from the graph anyway?
-        del self.model.cholfac_gram_SKhatS
-
-        # Lazily evaluate kernel at training inputs as a 4D tensor with shape (PROJ_DIM, PROJ_DIM, NNZ, NNZ)
-        K_lazy = kernel_forward_fn(
-            train_inputs.div(lengthscale).view(
-                self.model.projection_dim, self.model.num_non_zero, train_inputs.shape[-1]
-            ),
-            train_inputs.div(lengthscale).view(
-                self.model.projection_dim, 1, self.model.num_non_zero, train_inputs.shape[-1]
-            ),
+        # Kernel linear operator
+        K_lazy = self.model.covar_module(
+            train_inputs.view(self.model.projection_dim, self.model.num_non_zero, train_inputs.shape[-1]),
+            train_inputs.view(self.model.projection_dim, 1, self.model.num_non_zero, train_inputs.shape[-1]),
         )
 
         # Compute S'K in block shape (PROJ_DIM, PROJ_DIM, NNZ)
         StK_block_shape = (
             K_lazy @ self.model.actions_op.blocks.view(self.model.projection_dim, 1, self.model.num_non_zero, 1)
         ).squeeze(-1)
-        covar_x_batch_X_train_actions = (
-            StK_block_shape.view(self.model.projection_dim, self.model.projection_dim * self.model.num_non_zero)
-            .mul(outputscale)
-            .mT
-        )
+        covar_x_batch_X_train_actions = StK_block_shape.view(
+            self.model.projection_dim, self.model.projection_dim * self.model.num_non_zero
+        ).mT
 
         # Projected Gramians S'KS and S'(K + noise)S
-        gram_SKS = (StK_block_shape * self.model.actions_op.blocks).sum(-1).mul(outputscale)
+        gram_SKS = (StK_block_shape * self.model.actions_op.blocks).sum(-1)
         StrS_diag = (self.model.actions_op.blocks**2).sum(-1)  # NOTE: Assumes orthogonal actions.
         gram_SKhatS = gram_SKS + torch.diag(self.likelihood.noise * StrS_diag)
 
         # Cholesky factor of Gramian
         cholfac_gram_SKhatS = utils.cholesky.psd_safe_cholesky(gram_SKhatS.to(dtype=torch.float64), upper=False)
-
-        # Save Cholesky factor for prediction
-        self.model.cholfac_gram_SKhatS = cholfac_gram_SKhatS.clone().detach()
 
         # "Projected" training data (with mean correction)
         actions_targets = self.model.actions_op._matmul(

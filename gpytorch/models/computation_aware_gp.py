@@ -146,7 +146,6 @@ class ComputationAwareGP(ExactGP):
         self.covar_module = covar_module
         self.projection_dim = projection_dim
         self.num_non_zero = num_non_zero
-        self.cholfac_gram_SKhatS = None
 
         non_zero_idcs = torch.arange(
             self.num_non_zero * projection_dim,
@@ -173,7 +172,8 @@ class ComputationAwareGP(ExactGP):
 
     def __call__(self, x: torch.Tensor) -> MultivariateNormal:
         # TODO: remove usage of mean_module and covar_module and replace with "forward"
-        # TODO: remove explicit calling of kernel_forward_fn and lengthscale
+        # TODO: allow for arbitrary noise in likelihood
+        # TODO: reintroduce caching of SKS to avoid unnecessary recomputation of KS?
 
         if self.training:
             # In training mode, just return the prior.
@@ -192,60 +192,40 @@ class ComputationAwareGP(ExactGP):
             if x.ndim == 1:
                 x = torch.atleast_2d(x).mT
 
-            # Kernel forward and hyperparameters
-            if isinstance(self.covar_module, kernels.ScaleKernel):
-                outputscale = self.covar_module.outputscale
-                lengthscale = self.covar_module.base_kernel.lengthscale
-                kernel_forward_fn = self.covar_module.base_kernel._forward_no_kernel_linop
-            else:
-                outputscale = 1.0
-                lengthscale = self.covar_module.lengthscale
-                kernel_forward_fn = self.covar_module._forward_no_kernel_linop
+            # SKhatS and its Cholesky factor
+            K_lazy = self.covar_module(
+                self.train_inputs[0].view(self.projection_dim, self.num_non_zero, self.train_inputs[0].shape[-1]),
+                self.train_inputs[0].view(self.projection_dim, 1, self.num_non_zero, self.train_inputs[0].shape[-1]),
+            )
+            gram_SKS = (
+                (K_lazy @ self.actions_op.blocks.view(self.projection_dim, 1, self.num_non_zero, 1)).squeeze(-1)
+                * self.actions_op.blocks
+            ).sum(-1)
 
-            if self.cholfac_gram_SKhatS is None:
-                # If the Cholesky factor of the gram matrix S'(K + noise)S hasn't been precomputed
-                # (in the loss function), compute it.
-                K_lazy = kernel_forward_fn(
-                    self.train_inputs[0]
-                    .div(lengthscale)
-                    .view(self.projection_dim, self.num_non_zero, self.train_inputs[0].shape[-1]),
-                    self.train_inputs[0]
-                    .div(lengthscale)
-                    .view(self.projection_dim, 1, self.num_non_zero, self.train_inputs[0].shape[-1]),
-                )
-                gram_SKS = (
-                    (
-                        (K_lazy @ self.actions_op.blocks.view(self.projection_dim, 1, self.num_non_zero, 1)).squeeze(-1)
-                        * self.actions_op.blocks
-                    )
-                    .sum(-1)
-                    .mul(outputscale)
-                )
-
-                StrS_diag = (self.actions_op.blocks**2).sum(-1)  # NOTE: Assumes orthogonal actions.
-                gram_SKhatS = gram_SKS + torch.diag(self.likelihood.noise * StrS_diag)
-                self.cholfac_gram_SKhatS = linop_utils.cholesky.psd_safe_cholesky(
-                    gram_SKhatS.to(dtype=torch.float64), upper=False
-                )
+            StrS_diag = (self.actions_op.blocks**2).sum(-1)  # NOTE: Assumes orthogonal actions.
+            gram_SKhatS = gram_SKS + torch.diag(self.likelihood.noise * StrS_diag)  # NOTE: Assumes iid noise
+            cholfac_gram_SKhatS = linop_utils.cholesky.psd_safe_cholesky(
+                gram_SKhatS.to(dtype=torch.float64), upper=False
+            )
 
             # Cross-covariance mapped to the low-dimensional space spanned by the actions: k(x, X)S
             covar_x_train_actions = (
                 (
-                    kernel_forward_fn(
-                        x / lengthscale,
-                        (self.train_inputs[0] / lengthscale).view(
+                    self.covar_module(
+                        x,
+                        self.train_inputs[0].view(
                             self.projection_dim, self.num_non_zero, self.train_inputs[0].shape[-1]
                         ),
                     )
                     @ self.actions_op.blocks.view(self.projection_dim, self.num_non_zero, 1)
                 )
                 .squeeze(-1)
-                .mT.mul(outputscale)
+                .mT
             )
 
             # Matrix-square root of the covariance downdate: k(x, X)L^{-1}
             covar_x_train_actions_cholfac_inv = torch.linalg.solve_triangular(
-                self.cholfac_gram_SKhatS, covar_x_train_actions.mT, upper=False
+                cholfac_gram_SKhatS, covar_x_train_actions.mT, upper=False
             ).mT
 
             # "Projected" training data (with mean correction)
@@ -254,7 +234,7 @@ class ComputationAwareGP(ExactGP):
             # Compressed representer weights
             compressed_repr_weights = (
                 torch.cholesky_solve(
-                    actions_target.unsqueeze(1).to(dtype=torch.float64), self.cholfac_gram_SKhatS, upper=False
+                    actions_target.unsqueeze(1).to(dtype=torch.float64), cholfac_gram_SKhatS, upper=False
                 )
                 .squeeze(-1)
                 .to(self.train_inputs[0].dtype)
