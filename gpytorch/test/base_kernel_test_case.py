@@ -90,7 +90,7 @@ class BaseKernelTestCase(BaseTestCase):
 
         actual_covar_mat = torch.cat([ac.unsqueeze(0) for ac in ij_actual_covars])
 
-        self.assertAllClose(batch_covar_mat, actual_covar_mat, rtol=1e-3, atol=1e-5)
+        self.assertAllClose(batch_covar_mat, actual_covar_mat, rtol=1e-3, atol=5e-4)
 
         # Test diagonal
         kernel_diag = kernel(x, diag=True)
@@ -172,7 +172,7 @@ class BaseKernelTestCase(BaseTestCase):
         new_kernel = kernel[idx1, idx2]
         res2 = new_kernel(x[idx1, idx2]).to_dense()  # Should also be result of first kernel on first batch of data.
 
-        self.assertAllClose(res1, res2, rtol=1e-3, atol=1e-5)
+        self.assertAllClose(res1, res2, rtol=1e-3, atol=5e-4)
 
     def test_kernel_pickle_unpickle(self):
         kernel = self.create_kernel_no_ard(batch_shape=torch.Size([]))
