@@ -122,7 +122,7 @@ def polyinterp(points, x_min_bound=None, x_max_bound=None, plot=False):
         # check if system is solvable
         if A.shape[0] != A.shape[1] or np.linalg.matrix_rank(A) != A.shape[0]:
             x_sol = (x_min_bound + x_max_bound) / 2
-            f_min = np.Inf
+            f_min = np.inf
         else:
             # solve linear system for interpolating polynomial
             coeff = np.linalg.solve(A, b)
@@ -140,7 +140,7 @@ def polyinterp(points, x_min_bound=None, x_max_bound=None, plot=False):
                 crit_pts = np.append(crit_pts, roots)
 
             # test critical points
-            f_min = np.Inf
+            f_min = np.inf
             x_sol = (x_min_bound + x_max_bound) / 2  # defaults to bisection
             for crit_pt in crit_pts:
                 if np.isreal(crit_pt) and crit_pt >= x_min_bound and crit_pt <= x_max_bound:
