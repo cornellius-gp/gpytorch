@@ -41,7 +41,7 @@ class TestPeriodicKernel(unittest.TestCase, BaseKernelTestCase):
         with torch.no_grad():
             K = kernel(x, x).to_dense() + 1e-4 * torch.eye(len(x))
             eig = torch.linalg.eigvalsh(K)
-            self.assertTrue((eig > 0.0).all().item())
+            self.assertGreater(eig.min().item(), 0.0)
 
     def test_multidimensional_inputs(self):
         # test taken from issue #835
@@ -51,7 +51,7 @@ class TestPeriodicKernel(unittest.TestCase, BaseKernelTestCase):
         with torch.no_grad():
             K = kernel(x, x).to_dense() + 1e-4 * torch.eye(len(x))
             eig = torch.linalg.eigvalsh(K)
-            self.assertTrue((eig > 0.0).all().item())
+            self.assertGreaterEqual(eig.min().item(), 0.0)
 
     def test_batch(self):
         a = torch.tensor([[4, 2, 8], [1, 2, 3]], dtype=torch.float).view(2, 3, 1)

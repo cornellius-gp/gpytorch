@@ -24,9 +24,9 @@ class MaternKernel(Kernel):
 
     where
 
-    * :math:`d = (\mathbf{x_1} - \mathbf{x_2})^\top \Theta^{-2} (\mathbf{x_1} - \mathbf{x_2})`
+    * :math:`d = \sqrt{(\mathbf{x_1} - \mathbf{x_2})^\top \Theta^{-2} (\mathbf{x_1} - \mathbf{x_2})}`
       is the distance between
-      :math:`x_1` and :math:`x_2` scaled by the lengthscale parameter :math:`\Theta`.
+      :math:`\mathbf{x_1}` and :math:`\mathbf{x_2}` scaled by the lengthscale parameter :math:`\Theta`.
     * :math:`\nu` is a smoothness parameter (takes values 1/2, 3/2, or 5/2). Smaller values are less smooth.
     * :math:`K_\nu` is a modified Bessel function.
 
