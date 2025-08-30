@@ -53,6 +53,7 @@ class HadamardGaussianLikelihood(_GaussianLikelihoodBase):
         noise_prior: Optional[Prior] = None,
         noise_constraint: Optional[Interval] = None,
         batch_shape: torch.Size = torch.Size(),
+        task_feature_index: Optional[int] = None,
         **kwargs,
     ):
         noise_covar = MultitaskHomoskedasticNoise(
@@ -62,6 +63,7 @@ class HadamardGaussianLikelihood(_GaussianLikelihoodBase):
             batch_shape=batch_shape,
         )
         self.num_tasks = num_tasks
+        self.task_feature_index = task_feature_index
         super().__init__(noise_covar=noise_covar, **kwargs)
 
     @property
@@ -81,14 +83,21 @@ class HadamardGaussianLikelihood(_GaussianLikelihoodBase):
         self.noise_covar.initialize(raw_noise=value)
 
     def _shaped_noise_covar(self, base_shape: torch.Size, *params: Any, **kwargs: Any) -> LinearOperator:
-        # params contains task indexes, shape (*task_batch_shape, num_data, 1)
-        if not params or not params[0]:
+        # params contains input data, shape (*task_batch_shape, num_data, d)
+        if len(params) == 0 or len(params[0]) == 0:
             raise ValueError("Task indices must be provided.")
-        task_idcs = params[0][-1]
+        task_idcs = params[0] if torch.is_tensor(params[0]) else params[0][0]
+        if task_idcs.shape[-1] > 1:
+            if self.task_feature_index is None:
+                raise ValueError("Task indices must be a single dimension if task_feature_index is not provided.")
+            # handle case where full inputs are passed in,
+            # rather than just the task indices
+            task_idcs = task_idcs[..., self.task_feature_index].unsqueeze(-1)
+        task_idcs = task_idcs.long()
         _check_task_indices(task_idcs, base_shape)
 
         # squeeze to remove the `1` dimension returned by `MultitaskHomoskedasticNoise`
-        noise_base_covar_matrix = self.noise_covar(*params, shape=base_shape, **kwargs).squeeze(
+        noise_base_covar_matrix = self.noise_covar(task_idcs, *params[1:], shape=base_shape, **kwargs).squeeze(
             -4
         )  # (*batch_shape, num_tasks, num_data, num_data)
         all_tasks = torch.arange(self.num_tasks).unsqueeze(-1)  # (num_tasks, 1)

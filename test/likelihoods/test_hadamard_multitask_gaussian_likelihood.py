@@ -112,7 +112,10 @@ class TestMultitaskGaussianLikelihood(BaseLikelihoodTestCase, unittest.TestCase)
             likelihood(input, [])
 
         with self.assertRaises(ValueError):
-            likelihood(input, [task_idcs.float()])
-
-        with self.assertRaises(ValueError):
             likelihood(input, [task_idcs.squeeze(-1)])
+
+        # test with task feature and full input
+        likelihood = HadamardGaussianLikelihood(num_tasks=4, task_feature_index=1)
+        likelihood.noise = torch.tensor([[0.1, 0.2, 0.3, 0.4]])
+        X = torch.cat([torch.zeros_like(task_idcs), task_idcs], dim=-1)
+        self.assertEqual(variance, likelihood(input, [X]).variance)
