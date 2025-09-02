@@ -1,8 +1,8 @@
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.2.0
+    rev: v6.0.0
     hooks:
-    -   id: check-byte-order-marker
+    -   id: fix-byte-order-marker
     -   id: check-case-conflict
     -   id: check-merge-conflict
     -   id: end-of-file-fixer
@@ -12,13 +12,13 @@ repos:
     -   id: trailing-whitespace
     -   id: debug-statements
 -   repo: https://github.com/pycqa/flake8
-    rev: 4.0.1
+    rev: 7.3.0
     hooks:
     -   id: flake8
         args: [--config=setup.cfg]
         exclude: ^(examples/.*)|(docs/.*)
 -   repo: https://github.com/omnilib/ufmt
-    rev: v2.0.0
+    rev: v2.8.0
     hooks:
     -   id: ufmt
         additional_dependencies:
@@ -26,7 +26,7 @@ repos:
         - usort == 1.0.3
         exclude: ^(build/.*)|(docs/.*)|(examples/.*)
 -   repo: https://github.com/jumanjihouse/pre-commit-hooks
-    rev: 2.1.6
+    rev: 3.0.0
     hooks:
     -   id: require-ascii
         exclude: ^(examples/.*\.ipynb)|(.github/ISSUE_TEMPLATE/.*)
@@ -34,7 +34,7 @@ repos:
     -   id: forbid-binary
         exclude: ^(examples/.*)|(test/examples/old_variational_strategy_model.pth)
 -   repo: https://github.com/Lucas-C/pre-commit-hooks
-    rev: v1.1.13
+    rev: v1.5.5
     hooks:
     -   id: forbid-crlf
     -   id: forbid-tabs
