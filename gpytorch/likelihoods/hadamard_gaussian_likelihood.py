@@ -96,11 +96,14 @@ class HadamardGaussianLikelihood(_GaussianLikelihoodBase):
         task_idcs = task_idcs.long()
         _check_task_indices(task_idcs, base_shape)
 
-        # squeeze to remove the `1` dimension returned by `MultitaskHomoskedasticNoise`
-        noise_base_covar_matrix = self.noise_covar(task_idcs, *params[1:], shape=base_shape, **kwargs).squeeze(
-            -4
-        )  # (*batch_shape, num_tasks, num_data, num_data)
-        all_tasks = torch.arange(self.num_tasks, device=task_idcs.device).unsqueeze(-1)  # (num_tasks, 1)
+        noise_base_covar_matrix = self.noise_covar(task_idcs, *params[1:], shape=base_shape, **kwargs)
+        if self.num_tasks > 1:
+            # squeeze to remove the `1` dimension returned by `MultitaskHomoskedasticNoise`
+            # when there is more than 1 task
+            noise_base_covar_matrix = noise_base_covar_matrix.squeeze(
+                -4
+            )  # (*batch_shape, num_tasks, num_data, num_data)
+        all_tasks = torch.arange(self.num_tasks).unsqueeze(-1)  # (num_tasks, 1)
         diag = torch.eq(all_tasks, task_idcs.mT)  # (num_tasks, num_data)
         mask = DiagLinearOperator(diag)  # (num_tasks, num_data, num_data)
         return (noise_base_covar_matrix @ mask).sum(dim=-3)
