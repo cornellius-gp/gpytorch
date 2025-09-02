@@ -103,7 +103,7 @@ class HadamardGaussianLikelihood(_GaussianLikelihoodBase):
             noise_base_covar_matrix = noise_base_covar_matrix.squeeze(
                 -4
             )  # (*batch_shape, num_tasks, num_data, num_data)
-        all_tasks = torch.arange(self.num_tasks).unsqueeze(-1)  # (num_tasks, 1)
+        all_tasks = torch.arange(self.num_tasks, device=task_idcs.device).unsqueeze(-1)  # (num_tasks, 1)
         diag = torch.eq(all_tasks, task_idcs.mT)  # (num_tasks, num_data)
         mask = DiagLinearOperator(diag)  # (num_tasks, num_data, num_data)
         return (noise_base_covar_matrix @ mask).sum(dim=-3)
