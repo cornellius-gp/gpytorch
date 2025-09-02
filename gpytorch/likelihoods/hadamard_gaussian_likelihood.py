@@ -45,6 +45,7 @@ class HadamardGaussianLikelihood(_GaussianLikelihoodBase):
             type of prior.
         noise_constraint: Constraint on the noise value.
         batch_shape: The batch shape of the learned noise parameter (default: []).
+        task_feature_index: The index of the task feature in the input data (default: None).
     """
 
     def __init__(
