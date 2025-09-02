@@ -32,7 +32,7 @@ class Interval(Module):
         if torch.any(torch.ge(lower_bound, upper_bound)):
             raise ValueError("Got parameter bounds with empty intervals.")
 
-        if type(self) == Interval:
+        if type(self) is Interval:
             max_bound = torch.max(upper_bound)
             min_bound = torch.min(lower_bound)
             if max_bound == math.inf or min_bound == -math.inf:
