@@ -95,7 +95,6 @@ class HadamardGaussianLikelihood(_GaussianLikelihoodBase):
             task_idcs = task_idcs[..., self.task_feature_index].unsqueeze(-1)
         task_idcs = task_idcs.long()
         _check_task_indices(task_idcs, base_shape)
-
         noise_base_covar_matrix = self.noise_covar(task_idcs, *params[1:], shape=base_shape, **kwargs)
         if self.num_tasks > 1:
             # squeeze to remove the `1` dimension returned by `MultitaskHomoskedasticNoise`
