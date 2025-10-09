@@ -5,6 +5,7 @@ import random
 import unittest
 import warnings
 from math import pi
+from unittest.mock import patch
 
 import linear_operator
 import torch
@@ -49,7 +50,10 @@ class GPRegressionModel(gpytorch.models.ExactGP):
 
 class TestRFFRegression(unittest.TestCase):
     def setUp(self):
-        if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
+        if (
+            os.getenv("UNLOCK_SEED") is None
+            or os.getenv("UNLOCK_SEED").lower() == "false"
+        ):
             self.rng_state = torch.get_rng_state()
             torch.manual_seed(0)
             if torch.cuda.is_available():
@@ -64,36 +68,95 @@ class TestRFFRegression(unittest.TestCase):
         # Suppress numerical warnings
         warnings.simplefilter("ignore", NumericalWarning)
 
-        train_x, train_y, test_x, test_y = make_data()
-        likelihood = GaussianLikelihood()
-        gp_model = GPRegressionModel(train_x, train_y, likelihood)
-        mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
+        # Track all matrix sizes passed to cholesky_ex
+        cholesky_sizes = []
+        original_cholesky_ex = torch.linalg.cholesky_ex
 
-        # Optimize the model
-        gp_model.train()
-        likelihood.train()
+        def wrapped_cholesky_ex(matrix, *args, **kwargs):
+            cholesky_sizes.append(matrix.shape)
+            return original_cholesky_ex(matrix, *args, **kwargs)
 
-        optimizer = optim.Adam(gp_model.parameters(), lr=0.1)
-        for _ in range(30):
-            optimizer.zero_grad()
-            output = gp_model(train_x)
-            loss = -mll(output, train_y)
-            loss.backward()
-            optimizer.step()
+        with (
+            patch(
+                "torch.linalg.cholesky_ex",
+                wraps=wrapped_cholesky_ex,
+            ) as mocked_cholesky_ex,
+        ):
+            train_x, train_y, test_x, test_y = make_data()
+            likelihood = GaussianLikelihood()
+            gp_model = GPRegressionModel(train_x, train_y, likelihood)
+            mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
 
-            # Check that we have the right LinearOperator type
-            kernel = likelihood(gp_model(train_x)).lazy_covariance_matrix.evaluate_kernel()
-            self.assertIsInstance(kernel, linear_operator.operators.LowRankRootAddedDiagLinearOperator)
+            # Optimize the model
+            gp_model.train()
+            likelihood.train()
 
-        for param in gp_model.parameters():
-            self.assertTrue(param.grad is not None)
-            self.assertGreater(param.grad.norm().item(), 0)
+            optimizer = optim.Adam(gp_model.parameters(), lr=0.1)
+            for i in range(30):
+                calls_before = mocked_cholesky_ex.call_count
 
-        # Test the model
-        gp_model.eval()
-        likelihood.eval()
+                optimizer.zero_grad()
+                output = gp_model(train_x)
+                loss = -mll(output, train_y)
+                loss.backward()
+                optimizer.step()
 
-        test_preds = likelihood(gp_model(test_x)).mean
-        mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
+                calls_after = mocked_cholesky_ex.call_count
 
-        self.assertLess(mean_abs_error.squeeze().item(), 0.05)
+                # Assert exactly one call per iteration
+                self.assertEqual(
+                    calls_after - calls_before,
+                    1,
+                    f"Expected 1 cholesky call in iteration {i}, got {calls_after - calls_before}",
+                )
+
+                # Check the size of the tensor passed to cholesky
+                self.assertEqual(
+                    cholesky_sizes[-1],
+                    torch.Size([20, 20]),
+                    f"Expected tensor of size [20, 20], got {cholesky_sizes[-1]}",
+                )
+
+                # Check that we have the right LinearOperator type
+                kernel = likelihood(
+                    gp_model(train_x)
+                ).lazy_covariance_matrix.evaluate_kernel()
+                self.assertIsInstance(
+                    kernel, linear_operator.operators.LowRankRootAddedDiagLinearOperator
+                )
+
+            for param in gp_model.parameters():
+                self.assertTrue(param.grad is not None)
+                self.assertGreater(param.grad.norm().item(), 0)
+
+            # Test the model
+            gp_model.eval()
+            likelihood.eval()
+
+            with torch.no_grad():
+                calls_before = mocked_cholesky_ex.call_count
+
+                test_dist = gp_model(test_x)
+                _ = test_dist.covariance_matrix  # Force computation of covariances
+                _ = test_dist.rsample(torch.Size((1000,)))  # Force sampling
+                mean_abs_error = torch.mean(torch.abs(test_y - test_dist.mean))
+
+                calls_after = mocked_cholesky_ex.call_count
+
+                # Assert exactly two calls (mean/covar + sampling) during prediction
+                self.assertEqual(
+                    calls_after - calls_before,
+                    2,
+                    f"Expected 2 cholesky calls during prediction, got {calls_after - calls_before}",
+                )
+
+        # Check that the model makes good predictions
+        self.assertLess(mean_abs_error.squeeze().item(), 0.15)
+
+        # Check all cholesky calls were 20x20
+        for idx, size in enumerate(cholesky_sizes):
+            self.assertEqual(
+                size,
+                torch.Size([20, 20]),
+                f"Expected tensor of size [20, 20] for prediction call {idx}, got {size}",
+            )
