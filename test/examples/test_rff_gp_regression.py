@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import math
 import os
 import random
 import unittest
@@ -12,6 +13,7 @@ import torch
 from torch import optim
 
 import gpytorch
+from gpytorch.constraints import GreaterThan
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.kernels import RFFKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
@@ -20,27 +22,13 @@ from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.utils.warnings import NumericalWarning
 
 
-# Simple training data: let's try to learn a sine function,
-# let's use 100 training examples.
-def make_data(cuda=False):
-    train_x = torch.linspace(0, 1, 100)
-    train_y = torch.sin(train_x * (2 * pi))
-    train_y.add_(torch.randn_like(train_y), alpha=1e-2)
-    test_x = torch.rand(51)
-    test_y = torch.sin(test_x * (2 * pi))
-    if cuda:
-        train_x = train_x.cuda()
-        train_y = train_y.cuda()
-        test_x = test_x.cuda()
-        test_y = test_y.cuda()
-    return train_x, train_y, test_x, test_y
-
-
-class GPRegressionModel(gpytorch.models.ExactGP):
-    def __init__(self, train_x, train_y, likelihood):
-        super(GPRegressionModel, self).__init__(train_x, train_y, likelihood)
+class RFFRegressionModel(gpytorch.models.ExactGP):
+    def __init__(self, train_x, train_y, num_features: int):
+        assert num_features % 2 == 0, "num_features must be even"
+        likelihood = GaussianLikelihood()
+        super().__init__(train_x, train_y, likelihood)
         self.mean_module = ConstantMean(constant_prior=SmoothedBoxPrior(-1e-5, 1e-5))
-        self.covar_module = ScaleKernel(RFFKernel(num_samples=10))
+        self.covar_module = ScaleKernel(RFFKernel(num_samples=(num_features // 2)))
 
     def forward(self, x):
         mean_x = self.mean_module(x)
@@ -48,21 +36,38 @@ class GPRegressionModel(gpytorch.models.ExactGP):
         return MultivariateNormal(mean_x, covar_x)
 
 
-class TestRFFRegression(unittest.TestCase):
+class LinearRegressionModel(gpytorch.models.ExactGP):
+    def __init__(self, train_x, train_y):
+        # We throw away num_features here, because it corresponds to the number of features in the data
+        likelihood = GaussianLikelihood(noise_constraint=GreaterThan(1e-3))
+        super().__init__(train_x, train_y, likelihood)
+        self.mean_module = ConstantMean(constant_prior=SmoothedBoxPrior(-1e-5, 1e-5))
+        self.covar_module = ScaleKernel(gpytorch.kernels.LinearKernel())
+
+    def forward(self, x):
+        mean_x = self.mean_module(x)
+        covar_x = self.covar_module(x)
+        return MultivariateNormal(mean_x, covar_x)
+
+
+class _AbstractTestLowRankRegression():
+    num_features = 20  # Expected rank of the covariance matrix
+
     def setUp(self):
-        if (
-            os.getenv("UNLOCK_SEED") is None
-            or os.getenv("UNLOCK_SEED").lower() == "false"
-        ):
+        if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
             self.rng_state = torch.get_rng_state()
             torch.manual_seed(0)
-            if torch.cuda.is_available():
-                torch.cuda.manual_seed_all(0)
             random.seed(0)
 
     def tearDown(self):
         if hasattr(self, "rng_state"):
             torch.set_rng_state(self.rng_state)
+
+    def make_data(self):
+        raise NotImplementedError
+
+    def make_model(self, train_x, train_y):
+        raise NotImplementedError
 
     def test_rff_mean_abs_error(self):
         # Suppress numerical warnings
@@ -82,14 +87,12 @@ class TestRFFRegression(unittest.TestCase):
                 wraps=wrapped_cholesky_ex,
             ) as mocked_cholesky_ex,
         ):
-            train_x, train_y, test_x, test_y = make_data()
-            likelihood = GaussianLikelihood()
-            gp_model = GPRegressionModel(train_x, train_y, likelihood)
-            mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
+            train_x, train_y, test_x, test_y = self.make_data()
+            gp_model = self.make_model(train_x, train_y)
+            mll = gpytorch.mlls.ExactMarginalLogLikelihood(gp_model.likelihood, gp_model)
 
             # Optimize the model
             gp_model.train()
-            likelihood.train()
 
             optimizer = optim.Adam(gp_model.parameters(), lr=0.1)
             for i in range(30):
@@ -110,20 +113,12 @@ class TestRFFRegression(unittest.TestCase):
                     f"Expected 1 cholesky call in iteration {i}, got {calls_after - calls_before}",
                 )
 
-                # Check the size of the tensor passed to cholesky
-                self.assertEqual(
-                    cholesky_sizes[-1],
-                    torch.Size([20, 20]),
-                    f"Expected tensor of size [20, 20], got {cholesky_sizes[-1]}",
-                )
-
                 # Check that we have the right LinearOperator type
-                kernel = likelihood(
-                    gp_model(train_x)
-                ).lazy_covariance_matrix.evaluate_kernel()
-                self.assertIsInstance(
-                    kernel, linear_operator.operators.LowRankRootAddedDiagLinearOperator
-                )
+                kernel = gp_model.likelihood(gp_model(train_x)).lazy_covariance_matrix.evaluate_kernel()
+                if train_y.size(-1) >= self.num_features:
+                    self.assertIsInstance(kernel, linear_operator.operators.LowRankRootAddedDiagLinearOperator)
+                else:
+                    self.assertIsInstance(kernel, linear_operator.operators.AddedDiagLinearOperator)
 
             for param in gp_model.parameters():
                 self.assertTrue(param.grad is not None)
@@ -131,7 +126,6 @@ class TestRFFRegression(unittest.TestCase):
 
             # Test the model
             gp_model.eval()
-            likelihood.eval()
 
             with torch.no_grad():
                 calls_before = mocked_cholesky_ex.call_count
@@ -153,10 +147,71 @@ class TestRFFRegression(unittest.TestCase):
         # Check that the model makes good predictions
         self.assertLess(mean_abs_error.squeeze().item(), 0.15)
 
-        # Check all cholesky calls were 20x20
-        for idx, size in enumerate(cholesky_sizes):
+        # Check sizes of cholesky systems during training
+        for idx, size in enumerate(cholesky_sizes[:-2]):
+            expected_size = min(self.num_features, train_y.size(-1))
             self.assertEqual(
                 size,
-                torch.Size([20, 20]),
-                f"Expected tensor of size [20, 20] for prediction call {idx}, got {size}",
+                torch.Size([expected_size, expected_size]),
+                f"Expected tensor of size [{expected_size} x {expected_size}] for prediction call {idx}, got {size}",
             )
+        # Check sizes of first prediction Cholesky system
+        expected_size = min(self.num_features, train_y.size(-1))
+        self.assertEqual(
+            cholesky_sizes[-2],
+            torch.Size([expected_size, expected_size]),
+            f"Expected tensor of size [{expected_size} x {expected_size}] for prediction call {idx}, got {size}",
+        )
+        # Check sizes of first prediction Cholesky system
+        expected_size = self.num_features
+        self.assertEqual(
+            cholesky_sizes[-1],
+            torch.Size([expected_size, expected_size]),
+            f"Expected tensor of size [{expected_size} x {expected_size}] for prediction call {idx}, got {size}",
+        )
+
+
+class TestRFFRegression(_AbstractTestLowRankRegression, unittest.TestCase):
+    def make_data(self):
+        train_x = torch.linspace(0, 1, 100)
+        train_y = torch.sin(train_x * (2 * pi))
+        train_y.add_(torch.randn_like(train_y), alpha=1e-2)
+        test_x = torch.rand(51)
+        test_y = torch.sin(test_x * (2 * pi))
+        return train_x, train_y, test_x, test_y
+
+    def make_model(self, train_x, train_y):
+        return RFFRegressionModel(train_x, train_y, num_features=self.num_features)
+
+
+class TestLinearRegressionSmallD(_AbstractTestLowRankRegression, unittest.TestCase):
+    def make_data(self):
+        # We throw away num_features here, because it corresponds to the number of RFF features,
+        # not the number of dimensions in the data.
+        train_x = torch.randn(100, self.num_features)
+        beta = torch.randn(self.num_features)
+        train_y = train_x @ beta + torch.randn_like(train_x[..., 0]) * 0.1
+        test_x = torch.randn(51, self.num_features)
+        test_y = test_x @ beta
+        return train_x, train_y, test_x, test_y
+
+    def make_model(self, train_x, train_y):
+        return LinearRegressionModel(train_x, train_y)
+
+
+class TestLinearRegressionLargeD(_AbstractTestLowRankRegression, unittest.TestCase):
+    num_features = 200  # Expected # of features
+
+    def make_data(self):
+        # We throw away num_features here, because it corresponds to the number of RFF features,
+        # not the number of dimensions in the data.
+        feature_sizes = torch.cat([torch.ones(10), torch.full((self.num_features - 10,), 1e-4)])
+        train_x = torch.randn(100, self.num_features) * feature_sizes
+        beta = torch.randn(self.num_features) / math.sqrt(10)
+        train_y = train_x @ beta + torch.randn_like(train_x[..., 0]) * 0.01
+        test_x = torch.randn(51, self.num_features) * feature_sizes
+        test_y = test_x  @ beta
+        return train_x, train_y, test_x, test_y
+
+    def make_model(self, train_x, train_y):
+        return LinearRegressionModel(train_x, train_y)

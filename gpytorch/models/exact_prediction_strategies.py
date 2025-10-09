@@ -732,7 +732,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
             return res
 
 
-class RFFPredictionStrategy(DefaultPredictionStrategy):
+class LinearPredictionStrategy(DefaultPredictionStrategy):
     def __init__(self, train_inputs, train_prior_dist, train_labels, likelihood):
         super().__init__(train_inputs, train_prior_dist, train_labels, likelihood)
         self.train_prior_dist = self.train_prior_dist.__class__(

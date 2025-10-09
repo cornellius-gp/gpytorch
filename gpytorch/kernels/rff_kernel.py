@@ -148,6 +148,6 @@ class RFFKernel(Kernel):
 
     def prediction_strategy(self, train_inputs, train_prior_dist, train_labels, likelihood):
         # Allow for fast sampling
-        return exact_prediction_strategies.RFFPredictionStrategy(
+        return exact_prediction_strategies.LinearPredictionStrategy(
             train_inputs, train_prior_dist, train_labels, likelihood
         )
