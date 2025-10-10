@@ -3,10 +3,16 @@
 from typing import Optional, Union
 
 import torch
-from linear_operator.operators import LinearOperator, MatmulLinearOperator, RootLinearOperator
+from linear_operator.operators import (
+    LinearOperator,
+    LowRankRootLinearOperator,
+    MatmulLinearOperator,
+    RootLinearOperator,
+)
 from torch import Tensor
 
 from ..constraints import Interval, Positive
+from ..models import exact_prediction_strategies
 from ..priors import Prior
 from .kernel import Kernel
 
@@ -91,7 +97,8 @@ class LinearKernel(Kernel):
         if x1.size() == x2.size() and torch.equal(x1, x2):
             # Use RootLinearOperator when x1 == x2 for efficiency when composing
             # with other kernels
-            prod = RootLinearOperator(x1_)
+            n, d = x1.shape[-2:]
+            prod = RootLinearOperator(x1_) if d > n else LowRankRootLinearOperator(x1_)
 
         else:
             x2_ = x2 * self.variance.sqrt()
@@ -104,3 +111,9 @@ class LinearKernel(Kernel):
             return prod.diagonal(dim1=-1, dim2=-2)
         else:
             return prod
+
+    def prediction_strategy(self, train_inputs, train_prior_dist, train_labels, likelihood):
+        # Allow for fast sampling
+        return exact_prediction_strategies.LinearPredictionStrategy(
+            train_inputs, train_prior_dist, train_labels, likelihood
+        )
