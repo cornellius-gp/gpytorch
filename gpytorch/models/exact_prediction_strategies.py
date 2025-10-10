@@ -752,7 +752,7 @@ class LinearPredictionStrategy(DefaultPredictionStrategy):
             constant = torch.tensor(1.0, dtype=test_test_covar.dtype, device=test_test_covar.device)
 
         # Get cached computations of the expensive components of the posterior
-        mean_cache, covar_cache = self.mean_cache
+        mean_cache, covar_cache = self.mean_covar_cache
         # mean_cache: ... x num_features x 1
         # covar_cache: ... x num_features x num_features
 
@@ -763,10 +763,8 @@ class LinearPredictionStrategy(DefaultPredictionStrategy):
         return (posterior_predictive_mean, posterior_predictive_covar)
 
     @property
-    @cached(name="mean_cache")
-    def mean_cache(self) -> tuple[Tensor, Tensor]:
-        # HACK: this method computes both the mean and the covar cache to avoid
-        # redundant computations.
+    @cached(name="mean_covar_cache")
+    def mean_covar_cache(self) -> tuple[Tensor, Tensor]:
         train_mean = self.train_prior_dist.mean
         lt = self.train_prior_dist.lazy_covariance_matrix
         if isinstance(lt, ConstantMulLinearOperator):
@@ -787,6 +785,11 @@ class LinearPredictionStrategy(DefaultPredictionStrategy):
         )
 
         return mean_cache, covar_cache
+
+    @property
+    @cached(name="mean_cache")
+    def mean_cache(self):
+        raise RuntimeError("This method should not be called!")
 
     @property
     @cached(name="covar_cache")
