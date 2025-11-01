@@ -3,14 +3,37 @@
 import unittest
 
 import torch
+from torch.nn import Parameter
 
-from gpytorch.means import LinearMean
+from gpytorch.means import QuadraticMean
+
 from gpytorch.test.base_mean_test_case import BaseMeanTestCase
 
 
-class TestLinearMean(BaseMeanTestCase, unittest.TestCase):
-    def create_mean(self, input_size=1, batch_shape=torch.Size(), bias=True, **kwargs):
-        return LinearMean(input_size=input_size, batch_shape=batch_shape, bias=bias)
+class TestQuadraticMean(BaseMeanTestCase, unittest.TestCase):
+    def create_mean(self, input_size, batch_shape=torch.Size()):
+        return QuadraticMean(input_size=input_size, batch_shape=batch_shape)
+
+    def test_eval(self):
+        test_x = torch.tensor(
+            [
+                [1.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [0.0, 0.0, 1.0],
+                [1.0, 1.0, 0.0],
+            ]
+        )
+        mean = self.create_mean(input_size=3)
+        A = torch.tensor(
+            [
+                [1.0, 0.0, -2.0],
+                [1.0, 1.0, 0.0],
+                [1.0, 1.0, 1.0],
+            ]
+        )
+        mean.A = Parameter(A)
+        res = mean(test_x)
+        self.assertAllClose(res, test_x.matmul(A).matmul(test_x.T).diag().div(2))
 
     def test_forward_vec(self):
         n = 4
