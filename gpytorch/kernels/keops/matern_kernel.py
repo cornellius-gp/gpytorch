@@ -52,8 +52,6 @@ class MaternKernel(KeOpsKernel):
     :param lengthscale_constraint: (Default: `Positive`) Set this if you want
         to apply a constraint to the lengthscale parameter.
     :type lengthscale_constraint: ~gpytorch.constraints.Interval, optional
-    :param eps: (Default: 1e-6) The minimum value that the lengthscale can take (prevents divide by zero errors).
-    :type eps: float, optional
     """
 
     has_lengthscale = True

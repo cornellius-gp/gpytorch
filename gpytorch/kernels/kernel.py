@@ -136,8 +136,6 @@ class Kernel(Module):
         lengthscale parameter. (Default: `None`.)
     :param lengthscale_constraint: Set this if you want to apply a constraint
         to the lengthscale parameter. (Default: :class:`~gpytorch.constraints.Positive`.)
-    :param eps: A small positive value added to the lengthscale to prevent
-        divide by zero errors. (Default: `1e-6`.)
 
     :ivar torch.Size batch_shape:
         The (minimum) number of batch dimensions supported by this kernel.
@@ -169,7 +167,6 @@ class Kernel(Module):
         active_dims: Optional[Tuple[int, ...]] = None,
         lengthscale_prior: Optional[Prior] = None,
         lengthscale_constraint: Optional[Interval] = None,
-        eps: float = 1e-6,
         **kwargs,
     ):
         super(Kernel, self).__init__()
@@ -178,8 +175,6 @@ class Kernel(Module):
             active_dims = torch.tensor(active_dims, dtype=torch.long)
         self.register_buffer("active_dims", active_dims)
         self.ard_num_dims = ard_num_dims
-
-        self.eps = eps
 
         param_transform = kwargs.get("param_transform")
 
