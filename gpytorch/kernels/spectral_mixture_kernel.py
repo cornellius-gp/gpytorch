@@ -35,8 +35,6 @@ class SpectralMixtureKernel(Kernel):
     :param active_dims: Set this if you want to compute the covariance of only
         a few input dimensions. The ints corresponds to the indices of the dimensions. (Default: `None`.)
     :type active_dims: float, optional
-    :param eps: The minimum value that the lengthscale can take (prevents divide by zero errors). (Default: `1e-6`.)
-    :type eps: float, optional
 
     :param mixture_scales_prior: A prior to set on the mixture_scales parameter
     :type mixture_scales_prior: ~gpytorch.priors.Prior, optional

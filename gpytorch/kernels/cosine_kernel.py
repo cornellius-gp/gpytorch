@@ -35,9 +35,6 @@ class CosineKernel(Kernel):
             Set this if you want to apply a prior to the period length parameter.  Default: `None`
         period_length_constraint (Constraint, optional):
             Set this if you want to apply a constraint to the period length parameter. Default: `Positive`.
-        eps (float):
-            The minimum value that the lengthscale/period length can take
-            (prevents divide by zero errors). Default: `1e-6`.
 
     Attributes:
         period_length (Tensor):

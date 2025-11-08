@@ -32,8 +32,6 @@ class RBFKernel(KeOpsKernel):
         lengthscale parameter. (Default: `None`)
     :param lengthscale_constraint: Set this if you want to apply a constraint
         to the lengthscale parameter. (Default: `Positive`.)
-    :param eps: The minimum value that the lengthscale can take (prevents
-        divide by zero errors). (Default: `1e-6`.)
 
     :ivar torch.Tensor lengthscale: The lengthscale parameter. Size/shape of parameter depends on the
         ard_num_dims and batch_shape arguments.
