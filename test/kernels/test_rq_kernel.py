@@ -222,6 +222,20 @@ class TestRQKernel(unittest.TestCase, BaseKernelTestCase):
         actual_value = torch.tensor(3.0).view_as(kernel.alpha)
         self.assertLess(torch.norm(kernel.alpha - actual_value), 1e-5)
 
+    def test_last_layer_alpha(self):
+        num_samples = 50  # sampling in deep GPs
+        num_input_dims = 4
+        batch_shape = torch.Size([num_input_dims])
+        num_output_dims = 1  # last layer dimension
+        batch_size = 64  # size of minibatch
+        torch.manual_seed(1)
+        kernel = ScaleKernel(
+            RQKernel(batch_shape=batch_shape, ard_num_dims=num_input_dims), batch_shape=batch_shape, ard_num_dims=None
+        )
+        x1 = torch.randn(num_samples, num_input_dims, batch_size, num_output_dims)
+        x2 = torch.randn(num_samples, num_input_dims, batch_size, num_output_dims)
+        kernel.forward(x1, x2, diag=False)
+
 
 if __name__ == "__main__":
     unittest.main()
