@@ -229,9 +229,7 @@ class TestRQKernel(unittest.TestCase, BaseKernelTestCase):
         num_output_dims = 1  # last layer dimension
         batch_size = 64  # size of minibatch
         torch.manual_seed(1)
-        kernel = ScaleKernel(
-            RQKernel(batch_shape=batch_shape, ard_num_dims=num_input_dims), batch_shape=batch_shape, ard_num_dims=None
-        )
+        kernel = RQKernel(batch_shape=batch_shape, ard_num_dims=num_input_dims)
         x1 = torch.randn(num_samples, num_input_dims, batch_size, num_output_dims)
         x2 = torch.randn(num_samples, num_input_dims, batch_size, num_output_dims)
         kernel.forward(x1, x2, diag=False)
