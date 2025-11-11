@@ -68,7 +68,7 @@ class RQKernel(Kernel):
 
             # for loop above overruns by 1 in deep GPs due to additional sampling dimension
             if len(alpha) > 1 and alpha.shape[0] != dist_mat.shape[0]:
-                alpha = alpha.squeeze(-1) 
+                alpha = alpha.squeeze(-1)
 
             return (1 + dist_mat.div(2 * alpha)).pow(-alpha)
 
