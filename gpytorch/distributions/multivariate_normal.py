@@ -245,9 +245,23 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
                     1,
                 )
 
-        # Get log determininant and first part of quadratic form
         covar = covar.evaluate_kernel()
-        inv_quad, logdet = covar.inv_quad_logdet(inv_quad_rhs=diff.unsqueeze(-1), logdet=True)
+
+        if (
+            settings.fast_computations.log_prob.off() or covar.size(-1) <= settings.max_cholesky_size.value()
+        ) and settings.use_torch_tensors.on():
+            # If we are to use Cholesky decomposition for inference, and we are allowed to use torch tensors as opposed
+            # to linear operators, then do so.
+            covar = covar.to_dense()
+            chol = torch.linalg.cholesky(covar)
+
+            chol_inv_diff = torch.linalg.solve_triangular(chol, diff.unsqueeze(-1), upper=False)
+            chol_inv_diff = chol_inv_diff.squeeze(-1)
+            inv_quad = chol_inv_diff.square().sum(-1)
+
+            logdet = chol.diagonal(dim1=-1, dim2=-2).log().mul(2).sum(-1)
+        else:
+            inv_quad, logdet = covar.inv_quad_logdet(inv_quad_rhs=diff.unsqueeze(-1), logdet=True)
 
         res = -0.5 * sum([inv_quad, logdet, diff.size(-1) * math.log(2 * math.pi)])
         return res
