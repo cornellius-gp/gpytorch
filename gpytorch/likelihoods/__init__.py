@@ -15,6 +15,7 @@ from .likelihood import _OneDimensionalLikelihood, Likelihood
 from .likelihood_list import LikelihoodList
 from .multitask_gaussian_likelihood import _MultitaskGaussianLikelihoodBase, MultitaskGaussianLikelihood
 from .noise_models import HeteroskedasticNoise
+from .ordinal_likelihood import OrdinalLikelihood
 from .softmax_likelihood import SoftmaxLikelihood
 from .student_t_likelihood import StudentTLikelihood
 
@@ -34,6 +35,7 @@ __all__ = [
     "Likelihood",
     "LikelihoodList",
     "MultitaskGaussianLikelihood",
+    "OrdinalLikelihood",
     "SoftmaxLikelihood",
     "StudentTLikelihood",
 ]
