@@ -15,6 +15,7 @@ from torch.distributions import MultivariateNormal as TMultivariateNormal
 from torch.distributions.kl import register_kl
 from torch.distributions.utils import _standard_normal, lazy_property
 
+from gpytorch.functions import InvQuadLogdet
 from .. import settings
 from ..utils.warnings import NumericalWarning
 from .distribution import Distribution
@@ -252,14 +253,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         ) and settings.use_torch_tensors.on():
             # If we are to use Cholesky decomposition for inference, and we are allowed to use torch tensors as opposed
             # to linear operators, then do so.
-            covar = covar.to_dense()
-            chol = torch.linalg.cholesky(covar)
-
-            chol_inv_diff = torch.linalg.solve_triangular(chol, diff.unsqueeze(-1), upper=False)
-            chol_inv_diff = chol_inv_diff.squeeze(-1)
-            inv_quad = chol_inv_diff.square().sum(-1)
-
-            logdet = chol.diagonal(dim1=-1, dim2=-2).log().mul(2).sum(-1)
+            inv_quad, logdet = InvQuadLogdet.apply(covar.to_dense(), diff.unsqueeze(-1))
         else:
             inv_quad, logdet = covar.inv_quad_logdet(inv_quad_rhs=diff.unsqueeze(-1), logdet=True)
 
