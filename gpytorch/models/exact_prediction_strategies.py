@@ -732,19 +732,40 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
             return res
 
 
-class RFFPredictionStrategy(DefaultPredictionStrategy):
+class LinearPredictionStrategy(DefaultPredictionStrategy):
     def __init__(self, train_inputs, train_prior_dist, train_labels, likelihood):
         super().__init__(train_inputs, train_prior_dist, train_labels, likelihood)
         self.train_prior_dist = self.train_prior_dist.__class__(
             self.train_prior_dist.mean, self.train_prior_dist.lazy_covariance_matrix.evaluate_kernel()
         )
 
-    def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output, **kwargs):
-        raise NotImplementedError("Fantasy observation updates not yet supported for models using RFFs")
+    def exact_prediction(self, joint_mean, joint_covar):
+        # Find the components of the distribution that contain test data
+        test_mean = joint_mean[..., self.num_train :]
+        test_test_covar = joint_covar[..., self.num_train :, self.num_train :].evaluate_kernel()
+
+        # Get rid of any constant multipliers
+        if isinstance(test_test_covar, ConstantMulLinearOperator):
+            constant = test_test_covar.expanded_constant
+            test_test_covar = test_test_covar.base_linear_op
+        else:
+            constant = torch.tensor(1.0, dtype=test_test_covar.dtype, device=test_test_covar.device)
+
+        # Get cached computations of the expensive components of the posterior
+        mean_cache, covar_cache = self.mean_covar_cache
+        # mean_cache: ... x num_features x 1
+        # covar_cache: ... x num_features x num_features
+
+        # Compute the linear model posterior
+        features = test_test_covar.root.to_dense() * constant.sqrt()
+        posterior_predictive_mean = (features @ mean_cache).squeeze(-1) + test_mean
+        posterior_predictive_covar = RootLinearOperator(features @ covar_cache)
+        return (posterior_predictive_mean, posterior_predictive_covar)
 
     @property
-    @cached(name="covar_cache")
-    def covar_cache(self):
+    @cached(name="mean_covar_cache")
+    def mean_covar_cache(self) -> tuple[Tensor, Tensor]:
+        train_mean = self.train_prior_dist.mean
         lt = self.train_prior_dist.lazy_covariance_matrix
         if isinstance(lt, ConstantMulLinearOperator):
             constant = lt.expanded_constant
@@ -753,38 +774,36 @@ class RFFPredictionStrategy(DefaultPredictionStrategy):
             constant = torch.tensor(1.0, dtype=lt.dtype, device=lt.device)
 
         train_factor = lt.root.to_dense()
-        train_train_covar = self.lik_train_train_covar
-        inner_term = (
+        train_train_covar = self.lik_train_train_covar.evaluate_kernel()  # HOTFIX here: need to resolve lazy eval!
+        train_labels_offset = (self.train_labels - train_mean).unsqueeze(-1)
+        scaled_pseudo_inv = train_train_covar.solve(train_factor)
+
+        mean_cache = scaled_pseudo_inv.mT @ train_labels_offset * constant.sqrt()
+        covar_cache = psd_safe_cholesky(
             torch.eye(train_factor.size(-1), dtype=train_factor.dtype, device=train_factor.device)
-            - (train_factor.transpose(-1, -2) @ train_train_covar.solve(train_factor)) * constant
-        )
-        return psd_safe_cholesky(inner_term)
-
-    def exact_prediction(self, joint_mean, joint_covar):
-        # Find the components of the distribution that contain test data
-        test_mean = joint_mean[..., self.num_train :]
-        test_test_covar = joint_covar[..., self.num_train :, self.num_train :].evaluate_kernel()
-        test_train_covar = joint_covar[..., self.num_train :, : self.num_train].evaluate_kernel()
-
-        return (
-            self.exact_predictive_mean(test_mean, test_train_covar),
-            self.exact_predictive_covar(test_test_covar, test_train_covar),
+            - (train_factor.mT @ scaled_pseudo_inv) * constant
         )
 
-    def exact_predictive_covar(self, test_test_covar, test_train_covar):
-        if settings.skip_posterior_variances.on():
-            return ZeroLinearOperator(*test_test_covar.size())
+        return mean_cache, covar_cache
 
-        if isinstance(test_test_covar, ConstantMulLinearOperator):
-            constant = test_test_covar.expanded_constant
-            test_test_covar = test_test_covar.base_linear_op
-        else:
-            constant = torch.tensor(1.0, dtype=test_test_covar.dtype, device=test_test_covar.device)
+    @property
+    @cached(name="mean_cache")
+    def mean_cache(self):
+        raise RuntimeError("This method should not be called!")
 
-        covar_cache = self.covar_cache
-        factor = test_test_covar.root.to_dense() * constant.sqrt()
-        res = RootLinearOperator(factor @ covar_cache)
-        return res
+    @property
+    @cached(name="covar_cache")
+    def covar_cache(self):
+        raise RuntimeError("This method should not be called!")
+
+    def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output, **kwargs):
+        raise NotImplementedError("Fantasy observation updates not yet supported for models using RFFs")
+
+    def exact_predictive_mean(self, *args, **kwargs):
+        raise RuntimeError("This method should not be called!")
+
+    def exact_predictive_covar(self, *args, **kwargs):
+        raise RuntimeError("This method should not be called!")
 
 
 class SGPRPredictionStrategy(DefaultPredictionStrategy):
