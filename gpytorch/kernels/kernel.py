@@ -607,7 +607,7 @@ class AdditiveKernel(Kernel):
     def is_stationary(self) -> bool:
         return all(k.is_stationary for k in self.kernels)
 
-    def __init__(self, *kernels: Iterable[Kernel]):
+    def __init__(self, *kernels: Kernel):
         super(AdditiveKernel, self).__init__()
         self.kernels = ModuleList(kernels)
 
@@ -649,7 +649,7 @@ class ProductKernel(Kernel):
     def is_stationary(self) -> bool:
         return all(k.is_stationary for k in self.kernels)
 
-    def __init__(self, *kernels: Iterable[Kernel]):
+    def __init__(self, *kernels: Kernel):
         super(ProductKernel, self).__init__()
         self.kernels = ModuleList(kernels)
 
