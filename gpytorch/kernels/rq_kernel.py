@@ -65,6 +65,11 @@ class RQKernel(Kernel):
             alpha = self.alpha
             for _ in range(1, len(dist_mat.shape) - len(self.batch_shape)):
                 alpha = alpha.unsqueeze(-1)
+
+            # for loop above overruns by 1 in deep GPs due to additional sampling dimension
+            if len(alpha) > 1 and alpha.shape[0] != dist_mat.shape[0]:
+                alpha = alpha.squeeze(-1)
+
             return (1 + dist_mat.div(2 * alpha)).pow(-alpha)
 
         x1_ = x1.div(self.lengthscale)
