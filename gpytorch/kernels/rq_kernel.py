@@ -63,7 +63,9 @@ class RQKernel(Kernel):
     def forward(self, x1, x2, diag=False, **params):
         def postprocess_rq(dist_mat):
             alpha = self.alpha
-            for _ in range(1, len(dist_mat.shape) - len(self.batch_shape)):
+            if not diag:
+                alpha = alpha.unsqueeze(-1)
+            if last_dim_is_batch:
                 alpha = alpha.unsqueeze(-1)
 
             # for loop above overruns by 1 in deep GPs due to additional sampling dimension
