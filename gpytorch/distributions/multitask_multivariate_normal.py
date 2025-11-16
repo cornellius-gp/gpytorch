@@ -21,7 +21,7 @@ class MultitaskMultivariateNormal(MultivariateNormal):
     Passing a matrix mean corresponds to a batch of multivariate Normals
 
     :param torch.Tensor mean:  An `n x t` or batch `b x n x t` matrix of means for the MVN distribution.
-    :param ~linear_operator.operators.LinearOperator covar: An `... x NT x NT` (batch) matrix.
+    :param ~linear_operator.operators.LinearOperator covariance_matrix: An `... x NT x NT` (batch) matrix.
         covariance matrix of MVN distribution.
     :param bool validate_args: (default=False) If True, validate `mean` and `covariance_matrix` arguments.
     :param bool interleaved: (default=True) If True, covariance matrix is interpreted as block-diagonal w.r.t.
