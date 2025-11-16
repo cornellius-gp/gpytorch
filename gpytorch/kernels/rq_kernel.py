@@ -73,7 +73,7 @@ class RQKernel(Kernel):
         x1_ = x1.div(self.lengthscale)
         x2_ = x2.div(self.lengthscale)
         return postprocess_rq(
-            self.covar_dist(x1_, x2_, square_dist=True, diag=diag,last_dim_is_batch=last_dim_is_batch, **params),
+            self.covar_dist(x1_, x2_, square_dist=True, diag=diag, last_dim_is_batch=last_dim_is_batch, **params),
         )
 
 
