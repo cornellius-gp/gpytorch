@@ -175,7 +175,7 @@ class TestRFFRegression(_AbstractTestLowRankRegression, unittest.TestCase):
     def make_data(self):
         train_x = torch.linspace(0, 1, 100)
         train_y = torch.sin(train_x * (2 * pi))
-        train_y.add_(torch.randn_like(train_y), alpha=1e-2)
+        train_y.add_(torch.randn_like(train_y), alpha=1e-1)
         test_x = torch.rand(51)
         test_y = torch.sin(test_x * (2 * pi))
         return train_x, train_y, test_x, test_y
@@ -197,6 +197,58 @@ class TestLinearRegressionSmallD(_AbstractTestLowRankRegression, unittest.TestCa
 
     def make_model(self, train_x, train_y):
         return LinearRegressionModel(train_x, train_y)
+
+    def test_linear_fantasy_strategy(self):
+        # Test that fantasizing on 3 new points is equivalent to retraining from scratch
+        warnings.simplefilter("ignore", NumericalWarning)
+
+        # Create training data
+        train_x, train_y, test_x, _ = self.make_data()
+
+        # Train initial model
+        gp_model = self.make_model(train_x, train_y)
+        mll = gpytorch.mlls.ExactMarginalLogLikelihood(gp_model.likelihood, gp_model)
+
+        gp_model.train()
+        optimizer = optim.Adam(gp_model.parameters(), lr=0.1)
+        for _ in range(30):
+            optimizer.zero_grad()
+            output = gp_model(train_x)
+            loss = -mll(output, train_y)
+            loss.backward()
+            optimizer.step()
+
+        gp_model.eval()
+
+        # Make predictions (and prepare caches) so that we can call the fantasy model
+        with torch.no_grad():
+            _ = gp_model(test_x)
+
+        # Create 3 fantasy points
+        fantasy_x = torch.randn(3, self.num_features)
+        fantasy_y = torch.randn(3)
+
+        # Get fantasy model
+        with torch.no_grad():
+            fantasy_model = gp_model.get_fantasy_model(fantasy_x, fantasy_y)
+            fantasy_pred = fantasy_model(test_x)
+
+        # Train fresh model from scratch with combined data
+        combined_x = torch.cat([train_x, fantasy_x], dim=0)
+        combined_y = torch.cat([train_y, fantasy_y], dim=0)
+        fresh_model = self.make_model(combined_x, combined_y)
+
+        # Copy hyperparameters from original model to fresh model
+        fresh_model.load_state_dict(gp_model.state_dict())
+        fresh_model.eval()
+
+        # Get predictions from fresh model
+        with torch.no_grad():
+            fresh_pred = fresh_model(test_x)
+
+        # Compare predictions
+        self.assertTrue(torch.allclose(fantasy_pred.mean, fresh_pred.mean, atol=1e-4))
+        self.assertTrue(torch.allclose(fantasy_pred.covariance_matrix, fresh_pred.covariance_matrix, atol=1e-4))
 
 
 class TestLinearRegressionLargeD(_AbstractTestLowRankRegression, unittest.TestCase):

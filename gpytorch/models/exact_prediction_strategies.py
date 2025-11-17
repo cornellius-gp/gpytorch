@@ -797,7 +797,15 @@ class LinearPredictionStrategy(DefaultPredictionStrategy):
         raise RuntimeError("This method should not be called!")
 
     def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output, **kwargs):
-        raise NotImplementedError("Fantasy observation updates not yet supported for models using RFFs")
+        # It's easier to just recompute the strategy from scratch
+        res = self.__class__(
+            train_inputs=full_inputs,
+            train_prior_dist=self.train_prior_dist.__class__(full_output.mean, full_output.lazy_covariance_matrix),
+            train_labels=full_targets,
+            likelihood=self.likelihood.get_fantasy_likelihood(**kwargs),
+        )
+        _, _ = res.mean_covar_cache  # populate the cache
+        return res
 
     def exact_predictive_mean(self, *args, **kwargs):
         raise RuntimeError("This method should not be called!")
