@@ -76,7 +76,6 @@ class RQKernel(Kernel):
             self.covar_dist(x1_, x2_, square_dist=True, diag=diag, last_dim_is_batch=last_dim_is_batch, **params),
         )
 
-
     @property
     def alpha(self):
         return self.raw_alpha_constraint.transform(self.raw_alpha)
