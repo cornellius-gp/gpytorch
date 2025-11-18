@@ -69,7 +69,7 @@ class _AbstractTestLowRankRegression():
     def make_model(self, train_x, train_y):
         raise NotImplementedError
 
-    def test_rff_mean_abs_error(self):
+    def test_mean_abs_error(self):
         # Suppress numerical warnings
         warnings.simplefilter("ignore", NumericalWarning)
 

@@ -734,12 +734,22 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
 
 class LinearPredictionStrategy(DefaultPredictionStrategy):
     def __init__(self, train_inputs, train_prior_dist, train_labels, likelihood):
-        super().__init__(train_inputs, train_prior_dist, train_labels, likelihood)
-        self.train_prior_dist = self.train_prior_dist.__class__(
-            self.train_prior_dist.mean, self.train_prior_dist.lazy_covariance_matrix.evaluate_kernel()
+        train_prior_dist = train_prior_dist.__class__(
+            train_prior_dist.mean, train_prior_dist.lazy_covariance_matrix.evaluate_kernel()
         )
+        super().__init__(train_inputs, train_prior_dist, train_labels, likelihood)
 
-    def exact_prediction(self, joint_mean, joint_covar):
+    def exact_prediction(self, joint_mean: Tensor, joint_covar: LinearOperator) -> tuple[Tensor, LinearOperator]:
+        """
+        Computes the exact moments of the posterior distribution of the GP
+        evaluated on the test poioiints.
+
+        :param joint_mean: The joint prior mean of train and test points (shape: ... x (num_train + num_test))
+        :param joint_covar: The joint prior covariance of train and test points
+            (shape: ... x (num_train + num_test) x (num_train + num_test))
+        :return: A tuple (posterior_predictive_mean, posterior_predictive_covar), with shapes
+            (... x num_test), and (... x num_test x num_test) respectively.
+        """
         # Find the components of the distribution that contain test data
         test_mean = joint_mean[..., self.num_train :]
         test_test_covar = joint_covar[..., self.num_train :, self.num_train :].evaluate_kernel()
@@ -774,7 +784,7 @@ class LinearPredictionStrategy(DefaultPredictionStrategy):
             constant = torch.tensor(1.0, dtype=lt.dtype, device=lt.device)
 
         train_factor = lt.root.to_dense()
-        train_train_covar = self.lik_train_train_covar.evaluate_kernel()  # HOTFIX here: need to resolve lazy eval!
+        train_train_covar = self.lik_train_train_covar
         train_labels_offset = (self.train_labels - train_mean).unsqueeze(-1)
         scaled_pseudo_inv = train_train_covar.solve(train_factor)
 
@@ -789,15 +799,43 @@ class LinearPredictionStrategy(DefaultPredictionStrategy):
     @property
     @cached(name="mean_cache")
     def mean_cache(self):
-        raise RuntimeError("This method should not be called!")
+        # For finite-basis GPs with d < n features,
+        # it is more efficient to compute mean and covar caches together (as they rely on the same
+        # intermediate computations).
+        mean_cache, _ = self.mean_covar_cache
+        return mean_cache
 
     @property
     @cached(name="covar_cache")
     def covar_cache(self):
-        raise RuntimeError("This method should not be called!")
+        # For finite-basis GPs with d < n features,
+        # it is more efficient to compute mean and covar caches together (as they rely on the same
+        # intermediate computations).
+        _, covar_cache = self.mean_covar_cache
+        return covar_cache
 
     def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output, **kwargs):
-        # It's easier to just recompute the strategy from scratch
+        r"""Implements fantasy observation updates for linear models.
+
+        .. note::
+
+            Unlike other fantasy strategies, we do not update the mean/covar caches; instead, we recompute them
+            from scratch.
+
+            The mean/covar caches essentially rely on the Cholesky factorization of the scatter matrix
+            $\boldsymbol X^\top \boldsymbol X \in \mathbb R^{d \times d}$, where $d$ is the number of features.
+            While we can update this Cholesky factorization using rank-one updates, we only obtain wall-clock
+            speedups when the number of fantasy points is small (e.g. 1-2).
+            With more fantasy points, a recomputation of the Cholesky factorization is faster than applying
+            multiple sequential rank-one updates.
+
+        :param Tensor inputs: The fantasy inputs
+        :param Tensor targets: The fantasy targets
+        :param List[Tensor] full_inputs: The full training inputs (including fantasies)
+        :param Tensor full_targets: The full training targets (including fantasies)
+        :param MultivariateNormal full_output: The output of the model on the full training data
+        :return: A new prediction strategy incorporating the fantasy data
+        """
         res = self.__class__(
             train_inputs=full_inputs,
             train_prior_dist=self.train_prior_dist.__class__(full_output.mean, full_output.lazy_covariance_matrix),
@@ -808,10 +846,22 @@ class LinearPredictionStrategy(DefaultPredictionStrategy):
         return res
 
     def exact_predictive_mean(self, *args, **kwargs):
-        raise RuntimeError("This method should not be called!")
+        # For finite-basis GPs with d < n features,
+        # it is more efficient to compute the posterior mean and covariance together
+        # (as they both rely on multiplying the input features `x` by a vector/matrix),
+        # and both rely on the same precomputation (i.e. pulling out the outputscale constant,
+        # as in `exact_prediction`).
+        # Therefore, we prevent users from calling these methods separately.
+        raise RuntimeError("This method should not be called (use exact_prediction instead)!")
 
     def exact_predictive_covar(self, *args, **kwargs):
-        raise RuntimeError("This method should not be called!")
+        # For finite-basis GPs with d < n features,
+        # it is more efficient to compute the posterior mean and covariance together
+        # (as they both rely on multiplying the input features `x` by a vector/matrix),
+        # and both rely on the same precomputation (i.e. pulling out the outputscale constant,
+        # as in `exact_prediction`).
+        # Therefore, we prevent users from calling these methods separately.
+        raise RuntimeError("This method should not be called (use exact_prediction instead)!")
 
 
 class SGPRPredictionStrategy(DefaultPredictionStrategy):
