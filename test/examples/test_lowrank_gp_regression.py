@@ -140,8 +140,8 @@ class _AbstractTestLowRankRegression():
                 # Assert exactly two calls (mean/covar + sampling) during prediction
                 self.assertEqual(
                     calls_after - calls_before,
-                    2,
-                    f"Expected 2 cholesky calls during prediction, got {calls_after - calls_before}",
+                    1,
+                    f"Expected 1 cholesky call during prediction, got {calls_after - calls_before}",
                 )
 
         # Check that the model makes good predictions
@@ -182,6 +182,37 @@ class TestRFFRegression(_AbstractTestLowRankRegression, unittest.TestCase):
 
     def make_model(self, train_x, train_y):
         return RFFRegressionModel(train_x, train_y, num_features=self.num_features)
+
+    def test_linear_prediction_strategy(self):
+        # Test that the prediction strategy is LowRankLinearGPPredictionStrategy
+        train_x, train_y, test_x, _ = self.make_data()
+        gp_model = self.make_model(train_x, train_y)
+
+        # Get prior distribution
+        gp_model.eval()
+        with gpytorch.settings.prior_mode(True):
+            train_prior_dist = gp_model(train_x)
+            joint_prior_dist = gp_model(torch.cat([train_x, test_x], dim=0))
+            joint_mean = joint_prior_dist.mean
+            joint_covar = joint_prior_dist.lazy_covariance_matrix
+
+        # Get prediction strategies
+        default_pred_strat = gpytorch.models.exact_prediction_strategies.DefaultPredictionStrategy(
+            train_inputs=train_x,
+            train_prior_dist=train_prior_dist,
+            train_labels=train_y,
+            likelihood=gp_model.likelihood,
+        )
+        linear_pred_strat = gpytorch.models.exact_prediction_strategies.LinearPredictionStrategy(
+            train_inputs=train_x,
+            train_prior_dist=train_prior_dist,
+            train_labels=train_y,
+            likelihood=gp_model.likelihood,
+        )
+        default_mean, default_covar = default_pred_strat.exact_prediction(joint_mean, joint_covar)
+        linear_mean, linear_covar = linear_pred_strat.exact_prediction(joint_mean, joint_covar)
+        self.assertTrue(torch.allclose(default_covar.to_dense(), linear_covar.to_dense(), atol=1e-4))
+        self.assertTrue(torch.allclose(default_mean, linear_mean, atol=1e-4))
 
 
 class TestLinearRegressionSmallD(_AbstractTestLowRankRegression, unittest.TestCase):

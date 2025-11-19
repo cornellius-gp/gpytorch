@@ -763,13 +763,15 @@ class LinearPredictionStrategy(DefaultPredictionStrategy):
 
         # Get cached computations of the expensive components of the posterior
         mean_cache, covar_cache = self.mean_covar_cache
-        # mean_cache: ... x num_features x 1
-        # covar_cache: ... x num_features x num_features
+        # mean_cache: X^T (X X^T + D)^{-1} y, ... x num_features x 1
+        # covar_cache: chol( (I - X^T (X X^T + D)^{-1} X)^{-1} ), ... x num_features x num_features
 
         # Compute the linear model posterior
         features = test_test_covar.root.to_dense() * constant.sqrt()
         posterior_predictive_mean = (features @ mean_cache).squeeze(-1) + test_mean
-        posterior_predictive_covar = RootLinearOperator(features @ covar_cache)
+        posterior_predictive_covar = RootLinearOperator(
+            torch.linalg.solve_triangular(covar_cache, features.mT, upper=False).mT
+        )
         return (posterior_predictive_mean, posterior_predictive_covar)
 
     @property
@@ -784,16 +786,32 @@ class LinearPredictionStrategy(DefaultPredictionStrategy):
             constant = torch.tensor(1.0, dtype=lt.dtype, device=lt.device)
 
         train_factor = lt.root.to_dense()
-        train_train_covar = self.lik_train_train_covar
-        train_labels_offset = (self.train_labels - train_mean).unsqueeze(-1)
-        scaled_pseudo_inv = train_train_covar.solve(train_factor)
+        noise = self.lik_train_train_covar._diag_tensor.diagonal(dim1=-1, dim2=-2)
 
-        mean_cache = scaled_pseudo_inv.mT @ train_labels_offset * constant.sqrt()
-        covar_cache = psd_safe_cholesky(
-            torch.eye(train_factor.size(-1), dtype=train_factor.dtype, device=train_factor.device)
-            - (train_factor.mT @ scaled_pseudo_inv) * constant
+        # Compute the scatter matrix X^T D^{-1} X
+        d_sqrt_inv_train_factor = train_factor / noise.sqrt().unsqueeze(-1)
+        scatter_matrix = d_sqrt_inv_train_factor.mT @ d_sqrt_inv_train_factor
+
+        # Compute the Cholesky factor
+        # LL^T = (I + X^T D^{-1} X)
+        d = scatter_matrix.size(-1)
+        eye = torch.eye(d, dtype=scatter_matrix.dtype, device=scatter_matrix.device)
+        inv_scatter_chol = psd_safe_cholesky(eye + scatter_matrix, upper=False)
+
+        # The covar cache is L
+        # By the Woodbury formula
+        # L^{-T} L^{-1} = (I + X^T D^{-1} X)^{-1} = I - X^T (D + X X^T)^{-1} X
+        # and the posterior covariance at a point x is x^T (I - X^T (D + X X^T)^{-1} X) x
+        covar_cache = inv_scatter_chol
+
+        # The mean cache is X^T (D + X X^T)^{-1} (y - \mu)
+        # By the Searle identity
+        # X^T (D + X X^T)^{-1} y = (I + X^T D^{-1} X)^{-1} X^T D^{-1} y = L^{-T} L^{-1} X^T D^{-1} y
+        d_sqrt_inv_train_y_offset = ((self.train_labels - train_mean) / noise).unsqueeze(-1)
+        mean_cache = torch.div(
+            torch.cholesky_solve(train_factor.mT @ d_sqrt_inv_train_y_offset, inv_scatter_chol, upper=False),
+            constant.sqrt(),
         )
-
         return mean_cache, covar_cache
 
     @property
