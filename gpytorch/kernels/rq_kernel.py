@@ -65,7 +65,7 @@ class RQKernel(Kernel):
             alpha = self.alpha
             if not diag:
                 alpha = alpha.unsqueeze(-1)
-            if params["last_dim_is_batch"]:
+            if params.get("last_dim_is_batch", False):
                 alpha = alpha.unsqueeze(-1)
 
             return (1 + dist_mat.div(2 * alpha)).pow(-alpha)
