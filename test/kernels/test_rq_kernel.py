@@ -223,16 +223,44 @@ class TestRQKernel(unittest.TestCase, BaseKernelTestCase):
         self.assertLess(torch.norm(kernel.alpha - actual_value), 1e-5)
 
     def test_last_layer_alpha(self):
-        num_samples = 50  # sampling in deep GPs
-        num_input_dims = 4
-        batch_shape = torch.Size([num_input_dims])
-        num_output_dims = 1  # last layer dimension
-        batch_size = 64  # size of minibatch
-        torch.manual_seed(1)
+        num_input_dims = 3
+        num_samples = 6
+        num_output_dims = 2
+        batch_shape = torch.Size([num_output_dims])
+        batch_size = 5
+        num_elements = num_samples * num_output_dims * batch_size * num_input_dims
+        # first test a and b as the same (diag distance matrix)
+        a = torch.arange(num_elements).view(num_samples, num_output_dims, batch_size, num_input_dims)
+        b = a.clone()
+        a = a.float()
+        b = b.float()
+
+        lengthscale = 1.0
+        alpha = 3.0
         kernel = RQKernel(batch_shape=batch_shape, ard_num_dims=num_input_dims)
-        x1 = torch.randn(num_samples, num_input_dims, batch_size, num_output_dims)
-        x2 = torch.randn(num_samples, num_input_dims, batch_size, num_output_dims)
-        kernel.forward(x1, x2, diag=False)
+        kernel.initialize(alpha=alpha)
+        kernel.initialize(lengthscale=lengthscale)
+        kernel.eval()
+
+        res = kernel(a, b, diag=True).to_dense()
+        diff = kernel.covar_dist(a, b, square_dist=True, diag=True)
+        actual = diff.div_(2 * alpha).add_(1.0).pow(-alpha)
+        self.assertLess(torch.norm(res - actual), 1e-5)
+
+        # now test a and b different
+        batch_size1 = 5
+        batch_size2 = 10
+        num_elements1 = num_samples * num_output_dims * batch_size1 * num_input_dims
+        a = torch.arange(num_elements1).view(num_samples, num_output_dims, batch_size1, num_input_dims)
+        num_elements2 = num_samples * num_output_dims * batch_size2 * num_input_dims
+        b = torch.arange(num_elements2).view(num_samples, num_output_dims, batch_size2, num_input_dims)
+        a = a.float()
+        b = b.float()
+
+        res = kernel(a, b, diag=False).to_dense()
+        diff = kernel.covar_dist(a, b, square_dist=True, diag=False)
+        actual = diff.div_(2 * alpha).add_(1.0).pow(-alpha)
+        self.assertLess(torch.norm(res - actual), 1e-5)
 
 
 if __name__ == "__main__":
