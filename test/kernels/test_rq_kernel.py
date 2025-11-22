@@ -223,44 +223,35 @@ class TestRQKernel(unittest.TestCase, BaseKernelTestCase):
         self.assertLess(torch.norm(kernel.alpha - actual_value), 1e-5)
 
     def test_extra_batch_dim(self):
-        num_input_dims = 3
-        num_samples = 6
-        num_output_dims = 2
-        batch_shape = torch.Size([num_output_dims])
-        batch_size = 5
-        num_elements = num_samples * num_output_dims * batch_size * num_input_dims
-        # first test a and b as the same (diag distance matrix)
-        a = torch.arange(num_elements).view(num_samples, num_output_dims, batch_size, num_input_dims)
-        b = a.clone()
-        a = a.float()
-        b = b.float()
+        a = torch.linspace(0.0, 1.0, 120).view(5, 4, 3, 2)
+        b = torch.linspace(0.0, 1.0, 80).view(5, 4, 2, 2)
 
-        lengthscale = 1.0
-        alpha = 3.0
-        kernel = RQKernel(batch_shape=batch_shape, ard_num_dims=num_input_dims)
-        kernel.initialize(alpha=alpha)
-        kernel.initialize(lengthscale=lengthscale)
+        lengthscale = 0.1
+        alpha = torch.linspace(0.5, 1.0, 4)  # different `alpha` for each batch
+
+        # NOTE: Why do we pass down `batch_shape = (4,)` as opposed to `batch_shape = (5, 4)`?
+        # When training deep GPs with variational inference, there is an extra batch dimension added to the data, which
+        # corresponds to the likelihood samples. We are testing if `alpha` broadcasts properly in these cases.
+        kernel = RQKernel(batch_shape=torch.Size([4]))
+        kernel.initialize(lengthscale=lengthscale, alpha=alpha)
         kernel.eval()
 
-        res = kernel(a, b, diag=True).to_dense()
-        diff = kernel.covar_dist(a, b, square_dist=True, diag=True)
-        actual = diff.div_(2 * alpha).add_(1.0).pow(-alpha)
-        self.assertLess(torch.norm(res - actual), 1e-5)
+        # First check the diagonal
+        res = kernel(a, diag=True).to_dense()
+        actual = torch.ones(5, 4, 3)
+        self.assertAllClose(res, actual)
 
-        # now test a and b different
-        batch_size1 = 5
-        batch_size2 = 10
-        num_elements1 = num_samples * num_output_dims * batch_size1 * num_input_dims
-        a = torch.arange(num_elements1).view(num_samples, num_output_dims, batch_size1, num_input_dims)
-        num_elements2 = num_samples * num_output_dims * batch_size2 * num_input_dims
-        b = torch.arange(num_elements2).view(num_samples, num_output_dims, batch_size2, num_input_dims)
-        a = a.float()
-        b = b.float()
+        # Now check the kernel matrix on two different inputs
+        res = kernel(a, b).to_dense()
 
-        res = kernel(a, b, diag=False).to_dense()
-        diff = kernel.covar_dist(a, b, square_dist=True, diag=False)
-        actual = diff.div_(2 * alpha).add_(1.0).pow(-alpha)
-        self.assertLess(torch.norm(res - actual), 1e-5)
+        scaled_a = a.div(lengthscale).unsqueeze(-2)
+        scaled_b = b.div(lengthscale).unsqueeze(-3)
+        dist = (scaled_a - scaled_b).square().sum(-1)
+
+        alpha = alpha.unsqueeze(-1).unsqueeze(-1)
+        actual = dist.div_(2 * alpha).add_(1).pow(-alpha)
+
+        self.assertAllClose(res, actual)
 
 
 if __name__ == "__main__":
