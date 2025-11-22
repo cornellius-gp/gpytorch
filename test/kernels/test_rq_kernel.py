@@ -222,7 +222,7 @@ class TestRQKernel(unittest.TestCase, BaseKernelTestCase):
         actual_value = torch.tensor(3.0).view_as(kernel.alpha)
         self.assertLess(torch.norm(kernel.alpha - actual_value), 1e-5)
 
-    def test_last_layer_alpha(self):
+    def test_extra_batch_dim(self):
         num_input_dims = 3
         num_samples = 6
         num_output_dims = 2
