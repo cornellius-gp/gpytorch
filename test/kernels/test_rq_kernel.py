@@ -222,6 +222,37 @@ class TestRQKernel(unittest.TestCase, BaseKernelTestCase):
         actual_value = torch.tensor(3.0).view_as(kernel.alpha)
         self.assertLess(torch.norm(kernel.alpha - actual_value), 1e-5)
 
+    def test_extra_batch_dim(self):
+        a = torch.linspace(0.0, 1.0, 120).view(5, 4, 3, 2)
+        b = torch.linspace(0.0, 1.0, 80).view(5, 4, 2, 2)
+
+        lengthscale = 0.1
+        alpha = torch.linspace(0.5, 1.0, 4)  # different `alpha` for each batch
+
+        # NOTE: Why do we pass down `batch_shape = (4,)` as opposed to `batch_shape = (5, 4)`?
+        # When training deep GPs with variational inference, there is an extra batch dimension added to the data, which
+        # corresponds to the likelihood samples. We are testing if `alpha` broadcasts properly in these cases.
+        kernel = RQKernel(batch_shape=torch.Size([4]))
+        kernel.initialize(lengthscale=lengthscale, alpha=alpha)
+        kernel.eval()
+
+        # First check the diagonal
+        res = kernel(a, diag=True).to_dense()
+        actual = torch.ones(5, 4, 3)
+        self.assertAllClose(res, actual)
+
+        # Now check the kernel matrix on two different inputs
+        res = kernel(a, b).to_dense()
+
+        scaled_a = a.div(lengthscale).unsqueeze(-2)
+        scaled_b = b.div(lengthscale).unsqueeze(-3)
+        dist = (scaled_a - scaled_b).square().sum(-1)
+
+        alpha = alpha.unsqueeze(-1).unsqueeze(-1)
+        actual = dist.div_(2 * alpha).add_(1).pow(-alpha)
+
+        self.assertAllClose(res, actual)
+
 
 if __name__ == "__main__":
     unittest.main()
