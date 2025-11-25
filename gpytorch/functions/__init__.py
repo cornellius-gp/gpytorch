@@ -9,7 +9,7 @@ import linear_operator
 import torch
 
 from ._log_normal_cdf import LogNormalCDF
-from .inv_quad_logdet import InvQuadLogdet
+from .inv_quad_logdet import TensorInvQuadLogdet
 from .matern_covariance import MaternCovariance
 from .rbf_covariance import RBFCovariance
 
@@ -40,7 +40,7 @@ def inv_matmul(mat, right_tensor, left_tensor=None):
 
 
 __all__ = [
-    "InvQuadLogdet",
+    "TensorInvQuadLogdet",
     "MaternCovariance",
     "RBFCovariance",
     "inv_matmul",

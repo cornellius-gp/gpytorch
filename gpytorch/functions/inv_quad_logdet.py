@@ -5,7 +5,7 @@ import torch
 from torch import Tensor
 
 
-class InvQuadLogdet(torch.autograd.Function):
+class TensorInvQuadLogdet(torch.autograd.Function):
     r"""This function computes the inverse quadratic form and the log determinant of a positive semi-definite matrix.
     This is a light weight implementation of `LinearOperator.inv_quad_logdet`. The main motivation is to avoid the
     overhead of linear operators for dense kernel matrices by doing linear algebra operations directly on torch tensors.

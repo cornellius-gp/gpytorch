@@ -4,8 +4,8 @@ import unittest
 
 import torch
 
-from gpytorch.functions.inv_quad_logdet import InvQuadLogdet
-from gpytorch.kernels.rbf_kernel import RBFKernel
+from gpytorch.functions import TensorInvQuadLogdet
+from gpytorch.kernels import RBFKernel
 
 
 class TestInvQuadLogdet(unittest.TestCase):
@@ -22,7 +22,7 @@ class TestInvQuadLogdet(unittest.TestCase):
 
         inv_quad_rhs = torch.linspace(0, 1, num_data).requires_grad_(True)
 
-        inv_quad, logdet = InvQuadLogdet.apply(covar_matrix, inv_quad_rhs.unsqueeze(-1))
+        inv_quad, logdet = TensorInvQuadLogdet.apply(covar_matrix, inv_quad_rhs.unsqueeze(-1))
         inv_quad_logdet = inv_quad + logdet
         inv_quad_logdet.backward()
 
@@ -54,7 +54,7 @@ class TestInvQuadLogdet(unittest.TestCase):
 
         inv_quad_rhs = torch.linspace(0, 1, 2 * num_data).view(2, num_data).requires_grad_(True)
 
-        inv_quad, logdet = InvQuadLogdet.apply(covar_matrix, inv_quad_rhs.unsqueeze(-1))
+        inv_quad, logdet = TensorInvQuadLogdet.apply(covar_matrix, inv_quad_rhs.unsqueeze(-1))
         inv_quad_logdet = torch.sum(inv_quad + logdet)
         inv_quad_logdet.backward()
 
