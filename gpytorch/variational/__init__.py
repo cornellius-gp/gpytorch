@@ -12,6 +12,7 @@ from .independent_multitask_variational_strategy import (
     IndependentMultitaskVariationalStrategy,
     MultitaskVariationalStrategy,
 )
+from .large_batch_variational_strategy import LargeBatchVariationalStrategy
 from .lmc_variational_strategy import LMCVariationalStrategy
 from .mean_field_variational_distribution import MeanFieldVariationalDistribution
 from .natural_variational_distribution import _NaturalVariationalDistribution, NaturalVariationalDistribution
@@ -29,6 +30,7 @@ __all__ = [
     "GridInterpolationVariationalStrategy",
     "IndependentMultitaskVariationalStrategy",
     "LMCVariationalStrategy",
+    "LargeBatchVariationalStrategy",
     "MultitaskVariationalStrategy",
     "OrthogonallyDecoupledVariationalStrategy",
     "VariationalStrategy",
