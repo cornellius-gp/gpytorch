@@ -2,9 +2,9 @@
 
 import unittest
 
-from torch import Tensor
-
 from gpytorch.priors import GammaPrior, HalfCauchyPrior, LogNormalPrior, NormalPrior
+from gpytorch.priors.utils import BUFFERED_PREFIX
+from torch import Tensor
 
 
 class TestPrior(unittest.TestCase):
@@ -20,12 +20,12 @@ class TestPrior(unittest.TestCase):
         self.assertEqual(gamma["concentration"], 1.1)
 
         ln = LogNormalPrior(2.1, 1.2).state_dict()
-        self.assertTrue("_transformed_loc" in ln)
-        self.assertTrue("_transformed_scale" in ln)
-        self.assertEqual(ln["_transformed_loc"], 2.1)
+        self.assertTrue(f"{BUFFERED_PREFIX}loc" in ln)
+        self.assertTrue(f"{BUFFERED_PREFIX}scale" in ln)
+        self.assertEqual(ln[f"{BUFFERED_PREFIX}loc"], 2.1)
 
         hc = HalfCauchyPrior(1.3).state_dict()
-        self.assertTrue("_transformed_scale" in hc)
+        self.assertTrue(f"{BUFFERED_PREFIX}scale" in hc)
 
     def test_load_state_dict(self):
         ln1 = LogNormalPrior(loc=0.5, scale=0.1)
@@ -51,11 +51,14 @@ class TestPrior(unittest.TestCase):
         ln = LogNormalPrior(loc=2.5, scale=2.1)
         hc = HalfCauchyPrior(scale=2.2)
 
-        with self.assertRaisesRegex(AttributeError, "'NormalPrior' object has no attribute '_transformed_loc'"):
-            getattr(norm, "_transformed_loc")
+        with self.assertRaisesRegex(
+            AttributeError,
+            f"'NormalPrior' object has no attribute '{BUFFERED_PREFIX}loc'",
+        ):
+            getattr(norm, f"{BUFFERED_PREFIX}loc")
 
-        self.assertTrue(getattr(ln, "_transformed_loc"), 2.5)
+        self.assertEqual(getattr(ln, f"{BUFFERED_PREFIX}loc"), 2.5)
         norm.loc = Tensor([1.01])
         ln.loc = Tensor([1.01])
-        self.assertEqual(ln._transformed_loc, 1.01)
-        self.assertEqual(hc._transformed_scale, 2.2)
+        self.assertEqual(getattr(ln, f"{BUFFERED_PREFIX}loc"), 1.01)
+        self.assertEqual(getattr(hc, f"{BUFFERED_PREFIX}scale"), 2.2)
