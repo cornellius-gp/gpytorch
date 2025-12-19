@@ -75,14 +75,14 @@ reduce the variance when computing approximate GP objective functions.
 
 
 :hidden:`NegativeBinomialLikelihood`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: NegativeBinomialLikelihood
    :members:
 
 
 :hidden:`PoissonLikelihood`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: PoissonLikelihood
    :members:  
