@@ -5,7 +5,9 @@ import unittest
 import torch
 
 import gpytorch
+from gpytorch.test.base_test_case import BaseTestCase
 from gpytorch.test.variational_test_case import VariationalTestCase
+from gpytorch.variational.variational_strategy import ComputePredictiveUpdates
 
 
 class TestVariationalGP(VariationalTestCase, unittest.TestCase):
@@ -110,6 +112,76 @@ class TestNGDVariationalGP(TestVariationalGP):
         self.assertFalse(cg_mock.called)
         self.assertEqual(cholesky_mock.call_count, 3)  # One to compute cache + 2 to compute variational distribution
         self.assertFalse(ciq_mock.called)
+
+
+class TestComputePredictiveUpdates(BaseTestCase, unittest.TestCase):
+    def create_inputs(self):
+        m = 2
+        n = 3
+
+        chol = torch.rand(m, m).tril_().requires_grad_(True)
+        induc_data_covar = torch.rand(m, n).requires_grad_(True)
+
+        middle = torch.rand(m, m)
+        middle = middle + middle.mT
+        middle.requires_grad_(True)
+
+        inducing_values = torch.randn(m).requires_grad_(True)
+
+        return chol, induc_data_covar, middle, inducing_values
+
+    def test_forward_backward(self):
+        chol, induc_data_covar, middle, inducing_values = self.create_inputs()
+
+        # Custom autograd function
+        mean_update, variance_update = ComputePredictiveUpdates.apply(chol, induc_data_covar, middle, inducing_values)
+
+        loss = mean_update.sum() + variance_update.sum()
+        loss.backward()
+
+        # Compute the ground truth
+        chol_ref = chol.detach().clone().requires_grad_(True)
+        induc_data_covar_ref = induc_data_covar.detach().clone().requires_grad_(True)
+        middle_ref = middle.detach().clone().requires_grad_(True)
+        inducing_values_ref = inducing_values.detach().clone().requires_grad_(True)
+
+        interp_term_ref = torch.linalg.solve_triangular(chol_ref, induc_data_covar_ref, upper=False)
+        mean_update_ref = (interp_term_ref.mT @ inducing_values_ref.unsqueeze(-1)).squeeze(-1)
+        variance_update_ref = torch.sum(
+            interp_term_ref.mT * (interp_term_ref.mT @ middle_ref),
+            dim=-1,
+        )
+
+        loss_ref = mean_update_ref.sum() + variance_update_ref.sum()
+        loss_ref.backward()
+
+        # Assert that the forward outputs are the same
+        self.assertAllClose(mean_update, mean_update_ref)
+        self.assertAllClose(variance_update, variance_update_ref)
+
+        # Now assert that the derivatives are the same
+        self.assertAllClose(chol.grad, chol_ref.grad)
+        self.assertAllClose(induc_data_covar.grad, induc_data_covar_ref.grad)
+        self.assertAllClose(middle.grad, middle_ref.grad)
+        self.assertAllClose(inducing_values.grad, inducing_values_ref.grad)
+
+
+class TestVariationalStrategyTrainEvalMode(TestVariationalGP):
+    def test_train_eval_model(self):
+        model, _ = self._make_model_and_likelihood()
+
+        train_x = torch.rand(3, 2)
+
+        model.train()
+        predictive_dist_train = model(train_x)
+
+        model.eval()
+        predictive_dist_eval = model(train_x)
+
+        # The train and eval modes execute two different code paths. Nevertheless, the predictive mean and predictive
+        # variance should be exactly the same.
+        self.assertAllClose(predictive_dist_train.mean, predictive_dist_eval.mean)
+        self.assertAllClose(predictive_dist_train.variance, predictive_dist_eval.variance)
 
 
 if __name__ == "__main__":

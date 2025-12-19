@@ -51,6 +51,89 @@ def _ensure_updated_strategy_flag_set(
         )
 
 
+class ComputePredictiveUpdates(torch.autograd.Function):
+    @staticmethod
+    def forward(
+        ctx,
+        chol: Tensor,
+        induc_data_covar: Tensor,
+        middle: Tensor,
+        inducing_values: Tensor,
+    ) -> tuple[Tensor, Tensor]:
+        r"""Compute the predictive mean and variance updates as in `VariationalStrategy._compute_predictive_updates`.
+
+        This function doesn't compute the updates to the off-diagonal entries in the predictive covariance. Only the
+        variance update is computed.
+        """
+        interp_term = torch.linalg.solve_triangular(chol, induc_data_covar, upper=False)
+
+        mean_update = (interp_term.mT @ inducing_values.unsqueeze(-1)).squeeze(-1)
+        variance_update = torch.sum(interp_term.mT * (interp_term.mT @ middle), dim=-1)
+
+        # NOTE: The backward call does not need `induc_data_covar`. Access to it is always through `interp_term`.
+        ctx.save_for_backward(chol, interp_term, middle, inducing_values)
+
+        return mean_update, variance_update
+
+    @staticmethod
+    def backward(
+        ctx,
+        d_mean: Tensor,
+        d_variance: Tensor,
+    ) -> tuple[Tensor, Tensor, Tensor, Tensor]:
+        r"""A custom backward pass more efficient than PyTorch's autograd by rearranging tensor operations.
+
+        This backward is bottlenecked by two O(m^2 n) matmuls whre `m` is the number of inducing points and `n` is the
+        number of data points. In contrast, PyTorch's backward pass would require three O(m^2 n) matmuls and a O(m^2 n)
+        triangular solve. Thus, this implementation is about 2x faster when `m << n`.
+        """
+        chol, interp_term, middle, inducing_values = ctx.saved_tensors
+
+        # Common terms that will be used more than once
+        interp_term_times_dmean = interp_term @ d_mean.unsqueeze(-1)
+        interp_term_scaled_dvariance = interp_term * d_variance.unsqueeze(-2)  # K_ZZ^{-1/2} K_ZX @ diag(d_variance)
+
+        # `K_ZZ^{-1/2} @ (S - I)`
+        # NOTE: Empirically, the triangular solve against `S - I` still seems to be stable in FP32. However, hitting
+        # `S - I` twice `K_ZZ^{-1/2} (S - I) K_ZZ^{-1/2}` would be numerically unstable, which should be avoided.
+        inv_chol_times_middle = torch.linalg.solve_triangular(chol.mT, middle, upper=True)
+
+        # `K_ZZ^{-1/2} m`
+        inv_chol_times_inducing_values = torch.linalg.solve_triangular(
+            chol.mT, inducing_values.unsqueeze(-1), upper=True
+        )
+
+        # The derivative of `S - I` from the variance
+        d_middle = interp_term_scaled_dvariance @ interp_term.mT
+
+        # The derivative of `K_XZ K_ZZ^{-1/2} m` with respect to `m`
+        d_inducing_values = interp_term_times_dmean.squeeze(-1)
+
+        # The derivative of `K_XZ` received from the predictive variance. There is a factor of 2 because `K_XZ` appears
+        # twice in the predictive variance and we exploit symmetry.
+        d_induc_data_covar = 2.0 * inv_chol_times_middle @ interp_term_scaled_dvariance
+
+        # Then add derivative of `K_XZ` received from the predictive mean: `K_ZZ^{-1/2} @ m @ dm^T`
+        d_induc_data_covar = d_induc_data_covar + inv_chol_times_inducing_values @ d_mean.unsqueeze(-2)
+
+        # The derivative of `K_ZZ^{-1/2}` received from the predictive variance. Again, we exploit symmetry here since
+        # `K_ZZ^{-1/2}` appears twice.
+        d_chol = -2.0 * inv_chol_times_middle @ d_middle
+
+        # Then add the derivative of `K_ZZ^{-1/2}` received from the predictive mean
+        d_chol = d_chol - inv_chol_times_inducing_values @ interp_term_times_dmean.mT
+
+        # NOTE: In principle, we need to zero out the lower triangular part because `chol` is lower triangular. It is
+        # actually not necessary here, because `d_chol` is immediately fed into `cholesky_backward`, which does not
+        # care about the upper triangular part. We keep it here for consistency with PyTorch's implementation.
+        # https://github.com/pytorch/pytorch/blob/4a0693682a8574bdc36e1ca2ea7bd2ddf5c19340/torch/csrc/autograd/FunctionsManual.cpp#L1999-L2003
+        # NOTE: If we want to get fansy, fusing this backward with `cholesky_backward` will save a matmul. It may not
+        # be worth the effort. It's only useful when there are more inducing points than the data.
+        d_chol = d_chol.tril()
+
+        return d_chol, d_induc_data_covar, d_middle, d_inducing_values
+
+
 class VariationalStrategy(_VariationalStrategy):
     r"""
     The standard variational strategy, as defined by `Hensman et al. (2015)`_.
@@ -177,6 +260,61 @@ class VariationalStrategy(_VariationalStrategy):
 
         return pseudo_target_covar, pseudo_target_mean
 
+    def _compute_predictive_updates(
+        self,
+        chol: LinearOperator,
+        induc_data_covar: Tensor,
+        inducing_values: Tensor,
+        variational_inducing_covar: LinearOperator | None,
+        prior_covar: LinearOperator,
+    ) -> tuple[Tensor, LinearOperator]:
+        r"""Compute the predictive mean and covariance updates. Adding the return values of this method to the prior
+        mean and covariance yields the predictive mean and covariance.
+
+        The predictive mean update is `K_{XZ} K_{ZZ}^{-1/2} m`.
+
+        The predictive covariance update is `K_{XZ} K_{ZZ}^{-1/2} (S - I) K_{ZZ}^{-1/2} K_{ZX}`.
+
+        :param chol: The Cholesky factor `K_{ZZ}^{-1/2}`.
+        :param induc_data_covar: The covariance between the inducing points and the data `K_{ZX}`.
+        :param middle_term: The difference between the variational and prior covariances `S - I`.
+        :param inducing_values: The whitened variational mean `m`.
+        :return: The predictive mean update and the predictive covariance update.
+        """
+        middle_term = prior_covar.mul(-1)
+        if variational_inducing_covar is not None:
+            middle_term = SumLinearOperator(variational_inducing_covar, middle_term)  # `S - I`
+
+        # The custom autograd function doesn't compute the off-diagonal entries. Besides, it's only optimized for the
+        # setting where the batch size is larger than the number of inducing points.
+        if self.training and induc_data_covar.size(-2) < induc_data_covar.size(-1):
+            predictive_mean_update, predictive_variance_update = ComputePredictiveUpdates.apply(
+                chol.to_dense().type(induc_data_covar.dtype),
+                induc_data_covar,
+                middle_term.to_dense(),
+                inducing_values,
+            )
+            return predictive_mean_update, DiagLinearOperator(predictive_variance_update)
+
+        # The eval mode uses the same implementation as v1.14.3
+        else:
+            # NOTE: `torch.linalg.solve_triangular(A, B)` seems to support mixed precision solve when `A` and `B` have
+            # different dtypes. `B` is likely cast to the dtype of `A` internally. Thus, there is no need for explicit
+            # type casting. Removing the type casting would be slightly faster and avoid memory allocation. However, we
+            # keep the explicit type casting here because this behavior is not documented on the PyTorch side.
+            interp_term = chol.solve(induc_data_covar.type(chol.dtype))
+            interp_term = interp_term.type(induc_data_covar.dtype)
+
+            # Compute the predictive mean update
+            # k_XZ K_ZZ^{-1/2} (m - K_ZZ^{-1/2} \mu_Z)
+            predictive_mean_update = (interp_term.mT @ inducing_values.unsqueeze(-1)).squeeze(-1)
+
+            # Compute the predictive covariance update
+            # k_XZ K_ZZ^{-1/2} (S - I) K_ZZ^{-1/2} k_ZX
+            predictive_covar_update = MatmulLinearOperator(interp_term.mT, middle_term @ interp_term)
+
+        return predictive_mean_update, predictive_covar_update
+
     def forward(
         self,
         x: Tensor,
@@ -209,30 +347,21 @@ class VariationalStrategy(_VariationalStrategy):
             except CachingError:
                 pass
             L = self._cholesky_factor(induc_induc_covar)
-        interp_term = L.solve(induc_data_covar.type(_linalg_dtype_cholesky.value())).to(full_inputs.dtype)
 
-        # Compute the mean of q(f)
-        # k_XZ K_ZZ^{-1/2} (m - K_ZZ^{-1/2} \mu_Z) + \mu_X
-        predictive_mean = (interp_term.transpose(-1, -2) @ inducing_values.unsqueeze(-1)).squeeze(-1) + test_mean
+        mean_update, covar_update = self._compute_predictive_updates(
+            chol=L,
+            induc_data_covar=induc_data_covar,
+            inducing_values=inducing_values,
+            variational_inducing_covar=variational_inducing_covar,
+            prior_covar=self.prior_distribution.lazy_covariance_matrix,
+        )
 
-        # Compute the covariance of q(f)
-        # K_XX + k_XZ K_ZZ^{-1/2} (S - I) K_ZZ^{-1/2} k_ZX
-        middle_term = self.prior_distribution.lazy_covariance_matrix.mul(-1)
-        if variational_inducing_covar is not None:
-            middle_term = SumLinearOperator(variational_inducing_covar, middle_term)
+        predictive_mean = test_mean + mean_update
+        predictive_covar = SumLinearOperator(data_data_covar.add_jitter(self.jitter_val), covar_update)
 
         if trace_mode.on():
-            predictive_covar = (
-                data_data_covar.add_jitter(self.jitter_val).to_dense()
-                + interp_term.transpose(-1, -2) @ middle_term.to_dense() @ interp_term
-            )
-        else:
-            predictive_covar = SumLinearOperator(
-                data_data_covar.add_jitter(self.jitter_val),
-                MatmulLinearOperator(interp_term.transpose(-1, -2), middle_term @ interp_term),
-            )
+            predictive_covar = predictive_covar.to_dense()
 
-        # Return the distribution
         return MultivariateNormal(predictive_mean, predictive_covar)
 
     def __call__(self, x: Tensor, prior: bool = False, **kwargs) -> MultivariateNormal:
