@@ -9,7 +9,6 @@ from .likelihood import _OneDimensionalLikelihood
 
 
 class PoissonLikelihood(_OneDimensionalLikelihood):
-
     r"""
     A Poisson likelihood for regressing over count data.
 

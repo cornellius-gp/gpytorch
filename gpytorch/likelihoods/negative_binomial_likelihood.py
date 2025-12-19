@@ -11,7 +11,6 @@ from .likelihood import _OneDimensionalLikelihood
 
 
 class NegativeBinomialLikelihood(_OneDimensionalLikelihood):
-
     r"""
     A Negative Binomial likelihood for regressing over count data.
 
@@ -43,8 +42,7 @@ class NegativeBinomialLikelihood(_OneDimensionalLikelihood):
     :ivar torch.Tensor probs: :math:`p` parameter (probability of success)
 
     **Reference:**
-        S. Damato et al., Forecasting intermittent time series with Gaussian Processes and Tweedie likelihood.
-        International Journal of Forecasting, 2025.
+        Damato et al. (2025), Forecasting intermittent time series with Gaussian Processes and Tweedie likelihood.
     """
 
     has_analytic_marginal: bool = True
