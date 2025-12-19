@@ -2,9 +2,9 @@
 
 import unittest
 
-from torch import Tensor
-
 from gpytorch.priors import GammaPrior, HalfCauchyPrior, LogNormalPrior, NormalPrior
+
+from torch import Tensor
 
 
 TRANSFORMED_ERROR_MSG = """Priors of TransformedDistributions should not have their \
@@ -56,15 +56,23 @@ class TestPrior(unittest.TestCase):
         ln = LogNormalPrior(loc=2.5, scale=2.1)
         hc = HalfCauchyPrior(scale=2.2)
 
-        with self.assertRaisesRegex(AttributeError, "'NormalPrior' object has no attribute '_transformed_loc'"):
+        with self.assertRaisesRegex(
+            AttributeError, "'NormalPrior' object has no attribute '_transformed_loc'"
+        ):
             getattr(norm, "_transformed_loc")
 
-        self.assertTrue(getattr(ln, "_transformed_loc"), 2.5)
+        # Verify _transformed_loc exists and has correct value
+        self.assertEqual(ln._transformed_loc, 2.5)
+
+        # Test that setting loc updates _transformed_loc
         norm.loc = Tensor([1.01])
         ln.loc = Tensor([1.01])
         self.assertEqual(ln._transformed_loc, 1.01)
-        with self.assertRaises(AttributeError):
-            ln._transformed_loc = 1.1
 
-        with self.assertRaises(AttributeError):
-            hc._transformed_scale = 1.01
+        # Test that setting _transformed_loc updates the base loc attribute
+        ln._transformed_loc = 1.1
+        self.assertEqual(ln.loc, 1.1)
+
+        # Test that setting _transformed_scale updates the base scale attribute
+        hc._transformed_scale = 1.01
+        self.assertEqual(hc.scale, 1.01)
