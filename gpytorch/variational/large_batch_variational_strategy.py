@@ -1,6 +1,6 @@
 import torch
 
-from linear_operator.operators import DiagLinearOperator, LinearOperator
+from linear_operator.operators import DiagLinearOperator, LinearOperator, MatmulLinearOperator
 from torch import Tensor
 
 from gpytorch.variational.variational_strategy import VariationalStrategy
@@ -49,8 +49,8 @@ class LargeBatchVariationalStrategy(VariationalStrategy):
     This implementation speeds up the standard `VariationalStrategy` in two ways:
     1. Group the middle term `K_ZZ^{-1/2} (S - I) K_ZZ^{-1/2}` when computing the predictive covariance, which saves a
     large triangular solve in the forward pass;
-    2. Use a custom autograd function computing the diagonal of `K_XZ @ middle_term @ K_ZX`, which saves a large matmul
-    in the backward pass.
+    2. Use a custom autograd function computing the diagonal of `K_XZ @ middle_term @ K_ZX` in train mode, which saves
+    a large matmul in the backward pass.
 
     NOTE: Grouping the middle term is not numerically friendly, and thus we have to use double precision to stabilize
     the computation. As a result, this implementation is expected to be slow on CPUs and consumer GPUs. Those who use
@@ -89,7 +89,13 @@ class LargeBatchVariationalStrategy(VariationalStrategy):
         middle_term = torch.linalg.solve_triangular(chol.mT, middle_term, upper=True, left=True)
 
         # The covariance update `K_XZ K_ZZ^{-1/2} (S - I) K_ZZ^{-1/2} K_ZX`
-        variance_update = QuadFormDiagonal.apply(middle_term, induc_data_covar)
-        covar_update = DiagLinearOperator(diag=variance_update.type(dtype))
+        if self.training:
+            # The custom autograd function has a faster backward pass, but it doesn't compute the off-diagonal entries.
+            variance_update = QuadFormDiagonal.apply(middle_term, induc_data_covar)
+            covar_update = DiagLinearOperator(diag=variance_update.type(dtype))
+        else:
+            covar_update = MatmulLinearOperator(
+                induc_data_covar.mT.type(dtype), (middle_term @ induc_data_covar).type(dtype)
+            )
 
         return mean_update, covar_update
