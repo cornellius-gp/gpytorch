@@ -1,9 +1,48 @@
+import unittest
+
 import torch
 
-from gpytorch.variational.large_batch_variational_strategy import LargeBatchVariationalStrategy
+from gpytorch.test.base_test_case import BaseTestCase
+from gpytorch.variational.large_batch_variational_strategy import LargeBatchVariationalStrategy, QuadFormDiagonal
 from gpytorch.variational.variational_strategy import VariationalStrategy
 
 from test.variational.test_variational_strategy import TestVariationalGP
+
+
+class TestQuadFormDiagonal(BaseTestCase, unittest.TestCase):
+    def create_inputs(self):
+        m = 2
+        n = 3
+
+        A = torch.rand(m, m)
+        A = A + A.mT
+        A.requires_grad_(True)
+
+        B = torch.rand(m, n).requires_grad_(True)
+
+        return A, B
+
+    def test_forward_backward(self):
+        A, B = self.create_inputs()
+
+        # custom autograd function
+        diag = QuadFormDiagonal.apply(A, B)
+        loss = diag.sum()
+        loss.backward()
+
+        # ground truth
+        A_copy = A.clone().detach().requires_grad_(True)
+        B_copy = B.clone().detach().requires_grad_(True)
+        expected_diag = torch.diagonal(B_copy.mT @ A_copy @ B_copy)
+        expected_loss = expected_diag.sum()
+        expected_loss.backward()
+
+        # test forward
+        self.assertAllClose(diag, expected_diag)
+
+        # test backward
+        self.assertAllClose(A.grad, A_copy.grad)
+        self.assertAllClose(B.grad, B_copy.grad)
 
 
 class TestLargeBatchVariationalGP(TestVariationalGP):
