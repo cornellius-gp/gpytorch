@@ -133,7 +133,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
         return TriangularLinearOperator(L)
 
     def __call__(
-        self, x: Float[Tensor, "... N D"], prior: bool = False, **kwargs: Any
+        self, x: Float[Tensor, "... N D"], prior: bool = False, diag: bool = True, **kwargs: Any
     ) -> Float[MultivariateNormal, "... N"]:
         # If we're in prior mode, then we're done!
         if prior:
@@ -180,8 +180,11 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
         inducing_points: Float[Tensor, "... M D"],
         inducing_values: Float[Tensor, "... M"],
         variational_inducing_covar: Optional[Float[LinearOperator, "... M M"]] = None,
+        diag: bool = True,
         **kwargs: Any,
     ) -> Float[MultivariateNormal, "... N"]:
+        # TODO: This method needs to return the full covariance in eval mode, not just the predictive variance.
+        # TODO: Use `diag` to control when to compute the variance vs. covariance in train mode.
         if self.training:
             # In training mode, note that the full inducing points set = full training dataset
             # Users have the option to choose input None or a tensor of training data for x

@@ -64,6 +64,7 @@ class LargeBatchVariationalStrategy(VariationalStrategy):
         inducing_values: Tensor,
         variational_inducing_covar: LinearOperator | None,
         prior_covar: LinearOperator,
+        diag: bool = True,
     ) -> tuple[Tensor, LinearOperator]:
         dtype = induc_data_covar.dtype
 
@@ -89,7 +90,7 @@ class LargeBatchVariationalStrategy(VariationalStrategy):
         middle_term = torch.linalg.solve_triangular(chol.mT, middle_term, upper=True, left=True)
 
         # The covariance update `K_XZ K_ZZ^{-1/2} (S - I) K_ZZ^{-1/2} K_ZX`
-        if self.training:
+        if diag and self.training:
             # The custom autograd function has a faster backward pass, but it doesn't compute the off-diagonal entries.
             variance_update = QuadFormDiagonal.apply(middle_term, induc_data_covar)
             covar_update = DiagLinearOperator(diag=variance_update.type(dtype))

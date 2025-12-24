@@ -267,6 +267,7 @@ class VariationalStrategy(_VariationalStrategy):
         inducing_values: Tensor,
         variational_inducing_covar: LinearOperator | None,
         prior_covar: LinearOperator,
+        diag: bool = True,
     ) -> tuple[Tensor, LinearOperator]:
         r"""Compute the predictive mean and covariance updates. Adding the return values of this method to the prior
         mean and covariance yields the predictive mean and covariance.
@@ -287,7 +288,7 @@ class VariationalStrategy(_VariationalStrategy):
 
         # The custom autograd function doesn't compute the off-diagonal entries. Besides, it's only optimized for the
         # setting where the batch size is larger than the number of inducing points.
-        if self.training and induc_data_covar.size(-2) < induc_data_covar.size(-1):
+        if diag and self.training and induc_data_covar.size(-2) < induc_data_covar.size(-1):
             predictive_mean_update, predictive_variance_update = ComputePredictiveUpdates.apply(
                 chol.to_dense().type(induc_data_covar.dtype),
                 induc_data_covar,
@@ -321,6 +322,7 @@ class VariationalStrategy(_VariationalStrategy):
         inducing_points: Tensor,
         inducing_values: Tensor,
         variational_inducing_covar: Optional[LinearOperator] = None,
+        diag: bool = True,
         **kwargs,
     ) -> MultivariateNormal:
         # Compute full prior distribution
@@ -354,6 +356,7 @@ class VariationalStrategy(_VariationalStrategy):
             inducing_values=inducing_values,
             variational_inducing_covar=variational_inducing_covar,
             prior_covar=self.prior_distribution.lazy_covariance_matrix,
+            diag=diag,
         )
 
         predictive_mean = test_mean + mean_update
@@ -364,11 +367,11 @@ class VariationalStrategy(_VariationalStrategy):
 
         return MultivariateNormal(predictive_mean, predictive_covar)
 
-    def __call__(self, x: Tensor, prior: bool = False, **kwargs) -> MultivariateNormal:
+    def __call__(self, x: Tensor, prior: bool = False, diag: bool = True, **kwargs) -> MultivariateNormal:
         if not self.updated_strategy.item() and not prior:
             with torch.no_grad():
-                # Get unwhitened p(u)
-                prior_function_dist = self(self.inducing_points, prior=True)
+                # Get unwhitened p(u). Whitening needs the full covariance.
+                prior_function_dist = self(self.inducing_points, prior=True, diag=False)
                 prior_mean = prior_function_dist.loc
                 L = self._cholesky_factor(prior_function_dist.lazy_covariance_matrix.add_jitter(self.jitter_val))
 
@@ -398,4 +401,4 @@ class VariationalStrategy(_VariationalStrategy):
                 # Mark that we have updated the variational strategy
                 self.updated_strategy.fill_(True)
 
-        return super().__call__(x, prior=prior, **kwargs)
+        return super().__call__(x, prior=prior, diag=diag, **kwargs)

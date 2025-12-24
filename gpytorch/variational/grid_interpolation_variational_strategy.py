@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 
+from typing import Optional
+
 import torch
+from linear_operator import LinearOperator
 from linear_operator.operators import InterpolatedLinearOperator
 from linear_operator.utils.interpolation import left_interp
+from torch import Tensor
 
 from ..distributions import MultivariateNormal
 from ..utils.interpolation import Interpolation
@@ -77,7 +81,15 @@ class GridInterpolationVariationalStrategy(_VariationalStrategy):
         res = MultivariateNormal(out.mean, out.lazy_covariance_matrix.add_jitter(1e-3))
         return res
 
-    def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None):
+    def forward(
+        self,
+        x: Tensor,
+        inducing_points: Tensor,
+        inducing_values: Tensor,
+        variational_inducing_covar: Optional[LinearOperator] = None,
+        diag: bool = True,
+        **kwargs,
+    ):
         if variational_inducing_covar is None:
             raise RuntimeError(
                 "GridInterpolationVariationalStrategy is only compatible with Gaussian variational "
