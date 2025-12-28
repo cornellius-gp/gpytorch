@@ -18,6 +18,8 @@ from linear_operator.utils.cholesky import psd_safe_cholesky
 from linear_operator.utils.errors import NotPSDError
 from torch import Tensor
 
+from gpytorch import settings
+
 from gpytorch.variational._variational_strategy import _VariationalStrategy
 from gpytorch.variational.cholesky_variational_distribution import CholeskyVariationalDistribution
 
@@ -312,6 +314,9 @@ class VariationalStrategy(_VariationalStrategy):
             # Compute the predictive mean update
             # k_XZ K_ZZ^{-1/2} (m - K_ZZ^{-1/2} \mu_Z)
             predictive_mean_update = (interp_term.mT @ inducing_values.unsqueeze(-1)).squeeze(-1)
+
+            if settings.trace_mode.on():
+                middle_term = middle_term.to_dense()
 
             # Compute the predictive covariance update
             # k_XZ K_ZZ^{-1/2} (S - I) K_ZZ^{-1/2} k_ZX
