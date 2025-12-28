@@ -127,7 +127,7 @@ class ComputePredictiveUpdates(torch.autograd.Function):
         # actually not necessary here, because `d_chol` is immediately fed into `cholesky_backward`, which does not
         # care about the upper triangular part. We keep it here for consistency with PyTorch's implementation.
         # https://github.com/pytorch/pytorch/blob/4a0693682a8574bdc36e1ca2ea7bd2ddf5c19340/torch/csrc/autograd/FunctionsManual.cpp#L1999-L2003
-        # NOTE: If we want to get fansy, fusing this backward with `cholesky_backward` will save a matmul. It may not
+        # NOTE: If we want to get fancy, fusing this backward with `cholesky_backward` will save a matmul. It may not
         # be worth the effort. It's only useful when there are more inducing points than the data.
         d_chol = d_chol.tril()
 
@@ -278,8 +278,11 @@ class VariationalStrategy(_VariationalStrategy):
 
         :param chol: The Cholesky factor `K_{ZZ}^{-1/2}`.
         :param induc_data_covar: The covariance between the inducing points and the data `K_{ZX}`.
-        :param middle_term: The difference between the variational and prior covariances `S - I`.
         :param inducing_values: The whitened variational mean `m`.
+        :param variational_inducing_covar: The variational covariance `S`.
+        :param prior_covar: The prior covariance, typically an identity matrix `I`.
+        :param diag: If true, this method computes the predictive variance instead of the full covariance in train mode
+            if there are more data than inducing points.
         :return: The predictive mean update and the predictive covariance update.
         """
         middle_term = prior_covar.mul(-1)
