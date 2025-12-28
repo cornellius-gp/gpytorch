@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 import torch
 
@@ -50,19 +51,44 @@ class TestLargeBatchVariationalGP(TestVariationalGP):
     def strategy_cls(self):
         return LargeBatchVariationalStrategy
 
-    def test_forward_backward(self, mode: bool = True):
+    def test_forward_train_eval(self, *args, **kwargs):
+        model, _ = self._make_model_and_likelihood(
+            batch_shape=self.batch_shape,
+            strategy_cls=self.strategy_cls,
+            distribution_cls=self.distribution_cls,
+        )
+
+        train_x = torch.rand(*self.batch_shape, 4, 2)
+
+        # In train mode, the custom autograd function is called
+        model.train()
+        with patch.object(QuadFormDiagonal, "forward", wraps=QuadFormDiagonal.forward) as mock_forward:
+            predictive_dist1 = model(train_x)
+            mock_forward.assert_called()
+
+        # In eval mode, the custom autograd function should not be called
+        model.eval()
+        with patch.object(QuadFormDiagonal, "forward", wraps=QuadFormDiagonal.forward) as mock_forward:
+            predictive_dist2 = model(train_x)
+            mock_forward.assert_not_called()
+
+        # The train mode and eval mode should produce the same predictive mean and variance
+        self.assertAllClose(predictive_dist1.mean, predictive_dist2.mean)
+        self.assertAllClose(predictive_dist1.variance, predictive_dist2.variance)
+
+    def test_against_variational_strategy(self, train: bool = True):
         train_x = torch.rand(5, 2)
 
         torch.manual_seed(42)
         model1, _ = self._make_model_and_likelihood(strategy_cls=LargeBatchVariationalStrategy)
-        model1.train(mode=mode)
+        model1.train(mode=train)
         output1 = model1(train_x)
         loss1 = output1.mean.mean() + output1.variance.mean()
         loss1.backward()
 
         torch.manual_seed(42)
         model2, _ = self._make_model_and_likelihood(strategy_cls=VariationalStrategy)
-        model2.train(mode=mode)
+        model2.train(mode=train)
         output2 = model2(train_x)
         loss2 = output2.mean.mean() + output2.variance.mean()
         loss2.backward()
@@ -83,5 +109,5 @@ class TestLargeBatchVariationalGP(TestVariationalGP):
             self.assertIsNotNone(p2.grad)
             self.assertAllClose(p1.grad, p2.grad)
 
-    def test_forward_backward_eval(self):
-        self.test_forward_backward(mode=False)
+    def test_against_variational_strategy_eval(self):
+        self.test_against_variational_strategy(train=False)

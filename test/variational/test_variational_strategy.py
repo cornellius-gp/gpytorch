@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import unittest
+from unittest.mock import patch
 
 import torch
 
@@ -46,6 +47,34 @@ class TestVariationalGP(VariationalTestCase, unittest.TestCase):
 
         with self.assertRaises(NotImplementedError):
             super().test_fantasy_call(*args, **kwargs)
+
+    def test_forward_train_eval(self, *args, **kwargs):
+        num_inducing = 5
+
+        model, _ = self._make_model_and_likelihood(
+            num_inducing=num_inducing,
+            batch_shape=self.batch_shape,
+            strategy_cls=self.strategy_cls,
+            distribution_cls=self.distribution_cls,
+        )
+
+        train_x = torch.randn(*self.batch_shape, num_inducing + 1, 2)
+
+        # More data than the number of inducing points; this code path uses the custom autograd function
+        model.train()
+        with patch.object(ComputePredictiveUpdates, "forward", wraps=ComputePredictiveUpdates.forward) as mock_forward:
+            predictive_dist1 = model(train_x)
+            mock_forward.assert_called()
+
+        # This should execute the other code path without calling the custom autograd function
+        model.eval()
+        with patch.object(ComputePredictiveUpdates, "forward", wraps=ComputePredictiveUpdates.forward) as mock_forward:
+            predictive_dist2 = model(train_x)
+            mock_forward.assert_not_called()
+
+        # The train mode and eval mode should produce the same predictive mean and variance
+        self.assertAllClose(predictive_dist1.mean, predictive_dist2.mean)
+        self.assertAllClose(predictive_dist1.variance, predictive_dist2.variance)
 
 
 class TestPredictiveGP(TestVariationalGP):
@@ -164,24 +193,6 @@ class TestComputePredictiveUpdates(BaseTestCase, unittest.TestCase):
         self.assertAllClose(induc_data_covar.grad, induc_data_covar_ref.grad)
         self.assertAllClose(middle.grad, middle_ref.grad)
         self.assertAllClose(inducing_values.grad, inducing_values_ref.grad)
-
-
-class TestVariationalStrategyTrainEvalMode(TestVariationalGP):
-    def test_train_eval_model(self):
-        model, _ = self._make_model_and_likelihood()
-
-        train_x = torch.rand(3, 2)
-
-        model.train()
-        predictive_dist_train = model(train_x)
-
-        model.eval()
-        predictive_dist_eval = model(train_x)
-
-        # The train and eval modes execute two different code paths. Nevertheless, the predictive mean and predictive
-        # variance should be exactly the same.
-        self.assertAllClose(predictive_dist_train.mean, predictive_dist_eval.mean)
-        self.assertAllClose(predictive_dist_train.variance, predictive_dist_eval.variance)
 
 
 if __name__ == "__main__":
