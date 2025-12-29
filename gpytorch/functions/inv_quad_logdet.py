@@ -2,6 +2,7 @@
 
 import torch
 
+from linear_operator.utils.cholesky import psd_safe_cholesky
 from torch import Tensor
 
 
@@ -23,7 +24,7 @@ class TensorInvQuadLogdet(torch.autograd.Function):
         :param inv_quad_rhs: The right-hand side vector of size `(..., N, 1)`.
         :return: The inverse quadratic form and the log determinant, both of size `(...)`.
         """
-        chol = torch.linalg.cholesky(matrix)
+        chol = psd_safe_cholesky(matrix)
 
         # The inverse quadratic term
         inv_quad_solves = torch.cholesky_solve(inv_quad_rhs, chol)
