@@ -248,9 +248,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
 
         covar = covar.evaluate_kernel()
 
-        if (
-            settings.fast_computations.log_prob.off() or covar.size(-1) <= settings.max_cholesky_size.value()
-        ) and settings.use_torch_tensors.on():
+        if covar.size(-1) <= settings.max_cholesky_size.value() and settings.use_torch_tensors.on():
             # If we are to use Cholesky decomposition for inference, and we are allowed to use torch tensors as opposed
             # to linear operators, then do so.
             inv_quad, logdet = TensorInvQuadLogdet.apply(covar.to_dense(), diff.unsqueeze(-1))

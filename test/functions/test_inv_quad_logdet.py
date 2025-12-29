@@ -10,13 +10,14 @@ from gpytorch.kernels import RBFKernel
 
 class TestInvQuadLogdet(unittest.TestCase):
     def test_inv_quad_logdet(self):
-        # NOTE: Use small matrics here to avoid flakiness since we are testing in `float32`.
+        # NOTE: Use small matrices here to avoid flakiness since we are testing in `float32` and `torch.allclose` by
+        # default is pretty stringent.
         num_data = 3
         jitter = 1e-4
 
         train_x = torch.linspace(0, 1, num_data).view(num_data, 1)
 
-        # Foward and backward using `InvQuadLogdet`
+        # Forward and backward using `InvQuadLogdet`
         covar_module = RBFKernel()
         covar_matrix = covar_module(train_x).evaluate_kernel().add_jitter(jitter).to_dense()
 
@@ -48,7 +49,7 @@ class TestInvQuadLogdet(unittest.TestCase):
 
         train_x = torch.linspace(0, 1, 2 * num_data).view(2, num_data, 1)
 
-        # Foward and backward using `InvQuadLogdet`
+        # Forward and backward using `InvQuadLogdet`
         covar_module = RBFKernel(batch_shape=torch.Size([2]))
         covar_matrix = covar_module(train_x).evaluate_kernel().add_jitter(jitter).to_dense()
 
