@@ -60,7 +60,7 @@ class AdditiveGridInterpolationVariationalStrategy(GridInterpolationVariationalS
         inducing_points: Tensor,
         inducing_values: Tensor,
         variational_inducing_covar: Optional[LinearOperator] = None,
-        *params,
+        diag: bool = True,
         **kwargs,
     ) -> MultivariateNormal:
         if x.ndimension() == 1:
@@ -72,7 +72,7 @@ class AdditiveGridInterpolationVariationalStrategy(GridInterpolationVariationalS
         if num_dim != self.num_dim:
             raise RuntimeError("The number of dims should match the number specified.")
 
-        output = super().forward(x, inducing_points, inducing_values, variational_inducing_covar)
+        output = super().forward(x, inducing_points, inducing_values, variational_inducing_covar, diag=diag)
         if self.sum_output:
             if variational_inducing_covar is not None:
                 mean = output.mean.sum(0)

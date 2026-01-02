@@ -49,6 +49,7 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
         parameters of the model).
     :param jitter_val: Amount of diagonal jitter to add for Cholesky factorization numerical stability
     """
+
     has_fantasy_strategy = True
 
     @cached(name="cholesky_factor", ignore_args=True)
@@ -124,6 +125,7 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
         inducing_points: Tensor,
         inducing_values: Tensor,
         variational_inducing_covar: Optional[LinearOperator] = None,
+        diag: bool = True,
         **kwargs,
     ) -> MultivariateNormal:
         # If our points equal the inducing points, we're done
@@ -205,5 +207,5 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
             RootLinearOperator(inv_products[..., 1:, :].transpose(-1, -2)), data_covariance
         )
 
-        # Done!
+        # TODO: Use `diag` to control whether to return full covariance or just diagonal in train mode
         return MultivariateNormal(predictive_mean, predictive_covar)

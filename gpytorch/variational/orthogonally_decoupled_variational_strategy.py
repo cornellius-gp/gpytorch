@@ -86,6 +86,7 @@ class OrthogonallyDecoupledVariationalStrategy(_VariationalStrategy):
         inducing_points: Tensor,
         inducing_values: Tensor,
         variational_inducing_covar: Optional[LinearOperator] = None,
+        diag: bool = True,
         **kwargs,
     ) -> MultivariateNormal:
         if variational_inducing_covar is not None:
@@ -94,7 +95,9 @@ class OrthogonallyDecoupledVariationalStrategy(_VariationalStrategy):
             )
 
         num_data = x.size(-2)
-        full_output = self.model(torch.cat([x, inducing_points], dim=-2), **kwargs)
+
+        # `self.model` is a variational strategy. Need to force it to compute full covariance in train mode.
+        full_output = self.model(torch.cat([x, inducing_points], dim=-2), diag=False, **kwargs)
         full_mean = full_output.mean
         full_covar = full_output.lazy_covariance_matrix
 

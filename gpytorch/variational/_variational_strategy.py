@@ -129,6 +129,7 @@ class _VariationalStrategy(Module, ABC):
         inducing_points: Tensor,
         inducing_values: Tensor,
         variational_inducing_covar: Optional[LinearOperator] = None,
+        diag: bool = True,
         **kwargs,
     ) -> MultivariateNormal:
         r"""
@@ -146,6 +147,12 @@ class _VariationalStrategy(Module, ABC):
             the distribuiton :math:`q(\mathbf u)` is
             Gaussian, then this variable is the covariance matrix of that Gaussian.
             Otherwise, it will be None.
+        :param diag: If true and this module is in train mode, this method is allowed to skip the off-diagonal entries
+            in the predictive covariance and only compute the predictive variance, whenever it's deemed more efficient
+            by the underlying implementation. In that case, the off-diagonal entries in the covariance matrix of the
+            returned :class:`~gpytorch.distributions.MultivariateNormal` could be arbitrary dummy values. If this
+            argument is false, then this method computes the full covariance matrix even in train mode. This argument
+            is ignored if this module is in eval mode, in which case the full covariance matrix is always computed.
 
         :rtype: :obj:`~gpytorch.distributions.MultivariateNormal`
         :return: The distribution :math:`q( \mathbf f(\mathbf X))`
@@ -320,14 +327,21 @@ class _VariationalStrategy(Module, ABC):
         fantasy_model.prediction_strategy = fant_pred_strat
         return fantasy_model
 
-    def __call__(self, x: Tensor, prior: bool = False, **kwargs) -> MultivariateNormal:
+    def __call__(self, x: Tensor, prior: bool = False, diag: bool = True, **kwargs) -> MultivariateNormal:
         # If we're in prior mode, then we're done!
         if prior:
-            return self.model.forward(x, **kwargs)
+            if isinstance(self.model, _VariationalStrategy):
+                # If the model is itself a variational strategy, we need to force it to compute the full covariance in
+                # case that the model is in train mode.
+                return self.model.forward(x, diag=False, **kwargs)
+            else:
+                # Otherwise, the model is `ApproximateGP`. So we can just call forward.
+                return self.model.forward(x, **kwargs)
 
         # Delete previously cached items from the training distribution
         if self.training:
             self._clear_cache()
+
         # (Maybe) initialize variational distribution
         if not self.variational_params_initialized.item():
             prior_dist = self.prior_distribution
@@ -349,11 +363,17 @@ class _VariationalStrategy(Module, ABC):
                 inducing_points,
                 inducing_values=variational_dist_u.mean,
                 variational_inducing_covar=variational_dist_u.lazy_covariance_matrix,
+                diag=diag,
                 **kwargs,
             )
         elif isinstance(variational_dist_u, Delta):
             return super().__call__(
-                x, inducing_points, inducing_values=variational_dist_u.mean, variational_inducing_covar=None, **kwargs
+                x,
+                inducing_points,
+                inducing_values=variational_dist_u.mean,
+                variational_inducing_covar=None,
+                diag=diag,
+                **kwargs,
             )
         else:
             raise RuntimeError(

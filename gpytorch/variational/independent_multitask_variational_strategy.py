@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
 import warnings
+from typing import Optional
 
 import torch
 from linear_operator.operators import RootLinearOperator
+from torch import LongTensor, Tensor
 
 from ..distributions import MultitaskMultivariateNormal, MultivariateNormal
 from ..module import Module
@@ -49,11 +51,19 @@ class IndependentMultitaskVariationalStrategy(_VariationalStrategy):
     def kl_divergence(self):
         return super().kl_divergence().sum(dim=-1)
 
-    def __call__(self, x, task_indices=None, prior=False, **kwargs):
+    def __call__(
+        self,
+        x: Tensor,
+        task_indices: Optional[LongTensor] = None,
+        prior: bool = False,
+        diag: bool = True,
+        **kwargs,
+    ):
         r"""
         See :class:`LMCVariationalStrategy`.
         """
-        function_dist = self.base_variational_strategy(x, prior=prior, **kwargs)
+        # Compute the full covariance because we might use the off-diagonal entries below
+        function_dist = self.base_variational_strategy(x, prior=prior, diag=False, **kwargs)
 
         if task_indices is None:
             # Every data point will get an output for each task

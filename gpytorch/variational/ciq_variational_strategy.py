@@ -195,12 +195,12 @@ class CiqVariationalStrategy(_VariationalStrategy):
         inducing_points: torch.Tensor,
         inducing_values: torch.Tensor,
         variational_inducing_covar: Optional[LinearOperator] = None,
-        *params,
+        diag: bool = True,
         **kwargs,
     ) -> MultivariateNormal:
         # Compute full prior distribution
         full_inputs = torch.cat([inducing_points, x], dim=-2)
-        full_output = self.model.forward(full_inputs, *params, **kwargs)
+        full_output = self.model.forward(full_inputs, **kwargs)
         full_covar = full_output.lazy_covariance_matrix
 
         # Covariance terms
@@ -275,7 +275,7 @@ class CiqVariationalStrategy(_VariationalStrategy):
         else:
             return super().kl_divergence()
 
-    def __call__(self, x: torch.Tensor, prior: bool = False, *params, **kwargs) -> MultivariateNormal:
+    def __call__(self, x: torch.Tensor, prior: bool = False, diag: bool = True, **kwargs) -> MultivariateNormal:
         # This is mostly the same as _VariationalStrategy.__call__()
         # but with special rules for natural gradient descent (to prevent O(M^3) computation)
 
@@ -313,7 +313,7 @@ class CiqVariationalStrategy(_VariationalStrategy):
                 inducing_points,
                 inducing_values=None,
                 variational_inducing_covar=None,
-                *params,
+                diag=diag,
                 **kwargs,
             )
         else:
@@ -327,6 +327,7 @@ class CiqVariationalStrategy(_VariationalStrategy):
                     inducing_points,
                     inducing_values=variational_dist_u.mean,
                     variational_inducing_covar=variational_dist_u.lazy_covariance_matrix,
+                    diag=diag,
                     **kwargs,
                 )
             elif isinstance(variational_dist_u, Delta):
@@ -336,6 +337,7 @@ class CiqVariationalStrategy(_VariationalStrategy):
                     inducing_points,
                     inducing_values=variational_dist_u.mean,
                     variational_inducing_covar=None,
+                    diag=diag,
                     **kwargs,
                 )
             else:
