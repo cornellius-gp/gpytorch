@@ -22,12 +22,12 @@ class NegativeBinomialLikelihood(_OneDimensionalLikelihood):
 
     .. math::
         \begin{equation*}
-            r = \text{softplus}(f) \cdot \frac{1-p}{p}, \quad p = \sigma(\text{raw_probs})
+            r = \text{softplus}(f) \cdot \frac{1-p}{p}
         \end{equation*}
 
     where :math:`f` is the GP function sample and :math:`\sigma(\cdot)` is the sigmoid function.
     Therefore, the GP function parametrizes the mean of the negative binomial distribution.
-    When :math:`\text{total_count_param}` is True, GP directly parametrizes :math:`r = \text{softplus}(f)`.
+    When :math:`\text{total_count_param}` is True, the GP directly parametrizes :math:`r = \text{softplus}(f)`.
 
     The likelihood is then:
 
