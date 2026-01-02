@@ -35,8 +35,6 @@ class PoissonLikelihood(_OneDimensionalLikelihood):
     :ivar torch.Tensor rate: :math:`\lambda` parameter (rate)
     """
 
-    has_analytic_marginal: bool = True
-
     def __init__(self):
         super().__init__()
 

@@ -22,12 +22,12 @@ class NegativeBinomialLikelihood(_OneDimensionalLikelihood):
 
     .. math::
         \begin{equation*}
-            r = \text{softplus}(f) \cdot \frac{1-p}{p}, \quad p = \sigma(\text{raw\_probs})
+            r = \text{softplus}(f) \cdot \frac{1-p}{p}, \quad p = \sigma(\text{raw_probs})
         \end{equation*}
 
     where :math:`f` is the GP function sample and :math:`\sigma(\cdot)` is the sigmoid function.
     Therefore, the GP function parametrizes the mean of the negative binomial distribution.
-    When :math:`\text{total\_count\_param}` is True, GP directly parametrizes :math:`r = \text{softplus}(f)`.
+    When :math:`\text{total_count_param}` is True, GP directly parametrizes :math:`r = \text{softplus}(f)`.
 
     The likelihood is then:
 
@@ -44,8 +44,6 @@ class NegativeBinomialLikelihood(_OneDimensionalLikelihood):
     **Reference:**
         Damato et al. (2025), Forecasting intermittent time series with Gaussian Processes and Tweedie likelihood.
     """
-
-    has_analytic_marginal: bool = True
 
     def __init__(
         self,
