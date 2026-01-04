@@ -7,7 +7,7 @@ from gpytorch.test.base_test_case import BaseTestCase
 from gpytorch.variational.large_batch_variational_strategy import LargeBatchVariationalStrategy, QuadFormDiagonal
 from gpytorch.variational.variational_strategy import VariationalStrategy
 
-from test.variational.test_variational_strategy import TestVariationalGP
+from .test_variational_strategy import TestVariationalGP
 
 
 class TestQuadFormDiagonal(BaseTestCase, unittest.TestCase):
