@@ -14,30 +14,29 @@ class NegativeBinomialLikelihood(_OneDimensionalLikelihood):
     r"""
     A Negative Binomial likelihood for regressing over count data.
 
-    The Negative Binomial distribution is parameterized by :math:`r > 0` (total count)
-    and :math:`p \in (0, 1)` (probability of success).
-    The total count parameter is derived from the GP function samples.
+    This likelihood is parameterized by :math:`k > 0`, the total number of failures (also denoted as total count
+    in `torch.distributions`), and :math:`p \in (0, 1)`, the probability of success.
 
-    We parameterize the likelihood as follows:
+    Under this parameterization, the random variable represents the number of successful independent trials,
+    each with probability of success :math:`p`, observed before :math:`k` failures occur. The likelihood is then:
+
+    .. math:: p(y \mid f) = \text{NegativeBinomial} \left( k, p \right).
+
+    The number of failures parameter is derived as:
 
     .. math::
         \begin{equation*}
-            r = \text{softplus}(f) \cdot \frac{1-p}{p}
+            k = \text{softplus}(f) \cdot \frac{1 - p}{p}
         \end{equation*}
 
-    where :math:`f` is the GP function sample and :math:`\sigma(\cdot)` is the sigmoid function.
-    Therefore, the GP function parametrizes the mean of the negative binomial distribution.
-    When :math:`\text{total_count_param}` is True, the GP directly parametrizes :math:`r = \text{softplus}(f)`.
-
-    The likelihood is then:
-
-    .. math::
-        p(y \mid f) = \text{NegativeBinomial} \left( r, p \right).
+    where :math:`f` is the GP function sample. With this choice,
+    the GP function parametrizes the mean of the negative binomial distribution.
+    When :attr:`total_count_param` is True, the GP directly parametrizes :math:`k = \text{softplus}(f)`.
 
     :param batch_shape: The batch shape of the learned probabilities parameter (default: []).
     :param probs_prior: Prior for probabilities parameter :math:`p`.
     :param probs_constraint: Constraint for probabilities parameter :math:`p`.
-    :param total_count_param: Whether the GP parametrizes the total count parameter :math:`r` (default: False).
+    :param total_count_param: Whether the GP parametrizes the total count parameter :math:`k` (default: False).
 
     :ivar torch.Tensor probs: :math:`p` parameter (probability of success)
 
