@@ -181,6 +181,7 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
         inducing_points: Tensor,
         inducing_values: Tensor,
         variational_inducing_covar: Optional[LinearOperator] = None,
+        diag: bool = True,
         **kwargs,
     ) -> MultivariateNormal:
         # We'll compute the covariance, and cross-covariance terms for both the

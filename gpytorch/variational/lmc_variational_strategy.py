@@ -161,7 +161,13 @@ class LMCVariationalStrategy(_VariationalStrategy):
         return super().kl_divergence().sum(dim=self.latent_dim)
 
     def __call__(
-        self, x: Tensor, prior: bool = False, task_indices: Optional[LongTensor] = None, **kwargs
+        self,
+        x: Tensor,
+        *,
+        task_indices: Optional[LongTensor] = None,
+        prior: bool = False,
+        diag: bool = True,
+        **kwargs,
     ) -> Union[MultitaskMultivariateNormal, MultivariateNormal]:
         r"""
         Computes the variational (or prior) distribution
@@ -194,7 +200,7 @@ class LMCVariationalStrategy(_VariationalStrategy):
         :rtype: ~gpytorch.distributions.MultitaskMultivariateNormal (... x N x num_tasks)
             or ~gpytorch.distributions.MultivariateNormal (... x N)
         """
-        latent_dist = self.base_variational_strategy(x, prior=prior, **kwargs)
+        latent_dist = self.base_variational_strategy(x, prior=prior, diag=False, **kwargs)
         num_batch = len(latent_dist.batch_shape)
         latent_dim = num_batch + self.latent_dim
 
