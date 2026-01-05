@@ -14,7 +14,7 @@ class NegativeBinomialLikelihood(_OneDimensionalLikelihood):
     r"""
     A Negative Binomial likelihood for regressing over count data.
 
-    This likelihood is parameterized by :math:`k > 0`, the total number of failures (also denoted as total count
+    This likelihood is parameterized by :math:`k > 0`, the total number of failures (also named total count
     in `torch.distributions`), and :math:`p \in (0, 1)`, the probability of success.
 
     Under this parameterization, the random variable represents the number of successful independent trials,
@@ -31,12 +31,12 @@ class NegativeBinomialLikelihood(_OneDimensionalLikelihood):
 
     where :math:`f` is the GP function sample. With this choice,
     the GP function parametrizes the mean of the negative binomial distribution.
-    When :attr:`total_count_param` is True, the GP directly parametrizes :math:`k = \text{softplus}(f)`.
+    When :attr:`num_failures_param` is True, the GP directly parametrizes :math:`k = \text{softplus}(f)`.
 
     :param batch_shape: The batch shape of the learned probabilities parameter (default: []).
     :param probs_prior: Prior for probabilities parameter :math:`p`.
     :param probs_constraint: Constraint for probabilities parameter :math:`p`.
-    :param total_count_param: Whether the GP parametrizes the total count parameter :math:`k` (default: False).
+    :param num_failures_param: Whether the GP parametrizes the number of failures parameter :math:`k` (default: False).
 
     :ivar torch.Tensor probs: :math:`p` parameter (probability of success)
 
@@ -49,7 +49,7 @@ class NegativeBinomialLikelihood(_OneDimensionalLikelihood):
         batch_shape: torch.Size = torch.Size([]),
         probs_prior: Optional[Prior] = None,
         probs_constraint: Optional[Interval] = None,
-        total_count_param: bool = False,
+        num_failures_param: bool = False,
     ) -> None:
         super().__init__()
 
@@ -62,7 +62,7 @@ class NegativeBinomialLikelihood(_OneDimensionalLikelihood):
 
         self.register_constraint("raw_probs", probs_constraint)
 
-        self.total_count_param = total_count_param
+        self.num_failures_param = num_failures_param
 
     @property
     def probs(self) -> Tensor:
@@ -79,8 +79,8 @@ class NegativeBinomialLikelihood(_OneDimensionalLikelihood):
 
     def forward(self, function_samples: Tensor, *args: Any, **kwargs: Any) -> NegativeBinomial:
         probs = torch.clamp(self.probs, 1e-06, 1 - 1e-06)
-        if self.total_count_param:
-            total_count = torch.nn.functional.softplus(function_samples)
+        if self.num_failures_param:
+            num_failures = torch.nn.functional.softplus(function_samples)
         else:
-            total_count = torch.nn.functional.softplus(function_samples) * (1 - probs) / probs
-        return base_distributions.NegativeBinomial(total_count=total_count, probs=probs)
+            num_failures = torch.nn.functional.softplus(function_samples) * (1 - probs) / probs
+        return base_distributions.NegativeBinomial(total_count=num_failures, probs=probs)
