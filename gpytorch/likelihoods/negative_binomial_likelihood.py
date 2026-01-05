@@ -18,7 +18,7 @@ class NegativeBinomialLikelihood(_OneDimensionalLikelihood):
     in `torch.distributions`), and :math:`p \in (0, 1)`, the probability of success.
 
     Under this parameterization, the random variable represents the number of successful independent trials,
-    each with probability of success :math:`p`, observed before :math:`k` failures occur. The likelihood is then:
+    each with probability of success :math:`p`, observed before :math:`k` failures occur. The likelihood is:
 
     .. math:: p(y \mid f) = \text{NegativeBinomial} \left( k, p \right).
 
