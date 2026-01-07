@@ -189,7 +189,7 @@ class SpectralMixtureKernel(Kernel):
             freq = freq[: M + 1]
             emp_spect = emp_spect[: M + 1]
 
-            total_area = np.trapz(emp_spect, freq)
+            total_area = np.trapezoid(emp_spect, freq)
             spec_cdf = np.hstack((np.zeros(1), cumulative_trapezoid(emp_spect, freq)))
             spec_cdf = spec_cdf / total_area
 
