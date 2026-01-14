@@ -53,7 +53,7 @@ jobs:
         conda config --append channels pytorch
         conda config --append channels gpytorch
         conda config --append channels conda-forge
-        /usr/share/miniconda/bin/anaconda login --username ${{ secrets.CONDA_USERNAME }} --password ${{ secrets.CONDA_PASSWORD }}
+        /usr/share/miniconda/bin/anaconda login --username ${{ secrets.CONDA_USERNAME }} --password ${{ secrets.CONDA_PASSWORD }} --hostname anaconda.org
         python -m setuptools_scm
         conda build .conda
         /usr/share/miniconda/bin/anaconda logout
