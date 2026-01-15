@@ -282,13 +282,21 @@ class TestLargeBatchVariationalGP(TestVariationalGP):
         with tempfile.TemporaryDirectory() as tmpdir:
             onnx_path = os.path.join(tmpdir, "model.onnx")
 
+            # Build export kwargs - use legacy exporter if available (PyTorch 2.9+)
+            export_kwargs = dict(
+                input_names=["input"],
+                output_names=["mean"],
+                opset_version=17,
+            )
+            # dynamo=False forces the legacy TorchScript-based exporter
+            if hasattr(torch.onnx.export, "__wrapped__") or torch.__version__ >= "2.9":
+                export_kwargs["dynamo"] = False
+
             torch.onnx.export(
                 wrapper,
                 test_x,
                 onnx_path,
-                input_names=["input"],
-                output_names=["mean"],
-                opset_version=17,
+                **export_kwargs,
             )
 
             self.assertTrue(os.path.exists(onnx_path))
