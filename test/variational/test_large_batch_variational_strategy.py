@@ -289,7 +289,6 @@ class TestLargeBatchVariationalGP(TestVariationalGP):
                 input_names=["input"],
                 output_names=["mean"],
                 opset_version=17,
-                dynamo=False,
             )
 
             self.assertTrue(os.path.exists(onnx_path))
