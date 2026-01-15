@@ -168,8 +168,12 @@ class TestLargeBatchVariationalGP(TestVariationalGP):
         import os
         import tempfile
 
-        import onnx
-        import onnxruntime as ort
+        try:
+            import onnx
+            import onnxruntime as ort
+        except ImportError:
+            self.skipTest("onnx and onnxruntime required for this test")
+
         from torch.onnx import register_custom_op_symbolic
 
         # Create and train model in fp64

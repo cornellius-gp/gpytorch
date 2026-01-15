@@ -58,6 +58,7 @@ jobs:
           pip install "pyro-ppl>=1.8";
           pip install pykeops;
           pip install faiss-cpu;  # Unofficial pip release: https://pypi.org/project/faiss-cpu/#history
+          pip install onnx onnxruntime onnxscript;  # For ONNX export tests
         fi
     - name: Run unit tests
       run: |
