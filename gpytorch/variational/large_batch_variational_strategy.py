@@ -57,6 +57,14 @@ class LargeBatchVariationalStrategy(VariationalStrategy):
     CPUs and consumer cards should use `VariationalStrategy` instead.
     """
 
+    def _clear_cache(self) -> None:
+        # Clear cached inference terms before calling parent's _clear_cache
+        if hasattr(self, "_cached_inv_chol_t_inducing_values"):
+            del self._cached_inv_chol_t_inducing_values
+        if hasattr(self, "_cached_middle_term"):
+            del self._cached_middle_term
+        super()._clear_cache()
+
     def _compute_predictive_updates(
         self,
         chol: LinearOperator,
@@ -75,19 +83,32 @@ class LargeBatchVariationalStrategy(VariationalStrategy):
         inducing_values = inducing_values.type(torch.float64)
 
         # The mean update `k_XZ K_ZZ^{-1/2} (m - K_ZZ^{-1/2} \mu_Z)`
-        inv_chol_t_inducing_values = torch.linalg.solve_triangular(
-            chol.mT, inducing_values.unsqueeze(-1), upper=True, left=True
-        )
+        # Cache inv_chol_t_inducing_values and middle_term during inference (not training)
+        # since they don't depend on the data (through induc_data_covar)
+        if not self.training and hasattr(self, "_cached_inv_chol_t_inducing_values"):
+            inv_chol_t_inducing_values = self._cached_inv_chol_t_inducing_values
+        else:
+            inv_chol_t_inducing_values = torch.linalg.solve_triangular(
+                chol.mT, inducing_values.unsqueeze(-1), upper=True, left=True
+            )
+            if not self.training:
+                self._cached_inv_chol_t_inducing_values = inv_chol_t_inducing_values
+
         mean_update = (induc_data_covar.mT @ inv_chol_t_inducing_values).squeeze(-1).type(dtype)
 
         # The grouped middle term `K_ZZ^{-1/2} (S - I) K_ZZ^{-1/2}`
-        middle_term = prior_covar.mul(-1).to_dense()
-        if variational_inducing_covar is not None:
-            middle_term = variational_inducing_covar.to_dense() + middle_term
-        middle_term = middle_term.type(torch.float64)
+        if not self.training and hasattr(self, "_cached_middle_term"):
+            middle_term = self._cached_middle_term
+        else:
+            middle_term = prior_covar.mul(-1).to_dense()
+            if variational_inducing_covar is not None:
+                middle_term = variational_inducing_covar.to_dense() + middle_term
+            middle_term = middle_term.type(torch.float64)
 
-        middle_term = torch.linalg.solve_triangular(chol, middle_term, upper=False, left=False)
-        middle_term = torch.linalg.solve_triangular(chol.mT, middle_term, upper=True, left=True)
+            middle_term = torch.linalg.solve_triangular(chol, middle_term, upper=False, left=False)
+            middle_term = torch.linalg.solve_triangular(chol.mT, middle_term, upper=True, left=True)
+            if not self.training:
+                self._cached_middle_term = middle_term
 
         # The covariance update `K_XZ K_ZZ^{-1/2} (S - I) K_ZZ^{-1/2} K_ZX`
         if diag and self.training:
