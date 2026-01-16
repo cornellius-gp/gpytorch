@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 import torch
 
+from gpytorch.mlls import VariationalELBO
 from gpytorch.test.base_test_case import BaseTestCase
 from gpytorch.variational.large_batch_variational_strategy import LargeBatchVariationalStrategy, QuadFormDiagonal
 from gpytorch.variational.variational_strategy import VariationalStrategy
@@ -193,7 +194,6 @@ class TestLargeBatchVariationalGP(TestVariationalGP):
         model.train()
         likelihood.train()
         optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
-        from gpytorch.mlls import VariationalELBO
 
         mll = VariationalELBO(likelihood, model, num_data=train_x.size(0))
 
