@@ -3,16 +3,13 @@
 from abc import ABC
 from typing import Any, Mapping
 
+import torch
+
 from torch.distributions import TransformedDistribution
 from torch.nn import Module
 
 from ..distributions import Distribution
-from .utils import _load_transformed_to_base_dist
-
-
-TRANSFORMED_ERROR_MSG = """Priors of TransformedDistributions should not have their \
-'_transformed' attributes modified, these are just copies of the base attribute. \
-Please modify the base attribute (e.g. {}) instead."""
+from .utils import _load_buffered_to_base_dist
 
 
 class Prior(Distribution, Module, ABC):
@@ -37,16 +34,25 @@ class Prior(Distribution, Module, ABC):
     def load_state_dict(self, state_dict: Mapping[str, Any], *args, **kwargs):
         Module.load_state_dict(self, state_dict, *args, **kwargs)
         if isinstance(self, TransformedDistribution):
-            _load_transformed_to_base_dist(self)
+            _load_buffered_to_base_dist(self)
 
     def __setattr__(self, name: str, value: Any) -> None:
-        if hasattr(self, name) and "_transformed_" in name:
-            base_attr_name = name.replace("_transformed_", "")
-            raise AttributeError(TRANSFORMED_ERROR_MSG.format(base_attr_name))
+        # If setting a _buffered_ attribute, update the base attribute instead.
+        # Note: The _buffered_ prefix indicates this is a buffer belonging to a
+        # TransformedDistribution, NOT that the value itself is transformed.
+        # The _buffered_ buffer is simply a copy of the base_dist attribute,
+        # so we assign the same value to both.
+        if hasattr(self, name) and "_buffered_" in name:
+            base_attr_name = name.replace("_buffered_", "")
+            tensor_value = torch.as_tensor(value)
+            # Update the base attribute in the base distribution
+            self.base_dist.__setattr__(base_attr_name, tensor_value)
+            # Update the buffer copy as well (must stay in sync with base_dist)
+            super().__setattr__(name, tensor_value)
 
-        elif hasattr(self, f"_transformed_{name}"):
+        elif hasattr(self, f"_buffered_{name}"):
             self.base_dist.__setattr__(name, value)
-            super().__setattr__(f"_transformed_{name}", value)
+            super().__setattr__(f"_buffered_{name}", value)
 
         else:
             return super().__setattr__(name, value)
