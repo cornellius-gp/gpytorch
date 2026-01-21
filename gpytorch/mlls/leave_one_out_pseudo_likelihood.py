@@ -54,6 +54,7 @@ class LeaveOneOutPseudoLikelihood(ExactMarginalLogLikelihood):
         :param torch.Tensor target: :math:`\mathbf y` The target values
         :param dict kwargs: Additional arguments to pass to the likelihood's forward function.
         """
+        target = target.flatten()
         output = self.likelihood(function_dist, *params)
         m, L = output.mean, output.lazy_covariance_matrix.cholesky(upper=False)
         m = m.reshape(*target.shape)
