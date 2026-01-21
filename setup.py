@@ -84,6 +84,7 @@ setup(
             "nbformat<=5.8.0",
             "nbsphinx<=0.9.1",
             "lxml_html_clean",
+            "pandas<=3.0.0",
             "platformdirs<=3.2.0",
             "setuptools_scm<=7.1.0",
             "sphinx<=6.2.1",
