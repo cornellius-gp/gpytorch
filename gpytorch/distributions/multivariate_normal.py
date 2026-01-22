@@ -10,6 +10,7 @@ from typing import Optional, Tuple, Union
 import torch
 from linear_operator import to_dense, to_linear_operator
 from linear_operator.operators import DiagLinearOperator, LinearOperator, RootLinearOperator
+from scipy import stats
 from torch import Tensor
 from torch.distributions import MultivariateNormal as TMultivariateNormal
 from torch.distributions.kl import register_kl
@@ -119,17 +120,19 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         else:
             return super().covariance_matrix
 
-    def confidence_region(self) -> Tuple[Tensor, Tensor]:
+    def confidence_region(self, confidence: float = 0.95) -> Tuple[Tensor, Tensor]:
         """
-        Returns 2 standard deviations above and below the mean.
+        Returns centered (around the mean) confidence region.
 
+        :param confidence: the size of the centered confidence region to return.
         :return: Pair of tensors of size `... x N`, where N is the
             dimensionality of the random variable. The first (second) Tensor is the
             lower (upper) end of the confidence region.
         """
-        std2 = self.stddev.mul_(2)
+        z_score = stats.norm.ppf((1 + confidence) / 2)
+        n_std = self.stddev.mul_(z_score)
         mean = self.mean
-        return mean.sub(std2), mean.add(std2)
+        return mean.sub(n_std), mean.add(n_std)
 
     def expand(self, batch_size: torch.Size) -> MultivariateNormal:
         r"""
