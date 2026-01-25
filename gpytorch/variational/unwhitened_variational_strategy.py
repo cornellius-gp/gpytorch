@@ -72,10 +72,10 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
         # retrieve the variational mean, m and covariance matrix, S.
         if not isinstance(self._variational_distribution, CholeskyVariationalDistribution):
             raise NotImplementedError(
-                "Only CholeskyVariationalDistribution has pseudo-point support currently, ",
-                "but your _variational_distribution is a ",
-                self._variational_distribution.__name__,
+                f"Only CholeskyVariationalDistribution has pseudo-point support currently, "
+                f"but your _variational_distribution is a {type(self._variational_distribution).__name__}"
             )
+
 
         # retrieve the variational mean, m and covariance matrix, S.
         var_cov_root = TriangularLinearOperator(self._variational_distribution.chol_variational_covar)
