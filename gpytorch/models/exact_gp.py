@@ -284,7 +284,7 @@ class ExactGP(GP):
         elif settings.prior_mode.on() or self.train_inputs is None or self.train_targets is None:
             full_inputs = args
             full_output = super().__call__(*full_inputs, **kwargs)
-            if settings.debug().on():
+            if settings.debug.on():
                 if not isinstance(full_output, MultivariateNormal):
                     raise RuntimeError("ExactGP.forward must return a MultivariateNormal")
             return full_output
@@ -326,7 +326,7 @@ class ExactGP(GP):
 
             # Get the joint distribution for training/test data
             full_output = super().__call__(*full_inputs, **kwargs)
-            if settings.debug().on():
+            if settings.debug.on():
                 if not isinstance(full_output, MultivariateNormal):
                     raise RuntimeError("ExactGP.forward must return a MultivariateNormal")
             full_mean, full_covar = full_output.loc, full_output.lazy_covariance_matrix
