@@ -72,7 +72,7 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
         # retrieve the variational mean, m and covariance matrix, S.
         if not isinstance(self._variational_distribution, CholeskyVariationalDistribution):
             raise NotImplementedError(
-                f"Only CholeskyVariationalDistribution has pseudo-point support currently, "
+                "Only CholeskyVariationalDistribution has pseudo-point support currently, "
                 f"but your _variational_distribution is a {type(self._variational_distribution).__name__}"
             )
 
