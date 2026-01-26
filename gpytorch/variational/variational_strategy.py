@@ -211,7 +211,7 @@ class VariationalStrategy(_VariationalStrategy):
         if not isinstance(self._variational_distribution, CholeskyVariationalDistribution):
             raise NotImplementedError(
                 "Only CholeskyVariationalDistribution has pseudo-point support currently, ",
-                "but your _variational_distribution is a {type(self._variational_distribution).__name__}"
+                f"but your _variational_distribution is a {type(self._variational_distribution).__name__}"
             )
 
         var_cov_root = TriangularLinearOperator(self._variational_distribution.chol_variational_covar)
