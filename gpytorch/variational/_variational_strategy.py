@@ -144,7 +144,7 @@ class _VariationalStrategy(Module, ABC):
         :param inducing_values: Samples of the inducing function values :math:`\mathbf u`
             (or the mean of the distribution :math:`q(\mathbf u)` if q is a Gaussian.
         :param variational_inducing_covar: If
-            the distribuiton :math:`q(\mathbf u)` is
+            the distribution :math:`q(\mathbf u)` is
             Gaussian, then this variable is the covariance matrix of that Gaussian.
             Otherwise, it will be None.
         :param diag: If true and this module is in train mode, this method is allowed to skip the off-diagonal entries
@@ -377,6 +377,6 @@ class _VariationalStrategy(Module, ABC):
             )
         else:
             raise RuntimeError(
-                f"Invalid variational distribuition ({type(variational_dist_u)}). "
+                f"Invalid variational distribution ({type(variational_dist_u)}). "
                 "Expected a multivariate normal or a delta distribution."
             )

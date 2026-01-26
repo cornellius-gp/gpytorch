@@ -342,6 +342,6 @@ class CiqVariationalStrategy(_VariationalStrategy):
                 )
             else:
                 raise RuntimeError(
-                    f"Invalid variational distribuition ({type(variational_dist_u)}). "
+                    f"Invalid variational distribution ({type(variational_dist_u)}). "
                     "Expected a multivariate normal or a delta distribution."
                 )
