@@ -93,7 +93,7 @@ class GridInterpolationVariationalStrategy(_VariationalStrategy):
         if variational_inducing_covar is None:
             raise RuntimeError(
                 "GridInterpolationVariationalStrategy is only compatible with Gaussian variational "
-                f"distributions. Got ({self.variational_distribution.__class__.__name__}."
+                f"distributions. Got {self.variational_distribution.__class__.__name__}."
             )
 
         variational_distribution = self.variational_distribution
