@@ -5,7 +5,7 @@ from copy import deepcopy
 from typing import Any, Optional, Tuple, Union
 
 import torch
-from linear_operator.operators import LinearOperator, MaskedLinearOperator, ZeroLinearOperator
+from linear_operator.operators import LinearOperator, MaskedLinearOperator, PsdSumLinearOperator, ZeroLinearOperator
 from torch import Tensor
 from torch.distributions import Distribution, Normal
 
@@ -114,7 +114,7 @@ class _GaussianLikelihoodBase(Likelihood):
     def marginal(self, function_dist: MultivariateNormal, *params: Any, **kwargs: Any) -> MultivariateNormal:
         mean, covar = function_dist.mean, function_dist.lazy_covariance_matrix
         noise_covar = self._shaped_noise_covar(mean.shape, *params, **kwargs)
-        full_covar = covar + noise_covar
+        full_covar = PsdSumLinearOperator(covar, noise_covar)
         return function_dist.__class__(mean, full_covar)
 
 
