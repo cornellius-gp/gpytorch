@@ -2,16 +2,15 @@ from typing import Optional, Union
 
 import torch
 
-from jaxtyping import Float
 from linear_operator import LinearOperator, to_dense
 from torch import Tensor
 
 
 def sum_interaction_terms(
-    covars: Float[Union[LinearOperator, Tensor], "... D N N"],
+    covars: Union[LinearOperator, Tensor],  # shape:  (..., D, N, N)
     max_degree: Optional[int] = None,
     dim: int = -3,
-) -> Float[Tensor, "... N N"]:
+) -> Tensor:  # shape:  (..., N, N)
     r"""
     Given a batch of D x N x N covariance matrices :math:`\boldsymbol K_1, \ldots, \boldsymbol K_D`,
     compute the sum of each covariance matrix as well as the interaction terms up to degree `max_degree`
