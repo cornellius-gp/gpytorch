@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import warnings
-from typing import Any, Optional, Union
+from typing import Any
 
 import torch
 from linear_operator.operators import ConstantDiagLinearOperator, DiagLinearOperator, LinearOperator, ZeroLinearOperator
@@ -16,9 +18,7 @@ from ..utils.warnings import NumericalWarning
 
 
 class Noise(Module):
-    def __call__(
-        self, *params: Any, shape: Optional[torch.Size] = None, **kwargs: Any
-    ) -> Union[Tensor, LinearOperator]:
+    def __call__(self, *params: Any, shape: torch.Size | None = None, **kwargs: Any) -> Tensor | LinearOperator:
         # For corredct typing
         return super().__call__(*params, shape=shape, **kwargs)
 
@@ -54,7 +54,7 @@ class _HomoskedasticNoiseBase(Noise):
             value = torch.as_tensor(value).to(self.raw_noise)
         self.initialize(raw_noise=self.raw_noise_constraint.inverse_transform(value))
 
-    def forward(self, *params: Any, shape: Optional[torch.Size] = None, **kwargs: Any) -> DiagLinearOperator:
+    def forward(self, *params: Any, shape: torch.Size | None = None, **kwargs: Any) -> DiagLinearOperator:
         """In the homoskedastic case, the parameters are only used to infer the required shape.
         Here are the possible scenarios:
         - non-batched noise, non-batched input, non-MT -> noise_diag shape is `n`
@@ -118,9 +118,9 @@ class HeteroskedasticNoise(Noise):
     def forward(
         self,
         *params: Any,
-        batch_shape: Optional[torch.Size] = None,
-        shape: Optional[torch.Size] = None,
-        noise: Optional[Tensor] = None,
+        batch_shape: torch.Size | None = None,
+        shape: torch.Size | None = None,
+        noise: Tensor | None = None,
     ) -> DiagLinearOperator:
         if noise is not None:
             return DiagLinearOperator(noise)
@@ -157,7 +157,7 @@ class FixedGaussianNoise(Module):
         self.noise = noise
 
     def forward(
-        self, *params: Any, shape: Optional[torch.Size] = None, noise: Optional[Tensor] = None, **kwargs: Any
+        self, *params: Any, shape: torch.Size | None = None, noise: Tensor | None = None, **kwargs: Any
     ) -> DiagLinearOperator:
         if shape is None:
             p = params[0] if torch.is_tensor(params[0]) else params[0][0]
@@ -172,10 +172,8 @@ class FixedGaussianNoise(Module):
 
     def _apply(self, fn):
         self.noise = fn(self.noise)
-        return super(FixedGaussianNoise, self)._apply(fn)
+        return super()._apply(fn)
 
-    def __call__(
-        self, *params: Any, shape: Optional[torch.Size] = None, **kwargs: Any
-    ) -> Union[Tensor, LinearOperator]:
+    def __call__(self, *params: Any, shape: torch.Size | None = None, **kwargs: Any) -> Tensor | LinearOperator:
         # For corredct typing
         return super().__call__(*params, shape=shape, **kwargs)

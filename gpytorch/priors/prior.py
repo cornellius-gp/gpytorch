@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 from abc import ABC
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 from torch.distributions import TransformedDistribution
 from torch.nn import Module
@@ -32,7 +35,7 @@ class Prior(Distribution, Module, ABC):
         :return: log-probability of the parameter value under the prior
         :rtype: torch.Tensor
         """
-        return super(Prior, self).log_prob(self.transform(x))
+        return super().log_prob(self.transform(x))
 
     def load_state_dict(self, state_dict: Mapping[str, Any], *args, **kwargs):
         Module.load_state_dict(self, state_dict, *args, **kwargs)

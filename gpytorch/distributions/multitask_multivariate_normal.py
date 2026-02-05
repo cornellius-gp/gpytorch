@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import torch
 from linear_operator import LinearOperator, to_linear_operator
 from linear_operator.operators import (

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Optional
+from __future__ import annotations
 
 import torch
 from linear_operator.operators import to_dense
@@ -64,13 +64,13 @@ class ScaleKernel(Kernel):
     def __init__(
         self,
         base_kernel: Kernel,
-        outputscale_prior: Optional[Prior] = None,
-        outputscale_constraint: Optional[Interval] = None,
+        outputscale_prior: Prior | None = None,
+        outputscale_constraint: Interval | None = None,
         **kwargs,
     ):
         if base_kernel.active_dims is not None:
             kwargs["active_dims"] = base_kernel.active_dims
-        super(ScaleKernel, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         if outputscale_constraint is None:
             outputscale_constraint = Positive()
 

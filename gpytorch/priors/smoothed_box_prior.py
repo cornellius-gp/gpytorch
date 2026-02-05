@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import math
 from numbers import Number
 
@@ -43,7 +45,7 @@ class SmoothedBoxPrior(Prior):
         batch_shape, event_shape = _a.shape[:-1], _a.shape[-1:]
         # need to assign values before registering as buffers to make argument validation work
         self.a, self.b, self.sigma = _a, _b, _sigma
-        super(SmoothedBoxPrior, self).__init__(batch_shape, event_shape, validate_args=validate_args)
+        super().__init__(batch_shape, event_shape, validate_args=validate_args)
         # now need to delete to be able to register buffer
         del self.a, self.b, self.sigma
         self.register_buffer("a", _a)

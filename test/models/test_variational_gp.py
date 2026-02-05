@@ -18,7 +18,7 @@ class GPClassificationModel(ApproximateGP):
         variational_strategy = strategy_cls(
             self, inducing_points, variational_distribution, learn_inducing_locations=use_inducing
         )
-        super(GPClassificationModel, self).__init__(variational_strategy)
+        super().__init__(variational_strategy)
         self.mean_module = gpytorch.means.ConstantMean()
         self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
 

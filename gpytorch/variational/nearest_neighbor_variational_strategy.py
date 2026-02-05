@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
-from typing import Any, Optional
+from __future__ import annotations
+
+from typing import Any
 
 import torch
 from linear_operator import to_dense
@@ -79,9 +81,9 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
         inducing_points: Tensor,  # shape: (..., M, D)
         variational_distribution: _VariationalDistribution,  # shape: (..., M)
         k: int,
-        training_batch_size: Optional[int] = None,
-        jitter_val: Optional[float] = 1e-3,
-        compute_full_kl: Optional[bool] = False,
+        training_batch_size: int | None = None,
+        jitter_val: float | None = 1e-3,
+        compute_full_kl: bool | None = False,
     ):
         assert isinstance(
             variational_distribution, MeanFieldVariationalDistribution
@@ -183,7 +185,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
         x: Tensor,  # shape: (..., N, D)
         inducing_points: Tensor,  # shape: (..., M, D)
         inducing_values: Tensor,  # shape: (..., M)
-        variational_inducing_covar: Optional[LinearOperator] = None,  # shape: (..., M, M)
+        variational_inducing_covar: LinearOperator | None = None,  # shape: (..., M, M)
         diag: bool = True,
         **kwargs: Any,
     ) -> MultivariateNormal:  # shape: (..., N)
@@ -287,8 +289,8 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
         self,
         inputs: Tensor,  # shape: (..., N, D)
         targets: Tensor,  # shape: (..., N)
-        mean_module: Optional[Module] = None,
-        covar_module: Optional[Module] = None,
+        mean_module: Module | None = None,
+        covar_module: Module | None = None,
         **kwargs,
     ) -> ExactGP:
         raise NotImplementedError(
@@ -441,7 +443,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
         return kl
 
     def _kl_divergence(
-        self, kl_indices: Optional[LongTensor] = None, batch_size: Optional[int] = None
+        self, kl_indices: LongTensor | None = None, batch_size: int | None = None
     ) -> Tensor:  # shape: (...)
         if self.compute_full_kl or (self._total_training_batches == 1):
             if batch_size is None:
@@ -468,7 +470,7 @@ class NNVariationalStrategy(UnwhitenedVariationalStrategy):
         except CachingError:
             raise RuntimeError("KL Divergence of variational strategy was called before nearest neighbors were set.")
 
-    def _compute_nn(self) -> "NNVariationalStrategy":
+    def _compute_nn(self) -> NNVariationalStrategy:
         with torch.no_grad():
             inducing_points_fl = self.inducing_points.data.float()
             self.nn_util.set_nn_idx(inducing_points_fl)

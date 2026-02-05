@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import List, Optional
+from __future__ import annotations
 
 import torch
 from linear_operator import to_linear_operator
@@ -24,9 +24,9 @@ class MultiDeviceKernel(DataParallel, Kernel):
     def __init__(
         self,
         base_kernel: Kernel,
-        device_ids: List[torch.device],
-        output_device: Optional[torch.device] = None,
-        create_cuda_context: Optional[bool] = True,
+        device_ids: list[torch.device],
+        output_device: torch.device | None = None,
+        create_cuda_context: bool | None = True,
         **kwargs,
     ):
         # Need to warm up each GPU otherwise scattering in forward will be

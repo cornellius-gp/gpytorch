@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import warnings
-from typing import Optional
 
 import torch
 from linear_operator.operators import RootLinearOperator
@@ -54,7 +55,7 @@ class IndependentMultitaskVariationalStrategy(_VariationalStrategy):
     def __call__(
         self,
         x: Tensor,
-        task_indices: Optional[LongTensor] = None,
+        task_indices: LongTensor | None = None,
         prior: bool = False,
         diag: bool = True,
         **kwargs,

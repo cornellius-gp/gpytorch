@@ -24,7 +24,7 @@ for i in range(n):
         train_x[i * n + j][0] = float(i) / (n - 1)
         train_x[i * n + j][1] = float(j) / (n - 1)
 train_x = train_x
-train_y = torch.sin(((train_x[:, 0] + train_x[:, 1]) * (2 * pi)))
+train_y = torch.sin((train_x[:, 0] + train_x[:, 1]) * (2 * pi))
 train_y = train_y + torch.randn_like(train_y).mul_(0.01)
 
 m = 10
@@ -41,7 +41,7 @@ test_y = test_y + torch.randn_like(test_y).mul_(0.01)
 # All tests that pass with the exact kernel should pass with the interpolated kernel.
 class GPRegressionModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood):
-        super(GPRegressionModel, self).__init__(train_x, train_y, likelihood)
+        super().__init__(train_x, train_y, likelihood)
         self.mean_module = ConstantMean(constant_prior=SmoothedBoxPrior(-1, 1))
         self.base_covar_module = RBFKernel(ard_num_dims=2)
         self.covar_module = GridInterpolationKernel(self.base_covar_module, grid_size=16, num_dims=2)

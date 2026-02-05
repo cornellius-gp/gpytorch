@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Optional, Tuple
+from __future__ import annotations
 
 import torch
 from linear_operator import to_linear_operator
@@ -40,7 +40,7 @@ class _NgdInterpTerms(torch.autograd.Function):
         interp_term: torch.Tensor,
         natural_vec: torch.Tensor,
         natural_mat: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # Compute precision
         prec = natural_mat.mul(-2.0)
         diag = prec.diagonal(dim1=-1, dim2=-2).unsqueeze(-1)
@@ -85,7 +85,7 @@ class _NgdInterpTerms(torch.autograd.Function):
     @staticmethod
     def backward(
         ctx: FunctionCtx, interp_mean_grad: torch.Tensor, interp_var_grad: torch.Tensor, kl_div_grad: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, None]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, None]:
         # Get the saved terms
         interp_term, s_times_interp_term, interp_mean, natural_vec, expec_vec, prec = ctx.saved_tensors
 
@@ -194,7 +194,7 @@ class CiqVariationalStrategy(_VariationalStrategy):
         x: torch.Tensor,
         inducing_points: torch.Tensor,
         inducing_values: torch.Tensor,
-        variational_inducing_covar: Optional[LinearOperator] = None,
+        variational_inducing_covar: LinearOperator | None = None,
         diag: bool = True,
         **kwargs,
     ) -> MultivariateNormal:

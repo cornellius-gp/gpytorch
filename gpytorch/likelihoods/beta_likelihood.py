@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
-from typing import Any, Optional
+from __future__ import annotations
+
+from typing import Any
 
 import torch
 from torch import Tensor
@@ -41,8 +43,8 @@ class BetaLikelihood(_OneDimensionalLikelihood):
     def __init__(
         self,
         batch_shape: torch.Size = torch.Size([]),
-        scale_prior: Optional[Prior] = None,
-        scale_constraint: Optional[Interval] = None,
+        scale_prior: Prior | None = None,
+        scale_constraint: Interval | None = None,
     ) -> None:
         super().__init__()
 

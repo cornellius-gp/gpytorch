@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import torch
 from linear_operator.operators import KroneckerProductLinearOperator
 
@@ -95,8 +97,8 @@ class RBFKernelGrad(RBFKernel):
                 K = 0.5 * (K.transpose(-1, -2) + K)
 
             # Apply a perfect shuffle permutation to match the MutiTask ordering
-            pi1 = torch.arange(n1 * (d + 1)).view(d + 1, n1).t().reshape((n1 * (d + 1)))
-            pi2 = torch.arange(n2 * (d + 1)).view(d + 1, n2).t().reshape((n2 * (d + 1)))
+            pi1 = torch.arange(n1 * (d + 1)).view(d + 1, n1).t().reshape(n1 * (d + 1))
+            pi2 = torch.arange(n2 * (d + 1)).view(d + 1, n2).t().reshape(n2 * (d + 1))
             K = K[..., pi1, :][..., :, pi2]
 
             return K
@@ -105,11 +107,11 @@ class RBFKernelGrad(RBFKernel):
             if not (n1 == n2 and torch.eq(x1, x2).all()):
                 raise RuntimeError("diag=True only works when x1 == x2")
 
-            kernel_diag = super(RBFKernelGrad, self).forward(x1, x2, diag=True)
+            kernel_diag = super().forward(x1, x2, diag=True)
             grad_diag = torch.ones(*batch_shape, n2, d, device=x1.device, dtype=x1.dtype) / self.lengthscale.pow(2)
             grad_diag = grad_diag.transpose(-1, -2).reshape(*batch_shape, n2 * d)
             k_diag = torch.cat((kernel_diag, grad_diag), dim=-1)
-            pi = torch.arange(n2 * (d + 1)).view(d + 1, n2).t().reshape((n2 * (d + 1)))
+            pi = torch.arange(n2 * (d + 1)).view(d + 1, n2).t().reshape(n2 * (d + 1))
             return k_diag[..., pi]
 
     def num_outputs_per_input(self, x1, x2):

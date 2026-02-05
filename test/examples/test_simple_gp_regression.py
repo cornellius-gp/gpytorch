@@ -20,7 +20,7 @@ from gpytorch.test.utils import least_used_cuda_device
 
 class ExactGPModel(gpytorch.models.ExactGP):
     def __init__(self, train_inputs, train_targets, likelihood):
-        super(ExactGPModel, self).__init__(train_inputs, train_targets, likelihood)
+        super().__init__(train_inputs, train_targets, likelihood)
         self.mean_module = ConstantMean()
         self.covar_module = ScaleKernel(RBFKernel())
 

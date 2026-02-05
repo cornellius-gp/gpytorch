@@ -44,7 +44,7 @@ good_state_dict = OrderedDict(
 
 class SpectralMixtureGPModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood, empspect=False):
-        super(SpectralMixtureGPModel, self).__init__(train_x, train_y, likelihood)
+        super().__init__(train_x, train_y, likelihood)
         self.mean_module = ConstantMean(constant_prior=SmoothedBoxPrior(-1, 1))
         self.covar_module = SpectralMixtureKernel(num_mixtures=4, ard_num_dims=1)
         if empspect:

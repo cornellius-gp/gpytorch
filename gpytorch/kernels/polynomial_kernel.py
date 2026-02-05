@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Optional
+from __future__ import annotations
 
 import torch
 
@@ -37,8 +37,8 @@ class PolynomialKernel(Kernel):
     def __init__(
         self,
         power: int,
-        offset_prior: Optional[Prior] = None,
-        offset_constraint: Optional[Interval] = None,
+        offset_prior: Prior | None = None,
+        offset_constraint: Interval | None = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -80,8 +80,8 @@ class PolynomialKernel(Kernel):
         self,
         x1: torch.Tensor,
         x2: torch.Tensor,
-        diag: Optional[bool] = False,
-        last_dim_is_batch: Optional[bool] = False,
+        diag: bool | None = False,
+        last_dim_is_batch: bool | None = False,
         **params,
     ) -> torch.Tensor:
         offset = self.offset.view(*self.batch_shape, 1, 1)

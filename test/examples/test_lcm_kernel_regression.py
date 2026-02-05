@@ -14,7 +14,7 @@ from gpytorch.means import ConstantMean, MultitaskMean
 
 class MultitaskGPModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood):
-        super(MultitaskGPModel, self).__init__(train_x, train_y, likelihood)
+        super().__init__(train_x, train_y, likelihood)
         self.mean_module = MultitaskMean(ConstantMean(), num_tasks=2)
         self.base_kernel_list = [RBFKernel()]
         self.covar_module = LCMKernel(self.base_kernel_list, num_tasks=2, rank=1)
@@ -27,7 +27,7 @@ class MultitaskGPModel(gpytorch.models.ExactGP):
 
 class MultitaskGPModel_ICM(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood):
-        super(MultitaskGPModel_ICM, self).__init__(train_x, train_y, likelihood)
+        super().__init__(train_x, train_y, likelihood)
         self.mean_module = MultitaskMean(ConstantMean(), num_tasks=2)
         self.base_kernel = RBFKernel()
         self.covar_module = MultitaskKernel(self.base_kernel, num_tasks=2, rank=1)

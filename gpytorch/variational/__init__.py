@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 from ._variational_distribution import _VariationalDistribution
 from ._variational_strategy import _VariationalStrategy
 from .additive_grid_interpolation_variational_strategy import AdditiveGridInterpolationVariationalStrategy

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import warnings
-from typing import Optional, Tuple
 
 import torch
 from linear_operator import to_dense
@@ -15,8 +16,8 @@ class NewtonGirardAdditiveKernel(Kernel):
         self,
         base_kernel: Kernel,
         num_dims: int,
-        max_degree: Optional[int] = None,
-        active_dims: Optional[Tuple[int, ...]] = None,
+        max_degree: int | None = None,
+        active_dims: tuple[int, ...] | None = None,
         **kwargs,
     ):
         """Create an Additive Kernel a la https://arxiv.org/abs/1112.4394 using Newton-Girard Formulae
@@ -33,7 +34,7 @@ class NewtonGirardAdditiveKernel(Kernel):
             "in the GPyTorch docs for how to implement GPs with additive structure.",
             DeprecationWarning,
         )
-        super(NewtonGirardAdditiveKernel, self).__init__(active_dims=active_dims, **kwargs)
+        super().__init__(active_dims=active_dims, **kwargs)
 
         self.base_kernel = base_kernel
         self.num_dims = num_dims

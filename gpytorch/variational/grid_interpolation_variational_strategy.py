@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Optional
+from __future__ import annotations
 
 import torch
 from linear_operator import LinearOperator
@@ -51,9 +51,7 @@ class GridInterpolationVariationalStrategy(_VariationalStrategy):
                     inducing_points[j * grid_size**i : (j + 1) * grid_size**i, :i].copy_(prev_points)
             prev_points = inducing_points[: grid_size ** (i + 1), : (i + 1)]
 
-        super(GridInterpolationVariationalStrategy, self).__init__(
-            model, inducing_points, variational_distribution, learn_inducing_locations=False
-        )
+        super().__init__(model, inducing_points, variational_distribution, learn_inducing_locations=False)
         object.__setattr__(self, "model", model)
 
         self.register_buffer("grid", grid)
@@ -86,7 +84,7 @@ class GridInterpolationVariationalStrategy(_VariationalStrategy):
         x: Tensor,
         inducing_points: Tensor,
         inducing_values: Tensor,
-        variational_inducing_covar: Optional[LinearOperator] = None,
+        variational_inducing_covar: LinearOperator | None = None,
         diag: bool = True,
         **kwargs,
     ):

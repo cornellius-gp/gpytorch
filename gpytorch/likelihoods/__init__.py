@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 from .bernoulli_likelihood import BernoulliLikelihood
 from .beta_likelihood import BetaLikelihood
 from .gaussian_likelihood import (

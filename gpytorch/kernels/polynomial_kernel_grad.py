@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Optional
+from __future__ import annotations
 
 import torch
 
@@ -12,8 +12,8 @@ class PolynomialKernelGrad(PolynomialKernel):
         self,
         x1: torch.Tensor,
         x2: torch.Tensor,
-        diag: Optional[bool] = False,
-        last_dim_is_batch: Optional[bool] = False,
+        diag: bool | None = False,
+        last_dim_is_batch: bool | None = False,
         **params,
     ) -> torch.Tensor:
         offset = self.offset.view(*self.batch_shape, 1, 1)
@@ -37,7 +37,7 @@ class PolynomialKernelGrad(PolynomialKernel):
 
             K_diag = torch.cat([K11_diag, K22_diag], dim=-1)
             # Apply perfect shuffle
-            pi1 = torch.arange(n1 * (d + 1)).view(d + 1, n1).t().reshape((n1 * (d + 1)))
+            pi1 = torch.arange(n1 * (d + 1)).view(d + 1, n1).t().reshape(n1 * (d + 1))
             K_diag = K_diag[..., pi1]
             return K_diag
 
@@ -71,8 +71,8 @@ class PolynomialKernelGrad(PolynomialKernel):
             K = torch.cat([torch.cat([K11, K12], dim=-1), torch.cat([K21, K22], dim=-1)], dim=-2)
 
             # Apply perfect shuffle
-            pi1 = torch.arange(n1 * (d + 1)).view(d + 1, n1).t().reshape((n1 * (d + 1)))
-            pi2 = torch.arange(n2 * (d + 1)).view(d + 1, n2).t().reshape((n2 * (d + 1)))
+            pi1 = torch.arange(n1 * (d + 1)).view(d + 1, n1).t().reshape(n1 * (d + 1))
+            pi2 = torch.arange(n2 * (d + 1)).view(d + 1, n2).t().reshape(n2 * (d + 1))
             K = K[..., pi1, :][..., :, pi2]
 
             return K

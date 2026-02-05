@@ -27,7 +27,7 @@ class SVGPRegressionModel(ApproximateGP):
         variational_strategy = gpytorch.variational.UnwhitenedVariationalStrategy(
             self, inducing_points, variational_distribution, learn_inducing_locations=True, jitter_val=1e-4
         )
-        super(SVGPRegressionModel, self).__init__(variational_strategy)
+        super().__init__(variational_strategy)
         self.mean_module = gpytorch.means.ConstantMean()
         self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
 

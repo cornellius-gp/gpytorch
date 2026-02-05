@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import warnings
 
 from .deep_gp import DeepGP, DeepGPLayer, DeepLikelihood

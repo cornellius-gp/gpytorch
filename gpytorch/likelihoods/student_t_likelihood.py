@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
-from typing import Any, Optional
+from __future__ import annotations
+
+from typing import Any
 
 import torch
 from torch import Tensor
@@ -31,10 +33,10 @@ class StudentTLikelihood(_OneDimensionalLikelihood):
     def __init__(
         self,
         batch_shape: torch.Size = torch.Size([]),
-        deg_free_prior: Optional[Prior] = None,
-        deg_free_constraint: Optional[Interval] = None,
-        noise_prior: Optional[Prior] = None,
-        noise_constraint: Optional[Interval] = None,
+        deg_free_prior: Prior | None = None,
+        deg_free_constraint: Interval | None = None,
+        noise_prior: Prior | None = None,
+        noise_constraint: Interval | None = None,
     ) -> None:
         super().__init__()
 

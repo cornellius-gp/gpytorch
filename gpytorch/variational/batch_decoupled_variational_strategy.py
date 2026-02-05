@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Optional, Tuple
+from __future__ import annotations
 
 import torch
 from linear_operator.operators import LinearOperator, MatmulLinearOperator, SumLinearOperator
@@ -141,8 +141,8 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
         inducing_points: Tensor,
         variational_distribution: _VariationalDistribution,
         learn_inducing_locations: bool = True,
-        mean_var_batch_dim: Optional[int] = None,
-        jitter_val: Optional[float] = None,
+        mean_var_batch_dim: int | None = None,
+        jitter_val: float | None = None,
     ):
         if isinstance(variational_distribution, DeltaVariationalDistribution):
             raise NotImplementedError(
@@ -167,7 +167,7 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
             model, inducing_points, variational_distribution, learn_inducing_locations, jitter_val=jitter_val
         )
 
-    def _expand_inputs(self, x: Tensor, inducing_points: Tensor) -> Tuple[Tensor, Tensor]:
+    def _expand_inputs(self, x: Tensor, inducing_points: Tensor) -> tuple[Tensor, Tensor]:
         # If we haven't explicitly marked a dimension as batch, add the corresponding batch dimension to the input
         if self.mean_var_batch_dim is None:
             x = x.unsqueeze(-3)
@@ -180,7 +180,7 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
         x: Tensor,
         inducing_points: Tensor,
         inducing_values: Tensor,
-        variational_inducing_covar: Optional[LinearOperator] = None,
+        variational_inducing_covar: LinearOperator | None = None,
         diag: bool = True,
         **kwargs,
     ) -> MultivariateNormal:

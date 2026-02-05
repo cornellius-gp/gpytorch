@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 from math import pi
-from typing import Optional
 
 import torch
 
@@ -60,7 +61,7 @@ def negative_log_predictive_density(
 def mean_standardized_log_loss(
     pred_dist: MultivariateNormal,
     test_y: torch.Tensor,
-    train_y: Optional[torch.Tensor] = None,
+    train_y: torch.Tensor | None = None,
 ):
     """
     Mean standardized log loss.

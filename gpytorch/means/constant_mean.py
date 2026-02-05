@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import warnings
-from typing import Any, Optional
+from typing import Any
 
 import torch
 
@@ -49,12 +51,12 @@ class ConstantMean(Mean):
 
     def __init__(
         self,
-        constant_prior: Optional[Prior] = None,
-        constant_constraint: Optional[Interval] = None,
+        constant_prior: Prior | None = None,
+        constant_constraint: Interval | None = None,
         batch_shape: torch.Size = torch.Size(),
         **kwargs: Any,
     ):
-        super(ConstantMean, self).__init__()
+        super().__init__()
 
         # Deprecated kwarg
         constant_prior_deprecated = kwargs.get("prior")

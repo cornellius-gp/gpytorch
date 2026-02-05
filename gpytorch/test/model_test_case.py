@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 from abc import abstractmethod
 
 import torch
@@ -7,7 +9,7 @@ import torch
 import gpytorch
 
 
-class BaseModelTestCase(object):
+class BaseModelTestCase:
     @abstractmethod
     def create_model(self, train_x, train_y, likelihood):
         raise NotImplementedError()

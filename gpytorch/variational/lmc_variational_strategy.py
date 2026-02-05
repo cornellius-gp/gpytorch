@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Optional, Union
+from __future__ import annotations
 
 import torch
 from linear_operator.operators import KroneckerProductLinearOperator, RootLinearOperator
@@ -111,7 +111,7 @@ class LMCVariationalStrategy(_VariationalStrategy):
         num_tasks: int,
         num_latents: int = 1,
         latent_dim: int = -1,
-        jitter_val: Optional[float] = None,
+        jitter_val: float | None = None,
     ):
         Module.__init__(self)
         self.base_variational_strategy = base_variational_strategy
@@ -164,11 +164,11 @@ class LMCVariationalStrategy(_VariationalStrategy):
         self,
         x: Tensor,
         *,
-        task_indices: Optional[LongTensor] = None,
+        task_indices: LongTensor | None = None,
         prior: bool = False,
         diag: bool = True,
         **kwargs,
-    ) -> Union[MultitaskMultivariateNormal, MultivariateNormal]:
+    ) -> MultitaskMultivariateNormal | MultivariateNormal:
         r"""
         Computes the variational (or prior) distribution
         :math:`q( \mathbf f \mid \mathbf X)` (or :math:`p( \mathbf f \mid \mathbf X)`).
