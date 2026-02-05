@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .metrics import (
     mean_absolute_error,
     mean_squared_error,

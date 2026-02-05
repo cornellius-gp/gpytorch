@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 from ..models import GP
 from ..module import Module
 
@@ -26,7 +28,7 @@ class MarginalLogLikelihood(Module):
     """
 
     def __init__(self, likelihood, model):
-        super(MarginalLogLikelihood, self).__init__()
+        super().__init__()
         if not isinstance(model, GP):
             raise RuntimeError(
                 "All MarginalLogLikelihood objects must be given a GP object as a model. If you are "

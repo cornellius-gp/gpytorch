@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
-from typing import Any, Optional
+from __future__ import annotations
+
+from typing import Any
 
 import torch
 
@@ -51,10 +53,10 @@ class HadamardGaussianLikelihood(_GaussianLikelihoodBase):
     def __init__(
         self,
         num_tasks: int,
-        noise_prior: Optional[Prior] = None,
-        noise_constraint: Optional[Interval] = None,
+        noise_prior: Prior | None = None,
+        noise_constraint: Interval | None = None,
         batch_shape: torch.Size = torch.Size(),
-        task_feature_index: Optional[int] = None,
+        task_feature_index: int | None = None,
         **kwargs,
     ):
         noise_covar = MultitaskHomoskedasticNoise(

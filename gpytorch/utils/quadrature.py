@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import math
 
 import numpy as np
@@ -46,7 +48,7 @@ class GaussHermiteQuadrature1D(Module):
     def _apply(self, fn):
         self.locations = fn(self.locations)
         self.weights = fn(self.weights)
-        return super(GaussHermiteQuadrature1D, self)._apply(fn)
+        return super()._apply(fn)
 
     def _locs_and_weights(self, num_locs):
         """

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import functools
 import string
 import warnings
@@ -38,7 +40,7 @@ def prediction_strategy(train_inputs, train_prior_dist, train_labels, likelihood
     return cls(train_inputs, train_prior_dist, train_labels, likelihood)
 
 
-class DefaultPredictionStrategy(object):
+class DefaultPredictionStrategy:
     def __init__(self, train_inputs, train_prior_dist, train_labels, likelihood, root=None, inv_root=None):
         # Get training shape
         self._train_shape = train_prior_dist.event_shape
@@ -52,8 +54,8 @@ class DefaultPredictionStrategy(object):
             raise RuntimeError(
                 "Flattening the training labels failed. The most common cause of this error is "
                 + "that the shapes of the prior mean and the training labels are mismatched. "
-                + "The shape of the train targets is {0}, ".format(train_labels.shape)
-                + "while the reported shape of the mean is {0}.".format(train_prior_dist.mean.shape)
+                + f"The shape of the train targets is {train_labels.shape}, "
+                + f"while the reported shape of the mean is {train_prior_dist.mean.shape}."
             )
 
         self.train_inputs = train_inputs
@@ -699,7 +701,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
 
     def exact_predictive_covar(self, test_test_covar, test_train_covar):
         if settings.fast_pred_var.off() and settings.fast_pred_samples.off():
-            return super(InterpolatedPredictionStrategy, self).exact_predictive_covar(test_test_covar, test_train_covar)
+            return super().exact_predictive_covar(test_test_covar, test_train_covar)
 
         self._last_test_train_covar = test_train_covar
         test_interp_indices = test_train_covar.left_interp_indices

@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 import math
-from typing import Optional
 
 import torch
 from torch import Tensor
@@ -91,10 +92,11 @@ class PiecewisePolynomialKernel(Kernel):
             )
         >>> covar = covar_module(batch_x)  # Output: LinearOperator of size (2 x 10 x 10)
     """
+
     has_lengthscale = True
 
-    def __init__(self, q: Optional[int] = 2, **kwargs):
-        super(PiecewisePolynomialKernel, self).__init__(**kwargs)
+    def __init__(self, q: int | None = 2, **kwargs):
+        super().__init__(**kwargs)
         if q not in {0, 1, 2, 3}:
             raise ValueError("q expected to be 0, 1, 2 or 3")
         self.q = q

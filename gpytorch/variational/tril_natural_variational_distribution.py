@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Tuple
+from __future__ import annotations
 
 import torch
 from linear_operator.operators import CholLinearOperator, TriangularLinearOperator
@@ -79,20 +79,20 @@ class TrilNaturalVariationalDistribution(_NaturalVariationalDistribution):
 
 class _TrilNaturalToMuVarSqrt(torch.autograd.Function):
     @staticmethod
-    def _forward(nat_mean: Tensor, tril_nat_covar: Tensor) -> Tuple[Tensor, Tensor]:
+    def _forward(nat_mean: Tensor, tril_nat_covar: Tensor) -> tuple[Tensor, Tensor]:
         L = _triangular_inverse(tril_nat_covar, upper=False)
         mu = L @ (L.transpose(-1, -2) @ nat_mean.unsqueeze(-1))
         return mu.squeeze(-1), L
         # return nat_mean, L
 
     @staticmethod
-    def forward(ctx: FunctionCtx, nat_mean: Tensor, tril_nat_covar: Tensor) -> Tuple[Tensor, Tensor]:
+    def forward(ctx: FunctionCtx, nat_mean: Tensor, tril_nat_covar: Tensor) -> tuple[Tensor, Tensor]:
         mu, L = _TrilNaturalToMuVarSqrt._forward(nat_mean, tril_nat_covar)
         ctx.save_for_backward(mu, L, tril_nat_covar)
         return mu, L
 
     @staticmethod
-    def backward(ctx: FunctionCtx, dout_dmu: Tensor, dout_dL: Tensor) -> Tuple[Tensor, Tensor]:
+    def backward(ctx: FunctionCtx, dout_dmu: Tensor, dout_dL: Tensor) -> tuple[Tensor, Tensor]:
         mu, L, C = ctx.saved_tensors
         dout_dnat1, dout_dnat2 = _NaturalToMuVarSqrt._backward(dout_dmu, dout_dL, mu, L, C)
         """

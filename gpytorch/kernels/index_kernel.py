@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Optional
+from __future__ import annotations
 
 import torch
 from linear_operator.operators import (
@@ -54,9 +54,9 @@ class IndexKernel(Kernel):
     def __init__(
         self,
         num_tasks: int,
-        rank: Optional[int] = 1,
-        prior: Optional[Prior] = None,
-        var_constraint: Optional[Interval] = None,
+        rank: int | None = 1,
+        prior: Prior | None = None,
+        var_constraint: Interval | None = None,
         **kwargs,
     ):
         if rank > num_tasks:

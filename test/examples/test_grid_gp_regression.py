@@ -23,7 +23,7 @@ def make_data(grid, cuda=False):
         for j in range(n):
             test_x[i * n + j][0] = float(i) / (n - 1)
             test_x[i * n + j][1] = float(j) / (n - 1)
-    test_y = torch.sin(((test_x.sum(-1)) * (2 * math.pi)))
+    test_y = torch.sin((test_x.sum(-1)) * (2 * math.pi))
     if cuda:
         train_x = train_x.cuda()
         train_y = train_y.cuda()
@@ -34,7 +34,7 @@ def make_data(grid, cuda=False):
 
 class GridGPRegressionModel(gpytorch.models.ExactGP):
     def __init__(self, grid, train_x, train_y, likelihood):
-        super(GridGPRegressionModel, self).__init__(train_x, train_y, likelihood)
+        super().__init__(train_x, train_y, likelihood)
         self.mean_module = gpytorch.means.ConstantMean()
         self.covar_module = gpytorch.kernels.GridKernel(gpytorch.kernels.RBFKernel(), grid=grid)
 

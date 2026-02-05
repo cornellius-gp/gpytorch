@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+
+from __future__ import annotations
+
 from . import keops
 from .additive_structure_kernel import AdditiveStructureKernel
 from .arc_kernel import ArcKernel

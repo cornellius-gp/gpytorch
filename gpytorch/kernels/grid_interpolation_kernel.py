@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import List, Optional, Tuple, Union
+from __future__ import annotations
 
 import torch
 from linear_operator import to_linear_operator
@@ -72,10 +72,10 @@ class GridInterpolationKernel(GridKernel):
     def __init__(
         self,
         base_kernel: Kernel,
-        grid_size: Union[int, List[int]],
-        num_dims: Optional[int] = None,
-        grid_bounds: Optional[Tuple[float, float]] = None,
-        active_dims: Optional[Tuple[int, ...]] = None,
+        grid_size: int | list[int],
+        num_dims: int | None = None,
+        grid_bounds: tuple[float, float] | None = None,
+        active_dims: tuple[int, ...] | None = None,
     ):
         has_initialized_grid = 0
         grid_is_dynamic = True
@@ -113,7 +113,7 @@ class GridInterpolationKernel(GridKernel):
         self.grid_bounds = grid_bounds
         grid = create_grid(self.grid_sizes, self.grid_bounds)
 
-        super(GridInterpolationKernel, self).__init__(
+        super().__init__(
             base_kernel=base_kernel,
             grid=grid,
             interpolation_mode=True,

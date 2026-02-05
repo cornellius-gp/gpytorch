@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from __future__ import annotations
 
 import torch
 
@@ -7,8 +7,8 @@ from torch import Tensor
 
 
 def sum_interaction_terms(
-    covars: Union[LinearOperator, Tensor],  # shape:  (..., D, N, N)
-    max_degree: Optional[int] = None,
+    covars: LinearOperator | Tensor,  # shape:  (..., D, N, N)
+    max_degree: int | None = None,
     dim: int = -3,
 ) -> Tensor:  # shape:  (..., N, N)
     r"""

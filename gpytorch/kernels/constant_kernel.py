@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Optional, Tuple
+from __future__ import annotations
 
 import torch
 from torch import Tensor
@@ -37,10 +37,10 @@ class ConstantKernel(Kernel):
 
     def __init__(
         self,
-        batch_shape: Optional[torch.Size] = None,
-        constant_prior: Optional[Prior] = None,
-        constant_constraint: Optional[Interval] = None,
-        active_dims: Optional[Tuple[int, ...]] = None,
+        batch_shape: torch.Size | None = None,
+        constant_prior: Prior | None = None,
+        constant_constraint: Interval | None = None,
+        active_dims: tuple[int, ...] | None = None,
     ):
         """Constructor of ConstantKernel.
 
@@ -89,8 +89,8 @@ class ConstantKernel(Kernel):
         self,
         x1: Tensor,
         x2: Tensor,
-        diag: Optional[bool] = False,
-        last_dim_is_batch: Optional[bool] = False,
+        diag: bool | None = False,
+        last_dim_is_batch: bool | None = False,
     ) -> Tensor:
         """Evaluates the constant kernel.
 

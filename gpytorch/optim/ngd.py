@@ -1,6 +1,6 @@
-#!/usr/bin/env python3
+from __future__ import annotations
 
-from typing import Callable, Iterable, Optional, Union
+from collections.abc import Callable, Iterable
 
 import torch
 
@@ -23,12 +23,12 @@ class NGD(torch.optim.Optimizer):
         >>> ngd_optimizer.step()
     """
 
-    def __init__(self, params: Iterable[Union[torch.nn.Parameter, dict]], num_data: int, lr: float = 0.1):
+    def __init__(self, params: Iterable[torch.nn.Parameter | dict], num_data: int, lr: float = 0.1):
         self.num_data = num_data
         super().__init__(params, defaults=dict(lr=lr))
 
     @torch.no_grad()
-    def step(self, closure: Optional[Callable] = None) -> None:
+    def step(self, closure: Callable | None = None) -> None:
         """
         Performs a single optimization step.
 

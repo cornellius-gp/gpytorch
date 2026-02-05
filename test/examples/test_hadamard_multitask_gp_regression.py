@@ -31,7 +31,7 @@ test_y2 = torch.cos(test_x * (2 * pi))
 
 class HadamardMultitaskGPModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood):
-        super(HadamardMultitaskGPModel, self).__init__(train_x, train_y, likelihood)
+        super().__init__(train_x, train_y, likelihood)
         # Default bounds on mean are (-1e10, 1e10)
         self.mean_module = ConstantMean()
         # We use the very common RBF kernel

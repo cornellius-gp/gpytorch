@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import warnings
-from typing import Any, Dict, Iterable, Optional, Tuple
+from collections.abc import Iterable
+from typing import Any
 
 import torch
 from linear_operator import to_dense
@@ -33,9 +36,9 @@ from . import _VariationalDistribution
 
 
 def _ensure_updated_strategy_flag_set(
-    state_dict: Dict[str, Tensor],
+    state_dict: dict[str, Tensor],
     prefix: str,
-    local_metadata: Dict[str, Any],
+    local_metadata: dict[str, Any],
     strict: bool,
     missing_keys: Iterable[str],
     unexpected_keys: Iterable[str],
@@ -175,7 +178,7 @@ class VariationalStrategy(_VariationalStrategy):
         inducing_points: Tensor,
         variational_distribution: _VariationalDistribution,
         learn_inducing_locations: bool = True,
-        jitter_val: Optional[float] = None,
+        jitter_val: float | None = None,
     ):
         super().__init__(
             model, inducing_points, variational_distribution, learn_inducing_locations, jitter_val=jitter_val
@@ -203,7 +206,7 @@ class VariationalStrategy(_VariationalStrategy):
 
     @property
     @cached(name="pseudo_points_memo")
-    def pseudo_points(self) -> Tuple[Tensor, Tensor]:
+    def pseudo_points(self) -> tuple[Tensor, Tensor]:
         # TODO: have var_mean, var_cov come from a method of _variational_distribution
         # while having Kmm_root be a root decomposition to enable CIQVariationalDistribution support.
 
@@ -328,7 +331,7 @@ class VariationalStrategy(_VariationalStrategy):
         x: Tensor,
         inducing_points: Tensor,
         inducing_values: Tensor,
-        variational_inducing_covar: Optional[LinearOperator] = None,
+        variational_inducing_covar: LinearOperator | None = None,
         diag: bool = True,
         **kwargs,
     ) -> MultivariateNormal:

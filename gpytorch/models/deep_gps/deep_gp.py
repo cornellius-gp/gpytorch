@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import warnings
 
 import torch
@@ -12,7 +14,7 @@ from ..approximate_gp import ApproximateGP
 from ..gp import GP
 
 
-class _DeepGPVariationalStrategy(object):
+class _DeepGPVariationalStrategy:
     def __init__(self, model):
         self.model = model
 
@@ -65,7 +67,7 @@ class DeepGPLayer(ApproximateGP):
     """
 
     def __init__(self, variational_strategy, input_dims, output_dims):
-        super(DeepGPLayer, self).__init__(variational_strategy)
+        super().__init__(variational_strategy)
         self.input_dims = input_dims
         self.output_dims = output_dims
 

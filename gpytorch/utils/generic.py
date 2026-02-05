@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 
 def length_safe_zip(*args):
     """Python's `zip(...)` with checks to ensure the arguments have

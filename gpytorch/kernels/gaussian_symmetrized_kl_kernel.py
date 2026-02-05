@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 # from torch.distributions import Normal, kl_divergence
 from .distributional_input_kernel import DistributionalInputKernel
 
@@ -52,4 +54,4 @@ class GaussianSymmetrizedKLKernel(DistributionalInputKernel):
 
     def __init__(self, **kwargs):
         distance_function = _symmetrized_kl
-        super(GaussianSymmetrizedKLKernel, self).__init__(distance_function=distance_function, **kwargs)
+        super().__init__(distance_function=distance_function, **kwargs)

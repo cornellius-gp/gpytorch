@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
-from typing import Any, Optional
+from __future__ import annotations
+
+from typing import Any
 
 import torch
 from torch import Tensor
@@ -27,8 +29,8 @@ class LaplaceLikelihood(_OneDimensionalLikelihood):
     def __init__(
         self,
         batch_shape: torch.Size = torch.Size([]),
-        noise_prior: Optional[Prior] = None,
-        noise_constraint: Optional[Interval] = None,
+        noise_prior: Prior | None = None,
+        noise_constraint: Interval | None = None,
     ) -> None:
         super().__init__()
 

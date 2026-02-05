@@ -17,7 +17,7 @@ from gpytorch.variational import CholeskyVariationalDistribution, LMCVariational
 
 class SingleGPModel(ExactGP):
     def __init__(self, train_inputs, train_targets, likelihood, batch_shape):
-        super(SingleGPModel, self).__init__(train_inputs, train_targets, likelihood)
+        super().__init__(train_inputs, train_targets, likelihood)
         self.mean_module = ConstantMean(batch_shape=batch_shape)
         self.covar_module = ScaleKernel(RBFKernel(batch_shape=batch_shape))
 
@@ -29,7 +29,7 @@ class SingleGPModel(ExactGP):
 
 class MultitaskGPModel(ExactGP):
     def __init__(self, train_inputs, train_targets, likelihood, num_tasks):
-        super(MultitaskGPModel, self).__init__(train_inputs, train_targets, likelihood)
+        super().__init__(train_inputs, train_targets, likelihood)
         self.mean_module = MultitaskMean(ConstantMean(), num_tasks=num_tasks)
         self.covar_module = MultitaskKernel(ScaleKernel(RBFKernel()), num_tasks=num_tasks)
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Optional, Tuple, Union
+from __future__ import annotations
 
 import linear_operator
 import torch
@@ -28,7 +28,7 @@ from .functions import inv_matmul, log_normal_cdf, logdet, matmul  # Deprecated
 from .mlls import ExactMarginalLogLikelihood
 from .module import Module
 
-Anysor = Union[LinearOperator, Tensor]
+Anysor = LinearOperator | Tensor
 
 
 def add_diagonal(input: Anysor, diag: Tensor) -> LinearOperator:
@@ -58,7 +58,7 @@ def add_jitter(input: Anysor, jitter_val: float = 1e-3) -> Anysor:
     return linear_operator.add_jitter(input=input, jitter_val=jitter_val)
 
 
-def diagonalization(input: Anysor, method: Optional[str] = None) -> Tuple[Tensor, Tensor]:
+def diagonalization(input: Anysor, method: str | None = None) -> tuple[Tensor, Tensor]:
     r"""
     Returns a (usually partial) diagonalization of a symmetric positive definite matrix (or batch of matrices).
     :math:`\mathbf A`.
@@ -74,7 +74,7 @@ def diagonalization(input: Anysor, method: Optional[str] = None) -> Tuple[Tensor
 
 
 def dsmm(
-    sparse_mat: Union[torch.sparse.HalfTensor, torch.sparse.FloatTensor, torch.sparse.DoubleTensor],
+    sparse_mat: torch.sparse.HalfTensor | torch.sparse.FloatTensor | torch.sparse.DoubleTensor,
     dense_mat: Tensor,
 ) -> Tensor:
     r"""
@@ -117,10 +117,10 @@ def inv_quad(input: Anysor, inv_quad_rhs: Tensor, reduce_inv_quad: bool = True) 
 
 def inv_quad_logdet(
     input: Anysor,
-    inv_quad_rhs: Optional[Tensor] = None,
+    inv_quad_rhs: Tensor | None = None,
     logdet: bool = False,
     reduce_inv_quad: bool = True,
-) -> Tuple[Tensor, Tensor]:
+) -> tuple[Tensor, Tensor]:
     r"""
     Calls both :func:`inv_quad_logdet` and :func:`logdet` on a positive definite matrix (or batch) :math:`\mathbf A`.
     However, calling this method is far more efficient and stable than calling each method independently.
@@ -146,9 +146,9 @@ def inv_quad_logdet(
 def pivoted_cholesky(
     input: Anysor,
     rank: int,
-    error_tol: Optional[float] = None,
+    error_tol: float | None = None,
     return_pivots: bool = False,
-) -> Union[Tensor, Tuple[Tensor, Tensor]]:
+) -> Tensor | tuple[Tensor, Tensor]:
     r"""
     Performs a partial pivoted Cholesky factorization of a positive definite matrix (or batch of matrices).
     :math:`\mathbf L \mathbf L^\top = \mathbf A`.
@@ -173,7 +173,7 @@ def pivoted_cholesky(
     return linear_operator.pivoted_cholesky(input=input, rank=rank, return_pivots=return_pivots)
 
 
-def root_decomposition(input: Anysor, method: Optional[str] = None) -> LinearOperator:
+def root_decomposition(input: Anysor, method: str | None = None) -> LinearOperator:
     r"""
     Returns a (usually low-rank) root decomposition linear operator of the
     positive definite matrix (or batch of matrices) :math:`\mathbf A`.
@@ -190,9 +190,9 @@ def root_decomposition(input: Anysor, method: Optional[str] = None) -> LinearOpe
 
 def root_inv_decomposition(
     input: Anysor,
-    initial_vectors: Optional[Tensor] = None,
-    test_vectors: Optional[Tensor] = None,
-    method: Optional[str] = None,
+    initial_vectors: Tensor | None = None,
+    test_vectors: Tensor | None = None,
+    method: str | None = None,
 ) -> LinearOperator:
     r"""
     Returns a (usually low-rank) inverse root decomposition linear operator
@@ -217,7 +217,7 @@ def root_inv_decomposition(
     )
 
 
-def solve(input: Anysor, rhs: Tensor, lhs: Optional[Tensor] = None) -> Tensor:
+def solve(input: Anysor, rhs: Tensor, lhs: Tensor | None = None) -> Tensor:
     r"""
     Given a positive definite matrix (or batch of matrices) :math:`\mathbf A`,
     computes a linear solve with right hand side :math:`\mathbf R`:
@@ -249,7 +249,7 @@ def solve(input: Anysor, rhs: Tensor, lhs: Optional[Tensor] = None) -> Tensor:
     return linear_operator.solve(input=input, rhs=rhs, lhs=lhs)
 
 
-def sqrt_inv_matmul(input: Anysor, rhs: Tensor, lhs: Optional[Tensor] = None) -> Tensor:
+def sqrt_inv_matmul(input: Anysor, rhs: Tensor, lhs: Tensor | None = None) -> Tensor:
     r"""
     Given a positive definite matrix (or batch of matrices) :math:`\mathbf A`
     and a right hand size :math:`\mathbf R`,

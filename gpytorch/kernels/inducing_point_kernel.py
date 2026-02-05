@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import copy
 import math
-from typing import Optional, Tuple
 
 import torch
 from linear_operator import to_dense
@@ -29,9 +30,9 @@ class InducingPointKernel(Kernel):
         base_kernel: Kernel,
         inducing_points: Tensor,
         likelihood: Likelihood,
-        active_dims: Optional[Tuple[int, ...]] = None,
+        active_dims: tuple[int, ...] | None = None,
     ):
-        super(InducingPointKernel, self).__init__(active_dims=active_dims)
+        super().__init__(active_dims=active_dims)
         self.base_kernel = base_kernel
         self.likelihood = likelihood
 

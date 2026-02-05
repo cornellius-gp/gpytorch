@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import math
-from typing import Optional
 
 import torch
 from linear_operator.operators import LowRankRootLinearOperator, MatmulLinearOperator, RootLinearOperator
@@ -92,14 +93,14 @@ class RFFKernel(Kernel):
 
     has_lengthscale = True
 
-    def __init__(self, num_samples: int, num_dims: Optional[int] = None, **kwargs):
+    def __init__(self, num_samples: int, num_dims: int | None = None, **kwargs):
         super().__init__(**kwargs)
         self.num_samples = num_samples
         if num_dims is not None:
             self._init_weights(num_dims, num_samples)
 
     def _init_weights(
-        self, num_dims: Optional[int] = None, num_samples: Optional[int] = None, randn_weights: Optional[Tensor] = None
+        self, num_dims: int | None = None, num_samples: int | None = None, randn_weights: Tensor | None = None
     ):
         if num_dims is not None and num_samples is not None:
             d = num_dims

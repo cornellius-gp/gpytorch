@@ -10,7 +10,7 @@ from gpytorch.likelihoods import HeteroskedasticNoise
 
 class NumericallyUnstableModelExample(gpytorch.models.GP):
     def __init__(self):
-        super(NumericallyUnstableModelExample, self).__init__()
+        super().__init__()
         self.fail_arithmetic = False
 
     def train(self, mode=True):

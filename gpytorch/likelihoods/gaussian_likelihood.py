@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
+
+from __future__ import annotations
+
 import math
 import warnings
 from copy import deepcopy
-from typing import Any, Optional, Tuple, Union
+from typing import Any
 
 import torch
 from linear_operator.operators import LinearOperator, MaskedLinearOperator, ZeroLinearOperator
@@ -23,7 +26,7 @@ class _GaussianLikelihoodBase(Likelihood):
 
     has_analytic_marginal = True
 
-    def __init__(self, noise_covar: Union[Noise, FixedGaussianNoise], **kwargs: Any) -> None:
+    def __init__(self, noise_covar: Noise | FixedGaussianNoise, **kwargs: Any) -> None:
         super().__init__()
         param_transform = kwargs.get("param_transform")
         if param_transform is not None:
@@ -35,7 +38,7 @@ class _GaussianLikelihoodBase(Likelihood):
 
         self.noise_covar = noise_covar
 
-    def _shaped_noise_covar(self, base_shape: torch.Size, *params: Any, **kwargs: Any) -> Union[Tensor, LinearOperator]:
+    def _shaped_noise_covar(self, base_shape: torch.Size, *params: Any, **kwargs: Any) -> Tensor | LinearOperator:
         return self.noise_covar(*params, shape=base_shape, **kwargs)
 
     def expected_log_prob(self, target: Tensor, input: MultivariateNormal, *params: Any, **kwargs: Any) -> Tensor:
@@ -144,8 +147,8 @@ class GaussianLikelihood(_GaussianLikelihoodBase):
 
     def __init__(
         self,
-        noise_prior: Optional[Prior] = None,
-        noise_constraint: Optional[Interval] = None,
+        noise_prior: Prior | None = None,
+        noise_constraint: Interval | None = None,
         batch_shape: torch.Size = torch.Size(),
         **kwargs: Any,
     ) -> None:
@@ -215,7 +218,7 @@ class GaussianLikelihoodWithMissingObs(GaussianLikelihood):
         )
         super().__init__(**kwargs)
 
-    def _get_masked_obs(self, x: Tensor) -> Tuple[Tensor, Tensor]:
+    def _get_masked_obs(self, x: Tensor) -> tuple[Tensor, Tensor]:
         missing_idx = x.isnan()
         x_masked = x.masked_fill(missing_idx, self.MISSING_VALUE_FILL)
         return missing_idx, x_masked
@@ -278,13 +281,13 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
     def __init__(
         self,
         noise: Tensor,
-        learn_additional_noise: Optional[bool] = False,
-        batch_shape: Optional[torch.Size] = torch.Size(),
+        learn_additional_noise: bool | None = False,
+        batch_shape: torch.Size | None = torch.Size(),
         **kwargs: Any,
     ) -> None:
         super().__init__(noise_covar=FixedGaussianNoise(noise=noise))
 
-        self.second_noise_covar: Optional[HomoskedasticNoise] = None
+        self.second_noise_covar: HomoskedasticNoise | None = None
         if learn_additional_noise:
             noise_prior = kwargs.get("noise_prior", None)
             noise_constraint = kwargs.get("noise_constraint", None)
@@ -301,7 +304,7 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
         self.noise_covar.initialize(noise=value)
 
     @property
-    def second_noise(self) -> Union[float, Tensor]:
+    def second_noise(self) -> float | Tensor:
         if self.second_noise_covar is None:
             return 0.0
         else:
@@ -316,7 +319,7 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
             )
         self.second_noise_covar.initialize(noise=value)
 
-    def get_fantasy_likelihood(self, **kwargs: Any) -> "FixedNoiseGaussianLikelihood":
+    def get_fantasy_likelihood(self, **kwargs: Any) -> FixedNoiseGaussianLikelihood:
         if "noise" not in kwargs:
             raise RuntimeError("FixedNoiseGaussianLikelihood.fantasize requires a `noise` kwarg")
         old_noise_covar = self.noise_covar
@@ -331,7 +334,7 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
         fantasy_liklihood.noise_covar = FixedGaussianNoise(noise=torch.cat([old_noise, new_noise], -1))
         return fantasy_liklihood
 
-    def _shaped_noise_covar(self, base_shape: torch.Size, *params: Any, **kwargs: Any) -> Union[Tensor, LinearOperator]:
+    def _shaped_noise_covar(self, base_shape: torch.Size, *params: Any, **kwargs: Any) -> Tensor | LinearOperator:
         if len(params) > 0:
             # we can infer the shape from the params
             shape = None
@@ -393,7 +396,7 @@ class DirichletClassificationLikelihood(FixedNoiseGaussianLikelihood):
 
     def _prepare_targets(
         self, targets: Tensor, alpha_epsilon: float = 0.01, dtype: torch.dtype = torch.float
-    ) -> Tuple[Tensor, Tensor, int]:
+    ) -> tuple[Tensor, Tensor, int]:
         num_classes = int(targets.max() + 1)
         # set alpha = \alpha_\epsilon
         alpha = alpha_epsilon * torch.ones(targets.shape[-1], num_classes, device=targets.device, dtype=dtype)
@@ -413,7 +416,7 @@ class DirichletClassificationLikelihood(FixedNoiseGaussianLikelihood):
         self,
         targets: Tensor,
         alpha_epsilon: float = 0.01,
-        learn_additional_noise: Optional[bool] = False,
+        learn_additional_noise: bool | None = False,
         batch_shape: torch.Size = torch.Size(),
         dtype: torch.dtype = torch.float,
         **kwargs: Any,
@@ -432,7 +435,7 @@ class DirichletClassificationLikelihood(FixedNoiseGaussianLikelihood):
         self.targets: Tensor = targets
         self.alpha_epsilon: float = alpha_epsilon
 
-    def get_fantasy_likelihood(self, **kwargs: Any) -> "DirichletClassificationLikelihood":
+    def get_fantasy_likelihood(self, **kwargs: Any) -> DirichletClassificationLikelihood:
         # we assume that the number of classes does not change.
 
         if "targets" not in kwargs:
@@ -460,7 +463,7 @@ class DirichletClassificationLikelihood(FixedNoiseGaussianLikelihood):
         """
         return super().marginal(function_dist, *args, **kwargs)
 
-    def __call__(self, input: Union[Tensor, MultivariateNormal], *args: Any, **kwargs: Any) -> Distribution:
+    def __call__(self, input: Tensor | MultivariateNormal, *args: Any, **kwargs: Any) -> Distribution:
         if "targets" in kwargs:
             targets = kwargs.pop("targets")
             dtype = self.transformed_targets.dtype

@@ -1,6 +1,4 @@
-from __future__ import absolute_import, division, print_function, unicode_literals
-
-from typing import Optional
+from __future__ import annotations
 
 import torch
 
@@ -52,8 +50,8 @@ class RQKernel(Kernel):
 
     has_lengthscale = True
 
-    def __init__(self, alpha_constraint: Optional[Interval] = None, **kwargs):
-        super(RQKernel, self).__init__(**kwargs)
+    def __init__(self, alpha_constraint: Interval | None = None, **kwargs):
+        super().__init__(**kwargs)
         self.register_parameter(name="raw_alpha", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1)))
         if alpha_constraint is None:
             alpha_constraint = Positive()

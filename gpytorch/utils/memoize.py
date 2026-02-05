@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import functools
 import pickle
 
@@ -29,7 +31,7 @@ def pop_from_cache(obj, name, *args, **kwargs):
     try:
         return obj._memoize_cache.pop((name, args, pickle.dumps(kwargs)))
     except (KeyError, AttributeError):
-        raise CachingError("Object does not have item {} stored in cache.".format(name))
+        raise CachingError(f"Object does not have item {name} stored in cache.")
 
 
 def pop_from_cache_ignore_args(obj, name):
@@ -37,7 +39,7 @@ def pop_from_cache_ignore_args(obj, name):
     try:
         return obj._memoize_cache.pop(name)
     except (KeyError, AttributeError):
-        raise CachingError("Object does not have item {} stored in cache.".format(name))
+        raise CachingError(f"Object does not have item {name} stored in cache.")
 
 
 def clear_cache_hook(module, *args, **kwargs):
@@ -92,7 +94,7 @@ def _get_from_cache(obj, name, *args, kwargs_pkl):
     try:
         return obj._memoize_cache[(name, args, kwargs_pkl)]
     except (AttributeError, KeyError):
-        raise CachingError("Object does not have item {} stored in cache.".format(name))
+        raise CachingError(f"Object does not have item {name} stored in cache.")
 
 
 def _is_in_cache(obj, name, *args, kwargs_pkl):
@@ -112,7 +114,7 @@ def _get_from_cache_ignore_args(obj, name):
     try:
         return obj._memoize_cache[name]
     except (AttributeError, KeyError):
-        raise CachingError("Object does not have item {} stored in cache.".format(name))
+        raise CachingError(f"Object does not have item {name} stored in cache.")
 
 
 def _is_in_cache_ignore_args(obj, name):

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import math
-from typing import Optional
 
 import torch
 
@@ -57,11 +58,11 @@ class CosineKernel(Kernel):
 
     def __init__(
         self,
-        period_length_prior: Optional[Prior] = None,
-        period_length_constraint: Optional[Interval] = None,
+        period_length_prior: Prior | None = None,
+        period_length_constraint: Interval | None = None,
         **kwargs,
     ):
-        super(CosineKernel, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
         self.register_parameter(
             name="raw_period_length", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, 1))

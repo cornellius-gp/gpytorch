@@ -1,4 +1,6 @@
-from typing import Any, Optional
+from __future__ import annotations
+
+from typing import Any
 
 import torch
 from torch import Tensor
@@ -47,8 +49,8 @@ class NegativeBinomialLikelihood(_OneDimensionalLikelihood):
     def __init__(
         self,
         batch_shape: torch.Size = torch.Size([]),
-        probs_prior: Optional[Prior] = None,
-        probs_constraint: Optional[Interval] = None,
+        probs_prior: Prior | None = None,
+        probs_constraint: Interval | None = None,
         num_failures_param: bool = False,
     ) -> None:
         super().__init__()

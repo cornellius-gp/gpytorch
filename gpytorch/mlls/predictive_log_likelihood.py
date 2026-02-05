@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 from ._approximate_mll import _ApproximateMarginalLogLikelihood
 
 

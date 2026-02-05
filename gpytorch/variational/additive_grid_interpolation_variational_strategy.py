@@ -1,6 +1,6 @@
-#!/usr/bin/env python3
+from __future__ import annotations
 
-from typing import Iterable, Optional, Tuple
+from collections.abc import Iterable
 
 import torch
 from linear_operator.operators import LinearOperator
@@ -17,15 +17,13 @@ class AdditiveGridInterpolationVariationalStrategy(GridInterpolationVariationalS
         self,
         model: ApproximateGP,
         grid_size: int,
-        grid_bounds: Iterable[Tuple[float, float]],
+        grid_bounds: Iterable[tuple[float, float]],
         num_dim: int,
         variational_distribution: _VariationalDistribution,
         mixing_params: bool = False,
         sum_output: bool = True,
     ):
-        super(AdditiveGridInterpolationVariationalStrategy, self).__init__(
-            model, grid_size, grid_bounds, variational_distribution
-        )
+        super().__init__(model, grid_size, grid_bounds, variational_distribution)
         self.num_dim = num_dim
         self.sum_output = sum_output
         # Mixing parameters
@@ -38,15 +36,15 @@ class AdditiveGridInterpolationVariationalStrategy(GridInterpolationVariationalS
         # efficiency.
         # However, when using a default VariationalDistribution which has an O(m^2) space complexity anyways,
         # we find that GridKernel is typically not worth it due to the moderate slow down of using FFTs.
-        out = super(AdditiveGridInterpolationVariationalStrategy, self).prior_distribution
+        out = super().prior_distribution
         mean = out.mean.repeat(self.num_dim, 1)
         covar = out.lazy_covariance_matrix.repeat(self.num_dim, 1, 1)
         return MultivariateNormal(mean, covar)
 
-    def _compute_grid(self, inputs: Tensor) -> Tuple[LongTensor, Tensor]:
+    def _compute_grid(self, inputs: Tensor) -> tuple[LongTensor, Tensor]:
         num_data, num_dim = inputs.size()
         inputs = inputs.transpose(0, 1).reshape(-1, 1)
-        interp_indices, interp_values = super(AdditiveGridInterpolationVariationalStrategy, self)._compute_grid(inputs)
+        interp_indices, interp_values = super()._compute_grid(inputs)
         interp_indices = interp_indices.view(num_dim, num_data, -1)
         interp_values = interp_values.view(num_dim, num_data, -1)
 
@@ -59,7 +57,7 @@ class AdditiveGridInterpolationVariationalStrategy(GridInterpolationVariationalS
         x: Tensor,
         inducing_points: Tensor,
         inducing_values: Tensor,
-        variational_inducing_covar: Optional[LinearOperator] = None,
+        variational_inducing_covar: LinearOperator | None = None,
         diag: bool = True,
         **kwargs,
     ) -> MultivariateNormal:
