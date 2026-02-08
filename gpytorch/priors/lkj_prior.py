@@ -112,7 +112,9 @@ class LKJCovariancePrior(LKJPrior):
     def sample(self, sample_shape=torch.Size()):
         base_correlation = self.correlation_prior.sample(sample_shape)
         marginal_sds = self.sd_prior.rsample(sample_shape)
+
         # expand sds to have the same shape as the base correlation matrix
+        marginal_sds = marginal_sds.unsqueeze(-1)
         marginal_sds = marginal_sds.repeat(*[1] * len(sample_shape), self.correlation_prior.n)
         marginal_sds = torch.diag_embed(marginal_sds)
         return marginal_sds.matmul(base_correlation).matmul(marginal_sds)

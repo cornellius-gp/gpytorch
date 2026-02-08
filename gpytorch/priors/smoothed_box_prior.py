@@ -37,7 +37,6 @@ class SmoothedBoxPrior(Prior):
     def __init__(self, a, b, sigma=0.01, validate_args=False, transform=None):
         TModule.__init__(self)
         _a = torch.tensor(float(a)) if isinstance(a, Number) else a
-        _a = _a.view(-1) if _a.dim() < 1 else _a
         _a, _b, _sigma = broadcast_all(_a, b, sigma)
         if not torch.all(constraints.less_than(_b).check(_a)):
             raise ValueError("must have that a < b (element-wise)")
