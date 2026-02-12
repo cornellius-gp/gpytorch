@@ -209,10 +209,33 @@ class TestRFFRegression(_AbstractTestLowRankRegression, unittest.TestCase):
             train_labels=train_y,
             likelihood=gp_model.likelihood,
         )
-        default_mean, default_covar = default_pred_strat.exact_prediction(joint_mean, joint_covar)
-        linear_mean, linear_covar = linear_pred_strat.exact_prediction(joint_mean, joint_covar)
+
+        # Extract separated covariances from joint
+        num_train = train_x.shape[0]
+        test_mean = joint_mean[..., num_train:]
+        test_test_covar = joint_covar[..., num_train:, num_train:]
+        test_train_covar = joint_covar[..., num_train:, :num_train]
+
+        default_mean, default_covar = default_pred_strat.exact_prediction(test_mean, test_test_covar, test_train_covar)
+        linear_mean, linear_covar = linear_pred_strat.exact_prediction(test_mean, test_test_covar, test_train_covar)
         self.assertTrue(torch.allclose(default_covar.to_dense(), linear_covar.to_dense(), atol=1e-4))
         self.assertTrue(torch.allclose(default_mean, linear_mean, atol=1e-4))
+
+        # Test with subset of test points to trigger MatmulLinearOperator path
+        # (slicing RootLinearOperator with different row/col indices).
+        subset_size = test_x.shape[0] // 2
+        test_mean_subset = joint_mean[..., num_train : num_train + subset_size]
+        test_test_covar_subset = joint_covar[..., num_train : num_train + subset_size, num_train : num_train + subset_size]
+        test_train_covar_subset = joint_covar[..., num_train : num_train + subset_size, :num_train]
+
+        default_mean_s, default_covar_s = default_pred_strat.exact_prediction(
+            test_mean_subset, test_test_covar_subset, test_train_covar_subset
+        )
+        linear_mean_s, linear_covar_s = linear_pred_strat.exact_prediction(
+            test_mean_subset, test_test_covar_subset, test_train_covar_subset
+        )
+        self.assertTrue(torch.allclose(default_covar_s.to_dense(), linear_covar_s.to_dense(), atol=1e-4))
+        self.assertTrue(torch.allclose(default_mean_s, linear_mean_s, atol=1e-4))
 
 
 class TestLinearRegressionSmallD(_AbstractTestLowRankRegression, unittest.TestCase):

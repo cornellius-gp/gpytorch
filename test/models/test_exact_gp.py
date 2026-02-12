@@ -265,5 +265,77 @@ class TestSumExactGP(TestExactGP):
             self.assertEqual(predicted.variance.shape, torch.Size([N_PTS]))
 
 
+class TestExactGPHooks(unittest.TestCase):
+    """Tests for the new modular prediction hooks in ExactGP."""
+
+    def test_get_train_prior_distribution_hook(self):
+        """Test that _get_train_prior_distribution can be overridden."""
+        call_count = [0]
+
+        class CustomExactGP(ExactGP):
+            def __init__(self, train_x, train_y, likelihood):
+                super().__init__(train_x, train_y, likelihood)
+                self.mean_module = gpytorch.means.ConstantMean()
+                self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
+
+            def forward(self, x):
+                mean_x = self.mean_module(x)
+                covar_x = self.covar_module(x)
+                return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
+
+            def _get_train_prior_distribution(self, train_inputs, **kwargs):
+                call_count[0] += 1
+                return super()._get_train_prior_distribution(train_inputs, **kwargs)
+
+        train_x = torch.randn(N_PTS, 1)
+        train_y = torch.randn(N_PTS)
+        likelihood = GaussianLikelihood()
+        model = CustomExactGP(train_x, train_y, likelihood)
+        model.eval()
+
+        # First call should invoke _get_train_prior_distribution
+        test_x = torch.randn(10, 1)
+        _ = model(test_x)
+        self.assertEqual(call_count[0], 1)
+
+        # Second call should use cached prediction_strategy
+        _ = model(test_x)
+        self.assertEqual(call_count[0], 1)
+
+    def test_get_test_prior_mean_and_covariances_hook(self):
+        """Test that _get_test_prior_mean_and_covariances can be overridden."""
+        call_count = [0]
+
+        class CustomExactGP(ExactGP):
+            def __init__(self, train_x, train_y, likelihood):
+                super().__init__(train_x, train_y, likelihood)
+                self.mean_module = gpytorch.means.ConstantMean()
+                self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
+
+            def forward(self, x):
+                mean_x = self.mean_module(x)
+                covar_x = self.covar_module(x)
+                return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
+
+            def _get_test_prior_mean_and_covariances(self, train_inputs, test_inputs, **kwargs):
+                call_count[0] += 1
+                return super()._get_test_prior_mean_and_covariances(train_inputs, test_inputs, **kwargs)
+
+        train_x = torch.randn(N_PTS, 1)
+        train_y = torch.randn(N_PTS)
+        likelihood = GaussianLikelihood()
+        model = CustomExactGP(train_x, train_y, likelihood)
+        model.eval()
+
+        # Each prediction call should invoke _get_test_prior_mean_and_covariances
+        test_x = torch.randn(10, 1)
+        _ = model(test_x)
+        self.assertEqual(call_count[0], 1)
+
+        # Second call should also invoke it (not cached)
+        _ = model(test_x)
+        self.assertEqual(call_count[0], 2)
+
+
 if __name__ == "__main__":
     unittest.main()
