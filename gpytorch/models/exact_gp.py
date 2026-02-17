@@ -15,7 +15,6 @@ from gpytorch.distributions import Distribution
 from .. import settings
 from ..distributions import MultitaskMultivariateNormal, MultivariateNormal
 from ..likelihoods import _GaussianLikelihoodBase
-from ..utils.generic import length_safe_zip
 from ..utils.warnings import GPInputWarning
 from .exact_prediction_strategies import prediction_strategy
 from .gp import GP
@@ -128,7 +127,7 @@ class ExactGP(GP):
                 inputs = (inputs,)
             inputs = tuple(input_.unsqueeze(-1) if input_.ndimension() == 1 else input_ for input_ in inputs)
             if strict:
-                for input_, t_input in length_safe_zip(inputs, self.train_inputs or (None,)):
+                for input_, t_input in zip(inputs, self.train_inputs or (None,), strict=True):
                     for attr in {"shape", "dtype", "device"}:
                         expected_attr = getattr(t_input, attr, None)
                         found_attr = getattr(input_, attr, None)
@@ -221,7 +220,7 @@ class ExactGP(GP):
                 [train_input, input.expand(input_batch_shape + input.shape[-2:])],
                 dim=-2,
             )
-            for train_input, input in length_safe_zip(train_inputs, inputs)
+            for train_input, input in zip(train_inputs, inputs, strict=True)
         ]
         full_targets = torch.cat(
             [train_targets, targets.expand(target_batch_shape + targets.shape[data_dim_start:])], dim=data_dim_start
@@ -276,7 +275,7 @@ class ExactGP(GP):
                 )
             if settings.debug.on():
                 if not all(
-                    torch.equal(train_input, input) for train_input, input in length_safe_zip(train_inputs, inputs)
+                    torch.equal(train_input, input) for train_input, input in zip(train_inputs, inputs, strict=True)
                 ):
                     raise RuntimeError("You must train on the training inputs!")
             res = super().__call__(*inputs, **kwargs)
@@ -294,7 +293,9 @@ class ExactGP(GP):
         # Posterior mode
         else:
             if settings.debug.on():
-                if all(torch.equal(train_input, input) for train_input, input in length_safe_zip(train_inputs, inputs)):
+                if all(
+                    torch.equal(train_input, input) for train_input, input in zip(train_inputs, inputs, strict=True)
+                ):
                     warnings.warn(
                         "The input matches the stored training data. Did you forget to call model.train()?",
                         GPInputWarning,
@@ -382,7 +383,7 @@ class ExactGP(GP):
         # Concatenate the input to the training input
         full_inputs = []
         batch_shape = train_inputs[0].shape[:-2]
-        for train_input, input in length_safe_zip(train_inputs, test_inputs):
+        for train_input, input in zip(train_inputs, test_inputs, strict=True):
             # Make sure the batch shapes agree for training/test data
             if batch_shape != train_input.shape[:-2]:
                 batch_shape = torch.broadcast_shapes(batch_shape, train_input.shape[:-2])
