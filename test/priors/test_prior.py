@@ -2,9 +2,10 @@
 
 import unittest
 
+from torch import Tensor
+
 from gpytorch.priors import GammaPrior, HalfCauchyPrior, LogNormalPrior, NormalPrior
 from gpytorch.priors.utils import BUFFERED_PREFIX
-from torch import Tensor
 
 
 class TestPrior(unittest.TestCase):
