@@ -7,11 +7,6 @@ from gpytorch.priors.utils import BUFFERED_PREFIX
 from torch import Tensor
 
 
-TRANSFORMED_ERROR_MSG = """Priors of TransformedDistributions should not have their \
-'_transformed' attributes modified, these are just copies of the base attribute. \
-Please modify the base attribute (e.g. {}) instead."""
-
-
 class TestPrior(unittest.TestCase):
     def test_state_dict(self):
         normal = NormalPrior(0.1, 1).state_dict()
@@ -54,6 +49,7 @@ class TestPrior(unittest.TestCase):
     def test_transformed_attributes(self):
         norm = NormalPrior(loc=2.5, scale=2.1)
         ln = LogNormalPrior(loc=2.5, scale=2.1)
+        hc = HalfCauchyPrior(scale=2.2)
 
         with self.assertRaisesRegex(
             AttributeError,
@@ -65,3 +61,4 @@ class TestPrior(unittest.TestCase):
         norm.loc = Tensor([1.01])
         ln.loc = Tensor([1.01])
         self.assertEqual(getattr(ln, f"{BUFFERED_PREFIX}loc"), 1.01)
+        self.assertEqual(getattr(hc, f"{BUFFERED_PREFIX}scale"), 2.2)
