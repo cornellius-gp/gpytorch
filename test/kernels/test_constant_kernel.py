@@ -101,6 +101,14 @@ class TestConstantKernel(unittest.TestCase, BaseKernelTestCase):
                 scale_kernel.to(device=device)
                 self.assertAllClose(scale_kernel(X).to_dense(), product_kernel(X).to_dense())
 
+            # testing batch shape broadcasting: the kernel has an explicit batch shape but `X` does not
+            with self.subTest(broadcasting=True):
+                X_no_batch = torch.rand(n, d, **tkwargs)
+                KL = constant_kernel(X_no_batch)
+                KM = KL.to_dense()
+                self.assertEqual(KM.shape, (*batch_shape, n, n))
+                self.assertAlmostEqual(KM.std().item(), 0, places=places)
+
             # setting constant
             pies = torch.full_like(constant_kernel.constant, torch.pi)
             constant_kernel.constant = pies
