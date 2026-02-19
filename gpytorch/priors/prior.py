@@ -6,16 +6,12 @@ from abc import ABC
 from collections.abc import Mapping
 from typing import Any
 
+import torch
 from torch.distributions import TransformedDistribution
 from torch.nn import Module
 
 from ..distributions import Distribution
-from .utils import _load_transformed_to_base_dist
-
-
-TRANSFORMED_ERROR_MSG = """Priors of TransformedDistributions should not have their \
-'_transformed' attributes modified, these are just copies of the base attribute. \
-Please modify the base attribute (e.g. {}) instead."""
+from .utils import _load_transformed_to_base_dist, BUFFERED_PREFIX
 
 
 class Prior(Distribution, Module, ABC):
@@ -43,13 +39,21 @@ class Prior(Distribution, Module, ABC):
             _load_transformed_to_base_dist(self)
 
     def __setattr__(self, name: str, value: Any) -> None:
-        if hasattr(self, name) and "_transformed_" in name:
-            base_attr_name = name.replace("_transformed_", "")
-            raise AttributeError(TRANSFORMED_ERROR_MSG.format(base_attr_name))
+        # If setting a BUFFERED_PREFIX attribute, update the base attribute instead.
+        # Note: BUFFERED_PREFIX is just an indicator that this attribute belongs to a
+        # TransformedDistribution, the value itself is not transformed.
+        if hasattr(self, name) and BUFFERED_PREFIX in name:
+            base_attr_name = name.replace(BUFFERED_PREFIX, "")
+            # Convert to Tensor if needed
+            tensor_value = torch.as_tensor(value)
+            # Update the base attribute in the base distribution
+            self.base_dist.__setattr__(base_attr_name, tensor_value)
+            # Update the transformed attribute as well
+            super().__setattr__(name, tensor_value)
 
-        elif hasattr(self, f"_transformed_{name}"):
+        elif hasattr(self, f"{BUFFERED_PREFIX}{name}"):
             self.base_dist.__setattr__(name, value)
-            super().__setattr__(f"_transformed_{name}", value)
+            super().__setattr__(f"{BUFFERED_PREFIX}{name}", value)
 
         else:
             return super().__setattr__(name, value)
