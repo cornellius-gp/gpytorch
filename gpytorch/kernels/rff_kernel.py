@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-from __future__ import annotations
-
 import math
 
 import torch
@@ -120,22 +118,24 @@ class RFFKernel(Kernel):
         if not hasattr(self, "randn_weights"):
             self._init_weights(num_dims, self.num_samples)
         x1_eq_x2 = torch.equal(x1, x2)
-        z1 = self._featurize(x1, normalize=False)
+        # Always use normalized features (scaled by 1/sqrt(D)) to ensure consistent
+        # feature matrices regardless of whether x1 == x2 or not. This is important
+        # for LinearPredictionStrategy, which extracts features from the LinearOperator.
+        z1 = self._featurize(x1, normalize=True)
         if not x1_eq_x2:
-            z2 = self._featurize(x2, normalize=False)
+            z2 = self._featurize(x2, normalize=True)
         else:
             z2 = z1
-        D = float(self.num_samples)
         if diag:
-            return (z1 * z2).sum(-1) / D
+            return (z1 * z2).sum(-1)
         if x1_eq_x2:
             # Exploit low rank structure, if there are fewer features than data points
             if z1.size(-1) < z2.size(-2):
-                return LowRankRootLinearOperator(z1 / math.sqrt(D))
+                return LowRankRootLinearOperator(z1)
             else:
-                return RootLinearOperator(z1 / math.sqrt(D))
+                return RootLinearOperator(z1)
         else:
-            return MatmulLinearOperator(z1 / D, z2.transpose(-1, -2))
+            return MatmulLinearOperator(z1, z2.transpose(-1, -2))
 
     def _featurize(self, x: Tensor, normalize: bool = False) -> Tensor:
         # Recompute division each time to allow backprop through lengthscale

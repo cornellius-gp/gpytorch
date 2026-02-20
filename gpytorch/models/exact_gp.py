@@ -10,6 +10,8 @@ from copy import deepcopy
 import torch
 from torch import Tensor
 
+from gpytorch.distributions import Distribution
+
 from .. import settings
 from ..distributions import MultitaskMultivariateNormal, MultivariateNormal
 from ..likelihoods import _GaussianLikelihoodBase
@@ -300,7 +302,7 @@ class ExactGP(GP):
 
             # Get the terms that only depend on training data
             if self.prediction_strategy is None:
-                train_output = super().__call__(*train_inputs, **kwargs)
+                train_output = self._get_train_prior_distribution(train_inputs, **kwargs)
 
                 # Create the prediction strategy for
                 self.prediction_strategy = prediction_strategy(
@@ -309,41 +311,119 @@ class ExactGP(GP):
                     train_labels=self.train_targets,
                     likelihood=self.likelihood,
                 )
-
-            # Concatenate the input to the training input
-            full_inputs = []
-            batch_shape = train_inputs[0].shape[:-2]
-            for train_input, input in length_safe_zip(train_inputs, inputs):
-                # Make sure the batch shapes agree for training/test data
-                if batch_shape != train_input.shape[:-2]:
-                    batch_shape = torch.broadcast_shapes(batch_shape, train_input.shape[:-2])
-                    train_input = train_input.expand(*batch_shape, *train_input.shape[-2:])
-                if batch_shape != input.shape[:-2]:
-                    batch_shape = torch.broadcast_shapes(batch_shape, input.shape[:-2])
-                    train_input = train_input.expand(*batch_shape, *train_input.shape[-2:])
-                    input = input.expand(*batch_shape, *input.shape[-2:])
-                full_inputs.append(torch.cat([train_input, input], dim=-2))
-
-            # Get the joint distribution for training/test data
-            full_output = super().__call__(*full_inputs, **kwargs)
-            if settings.debug.on():
-                if not isinstance(full_output, MultivariateNormal):
-                    raise RuntimeError("ExactGP.forward must return a MultivariateNormal")
-            full_mean, full_covar = full_output.loc, full_output.lazy_covariance_matrix
-
-            # Determine the shape of the joint distribution
-            batch_shape = full_output.batch_shape
-            joint_shape = full_output.event_shape
-            tasks_shape = joint_shape[1:]  # For multitask learning
-            test_shape = torch.Size([joint_shape[0] - self.prediction_strategy.train_shape[0], *tasks_shape])
-
+            (
+                test_mean,
+                test_test_covar,
+                test_train_covar,
+                batch_shape,
+                test_shape,
+                posterior_class,
+            ) = self._get_test_prior_mean_and_covariances(train_inputs=train_inputs, test_inputs=inputs, **kwargs)
             # Make the prediction
             with settings.cg_tolerance(settings.eval_cg_tolerance.value()):
-                (
-                    predictive_mean,
-                    predictive_covar,
-                ) = self.prediction_strategy.exact_prediction(full_mean, full_covar)
+                predictive_mean, predictive_covar = self.prediction_strategy.exact_prediction(
+                    test_mean=test_mean,
+                    test_test_covar=test_test_covar,
+                    test_train_covar=test_train_covar,
+                )
 
             # Reshape predictive mean to match the appropriate event shape
             predictive_mean = predictive_mean.view(*batch_shape, *test_shape).contiguous()
-            return full_output.__class__(predictive_mean, predictive_covar)
+            return posterior_class(predictive_mean, predictive_covar)
+
+    def _get_train_prior_distribution(
+        self,
+        train_inputs: Iterable[Tensor],
+        **kwargs,
+    ) -> MultivariateNormal:
+        """Computes the prior distribution on the training set.
+
+        Override this method to customize train-train covariance computation.
+
+        Args:
+            train_inputs: The inputs in the training set.
+            kwargs: Additional keyword arguments passed to the model's forward method.
+
+        Returns:
+            The prior distribution evaluated on the training set.
+        """
+        # No prior_mode context needed: super().__call__() bypasses ExactGP.__call__
+        # and goes directly to Module.__call__() -> forward(), which computes the prior.
+        return super().__call__(*train_inputs, **kwargs)
+
+    def _get_test_prior_mean_and_covariances(
+        self,
+        train_inputs: Iterable[Tensor],
+        test_inputs: Iterable[Tensor],
+        **kwargs,
+    ) -> tuple[Tensor, Tensor, Tensor, torch.Size, torch.Size, type[Distribution]]:
+        """Computes the prior mean and covariances on the test set.
+
+        Override this method to customize test-set covariance computations, e.g.,
+        for models with partial observations or per-component additive inference.
+
+        The returned covariances may have additional leading batch dimensions
+        (e.g., for additive component-wise inference). The prediction strategy
+        handles broadcasting with the train-train covariance.
+
+        Note: This method is efficient even when test_inputs overlaps with
+        train_inputs. Slicing the lazy joint covariance only evaluates
+        K(test, [train||test]); K(train, train) is never computed.
+
+        Args:
+            train_inputs: The training inputs.
+            test_inputs: The test inputs.
+            kwargs: Additional keyword arguments passed to the model's forward.
+
+        Returns:
+            A tuple of (test_mean, test_test_covar, test_train_covar, batch_shape,
+            test_shape, posterior_class).
+        """
+        # Concatenate the input to the training input
+        full_inputs = []
+        batch_shape = train_inputs[0].shape[:-2]
+        for train_input, input in length_safe_zip(train_inputs, test_inputs):
+            # Make sure the batch shapes agree for training/test data
+            if batch_shape != train_input.shape[:-2]:
+                batch_shape = torch.broadcast_shapes(batch_shape, train_input.shape[:-2])
+                train_input = train_input.expand(*batch_shape, *train_input.shape[-2:])
+            if batch_shape != input.shape[:-2]:
+                batch_shape = torch.broadcast_shapes(batch_shape, input.shape[:-2])
+                train_input = train_input.expand(*batch_shape, *train_input.shape[-2:])
+                input = input.expand(*batch_shape, *input.shape[-2:])
+            full_inputs.append(torch.cat([train_input, input], dim=-2))
+
+        # Get joint distribution (lazy when settings.lazily_evaluate_kernels is True)
+        full_output = super().__call__(*full_inputs, **kwargs)
+        if settings.debug().on():
+            if not isinstance(full_output, MultivariateNormal):
+                raise RuntimeError("ExactGP.forward must return a MultivariateNormal")
+        joint_mean, joint_covar = full_output.loc, full_output.lazy_covariance_matrix
+
+        # Determine the shape of the joint distribution
+        batch_shape = full_output.batch_shape
+        joint_shape = full_output.event_shape
+        # For single-task GPs: event_shape = (num_points,), so tasks_shape = ()
+        # For multitask GPs: event_shape = (num_points, num_tasks), so tasks_shape = (num_tasks,)
+        # This captures any task dimensions beyond the primary data dimension.
+        tasks_shape = joint_shape[1:]
+
+        # Compute test_shape: the event shape for test predictions.
+        # For single-task GPs: test_shape = (num_test,)
+        # For multitask GPs: test_shape = (num_test, num_tasks)
+        num_test = joint_shape[0] - self.prediction_strategy.train_shape[0]
+        test_shape = torch.Size([num_test, *tasks_shape])
+
+        # Find the components of the distribution that contain test data
+        num_train = self.prediction_strategy.num_train
+        test_mean = joint_mean[..., num_train:]
+
+        # Extract test covariances. Slicing is lazy; K(train, train) is never computed.
+        # evaluate_kernel() converts to the linear operator type needed by prediction.
+        # NOTE: We must slice row and column indices together (not sequentially) for
+        # compatibility with BlockInterleavedLinearOperator used in multitask GPs.
+        test_test_covar = joint_covar[..., num_train:, num_train:].evaluate_kernel()
+        test_train_covar = joint_covar[..., num_train:, :num_train].evaluate_kernel()
+
+        posterior_class = full_output.__class__
+        return (test_mean, test_test_covar, test_train_covar, batch_shape, test_shape, posterior_class)
