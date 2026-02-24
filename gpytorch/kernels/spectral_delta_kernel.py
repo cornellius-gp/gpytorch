@@ -53,7 +53,7 @@ class SpectralDeltaKernel(Kernel):
         """
         import numpy as np
         from scipy.fftpack import fft
-        from scipy.integrate import cumulative_trapezoid
+        from scipy.integrate import cumulative_trapezoid, trapezoid
 
         N = train_x.size(-2)
         emp_spect = np.abs(fft(train_y.cpu().detach().numpy())) ** 2 / N
@@ -65,7 +65,7 @@ class SpectralDeltaKernel(Kernel):
         freq = freq[: M + 1]
         emp_spect = emp_spect[: M + 1]
 
-        total_area = np.trapz(emp_spect, freq)
+        total_area = trapezoid(emp_spect, freq)
         spec_cdf = np.hstack((np.zeros(1), cumulative_trapezoid(emp_spect, freq)))
         spec_cdf = spec_cdf / total_area
 
