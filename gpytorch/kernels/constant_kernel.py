@@ -110,7 +110,15 @@ class ConstantKernel(Kernel):
             x2 = x2.transpose(-1, -2).unsqueeze(-1)
 
         dtype = torch.promote_types(x1.dtype, x2.dtype)
-        batch_shape = torch.broadcast_shapes(x1.shape[:-2], x2.shape[:-2])
+
+        input_batch_shape = torch.broadcast_shapes(x1.shape[:-2], x2.shape[:-2])
+        if last_dim_is_batch:
+            # `input_batch_shape` is (batch, d) and `self.batch_shape` should only broadcast with batch, not the
+            # trailing dimension
+            batch_shape = torch.broadcast_shapes(self.batch_shape, input_batch_shape[:-1]) + input_batch_shape[-1:]
+        else:
+            batch_shape = torch.broadcast_shapes(self.batch_shape, input_batch_shape)
+
         shape = batch_shape + (x1.shape[-2],) + (() if diag else (x2.shape[-2],))
         constant = self.constant.to(dtype=dtype, device=x1.device)
 
