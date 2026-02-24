@@ -166,7 +166,6 @@ class SpectralMixtureKernel(Kernel):
 
         import numpy as np
         from scipy.fftpack import fft
-        from scipy.integrate import cumulative_trapezoid, trapezoid
 
         with torch.no_grad():
             if not torch.is_tensor(train_x) or not torch.is_tensor(train_y):
@@ -190,8 +189,11 @@ class SpectralMixtureKernel(Kernel):
             freq = freq[: M + 1]
             emp_spect = emp_spect[: M + 1]
 
-            total_area = trapezoid(emp_spect, freq)
-            spec_cdf = np.hstack((np.zeros(1), cumulative_trapezoid(emp_spect, freq)))
+            # Use torch.trapezoid instead of scipy (convert to tensors)
+            emp_spect_t = torch.from_numpy(emp_spect)
+            freq_t = torch.from_numpy(freq)
+            total_area = torch.trapezoid(emp_spect_t, freq_t).item()
+            spec_cdf = torch.cat([torch.zeros(1), torch.cumulative_trapezoid(emp_spect_t, freq_t)]).numpy()
             spec_cdf = spec_cdf / total_area
 
             a = np.random.rand(1000, self.ard_num_dims)
