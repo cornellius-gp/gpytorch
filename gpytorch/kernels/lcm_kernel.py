@@ -7,7 +7,6 @@ from copy import deepcopy
 from torch.nn import ModuleList
 
 from ..priors import Prior
-from ..utils.generic import length_safe_zip
 from .kernel import Kernel
 from .multitask_kernel import MultitaskKernel
 
@@ -50,7 +49,7 @@ class LCMKernel(Kernel):
         self.covar_module_list = ModuleList(
             [
                 MultitaskKernel(base_kernel, num_tasks=num_tasks, rank=r, task_covar_prior=task_covar_prior)
-                for base_kernel, r in length_safe_zip(base_kernels, rank)
+                for base_kernel, r in zip(base_kernels, rank, strict=True)
             ]
         )
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 from torch.nn import ModuleList
 
 from gpytorch.mlls import ExactMarginalLogLikelihood, MarginalLogLikelihood
-from gpytorch.utils.generic import length_safe_zip
 
 
 class SumMarginalLogLikelihood(MarginalLogLikelihood):
@@ -31,10 +30,10 @@ class SumMarginalLogLikelihood(MarginalLogLikelihood):
                 (e.g. parameters in case of heteroskedastic likelihoods)
         """
         if len(params) == 0:
-            sum_mll = sum(mll(output, target) for mll, output, target in length_safe_zip(self.mlls, outputs, targets))
+            sum_mll = sum(mll(output, target) for mll, output, target in zip(self.mlls, outputs, targets, strict=True))
         else:
             sum_mll = sum(
                 mll(output, target, *iparams)
-                for mll, output, target, iparams in length_safe_zip(self.mlls, outputs, targets, params)
+                for mll, output, target, iparams in zip(self.mlls, outputs, targets, params, strict=True)
             )
         return sum_mll.div_(len(self.mlls))
