@@ -52,30 +52,30 @@ class SpectralDeltaKernel(Kernel):
         is initialized, but we skip the last step of fitting a GMM to the samples and just use the samples directly.
         """
         import numpy as np
-        from scipy.fftpack import fft
 
         N = train_x.size(-2)
-        emp_spect = np.abs(fft(train_y.cpu().detach().numpy())) ** 2 / N
+        # Use torch.fft instead of scipy for FFT (stay in PyTorch land)
+        train_y_np = train_y.cpu().detach()
+        emp_spect = torch.abs(torch.fft.fft(train_y_np)) ** 2 / N
         M = math.floor(N / 2)
 
-        freq1 = np.arange(M + 1)
-        freq2 = np.arange(-M + 1, 0)
-        freq = np.hstack((freq1, freq2)) / N
+        freq1 = torch.arange(M + 1, dtype=train_y_np.dtype)
+        freq2 = torch.arange(-M + 1, 0, dtype=train_y_np.dtype)
+        freq = torch.hstack((freq1, freq2)) / N
         freq = freq[: M + 1]
         emp_spect = emp_spect[: M + 1]
 
-        # Use torch.trapezoid instead of scipy (convert to tensors)
-        emp_spect_t = torch.from_numpy(emp_spect)
-        freq_t = torch.from_numpy(freq)
-        total_area = torch.trapezoid(emp_spect_t, freq_t).item()
-        spec_cdf = torch.cat([torch.zeros(1), torch.cumulative_trapezoid(emp_spect_t, freq_t)]).numpy()
+        # Use torch.trapezoid (already in PyTorch)
+        total_area = torch.trapezoid(emp_spect, freq).item()
+        spec_cdf = torch.cat([torch.zeros(1), torch.cumulative_trapezoid(emp_spect, freq)]).numpy()
         spec_cdf = spec_cdf / total_area
+        freq_np = freq.numpy()
 
         a = np.random.rand(self.raw_Z.size(-2), 1)
         p, q = np.histogram(a, spec_cdf)
         bins = np.digitize(a, q)
-        slopes = (spec_cdf[bins] - spec_cdf[bins - 1]) / (freq[bins] - freq[bins - 1])
-        intercepts = spec_cdf[bins - 1] - slopes * freq[bins - 1]
+        slopes = (spec_cdf[bins] - spec_cdf[bins - 1]) / (freq_np[bins] - freq_np[bins - 1])
+        intercepts = spec_cdf[bins - 1] - slopes * freq_np[bins - 1]
         inv_spec = (a - intercepts) / slopes
 
         self.Z = inv_spec
