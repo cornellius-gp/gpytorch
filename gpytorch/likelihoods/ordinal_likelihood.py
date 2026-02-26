@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any
 
 import torch
 from torch import Tensor
@@ -61,8 +61,8 @@ class OrdinalLikelihood(_OneDimensionalLikelihood):
         self,
         bin_edges: Tensor,
         batch_shape: torch.Size = torch.Size([]),
-        sigma_prior: Optional[Prior] = None,
-        sigma_constraint: Optional[Interval] = None,
+        sigma_prior: Prior | None = None,
+        sigma_constraint: Interval | None = None,
     ) -> None:
         super().__init__()
 
@@ -91,7 +91,7 @@ class OrdinalLikelihood(_OneDimensionalLikelihood):
             value = torch.as_tensor(value).to(self.raw_sigma)
         self.initialize(raw_sigma=self.raw_sigma_constraint.inverse_transform(value))
 
-    def forward(self, function_samples: Tensor, *args: Any, data: Dict[str, Tensor] = {}, **kwargs: Any) -> Categorical:
+    def forward(self, function_samples: Tensor, *args: Any, data: dict[str, Tensor] = {}, **kwargs: Any) -> Categorical:
         # Compute scaled bin edges
         scaled_edges = self.bin_edges / self.sigma
         scaled_edges_left = torch.cat([scaled_edges, torch.tensor([torch.inf], device=scaled_edges.device)], dim=-1)
