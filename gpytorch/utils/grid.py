@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import math
 import warnings
-from typing import List, Tuple
 
 import torch
 
@@ -99,11 +100,11 @@ def choose_grid_size(train_inputs, ratio=1.0, kronecker_structure=True):
         return ratio * num_data
 
 
-def convert_legacy_grid(grid: torch.Tensor) -> List[torch.Tensor]:
+def convert_legacy_grid(grid: torch.Tensor) -> list[torch.Tensor]:
     return [grid[:, i] for i in range(grid.size(-1))]
 
 
-def create_data_from_grid(grid: List[torch.Tensor]) -> torch.Tensor:
+def create_data_from_grid(grid: list[torch.Tensor]) -> torch.Tensor:
     """
     :param grid: Each Tensor is a 1D set of increments for the grid in that dimension
     :type grid: List[torch.Tensor]
@@ -127,12 +128,12 @@ def create_data_from_grid(grid: List[torch.Tensor]) -> torch.Tensor:
 
 
 def create_grid(
-    grid_sizes: List[int],
-    grid_bounds: List[Tuple[float, float]],
+    grid_sizes: list[int],
+    grid_bounds: list[tuple[float, float]],
     extend: bool = True,
     device="cpu",
     dtype=torch.float,
-) -> List[torch.Tensor]:
+) -> list[torch.Tensor]:
     """
     Creates a grid represented by a list of 1D Tensors representing the
     projections of the grid into each dimension

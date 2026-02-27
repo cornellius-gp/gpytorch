@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import math
-from typing import Optional
 
 import torch
 
@@ -83,11 +84,11 @@ class PeriodicKernel(Kernel):
 
     def __init__(
         self,
-        period_length_prior: Optional[Prior] = None,
-        period_length_constraint: Optional[Interval] = None,
+        period_length_prior: Prior | None = None,
+        period_length_constraint: Interval | None = None,
         **kwargs,
     ):
-        super(PeriodicKernel, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         if period_length_constraint is None:
             period_length_constraint = Positive()
 

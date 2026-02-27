@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import torch
 from linear_operator.settings import (
     _linalg_dtype_cholesky,

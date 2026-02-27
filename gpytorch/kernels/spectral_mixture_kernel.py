@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import logging
 import math
-from typing import Optional, Tuple, Union
 
 import torch
 
@@ -74,15 +75,15 @@ class SpectralMixtureKernel(Kernel):
 
     def __init__(
         self,
-        num_mixtures: Optional[int] = None,
-        ard_num_dims: Optional[int] = 1,
-        batch_shape: Optional[torch.Size] = torch.Size([]),
-        mixture_scales_prior: Optional[Prior] = None,
-        mixture_scales_constraint: Optional[Interval] = None,
-        mixture_means_prior: Optional[Prior] = None,
-        mixture_means_constraint: Optional[Interval] = None,
-        mixture_weights_prior: Optional[Prior] = None,
-        mixture_weights_constraint: Optional[Interval] = None,
+        num_mixtures: int | None = None,
+        ard_num_dims: int | None = 1,
+        batch_shape: torch.Size | None = torch.Size([]),
+        mixture_scales_prior: Prior | None = None,
+        mixture_scales_constraint: Interval | None = None,
+        mixture_means_prior: Prior | None = None,
+        mixture_means_constraint: Interval | None = None,
+        mixture_weights_prior: Prior | None = None,
+        mixture_weights_constraint: Interval | None = None,
         **kwargs,
     ):
         if num_mixtures is None:
@@ -91,7 +92,7 @@ class SpectralMixtureKernel(Kernel):
             logger.warning("Priors not implemented for SpectralMixtureKernel")
 
         # This kernel does not use the default lengthscale
-        super(SpectralMixtureKernel, self).__init__(ard_num_dims=ard_num_dims, batch_shape=batch_shape, **kwargs)
+        super().__init__(ard_num_dims=ard_num_dims, batch_shape=batch_shape, **kwargs)
         self.num_mixtures = num_mixtures
 
         if mixture_scales_constraint is None:
@@ -119,10 +120,10 @@ class SpectralMixtureKernel(Kernel):
         return self.raw_mixture_scales_constraint.transform(self.raw_mixture_scales)
 
     @mixture_scales.setter
-    def mixture_scales(self, value: Union[torch.Tensor, float]):
+    def mixture_scales(self, value: torch.Tensor | float):
         self._set_mixture_scales(value)
 
-    def _set_mixture_scales(self, value: Union[torch.Tensor, float]):
+    def _set_mixture_scales(self, value: torch.Tensor | float):
         if not torch.is_tensor(value):
             value = torch.as_tensor(value).to(self.raw_mixture_scales)
         self.initialize(raw_mixture_scales=self.raw_mixture_scales_constraint.inverse_transform(value))
@@ -132,10 +133,10 @@ class SpectralMixtureKernel(Kernel):
         return self.raw_mixture_means_constraint.transform(self.raw_mixture_means)
 
     @mixture_means.setter
-    def mixture_means(self, value: Union[torch.Tensor, float]):
+    def mixture_means(self, value: torch.Tensor | float):
         self._set_mixture_means(value)
 
-    def _set_mixture_means(self, value: Union[torch.Tensor, float]):
+    def _set_mixture_means(self, value: torch.Tensor | float):
         if not torch.is_tensor(value):
             value = torch.as_tensor(value).to(self.raw_mixture_means)
         self.initialize(raw_mixture_means=self.raw_mixture_means_constraint.inverse_transform(value))
@@ -145,10 +146,10 @@ class SpectralMixtureKernel(Kernel):
         return self.raw_mixture_weights_constraint.transform(self.raw_mixture_weights)
 
     @mixture_weights.setter
-    def mixture_weights(self, value: Union[torch.Tensor, float]):
+    def mixture_weights(self, value: torch.Tensor | float):
         self._set_mixture_weights(value)
 
-    def _set_mixture_weights(self, value: Union[torch.Tensor, float]):
+    def _set_mixture_weights(self, value: torch.Tensor | float):
         if not torch.is_tensor(value):
             value = torch.as_tensor(value).to(self.raw_mixture_weights)
         self.initialize(raw_mixture_weights=self.raw_mixture_weights_constraint.inverse_transform(value))
@@ -267,7 +268,7 @@ class SpectralMixtureKernel(Kernel):
 
     def _create_input_grid(
         self, x1: torch.Tensor, x2: torch.Tensor, diag: bool = False, last_dim_is_batch: bool = False, **params
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         This is a helper method for creating a grid of the kernel's inputs.
         Use this helper rather than maually creating a meshgrid.
@@ -305,7 +306,7 @@ class SpectralMixtureKernel(Kernel):
 
     def forward(
         self, x1: torch.Tensor, x2: torch.Tensor, diag: bool = False, last_dim_is_batch: bool = False, **params
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         n, num_dims = x1.shape[-2:]
 
         if not num_dims == self.ard_num_dims:

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 from .constant_mean import ConstantMean
 from .constant_mean_grad import ConstantMeanGrad
 from .constant_mean_gradgrad import ConstantMeanGradGrad

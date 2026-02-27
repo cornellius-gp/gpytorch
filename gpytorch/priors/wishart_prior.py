@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import math
 from numbers import Number
 
@@ -11,7 +13,7 @@ from .prior import Prior
 
 
 class WishartPrior(Prior):
-    """Wishart prior over n x n positive definite matrices
+    r"""Wishart prior over n x n positive definite matrices
 
     pdf(Sigma) \sim |Sigma|^(nu - n - 1)/2 * exp(-0.5 * Trace(K^-1 Sigma))
 
@@ -47,7 +49,7 @@ class WishartPrior(Prior):
         self.nu = nu
         self.K_inv = K_inv
         self.C = C
-        super(WishartPrior, self).__init__(batch_shape, event_shape, validate_args=validate_args)
+        super().__init__(batch_shape, event_shape, validate_args=validate_args)
         # now need to delete to be able to register buffer
         del self.nu, self.K_inv, self.C
         self.register_buffer("nu", nu)
@@ -63,7 +65,7 @@ class WishartPrior(Prior):
 
 
 class InverseWishartPrior(Prior):
-    """Inverse Wishart prior over n x n positive definite matrices
+    r"""Inverse Wishart prior over n x n positive definite matrices
 
     pdf(Sigma) \sim |Sigma|^-(nu + 2 * n)/2 * exp(-0.5 * Trace(K Sigma^-1))
 
@@ -97,7 +99,7 @@ class InverseWishartPrior(Prior):
         self.nu = nu
         self.K = K
         self.C = C
-        super(InverseWishartPrior, self).__init__(batch_shape, event_shape, validate_args=validate_args)
+        super().__init__(batch_shape, event_shape, validate_args=validate_args)
         # now need to delete to be able to register buffer
         del self.nu, self.K, self.C
         self.register_buffer("nu", nu)

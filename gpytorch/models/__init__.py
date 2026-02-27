@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import warnings
 
 from . import deep_gps, exact_prediction_strategies, gplvm, pyro

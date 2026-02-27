@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from ._approximate_mll import _ApproximateMarginalLogLikelihood
 
 

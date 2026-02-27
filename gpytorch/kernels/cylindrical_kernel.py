@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Optional, Union
+from __future__ import annotations
 
 import torch
 from torch import Tensor
@@ -43,13 +43,13 @@ class CylindricalKernel(Kernel):
         self,
         num_angular_weights: int,
         radial_base_kernel: Kernel,
-        eps: Optional[float] = 1e-6,
-        angular_weights_prior: Optional[Prior] = None,
-        angular_weights_constraint: Optional[Interval] = None,
-        alpha_prior: Optional[Prior] = None,
-        alpha_constraint: Optional[Interval] = None,
-        beta_prior: Optional[Prior] = None,
-        beta_constraint: Optional[Interval] = None,
+        eps: float | None = 1e-6,
+        angular_weights_prior: Prior | None = None,
+        angular_weights_constraint: Interval | None = None,
+        alpha_prior: Prior | None = None,
+        alpha_constraint: Interval | None = None,
+        beta_prior: Prior | None = None,
+        beta_constraint: Interval | None = None,
         **kwargs,
     ):
         if angular_weights_constraint is None:
@@ -113,7 +113,7 @@ class CylindricalKernel(Kernel):
     def alpha(self, value: Tensor) -> None:
         self._set_alpha(value)
 
-    def _set_alpha(self, value: Union[Tensor, float]) -> None:
+    def _set_alpha(self, value: Tensor | float) -> None:
         # Used by the alpha_prior
         if not isinstance(value, Tensor):
             value = torch.as_tensor(value).to(self.raw_alpha)
@@ -127,13 +127,13 @@ class CylindricalKernel(Kernel):
     def beta(self, value: Tensor) -> None:
         self._set_beta(value)
 
-    def _set_beta(self, value: Union[Tensor, float]) -> None:
+    def _set_beta(self, value: Tensor | float) -> None:
         # Used by the beta_prior
         if not isinstance(value, Tensor):
             value = torch.as_tensor(value).to(self.raw_beta)
         self.initialize(raw_beta=self.raw_beta_constraint.inverse_transform(value))
 
-    def forward(self, x1: Tensor, x2: Tensor, diag: Optional[bool] = False, **params) -> Tensor:
+    def forward(self, x1: Tensor, x2: Tensor, diag: bool | None = False, **params) -> Tensor:
 
         x1_, x2_ = x1.clone(), x2.clone()
         # Jitter datapoints that are exactly 0

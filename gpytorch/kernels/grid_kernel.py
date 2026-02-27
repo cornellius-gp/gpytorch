@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import warnings
-from typing import Optional
 
 import torch
 from linear_operator import to_dense
@@ -51,8 +52,8 @@ class GridKernel(Kernel):
         self,
         base_kernel: Kernel,
         grid: Tensor,
-        interpolation_mode: Optional[bool] = False,
-        active_dims: Optional[bool] = None,
+        interpolation_mode: bool | None = False,
+        active_dims: bool | None = None,
     ):
         if not base_kernel.is_stationary:
             raise RuntimeError("The base_kernel for GridKernel must be stationary.")

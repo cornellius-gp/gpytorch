@@ -32,7 +32,7 @@ class SVGPRegressionModel(ApproximateGP):
             learn_inducing_locations=True,
             mean_var_batch_dim=-1,
         )
-        super(SVGPRegressionModel, self).__init__(variational_strategy)
+        super().__init__(variational_strategy)
         self.mean_module = gpytorch.means.ConstantMean(batch_shape=torch.Size([2]))
         self.covar_module = gpytorch.kernels.ScaleKernel(
             gpytorch.kernels.RBFKernel(batch_shape=torch.Size([2])),

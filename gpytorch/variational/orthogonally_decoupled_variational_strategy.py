@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Optional
+from __future__ import annotations
 
 import torch
 from linear_operator.operators import LinearOperator
@@ -57,7 +57,7 @@ class OrthogonallyDecoupledVariationalStrategy(_VariationalStrategy):
         covar_variational_strategy: _VariationalStrategy,
         inducing_points: Tensor,
         variational_distribution: _VariationalDistribution,
-        jitter_val: Optional[float] = None,
+        jitter_val: float | None = None,
     ):
         if not isinstance(variational_distribution, DeltaVariationalDistribution):
             raise NotImplementedError(
@@ -85,7 +85,7 @@ class OrthogonallyDecoupledVariationalStrategy(_VariationalStrategy):
         x: Tensor,
         inducing_points: Tensor,
         inducing_values: Tensor,
-        variational_inducing_covar: Optional[LinearOperator] = None,
+        variational_inducing_covar: LinearOperator | None = None,
         diag: bool = True,
         **kwargs,
     ) -> MultivariateNormal:

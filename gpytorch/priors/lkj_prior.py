@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import torch
 from linear_operator.utils.cholesky import psd_safe_cholesky
 from torch.distributions import constraints, LKJCholesky
@@ -51,11 +53,12 @@ class LKJPrior(LKJCholeskyFactorPrior):
 
     Reference: Bayesian Data Analysis, 3rd ed., Gelman et al., p. 576
     """
+
     support = constraints.positive_definite
 
     def log_prob(self, X):
         if any(s != self.n for s in X.shape[-2:]):
-            raise ValueError("Correlation matrix is not of size n={}".format(self.n))
+            raise ValueError(f"Correlation matrix is not of size n={self.n}")
         if not _is_valid_correlation_matrix(X):
             raise ValueError("Input is not a valid correlation matrix")
         X_cholesky = psd_safe_cholesky(X, upper=False)

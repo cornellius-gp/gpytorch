@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from __future__ import annotations
 
 import torch
 from torch import nn, Tensor
@@ -56,10 +56,10 @@ class HammingIMQKernel(Kernel):
         self,
         vocab_size: int,
         batch_shape: torch.Size = EMPTY_SIZE,
-        alpha_prior: Optional[Prior] = None,
-        alpha_constraint: Optional[Interval] = None,
-        beta_prior: Optional[Prior] = None,
-        beta_constraint: Optional[Interval] = None,
+        alpha_prior: Prior | None = None,
+        alpha_constraint: Interval | None = None,
+        beta_prior: Prior | None = None,
+        beta_constraint: Interval | None = None,
     ):
         super().__init__(batch_shape=batch_shape)
         self.vocab_size = vocab_size
@@ -95,11 +95,11 @@ class HammingIMQKernel(Kernel):
         # Used by the alpha_prior
         return m.alpha
 
-    def _alpha_closure(self, m: Kernel, v: Union[Tensor, float]) -> None:
+    def _alpha_closure(self, m: Kernel, v: Tensor | float) -> None:
         # Used by the alpha_prior
         m._set_alpha(v)
 
-    def _set_alpha(self, value: Union[Tensor, float]) -> None:
+    def _set_alpha(self, value: Tensor | float) -> None:
         # Used by the alpha_prior
         if not isinstance(value, Tensor):
             value = torch.as_tensor(value).to(self.raw_alpha)
@@ -117,11 +117,11 @@ class HammingIMQKernel(Kernel):
         # Used by the beta_prior
         return m.beta
 
-    def _beta_closure(self, m: Kernel, v: Union[Tensor, float]) -> None:
+    def _beta_closure(self, m: Kernel, v: Tensor | float) -> None:
         # Used by the beta_prior
         m._set_beta(v)
 
-    def _set_beta(self, value: Union[Tensor, float]) -> None:
+    def _set_beta(self, value: Tensor | float) -> None:
         # Used by the beta_prior
         if not isinstance(value, Tensor):
             value = torch.as_tensor(value).to(self.raw_beta)

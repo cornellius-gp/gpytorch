@@ -37,7 +37,7 @@ class SVGPRegressionModel(ApproximateGP):
             inducing_points,
             variational_distribution,
         )
-        super(SVGPRegressionModel, self).__init__(variational_strategy)
+        super().__init__(variational_strategy)
         self.mean_module = gpytorch.means.ConstantMean()
         self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
 

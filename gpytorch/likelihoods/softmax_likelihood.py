@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import warnings
-from typing import Any, Optional, Union
+from typing import Any
 
 import torch
 from torch import Tensor
@@ -32,10 +34,10 @@ class SoftmaxLikelihood(Likelihood):
 
     def __init__(
         self,
-        num_features: Optional[int] = None,
+        num_features: int | None = None,
         num_classes: int = None,  # pyre-fixme[9]
         mixing_weights: bool = True,
-        mixing_weights_prior: Optional[Prior] = None,
+        mixing_weights_prior: Prior | None = None,
     ) -> None:
         super().__init__()
         if num_classes is None:
@@ -53,7 +55,7 @@ class SoftmaxLikelihood(Likelihood):
                 self.register_prior("mixing_weights_prior", mixing_weights_prior, "mixing_weights")
         else:
             self.num_features = num_classes
-            self.mixing_weights: Optional[torch.nn.Parameter] = None
+            self.mixing_weights: torch.nn.Parameter | None = None
 
     def forward(self, function_samples: Tensor, *params: Any, **kwargs: Any) -> Categorical:
         num_data, num_features = function_samples.shape[-2:]
@@ -78,7 +80,7 @@ class SoftmaxLikelihood(Likelihood):
         res = base_distributions.Categorical(logits=mixed_fs)
         return res
 
-    def __call__(self, input: Union[Tensor, MultitaskMultivariateNormal], *args: Any, **kwargs: Any) -> Distribution:
+    def __call__(self, input: Tensor | MultitaskMultivariateNormal, *args: Any, **kwargs: Any) -> Distribution:
         if isinstance(input, Distribution) and not isinstance(input, MultitaskMultivariateNormal):
             warnings.warn(
                 "The input to SoftmaxLikelihood should be a MultitaskMultivariateNormal (num_data x num_tasks). "

@@ -17,7 +17,7 @@ from gpytorch.test.utils import least_used_cuda_device
 
 class MultitaskGPModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood):
-        super(MultitaskGPModel, self).__init__(train_x, train_y, likelihood)
+        super().__init__(train_x, train_y, likelihood)
         self.mean_module = MultitaskMean(ConstantMean(), num_tasks=2)
         self.data_covar_module = GridInterpolationKernel(RBFKernel(), grid_size=100, num_dims=1)
         self.covar_module = MultitaskKernel(self.data_covar_module, num_tasks=2, rank=1)

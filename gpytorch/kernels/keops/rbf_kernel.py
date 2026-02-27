@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 # from linear_operator.operators import KeOpsLinearOperator
 from linear_operator.operators import KernelLinearOperator
 from torch import Tensor

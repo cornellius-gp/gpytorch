@@ -5,7 +5,6 @@ from __future__ import annotations
 import math
 import warnings
 from numbers import Number
-from typing import Optional, Tuple, Union
 
 import torch
 from linear_operator import to_dense, to_linear_operator
@@ -42,7 +41,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
     :ivar torch.Tensor variance: The variance.
     """
 
-    def __init__(self, mean: Tensor, covariance_matrix: Union[Tensor, LinearOperator], validate_args: bool = False):
+    def __init__(self, mean: Tensor, covariance_matrix: Tensor | LinearOperator, validate_args: bool = False):
         self._islazy = isinstance(mean, LinearOperator) or isinstance(covariance_matrix, LinearOperator)
         if self._islazy:
             if validate_args:
@@ -78,7 +77,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         return sample_shape + self._batch_shape + self.base_sample_shape
 
     @staticmethod
-    def _repr_sizes(mean: Tensor, covariance_matrix: Union[Tensor, LinearOperator]) -> str:
+    def _repr_sizes(mean: Tensor, covariance_matrix: Tensor | LinearOperator) -> str:
         return f"MultivariateNormal(loc: {mean.size()}, scale: {covariance_matrix.size()})"
 
     @property
@@ -119,7 +118,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         else:
             return super().covariance_matrix
 
-    def confidence_region(self) -> Tuple[Tensor, Tensor]:
+    def confidence_region(self) -> tuple[Tensor, Tensor]:
         """
         Returns 2 standard deviations above and below the mean.
 
@@ -252,7 +251,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         res = -0.5 * sum([inv_quad, logdet, diff.size(-1) * math.log(2 * math.pi)])
         return res
 
-    def rsample(self, sample_shape: torch.Size = torch.Size(), base_samples: Optional[Tensor] = None) -> Tensor:
+    def rsample(self, sample_shape: torch.Size = torch.Size(), base_samples: Tensor | None = None) -> Tensor:
         r"""
         Generates a `sample_shape` shaped reparameterized sample or `sample_shape`
         shaped batch of reparameterized samples if the distribution parameters
@@ -320,7 +319,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
 
         return res
 
-    def sample(self, sample_shape: torch.Size = torch.Size(), base_samples: Optional[Tensor] = None) -> Tensor:
+    def sample(self, sample_shape: torch.Size = torch.Size(), base_samples: Tensor | None = None) -> Tensor:
         r"""
         Generates a `sample_shape` shaped sample or `sample_shape`
         shaped batch of samples if the distribution parameters
@@ -391,7 +390,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         elif isinstance(other, int) or isinstance(other, float):
             return self.__class__(self.mean + other, self.lazy_covariance_matrix)
         else:
-            raise RuntimeError("Unsupported type {} for addition w/ MultivariateNormal".format(type(other)))
+            raise RuntimeError(f"Unsupported type {type(other)} for addition w/ MultivariateNormal")
 
     def __getitem__(self, idx) -> MultivariateNormal:
         r"""

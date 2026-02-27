@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 from ..module import Module
 
 
@@ -19,6 +21,6 @@ class Mean(Module):
         if x.ndimension() == 1:
             x = x.unsqueeze(1)
 
-        res = super(Mean, self).__call__(x)
+        res = super().__call__(x)
 
         return res

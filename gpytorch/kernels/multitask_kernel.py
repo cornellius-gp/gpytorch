@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Optional
+from __future__ import annotations
 
 from linear_operator import to_linear_operator
 from linear_operator.operators import KroneckerProductLinearOperator
@@ -31,12 +31,12 @@ class MultitaskKernel(Kernel):
         self,
         data_covar_module: Kernel,
         num_tasks: int,
-        rank: Optional[int] = 1,
-        task_covar_prior: Optional[Prior] = None,
+        rank: int | None = 1,
+        task_covar_prior: Prior | None = None,
         **kwargs,
     ):
         """"""
-        super(MultitaskKernel, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.task_covar_module = IndexKernel(
             num_tasks=num_tasks, batch_shape=self.batch_shape, rank=rank, prior=task_covar_prior
         )

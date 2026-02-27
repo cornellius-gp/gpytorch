@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import random
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Generator
 
 import torch
 
@@ -17,9 +19,7 @@ def approx_equal(self, other, epsilon=1e-4):
         - bool
     """
     if self.size() != other.size():
-        raise RuntimeError(
-            "Size mismatch between self ({self}) and other ({other})".format(self=self.size(), other=other.size())
-        )
+        raise RuntimeError(f"Size mismatch between self ({self.size()}) and other ({other.size()})")
     return torch.max((self - other).abs()) <= epsilon
 
 

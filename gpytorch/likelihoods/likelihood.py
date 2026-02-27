@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import math
 import warnings
 from abc import ABC, abstractmethod
 from copy import deepcopy
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 import torch
 from torch import Tensor
@@ -25,7 +27,7 @@ class _Likelihood(Module, ABC):
         self.max_plate_nesting: int = max_plate_nesting
 
     def _draw_likelihood_samples(
-        self, function_dist: MultivariateNormal, *args: Any, sample_shape: Optional[torch.Size] = None, **kwargs: Any
+        self, function_dist: MultivariateNormal, *args: Any, sample_shape: torch.Size | None = None, **kwargs: Any
     ) -> _Distribution:
         if sample_shape is None:
             sample_shape = torch.Size(
@@ -52,7 +54,7 @@ class _Likelihood(Module, ABC):
     def forward(self, function_samples: Tensor, *args: Any, **kwargs: Any) -> _Distribution:
         raise NotImplementedError
 
-    def get_fantasy_likelihood(self, **kwargs: Any) -> "_Likelihood":
+    def get_fantasy_likelihood(self, **kwargs: Any) -> _Likelihood:
         return deepcopy(self)
 
     def log_marginal(
@@ -67,7 +69,7 @@ class _Likelihood(Module, ABC):
         res = self._draw_likelihood_samples(function_dist, *args, **kwargs)
         return res
 
-    def __call__(self, input: Union[Tensor, MultivariateNormal], *args: Any, **kwargs: Any) -> _Distribution:
+    def __call__(self, input: Tensor | MultivariateNormal, *args: Any, **kwargs: Any) -> _Distribution:
         # Conditional
         if torch.is_tensor(input):
             return super().__call__(input, *args, **kwargs)  # pyre-ignore[7]
@@ -145,7 +147,7 @@ try:
             self._name_prefix = val
 
         def _draw_likelihood_samples(
-            self, function_dist: _Distribution, *args: Any, sample_shape: Optional[torch.Size] = None, **kwargs: Any
+            self, function_dist: _Distribution, *args: Any, sample_shape: torch.Size | None = None, **kwargs: Any
         ) -> _Distribution:
             if self.training:
                 num_event_dims = len(function_dist.event_shape)
@@ -189,7 +191,7 @@ try:
 
         @abstractmethod
         def forward(
-            self, function_samples: Tensor, *args: Any, data: Dict[str, Tensor] = {}, **kwargs: Any
+            self, function_samples: Tensor, *args: Any, data: dict[str, Tensor] = {}, **kwargs: Any
         ) -> _Distribution:
             r"""
             Computes the conditional distribution :math:`p(\mathbf y \mid
@@ -204,7 +206,7 @@ try:
             """
             raise NotImplementedError
 
-        def get_fantasy_likelihood(self, **kwargs: Any) -> "_Likelihood":
+        def get_fantasy_likelihood(self, **kwargs: Any) -> _Likelihood:
             """"""
             return super().get_fantasy_likelihood(**kwargs)
 
@@ -289,7 +291,7 @@ try:
             with pyro.poutine.scale(scale=scale):  # pyre-ignore[16]
                 return pyro.sample(self.name_prefix + ".y", output_dist, obs=target)
 
-        def __call__(self, input: Union[Tensor, MultivariateNormal], *args: Any, **kwargs: Any) -> _Distribution:
+        def __call__(self, input: Tensor | MultivariateNormal, *args: Any, **kwargs: Any) -> _Distribution:
             r"""
             Calling this object does one of two things:
 

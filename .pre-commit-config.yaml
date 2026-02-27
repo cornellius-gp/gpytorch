@@ -11,6 +11,12 @@ repos:
         args: [--fix=lf]
     -   id: trailing-whitespace
     -   id: debug-statements
+-   repo: https://github.com/asottile/pyupgrade
+    rev: v3.19.1
+    hooks:
+    -   id: pyupgrade
+        args: [--py310-plus]
+        exclude: ^(examples/.*)|(docs/.*)
 -   repo: https://github.com/pycqa/flake8
     rev: 7.3.0
     hooks:

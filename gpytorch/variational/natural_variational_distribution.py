@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import abc
 
 import torch
@@ -14,7 +16,6 @@ class _NaturalVariationalDistribution(_VariationalDistribution, abc.ABC):
     r"""Any :obj:`~gpytorch.variational._VariationalDistribution` which calculates
     natural gradients with respect to its parameters.
     """
-    pass
 
 
 class NaturalVariationalDistribution(_NaturalVariationalDistribution):

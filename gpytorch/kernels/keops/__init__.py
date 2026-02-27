@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .keops_kernel import KeOpsKernel
 from .matern_kernel import MaternKernel
 from .periodic_kernel import PeriodicKernel

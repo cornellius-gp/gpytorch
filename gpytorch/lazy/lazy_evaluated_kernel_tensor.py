@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import functools
-from typing import Callable
+from collections.abc import Callable
 
 import torch
 from linear_operator import LinearOperator, to_linear_operator
@@ -33,14 +35,12 @@ class LazyEvaluatedKernelTensor(LinearOperator):
 
     def _check_args(self, x1, x2, kernel, last_dim_is_batch=False, **params):
         if not torch.is_tensor(x1):
-            return "x1 must be a tensor. Got {}".format(x1.__class__.__name__)
+            return f"x1 must be a tensor. Got {x1.__class__.__name__}"
         if not torch.is_tensor(x2):
-            return "x1 must be a tensor. Got {}".format(x1.__class__.__name__)
+            return f"x1 must be a tensor. Got {x1.__class__.__name__}"
 
     def __init__(self, x1, x2, kernel, last_dim_is_batch=False, **params):
-        super(LazyEvaluatedKernelTensor, self).__init__(
-            x1, x2, kernel=kernel, last_dim_is_batch=last_dim_is_batch, **params
-        )
+        super().__init__(x1, x2, kernel=kernel, last_dim_is_batch=last_dim_is_batch, **params)
         self.kernel = kernel
         self.x1 = x1
         self.x2 = x2

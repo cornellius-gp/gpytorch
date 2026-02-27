@@ -6,7 +6,8 @@ import copy
 import inspect
 import itertools
 import operator
-from typing import Callable, Iterator, Mapping, MutableSet, Optional, TypeVar, Union
+from collections.abc import Callable, Iterator, Mapping, MutableSet
+from typing import TypeVar
 
 import torch
 from linear_operator.operators import LinearOperator
@@ -22,8 +23,8 @@ ModuleSelf = TypeVar("ModuleSelf", bound="Module")  # TODO: replace w/ typing.Se
 RandomModuleSelf = TypeVar("RandomModuleSelf", bound="RandomModuleMixin")  # TODO: replace w/ typing.Self in Python 3.11
 
 Closure = Callable[[NnModuleSelf], Tensor]
-SettingClosure = Callable[[ModuleSelf, Union[Tensor, float]], None]
-SamplesDict = Mapping[str, Union[Tensor, float]]
+SettingClosure = Callable[[ModuleSelf, Tensor | float], None]
+SamplesDict = Mapping[str, Tensor | float]
 
 
 class RandomModuleMixin:
@@ -70,7 +71,7 @@ class Module(nn.Module):
     def __init__(self):
         super().__init__()
         self._added_loss_terms = {}
-        self._priors: dict[str, tuple[Prior, Closure, Optional[SettingClosure]]] = {}
+        self._priors: dict[str, tuple[Prior, Closure, SettingClosure | None]] = {}
         self._constraints: dict[str, Interval] = {}
 
         self._strict_init = True
@@ -78,7 +79,7 @@ class Module(nn.Module):
 
         self._register_load_state_dict_pre_hook(self._load_state_hook_ignore_shapes)
 
-    def __call__(self, *inputs, **kwargs) -> Union[Tensor, Distribution, LinearOperator]:
+    def __call__(self, *inputs, **kwargs) -> Tensor | Distribution | LinearOperator:
         outputs = self.forward(*inputs, **kwargs)
         if isinstance(outputs, list):
             return [_validate_module_outputs(output) for output in outputs]
@@ -89,7 +90,6 @@ class Module(nn.Module):
         Clear any precomputed caches.
         Should be implemented by any module that caches any computation at test time.
         """
-        pass
 
     def _get_module_and_name(self, parameter_name: str) -> tuple[nn.Module, str]:
         """Get module and name from full parameter name."""
@@ -98,7 +98,7 @@ class Module(nn.Module):
             return self.__getattr__(module), name
         else:
             raise AttributeError(
-                "Invalid parameter name {}. {} has no module {}".format(parameter_name, type(self).__name__, module)
+                f"Invalid parameter name {parameter_name}. {type(self).__name__} has no module {module}"
             )
 
     def _strict(self, value: bool) -> None:
@@ -108,7 +108,7 @@ class Module(nn.Module):
         for _, strategy in self.named_added_loss_terms():
             yield strategy
 
-    def forward(self, *inputs, **kwargs) -> Union[Tensor, Distribution, LinearOperator]:
+    def forward(self, *inputs, **kwargs) -> Tensor | Distribution | LinearOperator:
         raise NotImplementedError
 
     def constraints(self) -> Iterator[Interval]:
@@ -146,7 +146,7 @@ class Module(nn.Module):
                 else:
                     module.initialize(**{name: val})
             elif not hasattr(self, name):
-                raise AttributeError("Unknown parameter {p} for {c}".format(p=name, c=self.__class__.__name__))
+                raise AttributeError(f"Unknown parameter {name} for {self.__class__.__name__}")
             elif name not in self._parameters and name not in self._buffers:
                 setattr(self, name, val)
             elif isinstance(val, Tensor):
@@ -177,7 +177,7 @@ class Module(nn.Module):
                     )
                 self.__getattr__(name).data.fill_(val)
             else:
-                raise AttributeError("Type {t} not valid for initializing parameter {p}".format(t=type(val), p=name))
+                raise AttributeError(f"Type {type(val)} not valid for initializing parameter {name}")
 
             # Ensure value is contained in support of prior (if present)
             prior_name = "_".join([name, "prior"])
@@ -186,7 +186,7 @@ class Module(nn.Module):
                 try:
                     prior._validate_sample(closure(self))
                 except ValueError as e:
-                    raise ValueError("Invalid input value for prior {}. Error:\n{}".format(prior_name, e))
+                    raise ValueError(f"Invalid input value for prior {prior_name}. Error:\n{e}")
 
         return self
 
@@ -206,8 +206,7 @@ class Module(nn.Module):
 
         for module_prefix, module in self.named_modules():
             if not isinstance(module, _VariationalDistribution):
-                for elem in module.named_parameters(prefix=module_prefix, recurse=False):
-                    yield elem
+                yield from module.named_parameters(prefix=module_prefix, recurse=False)
 
     def named_priors(self) -> Iterator[tuple[str, nn.Module, Prior, Closure, SettingClosure | None]]:
         """Returns an iterator over the module's priors, yielding the name of the prior,
@@ -231,13 +230,12 @@ class Module(nn.Module):
 
         for module_prefix, module in self.named_modules():
             if isinstance(module, _VariationalDistribution):
-                for elem in module.named_parameters(prefix=module_prefix, recurse=False):
-                    yield elem
+                yield from module.named_parameters(prefix=module_prefix, recurse=False)
 
     def register_added_loss_term(self, name):
         self._added_loss_terms[name] = None
 
-    def register_parameter(self, name: str, parameter: Optional[nn.Parameter]) -> None:
+    def register_parameter(self, name: str, parameter: nn.Parameter | None) -> None:
         r"""
         Adds a parameter to the module. The parameter can be accessed as an attribute using the given name.
 
@@ -253,8 +251,8 @@ class Module(nn.Module):
         self,
         name: str,
         prior: Prior,
-        param_or_closure: Union[str, Closure],
-        setting_closure: Optional[SettingClosure] = None,
+        param_or_closure: str | Closure,
+        setting_closure: SettingClosure | None = None,
     ) -> None:
         """
         Adds a prior to the module. The prior can be accessed as an attribute using the given name.
@@ -282,7 +280,7 @@ class Module(nn.Module):
             param = param_or_closure
             if param not in self._parameters and not hasattr(self, param):
                 raise AttributeError(
-                    "Unknown parameter {name} for {module}".format(name=param, module=self.__class__.__name__)
+                    f"Unknown parameter {param} for {self.__class__.__name__}"
                     + " Make sure the parameter is registered before registering a prior."
                 )
 
@@ -294,7 +292,7 @@ class Module(nn.Module):
             if setting_closure is not None:
                 raise RuntimeError("Must specify a closure instead of a parameter name when providing setting_closure")
 
-            def setting_closure_new(module: Module, val: Union[Tensor, float]) -> None:
+            def setting_closure_new(module: Module, val: Tensor | float) -> None:
                 module.initialize(**{param: val})
 
             setting_closure = setting_closure_new
@@ -408,7 +406,7 @@ class Module(nn.Module):
     def sample_from_prior(self, prior_name: str) -> None:
         """Sample parameter values from prior. Modifies the module's parameters in-place."""
         if prior_name not in self._priors:
-            raise RuntimeError("Unknown prior name '{}'".format(prior_name))
+            raise RuntimeError(f"Unknown prior name '{prior_name}'")
         prior, _, setting_closure = self._priors[prior_name]
         if setting_closure is None:
             raise RuntimeError("Must provide inverse transform to be able to sample from prior.")
@@ -481,7 +479,7 @@ class Module(nn.Module):
         if not isinstance(added_loss_term, AddedLossTerm):
             raise RuntimeError("added_loss_term must be a AddedLossTerm")
         if name not in self._added_loss_terms.keys():
-            raise RuntimeError("added_loss_term {} not registered".format(name))
+            raise RuntimeError(f"added_loss_term {name} not registered")
         self._added_loss_terms[name] = added_loss_term
 
     def variational_parameters(self):
@@ -503,7 +501,7 @@ def _validate_module_outputs(outputs):
         return outputs
     else:
         raise RuntimeError(
-            "Output must be a torch.Tensor, Distribution, or LinearOperator. Got {}".format(outputs.__class__.__name__)
+            f"Output must be a torch.Tensor, Distribution, or LinearOperator. Got {outputs.__class__.__name__}"
         )
 
 
@@ -516,7 +514,7 @@ def _set_strict(module: nn.Module, value: bool) -> None:
 
 
 def _pyro_sample_from_prior(
-    module: NnModuleSelf, memo: Optional[MutableSet[Prior]] = None, prefix: str = ""
+    module: NnModuleSelf, memo: MutableSet[Prior] | None = None, prefix: str = ""
 ) -> NnModuleSelf:
     try:
         import pyro
@@ -546,7 +544,7 @@ def _pyro_sample_from_prior(
 
 
 def _pyro_load_from_samples(
-    module: nn.Module, samples_dict: SamplesDict, memo: Optional[MutableSet[Prior]] = None, prefix: str = ""
+    module: nn.Module, samples_dict: SamplesDict, memo: MutableSet[Prior] | None = None, prefix: str = ""
 ) -> None:
     if memo is None:
         memo = set()
@@ -587,7 +585,7 @@ def _extract_named_priors(
 
 
 def _extract_named_constraints(
-    module: nn.Module, memo: Optional[MutableSet[Interval]] = None, prefix: str = ""
+    module: nn.Module, memo: MutableSet[Interval] | None = None, prefix: str = ""
 ) -> Iterator[tuple[str, Interval]]:
     if memo is None:
         memo = set()

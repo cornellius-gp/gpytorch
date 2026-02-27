@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
-from typing import Any, Optional
+from __future__ import annotations
+
+from typing import Any
 
 from torch import Tensor
 
@@ -108,7 +110,7 @@ class ApproximateGP(GP, _PyroMixin):
         """
         return self.variational_strategy.get_fantasy_model(inputs=inputs, targets=targets, **kwargs)
 
-    def __call__(self, inputs: Optional[Tensor], prior: bool = False, **kwargs) -> MultivariateNormal:
+    def __call__(self, inputs: Tensor | None, prior: bool = False, **kwargs) -> MultivariateNormal:
         if inputs is not None and inputs.dim() == 1:
             inputs = inputs.unsqueeze(-1)
         return self.variational_strategy(inputs, prior=prior, **kwargs)

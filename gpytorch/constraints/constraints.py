@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import math
-from typing import Optional
 
 import torch
 from torch import sigmoid, Tensor
@@ -87,7 +86,7 @@ class Interval(Module):
 
     def check_raw(self, tensor) -> bool:
         return bool(
-            torch.all((self.transform(tensor) <= self.upper_bound))
+            torch.all(self.transform(tensor) <= self.upper_bound)
             and torch.all(self.transform(tensor) >= self.lower_bound)
         )
 
@@ -137,7 +136,7 @@ class Interval(Module):
         return tensor
 
     @property
-    def initial_value(self) -> Optional[Tensor]:
+    def initial_value(self) -> Tensor | None:
         """
         The initial parameter value (if specified, None otherwise)
         """

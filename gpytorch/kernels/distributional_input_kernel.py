@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
-from typing import Callable
+from __future__ import annotations
+
+from collections.abc import Callable
 
 import torch
 
@@ -22,6 +24,7 @@ class DistributionalInputKernel(Kernel):
     Args:
         distance_function (function) distance function between distributional inputs.
     """
+
     has_lengthscale = True
 
     def __init__(
@@ -29,7 +32,7 @@ class DistributionalInputKernel(Kernel):
         distance_function: Callable,
         **kwargs,
     ):
-        super(DistributionalInputKernel, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         if distance_function is None:
             raise NotImplementedError("DistributionalInputKernel requires a distance function.")
 

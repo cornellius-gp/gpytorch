@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Optional, Union
+from __future__ import annotations
 
 import torch
 from linear_operator.operators import (
@@ -53,9 +53,9 @@ class LinearKernel(Kernel):
 
     def __init__(
         self,
-        ard_num_dims: Optional[int] = None,
-        variance_prior: Optional[Prior] = None,
-        variance_constraint: Optional[Interval] = None,
+        ard_num_dims: int | None = None,
+        variance_prior: Prior | None = None,
+        variance_constraint: Interval | None = None,
         **kwargs,
     ):
         super().__init__(ard_num_dims=ard_num_dims, **kwargs)
@@ -79,17 +79,17 @@ class LinearKernel(Kernel):
         return self.raw_variance_constraint.transform(self.raw_variance)
 
     @variance.setter
-    def variance(self, value: Union[float, Tensor]) -> None:
+    def variance(self, value: float | Tensor) -> None:
         self._set_variance(value)
 
-    def _set_variance(self, value: Union[float, Tensor]) -> None:
+    def _set_variance(self, value: float | Tensor) -> None:
         if not torch.is_tensor(value):
             value = torch.as_tensor(value).to(self.raw_variance)
         self.initialize(raw_variance=self.raw_variance_constraint.inverse_transform(value))
 
     def forward(
-        self, x1: Tensor, x2: Tensor, diag: bool = False, last_dim_is_batch: Optional[bool] = False, **params
-    ) -> Union[Tensor, LinearOperator]:
+        self, x1: Tensor, x2: Tensor, diag: bool = False, last_dim_is_batch: bool | None = False, **params
+    ) -> Tensor | LinearOperator:
         x1_ = x1 * self.variance.sqrt()
         if last_dim_is_batch:
             x1_ = x1_.transpose(-1, -2).unsqueeze(-1)

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import functools
 import warnings
 from unittest.mock import MagicMock
@@ -21,7 +23,7 @@ def _deprecated_function_for(old_function_name, function):
     @functools.wraps(function)
     def _deprecated_function(*args, **kwargs):
         warnings.warn(
-            "The `{}` function is deprecated. Use `{}` instead".format(old_function_name, function.__name__),
+            f"The `{old_function_name}` function is deprecated. Use `{function.__name__}` instead",
             DeprecationWarning,
         )
         return function(*args, **kwargs)
@@ -32,9 +34,9 @@ def _deprecated_function_for(old_function_name, function):
 def _deprecate_kwarg(kwargs, old_kw, new_kw, new_kw_value):
     old_kwarg = kwargs.get(old_kw)
     if old_kwarg is not None:
-        warnings.warn("The `{}` argument is deprecated. Use `{}` instead.".format(old_kw, new_kw), DeprecationWarning)
+        warnings.warn(f"The `{old_kw}` argument is deprecated. Use `{new_kw}` instead.", DeprecationWarning)
         if new_kw_value is not None:
-            raise ValueError("Cannot set both `{}` and `{}`".format(old_kw, new_kw))
+            raise ValueError(f"Cannot set both `{old_kw}` and `{new_kw}`")
         return old_kwarg
     return new_kw_value
 
@@ -42,7 +44,7 @@ def _deprecate_kwarg(kwargs, old_kw, new_kw, new_kw_value):
 def _deprecate_kwarg_with_transform(kwargs, old_kw, new_kw, new_kw_value, transform):
     old_kwarg = kwargs.get(old_kw)
     if old_kwarg is not None:
-        warnings.warn("The `{}` argument is deprecated. Use `{}` instead.".format(old_kw, new_kw), DeprecationWarning)
+        warnings.warn(f"The `{old_kw}` argument is deprecated. Use `{new_kw}` instead.", DeprecationWarning)
         return transform(old_kwarg)
     return new_kw_value
 
@@ -50,7 +52,7 @@ def _deprecate_kwarg_with_transform(kwargs, old_kw, new_kw, new_kw_value, transf
 def _deprecated_renamed_method(cls, old_method_name, new_method_name):
     def _deprecated_method(self, *args, **kwargs):
         warnings.warn(
-            "The `{}` method is deprecated. Use `{}` instead".format(old_method_name, new_method_name),
+            f"The `{old_method_name}` method is deprecated. Use `{new_method_name}` instead",
             DeprecationWarning,
         )
         return getattr(self, new_method_name)(*args, **kwargs)

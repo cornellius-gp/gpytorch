@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import math
 
 import torch
@@ -95,7 +97,7 @@ class Matern52KernelGrad(MaternKernel):
 
         # remove nu in case it was set
         kwargs.pop("nu", None)
-        super(Matern52KernelGrad, self).__init__(nu=2.5, **kwargs)
+        super().__init__(nu=2.5, **kwargs)
 
     def forward(self, x1, x2, diag=False, **params):
 
@@ -163,8 +165,8 @@ class Matern52KernelGrad(MaternKernel):
                 K = 0.5 * (K.transpose(-1, -2) + K)
 
             # Apply a perfect shuffle permutation to match the MutiTask ordering
-            pi1 = torch.arange(n1 * (d + 1)).view(d + 1, n1).t().reshape((n1 * (d + 1)))
-            pi2 = torch.arange(n2 * (d + 1)).view(d + 1, n2).t().reshape((n2 * (d + 1)))
+            pi1 = torch.arange(n1 * (d + 1)).view(d + 1, n1).t().reshape(n1 * (d + 1))
+            pi2 = torch.arange(n2 * (d + 1)).view(d + 1, n2).t().reshape(n2 * (d + 1))
             K = K[..., pi1, :][..., :, pi2]
 
             return K
@@ -173,13 +175,13 @@ class Matern52KernelGrad(MaternKernel):
                 raise RuntimeError("diag=True only works when x1 == x2")
 
             # nu is set to 2.5
-            kernel_diag = super(Matern52KernelGrad, self).forward(x1, x2, diag=True)
+            kernel_diag = super().forward(x1, x2, diag=True)
             grad_diag = (
                 five_thirds * torch.ones(*batch_shape, n2, d, device=x1.device, dtype=x1.dtype)
             ) / lengthscale**2
             grad_diag = grad_diag.transpose(-1, -2).reshape(*batch_shape, n2 * d)
             k_diag = torch.cat((kernel_diag, grad_diag), dim=-1)
-            pi = torch.arange(n2 * (d + 1)).view(d + 1, n2).t().reshape((n2 * (d + 1)))
+            pi = torch.arange(n2 * (d + 1)).view(d + 1, n2).t().reshape(n2 * (d + 1))
             return k_diag[..., pi]
 
     def num_outputs_per_input(self, x1, x2):

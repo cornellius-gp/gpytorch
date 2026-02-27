@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 import math
-from typing import Optional
 
 import torch
 from linear_operator.operators import MatmulLinearOperator, RootLinearOperator
@@ -28,9 +29,9 @@ class SpectralDeltaKernel(Kernel):
     def __init__(
         self,
         num_dims: int,
-        num_deltas: Optional[int] = 128,
-        Z_constraint: Optional[Interval] = None,
-        batch_shape: Optional[torch.Size] = torch.Size([]),
+        num_deltas: int | None = 128,
+        Z_constraint: Interval | None = None,
+        batch_shape: torch.Size | None = torch.Size([]),
         **kwargs,
     ):
         Kernel.__init__(self, has_lengthscale=True, batch_shape=batch_shape, **kwargs)

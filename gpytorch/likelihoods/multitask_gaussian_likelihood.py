@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
-from typing import Any, Optional, Union
+from __future__ import annotations
+
+from typing import Any
 
 import torch
 from linear_operator import to_linear_operator
@@ -40,9 +42,9 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
     def __init__(
         self,
         num_tasks: int,
-        noise_covar: Union[Noise, FixedGaussianNoise],
+        noise_covar: Noise | FixedGaussianNoise,
         rank: int = 0,
-        task_correlation_prior: Optional[Prior] = None,
+        task_correlation_prior: Prior | None = None,
         batch_shape: torch.Size = torch.Size(),
     ) -> None:
         super().__init__(noise_covar=noise_covar)
@@ -114,7 +116,7 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
         return function_dist.__class__(mean, covar, interleaved=function_dist._interleaved)
 
     def _shaped_noise_covar(
-        self, shape: torch.Size, add_noise: Optional[bool] = True, interleaved: bool = True, *params: Any, **kwargs: Any
+        self, shape: torch.Size, add_noise: bool | None = True, interleaved: bool = True, *params: Any, **kwargs: Any
     ) -> LinearOperator:
         if not self.has_task_noise:
             noise = ConstantDiagLinearOperator(self.noise, diag_shape=shape[-2] * self.num_tasks)
@@ -194,9 +196,9 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
         num_tasks: int,
         rank: int = 0,
         batch_shape: torch.Size = torch.Size(),
-        task_prior: Optional[Prior] = None,
-        noise_prior: Optional[Prior] = None,
-        noise_constraint: Optional[Interval] = None,
+        task_prior: Prior | None = None,
+        noise_prior: Prior | None = None,
+        noise_constraint: Interval | None = None,
         has_global_noise: bool = True,
         has_task_noise: bool = True,
     ) -> None:
@@ -240,31 +242,31 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
         self.has_task_noise = has_task_noise
 
     @property
-    def noise(self) -> Optional[Tensor]:
+    def noise(self) -> Tensor | None:
         return self.raw_noise_constraint.transform(self.raw_noise)
 
     @noise.setter
-    def noise(self, value: Union[float, Tensor]) -> None:
+    def noise(self, value: float | Tensor) -> None:
         self._set_noise(value)
 
     @property
-    def task_noises(self) -> Optional[Tensor]:
+    def task_noises(self) -> Tensor | None:
         if self.rank == 0:
             return self.raw_task_noises_constraint.transform(self.raw_task_noises)
         else:
             raise AttributeError("Cannot set diagonal task noises when covariance has ", self.rank, ">0")
 
     @task_noises.setter
-    def task_noises(self, value: Union[float, Tensor]) -> None:
+    def task_noises(self, value: float | Tensor) -> None:
         if self.rank == 0:
             self._set_task_noises(value)
         else:
             raise AttributeError("Cannot set diagonal task noises when covariance has ", self.rank, ">0")
 
-    def _set_noise(self, value: Union[float, Tensor]) -> None:
+    def _set_noise(self, value: float | Tensor) -> None:
         self.initialize(raw_noise=self.raw_noise_constraint.inverse_transform(value))
 
-    def _set_task_noises(self, value: Union[float, Tensor]) -> None:
+    def _set_task_noises(self, value: float | Tensor) -> None:
         self.initialize(raw_task_noises=self.raw_task_noises_constraint.inverse_transform(value))
 
     @property

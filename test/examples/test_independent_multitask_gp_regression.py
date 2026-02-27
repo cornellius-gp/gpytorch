@@ -33,7 +33,7 @@ test_y12 = torch.stack((test_y1, test_y2), dim=-1).contiguous()
 
 class ExactGPModel(gpytorch.models.ExactGP):
     def __init__(self, train_inputs, train_targets, likelihood, batch_shape=torch.Size([2])):
-        super(ExactGPModel, self).__init__(train_inputs, train_targets, likelihood)
+        super().__init__(train_inputs, train_targets, likelihood)
         self.mean_module = ConstantMean(batch_shape=batch_shape)
         self.covar_module = ScaleKernel(RBFKernel(batch_shape=batch_shape), batch_shape=batch_shape)
 

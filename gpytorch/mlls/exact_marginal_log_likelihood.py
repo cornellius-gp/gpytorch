@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 from linear_operator.operators import MaskedLinearOperator
 
 from .. import settings
@@ -34,7 +36,7 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
     def __init__(self, likelihood, model):
         if not isinstance(likelihood, _GaussianLikelihoodBase):
             raise RuntimeError("Likelihood must be Gaussian for exact inference")
-        super(ExactMarginalLogLikelihood, self).__init__(likelihood, model)
+        super().__init__(likelihood, model)
 
     def _add_other_terms(self, res, params):
         # Add additional terms (SGPR / learned inducing points, heteroskedastic likelihood models)

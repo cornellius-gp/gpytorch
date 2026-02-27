@@ -30,7 +30,7 @@ class SVGPClassificationModel(ApproximateGP):
         variational_strategy = VariationalStrategy(
             self, inducing_points, variational_distribution, learn_inducing_locations=True, jitter_val=1e-4
         )
-        super(SVGPClassificationModel, self).__init__(variational_strategy)
+        super().__init__(variational_strategy)
         self.mean_module = gpytorch.means.ConstantMean()
         self.covar_module = gpytorch.kernels.ScaleKernel(
             gpytorch.kernels.RBFKernel(lengthscale_prior=gpytorch.priors.SmoothedBoxPrior(0.001, 1.0, sigma=0.1))

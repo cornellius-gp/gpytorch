@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 from copy import deepcopy
-from typing import List, Optional, Union
 
 from torch.nn import ModuleList
 
 from ..priors import Prior
-from ..utils.generic import length_safe_zip
 from .kernel import Kernel
 from .multitask_kernel import MultitaskKernel
 
@@ -23,10 +23,10 @@ class LCMKernel(Kernel):
 
     def __init__(
         self,
-        base_kernels: List[Kernel],
+        base_kernels: list[Kernel],
         num_tasks: int,
-        rank: Optional[Union[int, List]] = 1,
-        task_covar_prior: Optional[Prior] = None,
+        rank: int | list | None = 1,
+        task_covar_prior: Prior | None = None,
     ):
         """
         Args:
@@ -45,11 +45,11 @@ class LCMKernel(Kernel):
         if not isinstance(rank, list):
             rank = [rank] * len(base_kernels)
 
-        super(LCMKernel, self).__init__()
+        super().__init__()
         self.covar_module_list = ModuleList(
             [
                 MultitaskKernel(base_kernel, num_tasks=num_tasks, rank=r, task_covar_prior=task_covar_prior)
-                for base_kernel, r in length_safe_zip(base_kernels, rank)
+                for base_kernel, r in zip(base_kernels, rank, strict=True)
             ]
         )
 

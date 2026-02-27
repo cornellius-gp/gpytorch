@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import math
-from typing import Optional
 
 import torch
 from linear_operator.operators import LowRankRootLinearOperator, MatmulLinearOperator, RootLinearOperator
@@ -92,14 +91,14 @@ class RFFKernel(Kernel):
 
     has_lengthscale = True
 
-    def __init__(self, num_samples: int, num_dims: Optional[int] = None, **kwargs):
+    def __init__(self, num_samples: int, num_dims: int | None = None, **kwargs):
         super().__init__(**kwargs)
         self.num_samples = num_samples
         if num_dims is not None:
             self._init_weights(num_dims, num_samples)
 
     def _init_weights(
-        self, num_dims: Optional[int] = None, num_samples: Optional[int] = None, randn_weights: Optional[Tensor] = None
+        self, num_dims: int | None = None, num_samples: int | None = None, randn_weights: Tensor | None = None
     ):
         if num_dims is not None and num_samples is not None:
             d = num_dims
@@ -119,22 +118,24 @@ class RFFKernel(Kernel):
         if not hasattr(self, "randn_weights"):
             self._init_weights(num_dims, self.num_samples)
         x1_eq_x2 = torch.equal(x1, x2)
-        z1 = self._featurize(x1, normalize=False)
+        # Always use normalized features (scaled by 1/sqrt(D)) to ensure consistent
+        # feature matrices regardless of whether x1 == x2 or not. This is important
+        # for LinearPredictionStrategy, which extracts features from the LinearOperator.
+        z1 = self._featurize(x1, normalize=True)
         if not x1_eq_x2:
-            z2 = self._featurize(x2, normalize=False)
+            z2 = self._featurize(x2, normalize=True)
         else:
             z2 = z1
-        D = float(self.num_samples)
         if diag:
-            return (z1 * z2).sum(-1) / D
+            return (z1 * z2).sum(-1)
         if x1_eq_x2:
             # Exploit low rank structure, if there are fewer features than data points
             if z1.size(-1) < z2.size(-2):
-                return LowRankRootLinearOperator(z1 / math.sqrt(D))
+                return LowRankRootLinearOperator(z1)
             else:
-                return RootLinearOperator(z1 / math.sqrt(D))
+                return RootLinearOperator(z1)
         else:
-            return MatmulLinearOperator(z1 / D, z2.transpose(-1, -2))
+            return MatmulLinearOperator(z1, z2.transpose(-1, -2))
 
     def _featurize(self, x: Tensor, normalize: bool = False) -> Tensor:
         # Recompute division each time to allow backprop through lengthscale

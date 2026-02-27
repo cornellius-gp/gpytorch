@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from abc import abstractmethod
 from unittest.mock import patch
 
@@ -14,12 +16,10 @@ class BaseKeOpsTestCase(BaseTestCase):
     @abstractmethod
     def k1(self):
         """Returns first kernel class"""
-        pass
 
     @abstractmethod
     def k2(self):
         """Returns second kernel class"""
-        pass
 
     # tests the keops implementation
     def test_forward_x1_eq_x2(self, ard=False, use_keops=True, **kwargs):

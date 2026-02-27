@@ -1,7 +1,8 @@
-#!/usr/bin/env python3
+from __future__ import annotations
+
+from collections.abc import Callable
 
 from math import pi
-from typing import Callable, Optional
 
 import torch
 
@@ -99,12 +100,12 @@ class ArcKernel(Kernel):
     def __init__(
         self,
         base_kernel: Kernel,
-        delta_func: Optional[Callable] = None,
-        angle_prior: Optional[Prior] = None,
-        radius_prior: Optional[Prior] = None,
+        delta_func: Callable | None = None,
+        angle_prior: Prior | None = None,
+        radius_prior: Prior | None = None,
         **kwargs,
     ):
-        super(ArcKernel, self).__init__(has_lengthscale=True, **kwargs)
+        super().__init__(has_lengthscale=True, **kwargs)
 
         if self.ard_num_dims is None:
             self.last_dim = 1

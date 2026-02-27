@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 from .delta import Delta
 from .distribution import Distribution
 from .multitask_multivariate_normal import MultitaskMultivariateNormal

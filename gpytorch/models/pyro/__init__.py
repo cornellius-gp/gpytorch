@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 try:
     from ._pyro_mixin import _PyroMixin
     from .pyro_gp import PyroGP
 except ImportError:
 
-    class PyroGP(object):
+    class PyroGP:
         def __init__(self, *args, **kwargs):
             raise RuntimeError("Cannot use a PyroGP because you dont have Pyro installed.")
 
-    class _PyroMixin(object):
+    class _PyroMixin:
         def pyro_factors(self, *args, **kwargs):
             raise RuntimeError("Cannot call `pyro_factors` because you dont have Pyro installed.")
 

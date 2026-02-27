@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import warnings
-from typing import Any, Tuple, Union
+from typing import Any, Union
 
 import torch
 from linear_operator import LinearOperator
@@ -14,9 +16,7 @@ try:
 
     _Anysor = Union[Tensor, LazyTensor]
 
-    def _lazify_and_expand_inputs(
-        x1: Tensor, x2: Tensor
-    ) -> Tuple[Union[Tensor, LazyTensor], Union[Tensor, LazyTensor]]:
+    def _lazify_and_expand_inputs(x1: Tensor, x2: Tensor) -> tuple[Tensor | LazyTensor, Tensor | LazyTensor]:
         r"""
         Potentially wrap inputs x1 and x2 as KeOps LazyTensors,
         depending on whether or not we want to use KeOps under the hood or not.
@@ -43,7 +43,7 @@ try:
         )
 
     class KeOpsKernel(Kernel):
-        def __call__(self, *args: Any, **kwargs: Any) -> Union[LinearOperator, Tensor, LazyTensor]:
+        def __call__(self, *args: Any, **kwargs: Any) -> LinearOperator | Tensor | LazyTensor:
             # Hotfix for zero gradients. See https://github.com/cornellius-gp/gpytorch/issues/1543
             args = [arg.contiguous() if torch.is_tensor(arg) else arg for arg in args]
             kwargs = {k: v.contiguous() if torch.is_tensor(v) else v for k, v in kwargs.items()}
@@ -53,7 +53,7 @@ except ImportError:
 
     _Anysor = Tensor
 
-    def _lazify_and_expand_inputs(x1: Tensor, x2: Tensor) -> Tuple[Tensor, Tensor]:
+    def _lazify_and_expand_inputs(x1: Tensor, x2: Tensor) -> tuple[Tensor, Tensor]:
         x1_ = x1[..., :, None, :]
         x2_ = x2[..., None, :, :]
         return x1_, x2_
@@ -62,7 +62,7 @@ except ImportError:
         return False
 
     class KeOpsKernel(Kernel):
-        def __call__(self, *args: Any, **kwargs: Any) -> Union[LinearOperator, Tensor]:
+        def __call__(self, *args: Any, **kwargs: Any) -> LinearOperator | Tensor:
             warnings.warn(
                 "KeOps is not installed. " f"{type(self)} will revert to the the non-keops version of this kernel.",
                 RuntimeWarning,

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import warnings
 from abc import abstractmethod
+from collections.abc import Callable, Iterable
 from copy import deepcopy
-from typing import Callable, Dict, Iterable, Optional, Tuple, Union
 
 import torch
 from linear_operator import to_dense, to_linear_operator
@@ -62,7 +62,7 @@ def dist(x1, x2, x1_eq_x2=False):
 
 # only necessary for legacy purposes
 class Distance(torch.nn.Module):
-    def __init__(self, postprocess: Optional[Callable] = None):
+    def __init__(self, postprocess: Callable | None = None):
         super().__init__()
         if postprocess is not None:
             warnings.warn(
@@ -162,14 +162,14 @@ class Kernel(Module):
 
     def __init__(
         self,
-        ard_num_dims: Optional[int] = None,
-        batch_shape: Optional[torch.Size] = None,
-        active_dims: Optional[Tuple[int, ...]] = None,
-        lengthscale_prior: Optional[Prior] = None,
-        lengthscale_constraint: Optional[Interval] = None,
+        ard_num_dims: int | None = None,
+        batch_shape: torch.Size | None = None,
+        active_dims: tuple[int, ...] | None = None,
+        lengthscale_prior: Prior | None = None,
+        lengthscale_constraint: Interval | None = None,
         **kwargs,
     ):
-        super(Kernel, self).__init__()
+        super().__init__()
         self._batch_shape = torch.Size([]) if batch_shape is None else batch_shape
         if active_dims is not None and not torch.is_tensor(active_dims):
             active_dims = torch.tensor(active_dims, dtype=torch.long)
@@ -228,7 +228,7 @@ class Kernel(Module):
     @abstractmethod
     def forward(
         self, x1: Tensor, x2: Tensor, diag: bool = False, last_dim_is_batch: bool = False, **params
-    ) -> Union[Tensor, LinearOperator]:
+    ) -> Tensor | LinearOperator:
         r"""
         Computes the covariance between :math:`\mathbf x_1` and :math:`\mathbf x_2`.
         This method should be implemented by all Kernel subclasses.
@@ -263,7 +263,7 @@ class Kernel(Module):
         self._batch_shape = val
 
     @property
-    def device(self) -> Optional[torch.device]:
+    def device(self) -> torch.device | None:
         if self.has_lengthscale:
             return self.lengthscale.device
         devices = {param.device for param in self.parameters()}
@@ -299,7 +299,7 @@ class Kernel(Module):
     def is_stationary(self) -> bool:
         return self.has_lengthscale
 
-    def local_load_samples(self, samples_dict: Dict[str, Tensor], memo: set, prefix: str):
+    def local_load_samples(self, samples_dict: dict[str, Tensor], memo: set, prefix: str):
         num_samples = next(iter(samples_dict.values())).size(0)
         self.batch_shape = torch.Size([num_samples]) + self.batch_shape
         super().local_load_samples(samples_dict, memo, prefix)
@@ -351,7 +351,7 @@ class Kernel(Module):
             dist_func = sq_dist if square_dist else dist
             return dist_func(x1, x2, x1_eq_x2)
 
-    def expand_batch(self, *sizes: Union[torch.Size, Tuple[int, ...]]) -> Kernel:
+    def expand_batch(self, *sizes: torch.Size | tuple[int, ...]) -> Kernel:
         r"""
         Constructs a new kernel where the lengthscale (and other kernel parameters)
         are expanded to match the batch dimension determined by `sizes`.
@@ -364,7 +364,7 @@ class Kernel(Module):
         elif all(isinstance(size, int) for size in sizes):
             new_batch_shape = torch.Size(sizes)
         else:
-            raise RuntimeError("Invalid arguments {} to expand_batch.".format(sizes))
+            raise RuntimeError(f"Invalid arguments {sizes} to expand_batch.")
 
         # Check for easy case:
         orig_batch_shape = self.batch_shape
@@ -403,7 +403,7 @@ class Kernel(Module):
 
         return new_kernel
 
-    def named_sub_kernels(self) -> Iterable[Tuple[str, Kernel]]:
+    def named_sub_kernels(self) -> Iterable[tuple[str, Kernel]]:
         """
         For compositional Kernel classes (e.g. :class:`~gpytorch.kernels.AdditiveKernel`
         or :class:`~gpytorch.kernels.ProductKernel`).
@@ -452,8 +452,8 @@ class Kernel(Module):
             yield kernel
 
     def __call__(
-        self, x1: Tensor, x2: Optional[Tensor] = None, diag: bool = False, last_dim_is_batch: bool = False, **params
-    ) -> Union[LazyEvaluatedKernelTensor, LinearOperator, Tensor]:
+        self, x1: Tensor, x2: Tensor | None = None, diag: bool = False, last_dim_is_batch: bool = False, **params
+    ) -> LazyEvaluatedKernelTensor | LinearOperator | Tensor:
         r"""
         Computes the covariance between :math:`\mathbf x_1` and :math:`\mathbf x_2`.
 
@@ -518,7 +518,7 @@ class Kernel(Module):
                 )
 
         if diag:
-            res = super(Kernel, self).__call__(x1_, x2_, diag=True, last_dim_is_batch=last_dim_is_batch, **params)
+            res = super().__call__(x1_, x2_, diag=True, last_dim_is_batch=last_dim_is_batch, **params)
             # Did this Kernel eat the diag option?
             # If it does not return a LazyEvaluatedKernelTensor, we can call diag on the output
             if not isinstance(res, LazyEvaluatedKernelTensor):
@@ -530,9 +530,7 @@ class Kernel(Module):
             if settings.lazily_evaluate_kernels.on():
                 res = LazyEvaluatedKernelTensor(x1_, x2_, kernel=self, last_dim_is_batch=last_dim_is_batch, **params)
             else:
-                res = to_linear_operator(
-                    super(Kernel, self).__call__(x1_, x2_, last_dim_is_batch=last_dim_is_batch, **params)
-                )
+                res = to_linear_operator(super().__call__(x1_, x2_, last_dim_is_batch=last_dim_is_batch, **params))
             return res
 
     def __getstate__(self):
@@ -608,10 +606,10 @@ class AdditiveKernel(Kernel):
         return all(k.is_stationary for k in self.kernels)
 
     def __init__(self, *kernels: Kernel):
-        super(AdditiveKernel, self).__init__()
+        super().__init__()
         self.kernels = ModuleList(kernels)
 
-    def forward(self, x1: Tensor, x2: Tensor, diag: bool = False, **params) -> Union[Tensor, LinearOperator]:
+    def forward(self, x1: Tensor, x2: Tensor, diag: bool = False, **params) -> Tensor | LinearOperator:
         res = ZeroLinearOperator() if not diag else 0
         for kern in self.kernels:
             next_term = kern(x1, x2, diag=diag, **params)
@@ -650,10 +648,10 @@ class ProductKernel(Kernel):
         return all(k.is_stationary for k in self.kernels)
 
     def __init__(self, *kernels: Kernel):
-        super(ProductKernel, self).__init__()
+        super().__init__()
         self.kernels = ModuleList(kernels)
 
-    def forward(self, x1: Tensor, x2: Tensor, diag: bool = False, **params) -> Union[Tensor, LinearOperator]:
+    def forward(self, x1: Tensor, x2: Tensor, diag: bool = False, **params) -> Tensor | LinearOperator:
         x1_eq_x2 = torch.equal(x1, x2)
 
         if not x1_eq_x2:
