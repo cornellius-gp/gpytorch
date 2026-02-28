@@ -77,7 +77,6 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
                 f"but your _variational_distribution is a {type(self._variational_distribution).__name__}"
             )
 
-
         # retrieve the variational mean, m and covariance matrix, S.
         var_cov_root = TriangularLinearOperator(self._variational_distribution.chol_variational_covar)
         var_cov = CholLinearOperator(var_cov_root)
