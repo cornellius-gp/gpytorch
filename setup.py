@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import io
 import os
 import re
 import sys
@@ -26,7 +25,7 @@ if sys.version_info < (REQUIRED_MAJOR, REQUIRED_MINOR):
 # Get version
 def find_version(*file_paths):
     try:
-        with io.open(os.path.join(os.path.dirname(__file__), *file_paths), encoding="utf8") as fp:
+        with open(os.path.join(os.path.dirname(__file__), *file_paths), encoding="utf8") as fp:
             version_file = fp.read()
         version_match = re.search(r"^__version__ = version = ['\"]([^'\"]*)['\"]", version_file, re.M)
         return version_match.group(1)
@@ -39,11 +38,10 @@ readme = open("README.md").read()
 
 torch_min = "2.0"
 install_requires = [
-    "jaxtyping",
     "mpmath>=0.19,<=1.3",  # avoid incompatibiltiy with torch+sympy with mpmath 1.4
     "scikit-learn",
     "scipy>=1.6.0",
-    "linear_operator>=0.6",
+    "linear_operator>=0.6.1",
 ]
 # if recent dev version of PyTorch is installed, no need to install stable
 try:
