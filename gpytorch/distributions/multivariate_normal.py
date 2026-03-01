@@ -244,7 +244,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
                     1,
                 )
 
-        # Get log determininant and first part of quadratic form
+        # Get log determinant and first part of quadratic form
         covar = covar.evaluate_kernel()
         inv_quad, logdet = covar.inv_quad_logdet(inv_quad_rhs=diff.unsqueeze(-1), logdet=True)
 
