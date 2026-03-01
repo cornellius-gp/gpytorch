@@ -51,7 +51,7 @@ if os.path.exists(examples_dest):
 os.mkdir(examples_dest)
 
 # Include examples in documentation
-# This adds a lot of time to the doc buiod; to bypass use the environment variable SKIP_EXAMPLES=true
+# This adds a lot of time to the doc build; to bypass use the environment variable SKIP_EXAMPLES=true
 for root, dirs, files in os.walk(examples_source):
     for dr in dirs:
         os.mkdir(os.path.join(root.replace(examples_source, examples_dest), dr))
