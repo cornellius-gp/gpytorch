@@ -463,6 +463,17 @@ class use_keops(_feature_flag):
     _default = True
 
 
+class use_torch_tensors(_feature_flag):
+    """
+    Whether or not to use torch tensors instead of linear operators. If true, then we will use torch tensors as much as
+    possible to avoid the overhead of linear operators for dense kernel matrices.
+
+    (Default: False)
+    """
+
+    _default = False
+
+
 __all__ = [
     "_linalg_dtype_symeig",
     "_linalg_dtype_cholesky",
@@ -504,6 +515,7 @@ __all__ = [
     "tridiagonal_jitter",
     "use_keops",
     "use_toeplitz",
+    "use_torch_tensors",
     "variational_cholesky_jitter",
     "verbose_linalg",
 ]
