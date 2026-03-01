@@ -83,7 +83,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
     @property
     def _unbroadcasted_scale_tril(self) -> Tensor:
         if self.islazy and self.__unbroadcasted_scale_tril is None:
-            # cache root decoposition
+            # cache root decomposition
             ust = to_dense(self.lazy_covariance_matrix.cholesky())
             self.__unbroadcasted_scale_tril = ust
         return self.__unbroadcasted_scale_tril
