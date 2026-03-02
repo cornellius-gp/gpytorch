@@ -28,3 +28,21 @@ class TestOrdinalLikelihood(BaseLikelihoodTestCase, unittest.TestCase):
 
         self.assertTrue(isinstance(output, Distribution))
         self.assertEqual(output.sample().shape[-len(batch_shape) - 1 :], torch.Size([*batch_shape, 5]))
+
+    def test_batched_likelihood(self):
+        """Test that OrdinalLikelihood works when constructed with a non-empty batch_shape."""
+        bin_edges = torch.tensor([-0.5, 0.5])
+        batch_shape = torch.Size([3])
+        likelihood = OrdinalLikelihood(bin_edges, batch_shape=batch_shape)
+        function_samples = torch.randn(*batch_shape, 5)
+        output = likelihood(function_samples)
+        self.assertTrue(isinstance(output, Distribution))
+
+    @unittest.skipUnless(torch.cuda.is_available(), "requires CUDA")
+    def test_gpu_device(self):
+        """Test that OrdinalLikelihood works on GPU."""
+        bin_edges = torch.tensor([-0.5, 0.5], device="cuda")
+        likelihood = OrdinalLikelihood(bin_edges).cuda()
+        function_samples = torch.randn(5, device="cuda")
+        output = likelihood(function_samples)
+        self.assertTrue(isinstance(output, Distribution))

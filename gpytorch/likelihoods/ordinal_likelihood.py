@@ -9,7 +9,7 @@ from ..priors import Prior
 from .likelihood import _OneDimensionalLikelihood
 
 
-def inv_probit(x, jitter=1e-3):
+def inv_probit(x: Tensor, jitter: float = 1e-3):
     """
     Inverse probit function (standard normal CDF) with jitter for numerical stability.
 
@@ -20,7 +20,7 @@ def inv_probit(x, jitter=1e-3):
     Returns:
         Probabilities between jitter and 1-jitter
     """
-    return 0.5 * (1.0 + torch.erf(x / torch.sqrt(torch.tensor(2.0)))) * (1 - 2 * jitter) + jitter
+    return 0.5 * (1.0 + torch.erf(x / torch.sqrt(torch.tensor(2.0, device=x.device)))) * (1 - 2 * jitter) + jitter
 
 
 class OrdinalLikelihood(_OneDimensionalLikelihood):
@@ -63,18 +63,19 @@ class OrdinalLikelihood(_OneDimensionalLikelihood):
         batch_shape: torch.Size = torch.Size([]),
         sigma_prior: Prior | None = None,
         sigma_constraint: Interval | None = None,
+        learn_edges: bool = False,
     ) -> None:
         super().__init__()
 
         self.num_bins = len(bin_edges) + 1
-        self.register_parameter("bin_edges", torch.nn.Parameter(bin_edges, requires_grad=False))
+        self.register_parameter("bin_edges", torch.nn.Parameter(bin_edges, requires_grad=learn_edges))
 
         if sigma_constraint is None:
             sigma_constraint = Positive()
 
         self.raw_sigma = torch.nn.Parameter(torch.ones(*batch_shape, 1))
         if sigma_prior is not None:
-            self.register_prior("sigma_prior", sigma_prior, lambda m: m.sigma, lambda m, v: m._set_sigma(v))
+            self.register_prior("sigma_prior", sigma_prior, lambda m: m.sigma, lambda m, v: setattr(m, "sigma", v))
 
         self.register_constraint("raw_sigma", sigma_constraint)
 
@@ -84,25 +85,27 @@ class OrdinalLikelihood(_OneDimensionalLikelihood):
 
     @sigma.setter
     def sigma(self, value: Tensor) -> None:
-        self._set_sigma(value)
-
-    def _set_sigma(self, value: Tensor) -> None:
-        if not torch.is_tensor(value):
-            value = torch.as_tensor(value).to(self.raw_sigma)
         self.initialize(raw_sigma=self.raw_sigma_constraint.inverse_transform(value))
 
     def forward(self, function_samples: Tensor, *args: Any, data: dict[str, Tensor] = {}, **kwargs: Any) -> Categorical:
-        # Compute scaled bin edges
-        scaled_edges = self.bin_edges / self.sigma
-        scaled_edges_left = torch.cat([scaled_edges, torch.tensor([torch.inf], device=scaled_edges.device)], dim=-1)
-        scaled_edges_right = torch.cat([torch.tensor([-torch.inf], device=scaled_edges.device), scaled_edges])
+        # Cache sigma to avoid recomputing the constraint transform
+        sigma = self.sigma
+
+        # Compute scaled bin edges: (*batch_shape, k-1)
+        scaled_edges = self.bin_edges / sigma
+
+        # Pad with +/-inf: (*batch_shape, k)
+        pad_shape = scaled_edges.shape[:-1] + (1,)
+        scaled_edges_left = torch.cat([scaled_edges, scaled_edges.new_full(pad_shape, float("inf"))], dim=-1)
+        scaled_edges_right = torch.cat([scaled_edges.new_full(pad_shape, float("-inf")), scaled_edges], dim=-1)
 
         # Calculate cumulative probabilities using standard normal CDF (probit function)
-        function_samples = function_samples.unsqueeze(-1)
-        scaled_edges_left = scaled_edges_left.reshape(1, -1)
-        scaled_edges_right = scaled_edges_right.reshape(1, -1)
-        probs = inv_probit(scaled_edges_left - function_samples / self.sigma) - inv_probit(
-            scaled_edges_right - function_samples / self.sigma
+        function_samples = function_samples.unsqueeze(-1)  # (*sample_shape, *batch_shape, n, 1)
+        scaled_edges_left = scaled_edges_left.unsqueeze(-2)  # (*batch_shape, 1, k)
+        scaled_edges_right = scaled_edges_right.unsqueeze(-2)  # (*batch_shape, 1, k)
+        sigma = sigma.unsqueeze(-1)  # (*batch_shape, 1, 1)
+        probs = inv_probit(scaled_edges_left - function_samples / sigma) - inv_probit(
+            scaled_edges_right - function_samples / sigma
         )
 
         return Categorical(probs=probs)
