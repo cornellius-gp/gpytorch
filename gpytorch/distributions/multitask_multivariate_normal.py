@@ -86,7 +86,7 @@ class MultitaskMultivariateNormal(MultivariateNormal):
     @classmethod
     def from_batch_mvn(cls, batch_mvn, task_dim=-1):
         """
-        Reinterprate a batch of multivariate normal distributions as an (independent) multitask multivariate normal
+        Reinterpret a batch of multivariate normal distributions as an (independent) multitask multivariate normal
         distribution.
 
         :param ~gpytorch.distributions.MultivariateNormal batch_mvn: The base MVN distribution.

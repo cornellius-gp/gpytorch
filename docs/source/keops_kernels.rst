@@ -12,7 +12,7 @@ These kernels are compatible with the GPyTorch KeOps integration.
 For more information, see the `KeOps tutorial`_.
 
 .. note::
-   Only some standard kernels have KeOps impementations.
+   Only some standard kernels have KeOps implementations.
    If there is a kernel you want that's missing, consider submitting a pull request!
 
 

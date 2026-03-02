@@ -20,8 +20,6 @@ import sys
 import sphinx_rtd_theme  # noqa
 import warnings
 
-import jaxtyping
-
 
 def read(*names, **kwargs):
     with io.open(
@@ -53,7 +51,7 @@ if os.path.exists(examples_dest):
 os.mkdir(examples_dest)
 
 # Include examples in documentation
-# This adds a lot of time to the doc buiod; to bypass use the environment variable SKIP_EXAMPLES=true
+# This adds a lot of time to the doc build; to bypass use the environment variable SKIP_EXAMPLES=true
 for root, dirs, files in os.walk(examples_source):
     for dr in dirs:
         os.mkdir(os.path.join(root.replace(examples_source, examples_dest), dr))
@@ -262,27 +260,6 @@ def _convert_internal_and_external_class_to_strings(annotation):
     return res
 
 
-# Convert jaxtyping dimensions into strings
-def _dim_to_str(dim):
-    if isinstance(dim, jaxtyping._array_types._NamedVariadicDim):
-        return "..."
-    elif isinstance(dim, jaxtyping._array_types._FixedDim):
-        res = str(dim.size)
-        if dim.broadcastable:
-            res = "#" + res
-        return res
-    elif isinstance(dim, jaxtyping._array_types._SymbolicDim):
-        expr = dim.elem
-        return f"({expr})"
-    elif "jaxtyping" not in str(dim.__class__):  # Probably the case that we have an ellipsis
-        return "..."
-    else:
-        res = str(dim.name)
-        if dim.broadcastable:
-            res = "#" + res
-        return res
-
-
 # Function to format type hints
 def _process(annotation, config):
     """
@@ -294,12 +271,6 @@ def _process(annotation, config):
     # Simple/base case: any string annotation is ready to go
     if isinstance(annotation, str):
         return annotation
-
-    # Jaxtyping: shaped tensors or linear operator
-    elif hasattr(annotation, "__module__") and "jaxtyping" == annotation.__module__:
-        cls_annotation = _convert_internal_and_external_class_to_strings(annotation.array_type)
-        shape = " x ".join([_dim_to_str(dim) for dim in annotation.dims])
-        return f"{cls_annotation} ({shape})"
 
     # Convert Ellipsis into "..."
     elif annotation == Ellipsis:
