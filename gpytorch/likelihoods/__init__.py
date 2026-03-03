@@ -18,6 +18,7 @@ from .likelihood_list import LikelihoodList
 from .multitask_gaussian_likelihood import _MultitaskGaussianLikelihoodBase, MultitaskGaussianLikelihood
 from .negative_binomial_likelihood import NegativeBinomialLikelihood
 from .noise_models import HeteroskedasticNoise
+from .ordinal_likelihood import OrdinalLikelihood
 from .poisson_likelihood import PoissonLikelihood
 from .softmax_likelihood import SoftmaxLikelihood
 from .student_t_likelihood import StudentTLikelihood
@@ -39,6 +40,7 @@ __all__ = [
     "LikelihoodList",
     "MultitaskGaussianLikelihood",
     "NegativeBinomialLikelihood",
+    "OrdinalLikelihood",
     "PoissonLikelihood",
     "SoftmaxLikelihood",
     "StudentTLikelihood",
