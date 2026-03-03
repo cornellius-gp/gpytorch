@@ -531,6 +531,9 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         fant_noise = fant_likelihood.noise_covar(fant_wmat.transpose(-1, -2) if len(fant_wmat.shape) > 2 else fant_wmat)
         fant_root_vector = fant_noise.sqrt_inv_matmul(fant_wmat.transpose(-1, -2)).transpose(-1, -2)
 
+        # Ensure root decomposition exists before add_low_rank for efficient Woodbury updates.
+        # This computes the root once (O(n³)), then subsequent fantasy updates use O(nk²) rank updates.
+        _ = self.interp_inner_prod.root_decomposition(method="cholesky")
         new_wmat = self.interp_inner_prod.add_low_rank(fant_root_vector.to_dense())
         mean_diff = (targets - fant_mean).unsqueeze(-1)
         new_interp_response_cache = self.interp_response_cache + fant_wmat.matmul(fant_noise.solve(mean_diff))
