@@ -8,7 +8,7 @@ gpytorch.variational
 .. currentmodule:: gpytorch.variational
 
 There are many possible variants of variational/approximate GPs.
-GPyTorch makes use of 3 composible objects that make it possible to implement
+GPyTorch makes use of 3 composable objects that make it possible to implement
 most GP approximations:
 
 - :obj:`VariationalDistribution`, which define the form of the approximate inducing value
