@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import functools
 from abc import ABC, abstractproperty
 from copy import deepcopy
 
