@@ -221,3 +221,9 @@ Kernels for Scalable GP Regression Methods
 
 .. autoclass:: RFFKernel
    :members:
+
+:hidden:`OrthogonalRandomFeaturesKernel`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: OrthogonalRandomFeaturesKernel
+   :members:
