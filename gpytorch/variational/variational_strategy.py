@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import functools
 import warnings
 from collections.abc import Iterable
 from typing import Any
@@ -192,9 +191,7 @@ class VariationalStrategy(_VariationalStrategy):
     def _cholesky_factor(self, induc_induc_covar: LinearOperator) -> TriangularLinearOperator:
         L = psd_safe_cholesky(to_dense(induc_induc_covar).type(_linalg_dtype_cholesky.value()))
         if L.grad_fn is not None:
-            wrapper = functools.partial(clear_cache_hook, self)
-            functools.update_wrapper(wrapper, clear_cache_hook)
-            L.grad_fn.register_hook(wrapper)
+            L.grad_fn.register_hook(lambda *args: self._clear_cache())
         return TriangularLinearOperator(L)
 
     @property

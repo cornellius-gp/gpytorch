@@ -94,6 +94,8 @@ class LargeBatchVariationalStrategy(VariationalStrategy):
                 chol.mT, inducing_values.unsqueeze(-1), upper=True, left=True
             )
             if not self.training:
+                if inv_chol_t_inducing_values.grad_fn is not None:
+                    inv_chol_t_inducing_values.grad_fn.register_hook(lambda *args: self._clear_cache())
                 self._cached_inv_chol_t_inducing_values = inv_chol_t_inducing_values
 
         mean_update = (induc_data_covar.mT @ inv_chol_t_inducing_values).squeeze(-1).type(dtype)
@@ -110,6 +112,8 @@ class LargeBatchVariationalStrategy(VariationalStrategy):
             middle_term = torch.linalg.solve_triangular(chol, middle_term, upper=False, left=False)
             middle_term = torch.linalg.solve_triangular(chol.mT, middle_term, upper=True, left=True)
             if not self.training:
+                if middle_term.grad_fn is not None:
+                    middle_term.grad_fn.register_hook(lambda *args: self._clear_cache())
                 self._cached_middle_term = middle_term
 
         # The covariance update `K_XZ K_ZZ^{-1/2} (S - I) K_ZZ^{-1/2} K_ZX`
