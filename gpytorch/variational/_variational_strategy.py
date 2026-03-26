@@ -46,6 +46,7 @@ def _add_cache_hook(tsr: Tensor, module: Module) -> Tensor:
     Several inference-time caches may retain references to an old autograd graph. Registering this hook ensures that
     those caches are dropped after backward so the next forward pass rebuilds them from the current graph.
     """
+
     def _clear_module_cache(*args, **kwargs) -> None:
         module._clear_cache()
 

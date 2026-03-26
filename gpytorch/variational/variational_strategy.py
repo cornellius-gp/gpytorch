@@ -23,7 +23,7 @@ from torch import Tensor
 
 from gpytorch import settings
 
-from gpytorch.variational._variational_strategy import _VariationalStrategy, _add_cache_hook
+from gpytorch.variational._variational_strategy import _add_cache_hook, _VariationalStrategy
 from gpytorch.variational.cholesky_variational_distribution import CholeskyVariationalDistribution
 
 from ..distributions import MultivariateNormal

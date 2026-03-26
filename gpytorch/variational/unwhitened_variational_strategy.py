@@ -22,7 +22,7 @@ from torch import Tensor
 from .. import settings
 from ..distributions import MultivariateNormal
 from ..utils.memoize import add_to_cache, cached
-from ._variational_strategy import _VariationalStrategy, _add_cache_hook
+from ._variational_strategy import _add_cache_hook, _VariationalStrategy
 from .cholesky_variational_distribution import CholeskyVariationalDistribution
 
 
