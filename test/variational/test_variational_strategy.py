@@ -77,6 +77,7 @@ class TestVariationalGP(VariationalTestCase, unittest.TestCase):
         self.assertAllClose(predictive_dist1.variance, predictive_dist2.variance)
 
     def test_eval_mode_allows_repeated_backward(self, *args, **kwargs):
+        """Repeated eval-mode backward passes should rebuild cached Cholesky factors."""
         model, _ = self._make_model_and_likelihood(
             num_inducing=5,
             batch_shape=self.batch_shape,

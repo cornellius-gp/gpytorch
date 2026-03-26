@@ -113,6 +113,37 @@ class TestLargeBatchVariationalGP(TestVariationalGP):
     def test_against_variational_strategy_eval(self):
         self.test_against_variational_strategy(train=False)
 
+    def test_eval_mode_allows_repeated_backward(self, *args, **kwargs):
+        """Repeated eval-mode backward passes should clear all large-batch inference caches."""
+        model, _ = self._make_model_and_likelihood(
+            num_inducing=5,
+            batch_shape=self.batch_shape,
+            strategy_cls=self.strategy_cls,
+            distribution_cls=self.distribution_cls,
+        )
+        model.eval()
+
+        cached_inv_chol_t_inducing_values = []
+        cached_middle_terms = []
+        for _ in range(2):
+            test_x = torch.randn(*self.batch_shape, 3, 2, requires_grad=True)
+            test_y = torch.randn(*self.batch_shape, 3)
+
+            predictive_dist = model(test_x)
+            cached_inv_chol_t_inducing_values.append(model.variational_strategy._cached_inv_chol_t_inducing_values)
+            cached_middle_terms.append(model.variational_strategy._cached_middle_term)
+
+            loss = (predictive_dist.mean - test_y).mean()
+            loss.backward()
+
+            self.assertNotIn("cholesky_factor", model.variational_strategy._memoize_cache)
+            self.assertFalse(hasattr(model.variational_strategy, "_cached_inv_chol_t_inducing_values"))
+            self.assertFalse(hasattr(model.variational_strategy, "_cached_middle_term"))
+            self.assertIsNotNone(test_x.grad)
+
+        self.assertIsNot(*cached_inv_chol_t_inducing_values)
+        self.assertIsNot(*cached_middle_terms)
+
     def test_inference_caching(self):
         """Test that inference caching works correctly."""
         torch.manual_seed(42)
