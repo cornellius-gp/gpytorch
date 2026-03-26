@@ -76,6 +76,31 @@ class TestVariationalGP(VariationalTestCase, unittest.TestCase):
         self.assertAllClose(predictive_dist1.mean, predictive_dist2.mean)
         self.assertAllClose(predictive_dist1.variance, predictive_dist2.variance)
 
+    def test_eval_mode_allows_repeated_backward(self, *args, **kwargs):
+        model, _ = self._make_model_and_likelihood(
+            num_inducing=5,
+            batch_shape=self.batch_shape,
+            strategy_cls=self.strategy_cls,
+            distribution_cls=self.distribution_cls,
+        )
+        model.eval()
+
+        cached_cholesky_factors = []
+        for _ in range(2):
+            test_x = torch.randn(*self.batch_shape, 3, 2, requires_grad=True)
+            test_y = torch.randn(*self.batch_shape, 3)
+
+            predictive_dist = model(test_x)
+            cached_cholesky = model.variational_strategy._memoize_cache["cholesky_factor"]
+            cached_cholesky_factors.append(cached_cholesky)
+
+            loss = (predictive_dist.mean - test_y).mean()
+            loss.backward()
+            self.assertNotIn("cholesky_factor", model.variational_strategy._memoize_cache)
+            self.assertIsNotNone(test_x.grad)
+
+        self.assertIsNot(*cached_cholesky_factors)
+
 
 class TestPredictiveGP(TestVariationalGP):
     @property
