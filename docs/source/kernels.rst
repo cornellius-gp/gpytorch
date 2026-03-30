@@ -195,6 +195,12 @@ Specialty Kernels
 .. autoclass:: Matern52KernelGrad
    :members:
 
+:hidden:`SphericalLinearKernel`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: SphericalLinearKernel
+   :members:
+
 Kernels for Scalable GP Regression Methods
 --------------------------------------------
 
