@@ -43,6 +43,13 @@ Standard Kernels
    :members:
 
 
+:hidden:`GibbsKernel`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: GibbsKernel
+   :members:
+
+
 :hidden:`LinearKernel`
 ~~~~~~~~~~~~~~~~~~~~~~
 
