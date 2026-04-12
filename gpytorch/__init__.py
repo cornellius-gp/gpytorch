@@ -155,7 +155,7 @@ def pivoted_cholesky(
     The partial pivoted Cholesky factor :math:`\mathbf L \in \mathbb R^{N \times \text{rank}}`
     forms a low rank approximation to the LinearOperator.
 
-    The pivots are selected greedily, correspoading to the maximum diagonal element in the
+    The pivots are selected greedily, corresponding to the maximum diagonal element in the
     residual after each Cholesky iteration. See `Harbrecht et al., 2012`_.
 
     :param input: The matrix (or batch of matrices) :math:`\mathbf A` (... x N x N).
