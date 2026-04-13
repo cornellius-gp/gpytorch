@@ -22,7 +22,7 @@ from torch import Tensor
 from .. import settings
 from ..distributions import MultivariateNormal
 from ..utils.memoize import add_to_cache, cached
-from ._variational_strategy import _VariationalStrategy
+from ._variational_strategy import _add_cache_hook, _VariationalStrategy
 from .cholesky_variational_distribution import CholeskyVariationalDistribution
 
 
@@ -57,7 +57,7 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
     def _cholesky_factor(self, induc_induc_covar: LinearOperator) -> TriangularLinearOperator:
         # Maybe used - if we're not using CG
         L = psd_safe_cholesky(to_dense(induc_induc_covar))
-        return TriangularLinearOperator(L)
+        return TriangularLinearOperator(_add_cache_hook(L, self))
 
     @property
     @cached(name="prior_distribution_memo")

@@ -23,7 +23,7 @@ from torch import Tensor
 
 from gpytorch import settings
 
-from gpytorch.variational._variational_strategy import _VariationalStrategy
+from gpytorch.variational._variational_strategy import _add_cache_hook, _VariationalStrategy
 from gpytorch.variational.cholesky_variational_distribution import CholeskyVariationalDistribution
 
 from ..distributions import MultivariateNormal
@@ -190,7 +190,7 @@ class VariationalStrategy(_VariationalStrategy):
     @cached(name="cholesky_factor", ignore_args=True)
     def _cholesky_factor(self, induc_induc_covar: LinearOperator) -> TriangularLinearOperator:
         L = psd_safe_cholesky(to_dense(induc_induc_covar).type(_linalg_dtype_cholesky.value()))
-        return TriangularLinearOperator(L)
+        return TriangularLinearOperator(_add_cache_hook(L, self))
 
     @property
     @cached(name="prior_distribution_memo")

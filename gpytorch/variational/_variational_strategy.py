@@ -16,7 +16,6 @@ from ..kernels import Kernel
 from ..likelihoods import GaussianLikelihood
 from ..means import Mean
 from ..models import ApproximateGP, ExactGP
-from ..models.exact_prediction_strategies import DefaultPredictionStrategy
 from ..module import Module
 from ..utils.memoize import add_to_cache, cached, clear_cache_hook
 from . import _VariationalDistribution
@@ -41,9 +40,18 @@ class _BaseExactGP(ExactGP):
         return MultivariateNormal(mean, covar)
 
 
-def _add_cache_hook(tsr: Tensor, pred_strat: DefaultPredictionStrategy) -> Tensor:
+def _add_cache_hook(tsr: Tensor, module: Module) -> Tensor:
+    r"""Clear a module's caches once autograd has consumed a cached tensor.
+
+    Several inference-time caches may retain references to an old autograd graph. Registering this hook ensures that
+    those caches are dropped after backward so the next forward pass rebuilds them from the current graph.
+    """
+
+    def _clear_module_cache(*args, **kwargs) -> None:
+        module._clear_cache()
+
     if tsr.grad_fn is not None:
-        wrapper = functools.partial(clear_cache_hook, pred_strat)
+        wrapper = functools.partial(_clear_module_cache)
         functools.update_wrapper(wrapper, clear_cache_hook)
         tsr.grad_fn.register_hook(wrapper)
     return tsr
