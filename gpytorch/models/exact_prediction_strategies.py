@@ -280,6 +280,19 @@ class DefaultPredictionStrategy:
         """
         return self.lik_train_train_covar.cholesky(upper=False)
 
+    def _solve_lik_train_train(self, rhs: Tensor) -> Tensor:
+        """
+        Solves (K_XX + sigma^2 I) @ x = rhs using the cached Cholesky factor.
+
+        Subclasses whose `lik_train_train_covar` is a LinearOperator that overrides
+        `.solve()` (not just `_solve`) to avoid materializing a dense Cholesky
+        (e.g., `SGPRPredictionStrategy` with a `LowRankRootAddedDiagLinearOperator`
+        that uses a Woodbury solve on an inducing-size cap matrix) should override
+        this helper to dispatch to that path. The current base dispatch via
+        `.cholesky()` always goes through the default dense factorization.
+        """
+        return self.lik_train_train_chol._cholesky_solve(rhs, upper=False)
+
     @property
     def mean_cache(self):
         return self._mean_cache(settings.observation_nan_policy.value())
@@ -292,9 +305,10 @@ class DefaultPredictionStrategy:
         train_labels_offset = (self.train_labels - train_mean).unsqueeze(-1)
 
         if nan_policy == "ignore":
-            # Use the cached Cholesky of K_XX + sigma^2 I (shared with exact_predictive_covar).
-            chol = self.lik_train_train_chol
-            mean_cache = chol._cholesky_solve(train_labels_offset, upper=False).squeeze(-1)
+            # Solve (K_XX + sigma^2 I) @ mean_cache = train_labels_offset.
+            # Default dispatch uses the shared Cholesky factor; subclasses can route
+            # through a structured .solve() by overriding `_solve_lik_train_train`.
+            mean_cache = self._solve_lik_train_train(train_labels_offset).squeeze(-1)
         elif nan_policy == "mask":
             # Mask all rows and columns in the kernel matrix corresponding to the missing observations.
             observed = settings.observation_nan_policy._get_observed(
@@ -1030,6 +1044,13 @@ class LinearPredictionStrategy(DefaultPredictionStrategy):
 
 
 class SGPRPredictionStrategy(DefaultPredictionStrategy):
+    def _solve_lik_train_train(self, rhs: Tensor) -> Tensor:
+        # SGPR's lik_train_train_covar is a LowRankRootAddedDiagLinearOperator whose
+        # `.solve()` uses the Woodbury identity with an inducing-size Cholesky (k x k).
+        # Route the mean_cache solve through that path rather than materializing the
+        # default n x n dense Cholesky via `lik_train_train_chol`.
+        return self.lik_train_train_covar.evaluate_kernel().solve(rhs)
+
     @property
     @cached(name="covar_cache")
     def covar_cache(self):
