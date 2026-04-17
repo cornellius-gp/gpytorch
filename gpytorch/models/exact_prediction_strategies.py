@@ -269,6 +269,18 @@ class DefaultPredictionStrategy:
         return self._exact_predictive_covar_inv_quad_form_cache(train_train_covar_inv_root, self._last_test_train_covar)
 
     @property
+    @cached(name="lik_train_train_chol")
+    def lik_train_train_chol(self):
+        """
+        Lower-triangular Cholesky factor of K_XX + sigma^2 I, cached on the prediction strategy.
+
+        Sharing this factor across mean_cache and exact_predictive_covar avoids the
+        redundant Cholesky-per-posterior-call that arises because Solve.apply reconstructs
+        a fresh LinearOperator from the representation tree (dropping @cached state).
+        """
+        return self.lik_train_train_covar.cholesky(upper=False)
+
+    @property
     def mean_cache(self):
         return self._mean_cache(settings.observation_nan_policy.value())
 
@@ -280,7 +292,9 @@ class DefaultPredictionStrategy:
         train_labels_offset = (self.train_labels - train_mean).unsqueeze(-1)
 
         if nan_policy == "ignore":
-            mean_cache = train_train_covar.evaluate_kernel().solve(train_labels_offset).squeeze(-1)
+            # Use the cached Cholesky of K_XX + sigma^2 I (shared with exact_predictive_covar).
+            chol = self.lik_train_train_chol
+            mean_cache = chol._cholesky_solve(train_labels_offset, upper=False).squeeze(-1)
         elif nan_policy == "mask":
             # Mask all rows and columns in the kernel matrix corresponding to the missing observations.
             observed = settings.observation_nan_policy._get_observed(
@@ -429,19 +443,16 @@ class DefaultPredictionStrategy:
             return ZeroLinearOperator(*test_test_covar.size())
 
         if settings.fast_pred_var.off():
-            dist = self.train_prior_dist.__class__(
-                torch.zeros_like(self.train_prior_dist.mean),
-                self.train_prior_dist.lazy_covariance_matrix,
-            )
-            train_train_covar = self.likelihood(dist, self.train_inputs).lazy_covariance_matrix
-            if settings.detach_test_caches.on():
-                train_train_covar = train_train_covar.detach()
-
             test_train_covar = to_dense(test_train_covar)
             train_test_covar = test_train_covar.transpose(-1, -2)
-            # TODO: Use just a single triangular solve for dense inference
-            # A Cholesky solve requires two triangular solves.
-            covar_correction_rhs = train_train_covar.solve(train_test_covar)
+
+            # Use the cached Cholesky L of K_XX + sigma^2 I.
+            # Correction term K(t,T) (K_XX+sI)^{-1} K(T,t) = M^T @ M with M = L^{-1} K(T,t).
+            # Single triangular solve replaces the two triangular solves of a cholesky_solve.
+            chol = self.lik_train_train_chol
+            if settings.detach_test_caches.on():
+                chol = chol.detach()
+            M = chol.solve(train_test_covar)
             # For efficiency
             if torch.is_tensor(test_test_covar):
                 # We can use addmm in the 2d case
@@ -449,17 +460,17 @@ class DefaultPredictionStrategy:
                     return to_linear_operator(
                         torch.addmm(
                             test_test_covar,
-                            test_train_covar,
-                            covar_correction_rhs,
+                            M.transpose(-1, -2),
+                            M,
                             beta=1,
                             alpha=-1,
                         )
                     )
                 else:
-                    return to_linear_operator(test_test_covar + test_train_covar @ covar_correction_rhs.mul(-1))
+                    return to_linear_operator(test_test_covar + M.transpose(-1, -2) @ M.mul(-1))
             # In other cases - we'll use the standard infrastructure
             else:
-                return test_test_covar + MatmulLinearOperator(test_train_covar, covar_correction_rhs.mul(-1))
+                return test_test_covar + MatmulLinearOperator(M.transpose(-1, -2), M.mul(-1))
 
         precomputed_cache = self.covar_cache
         covar_inv_quad_form_root = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache, test_train_covar)
