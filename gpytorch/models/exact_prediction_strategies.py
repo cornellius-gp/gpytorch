@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import functools
 import string
 import warnings
 
@@ -25,7 +24,7 @@ from torch import Tensor
 from .. import settings
 from ..distributions import MultitaskMultivariateNormal
 from ..lazy import LazyEvaluatedKernelTensor
-from ..utils.memoize import add_to_cache, cached, clear_cache_hook, pop_from_cache
+from ..utils.memoize import add_to_cache, cached, pop_from_cache, register_cache_clear_hook
 
 
 def prediction_strategy(train_inputs, train_prior_dist, train_labels, likelihood):
@@ -108,10 +107,7 @@ class DefaultPredictionStrategy:
         if settings.detach_test_caches.on():
             res = res.detach()
 
-        if res.grad_fn is not None:
-            wrapper = functools.partial(clear_cache_hook, self)
-            functools.update_wrapper(wrapper, clear_cache_hook)
-            res.grad_fn.register_hook(wrapper)
+        register_cache_clear_hook(res, self)
 
         return res
 
@@ -313,10 +309,7 @@ class DefaultPredictionStrategy:
         if settings.detach_test_caches.on():
             mean_cache = mean_cache.detach()
 
-        if mean_cache.grad_fn is not None:
-            wrapper = functools.partial(clear_cache_hook, self)
-            functools.update_wrapper(wrapper, clear_cache_hook)
-            mean_cache.grad_fn.register_hook(wrapper)
+        register_cache_clear_hook(mean_cache, self)
 
         return mean_cache
 

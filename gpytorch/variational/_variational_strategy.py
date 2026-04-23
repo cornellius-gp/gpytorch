@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import functools
 from abc import ABC, abstractproperty
 from copy import deepcopy
 
@@ -18,7 +17,7 @@ from ..means import Mean
 from ..models import ApproximateGP, ExactGP
 from ..models.exact_prediction_strategies import DefaultPredictionStrategy
 from ..module import Module
-from ..utils.memoize import add_to_cache, cached, clear_cache_hook
+from ..utils.memoize import add_to_cache, cached, clear_cache_hook, register_cache_clear_hook
 from . import _VariationalDistribution
 
 
@@ -42,10 +41,7 @@ class _BaseExactGP(ExactGP):
 
 
 def _add_cache_hook(tsr: Tensor, pred_strat: DefaultPredictionStrategy) -> Tensor:
-    if tsr.grad_fn is not None:
-        wrapper = functools.partial(clear_cache_hook, pred_strat)
-        functools.update_wrapper(wrapper, clear_cache_hook)
-        tsr.grad_fn.register_hook(wrapper)
+    register_cache_clear_hook(tsr, pred_strat)
     return tsr
 
 
