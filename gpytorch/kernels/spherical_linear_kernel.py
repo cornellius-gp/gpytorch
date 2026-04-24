@@ -38,8 +38,8 @@ class SphericalLinearKernel(Kernel):
     stereographic projection onto a unit sphere, and :math:`(b_0, b_1)` are learned
     mixture weights (via softmax, so :math:`b_0 + b_1 = 1`).
 
-    This kernel was proposed in `We Still Don't Understand High-Dimensional Bayesian Optimization`.
-    See https://arxiv.org/abs/2512.00170 for more details.
+    This kernel was proposed in `We Still Don't Understand High-Dimensional Bayesian Optimization
+    <https://arxiv.org/abs/2512.00170>`_.
 
     Example:
         >>> bounds = torch.stack([torch.zeros(3), torch.ones(3)])  # (2, D) lower and upper
@@ -67,7 +67,7 @@ class SphericalLinearKernel(Kernel):
         ard_num_dims: int | None = None,
         lengthscale_prior: Prior | None = None,
         lengthscale_constraint: Interval | None = None,
-        normalize_lengthscale: bool = False,
+        normalize_lengthscale: bool = True,  # the original paper used False
         **kwargs,
     ) -> None:
         # Prior similar to Vanilla BO, but without dimensionality scaling (due to global lengthscale)
@@ -90,10 +90,42 @@ class SphericalLinearKernel(Kernel):
         self.bounds = bounds
 
         # Learned mixture coefficients: softmax([raw_coeffs]) -> [constant, linear]
-        self.raw_coeffs = nn.Parameter(torch.zeros(*self.batch_shape, 2))
+        self.register_parameter(
+            name="raw_coeffs",
+            parameter=nn.Parameter(torch.zeros(*self.batch_shape, 2)),
+        )
+        # Global lengthscale fraction in (0, 1): sigmoid(raw_glob_ls_fraction)
+        self.register_parameter(
+            name="raw_glob_ls_fraction",
+            parameter=nn.Parameter(torch.zeros(*self.batch_shape, 1)),
+        )
+        self.register_constraint("raw_glob_ls_fraction", Interval(0.0, 1.0))
 
-        # Global lengthscale: sigmoid(raw_glob_ls) * max_sq_norm
-        self.raw_glob_ls = nn.Parameter(torch.zeros(*self.batch_shape, 1))
+    @property
+    def coeffs(self) -> Tensor:
+        return torch.softmax(self.raw_coeffs, dim=-1)
+
+    @coeffs.setter
+    def coeffs(self, value: Tensor) -> None:
+        self._set_coeffs(value)
+
+    def _set_coeffs(self, value: Tensor) -> None:
+        if not torch.is_tensor(value):
+            value = torch.as_tensor(value).to(self.raw_coeffs)
+        self.initialize(raw_coeffs=value.log())
+
+    @property
+    def glob_ls_fraction(self) -> Tensor:
+        return self.raw_glob_ls_fraction_constraint.transform(self.raw_glob_ls_fraction)
+
+    @glob_ls_fraction.setter
+    def glob_ls_fraction(self, value: Tensor) -> None:
+        self._set_glob_ls_fraction(value)
+
+    def _set_glob_ls_fraction(self, value: Tensor) -> None:
+        if not torch.is_tensor(value):
+            value = torch.as_tensor(value).to(self.raw_glob_ls_fraction)
+        self.initialize(raw_glob_ls_fraction=self.raw_glob_ls_fraction_constraint.inverse_transform(value))
 
     def forward(self, x1: Tensor, x2: Tensor, diag: bool = False, **params) -> Tensor | LinearOperator:
         if diag:
@@ -111,25 +143,18 @@ class SphericalLinearKernel(Kernel):
         mins, maxs = bounds[0], bounds[1]
         centers = (mins + maxs) / 2.0
         max_sq_norm = ((maxs - mins) / (2 * lengthscale)).square().sum(dim=-1, keepdim=True)
-        glob_ls = torch.sqrt(torch.sigmoid(self.raw_glob_ls[..., None]) * max_sq_norm)
+        glob_ls = torch.sqrt(self.glob_ls_fraction[..., None] * max_sq_norm)
 
         # Mixture coefficients via softmax
-        coeffs = torch.softmax(self.raw_coeffs, dim=-1)
-        sqrt_const = torch.sqrt(coeffs[..., 0])
-        sqrt_linear = torch.sqrt(coeffs[..., 1])
+        sqrt_const = torch.sqrt(self.coeffs[..., 0])
+        sqrt_linear = torch.sqrt(self.coeffs[..., 1])
 
-        def _featurize(x: torch.Tensor) -> torch.Tensor:
-            x_ = (x - centers) / (lengthscale * glob_ls)
-            x_ = project_onto_unit_sphere(x_)
-            return torch.cat(
-                [
-                    x_ * sqrt_linear[..., None, None],
-                    sqrt_const[..., None, None].expand(*x_.shape[:-1], 1),
-                ],
-                dim=-1,
-            )
-
-        x1_ = _featurize(x1)
+        # Featurize x1
+        x1_ = (x1 - centers) / (lengthscale * glob_ls)
+        x1_ = project_onto_unit_sphere(x1_)
+        x1_ = torch.cat(
+            [x1_ * sqrt_linear[..., None, None], sqrt_const[..., None, None].expand(*x1_.shape[:-1], 1)], dim=-1
+        )
 
         if x1.size() == x2.size() and torch.equal(x1, x2):
             # Use RootLinearOperator when x1 == x2 for efficiency when composing
@@ -137,7 +162,12 @@ class SphericalLinearKernel(Kernel):
             n, d = x1.shape[-2:]
             return RootLinearOperator(x1_) if d > n else LowRankRootLinearOperator(x1_)
 
-        x2_ = _featurize(x2)
+        # Featurize x2
+        x2_ = (x2 - centers) / (lengthscale * glob_ls)
+        x2_ = project_onto_unit_sphere(x2_)
+        x2_ = torch.cat(
+            [x2_ * sqrt_linear[..., None, None], sqrt_const[..., None, None].expand(*x2_.shape[:-1], 1)], dim=-1
+        )
         return MatmulLinearOperator(x1_, x2_.mT)
 
     def prediction_strategy(self, train_inputs, train_prior_dist, train_labels, likelihood):

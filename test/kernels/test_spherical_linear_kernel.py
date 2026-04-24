@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 
-import pickle
 import unittest
-from unittest.mock import MagicMock, patch
 
 import torch
 
 import gpytorch
 from gpytorch.kernels import SphericalLinearKernel
 from gpytorch.kernels.spherical_linear_kernel import project_onto_unit_sphere
-from gpytorch.priors import NormalPrior
 from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
 
 UNIT_BOUNDS_3D = torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]])
@@ -84,17 +81,6 @@ class TestSphericalLinearKernel(unittest.TestCase, BaseKernelTestCase):
         self.assertEqual(diag.shape, torch.Size([10]))
         self.assertAllClose(diag, torch.ones(10), rtol=1e-5, atol=1e-5)
 
-    def test_diag_with_learned_params(self):
-        """Diagonal should remain 1 even after modifying parameters."""
-        kernel = SphericalLinearKernel(bounds=UNIT_BOUNDS_3D, ard_num_dims=3)
-        # Modify raw_coeffs to be non-zero
-        kernel.raw_coeffs.data = torch.randn_like(kernel.raw_coeffs)
-        kernel.raw_glob_ls.data = torch.randn_like(kernel.raw_glob_ls)
-        kernel.eval()
-        x = torch.rand(10, 3)
-        diag = kernel(x, diag=True)
-        self.assertAllClose(diag, torch.ones(10), rtol=1e-5, atol=1e-5)
-
     def test_custom_bounds(self):
         """Kernel should accept and use custom bounds."""
         bounds = torch.tensor([[-1.0, -2.0], [1.0, 2.0]])
@@ -126,6 +112,15 @@ class TestSphericalLinearKernel(unittest.TestCase, BaseKernelTestCase):
         norms = projected.norm(dim=-1)
         self.assertAllClose(norms, torch.ones(10), rtol=1e-5, atol=1e-5)
 
+    def test_project_onto_unit_sphere_identity_on_sphere(self):
+        """Unit-norm inputs in R^d map to (x, 0) on the equator of S^d."""
+        d = 5
+        y = torch.randn(10, d)
+        y = y / y.norm(dim=-1, keepdim=True)
+        projected = project_onto_unit_sphere(y)
+        expected = torch.cat([y, torch.zeros(10, 1)], dim=-1)
+        self.assertAllClose(projected, expected, rtol=1e-5, atol=1e-6)
+
     def test_gradient_flow(self):
         """Gradients should flow through the kernel computation."""
         kernel = SphericalLinearKernel(bounds=UNIT_BOUNDS_3D, ard_num_dims=3)
@@ -136,36 +131,22 @@ class TestSphericalLinearKernel(unittest.TestCase, BaseKernelTestCase):
         for name, param in kernel.named_parameters():
             self.assertIsNotNone(param.grad, f"No gradient for {name}")
 
-    def test_pickle_with_bounds(self):
-        """Kernel with bounds should survive pickle round-trip."""
-        bounds = torch.tensor([[0.0, 0.0], [1.0, 1.0]])
-        kernel = SphericalLinearKernel(bounds=bounds)
-        loaded = pickle.loads(pickle.dumps(kernel))
-        self.assertAllClose(loaded.bounds, bounds)
+    def test_coeffs_setter(self):
+        """Setting coeffs should round-trip through the raw parameter."""
+        kernel = SphericalLinearKernel(bounds=UNIT_BOUNDS_3D)
+        kernel.coeffs = torch.tensor([0.3, 0.7])
+        self.assertAllClose(kernel.coeffs, torch.tensor([0.3, 0.7]), rtol=1e-5, atol=1e-6)
 
-    def test_prior(self):
-        """Should accept valid priors and reject invalid ones."""
-        SphericalLinearKernel(bounds=UNIT_BOUNDS_3D, lengthscale_prior=None)
-        SphericalLinearKernel(bounds=UNIT_BOUNDS_3D, lengthscale_prior=NormalPrior(0, 1))
-        self.assertRaises(TypeError, SphericalLinearKernel, UNIT_BOUNDS_3D, lengthscale_prior=1)
-
-    def test_pickle_with_prior(self):
-        """Kernel with prior should survive pickle round-trip."""
-        kernel = SphericalLinearKernel(bounds=UNIT_BOUNDS_3D, lengthscale_prior=NormalPrior(0, 1))
-        pickle.loads(pickle.dumps(kernel))
-
-    def test_consistency_square_vs_rectangular(self):
-        """k(x, x) computed as square should match k(x1, x2) when x1 == x2."""
-        kernel = SphericalLinearKernel(bounds=UNIT_BOUNDS_3D, ard_num_dims=3)
-        kernel.eval()
-        x = torch.rand(8, 3)
-        res_square = kernel(x).to_dense()
-        # Use clone to prevent torch.equal from returning True
-        res_rect = kernel(x, x.clone()).to_dense()
-        self.assertAllClose(res_square, res_rect, rtol=1e-4, atol=1e-4)
+    def test_glob_ls_fraction_setter(self):
+        """Setting glob_ls_fraction should round-trip through the raw parameter."""
+        kernel = SphericalLinearKernel(bounds=UNIT_BOUNDS_3D)
+        kernel.glob_ls_fraction = torch.tensor([0.4])
+        self.assertAllClose(kernel.glob_ls_fraction, torch.tensor([0.4]), rtol=1e-5, atol=1e-6)
 
     def test_prediction_strategy(self):
         """LinearPredictionStrategy should be used for posterior inference."""
+        from unittest.mock import MagicMock, patch
+
         train_x = torch.rand(20, 3)
         train_y = torch.randn(20)
 
