@@ -207,7 +207,9 @@ class DefaultPredictionStrategy:
             [fant_train_covar, self.mean_cache],
         )
 
-        small_system_rhs = targets - fant_mean - ftcm
+        targets_ = torch.reshape(targets, (-1, ftcm.shape[-1]))
+        fant_mean_ = torch.reshape(fant_mean, (-1, ftcm.shape[-1]))
+        small_system_rhs = targets_ - fant_mean_ - ftcm
         small_system_rhs = small_system_rhs.unsqueeze(-1)
         # Schur complement of a spd matrix is guaranteed to be positive definite
         schur_cholesky = psd_safe_cholesky(schur_complement)
