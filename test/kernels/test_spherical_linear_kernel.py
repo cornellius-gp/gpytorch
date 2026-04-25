@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import unittest
+from unittest.mock import MagicMock, patch
 
 import torch
 
@@ -12,6 +13,7 @@ from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
 UNIT_BOUNDS_3D = torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]])
 UNIT_BOUNDS_5D = torch.tensor([[0.0] * 5, [1.0] * 5])
 UNIT_BOUNDS_10D = torch.tensor([[0.0] * 10, [1.0] * 10])
+UNIT_BOUNDS_20D = torch.tensor([[0.0] * 20, [1.0] * 20])
 
 
 class TestSphericalLinearKernel(unittest.TestCase, BaseKernelTestCase):
@@ -143,28 +145,42 @@ class TestSphericalLinearKernel(unittest.TestCase, BaseKernelTestCase):
         kernel.glob_ls_fraction = torch.tensor([0.4])
         self.assertAllClose(kernel.glob_ls_fraction, torch.tensor([0.4]), rtol=1e-5, atol=1e-6)
 
-    def test_prediction_strategy(self):
-        """LinearPredictionStrategy should be used for posterior inference."""
-        from unittest.mock import MagicMock, patch
-
-        train_x = torch.rand(20, 3)
-        train_y = torch.randn(20)
-
+    def _make_spherical_model(self, train_x, train_y, bounds):
         class _Model(gpytorch.models.ExactGP):
-            def __init__(self, train_x, train_y):
+            def __init__(self, train_x, train_y, bounds):
                 likelihood = gpytorch.likelihoods.GaussianLikelihood()
                 super().__init__(train_x, train_y, likelihood)
                 self.mean_module = gpytorch.means.ZeroMean()
-                self.covar_module = gpytorch.kernels.ScaleKernel(SphericalLinearKernel(bounds=UNIT_BOUNDS_3D))
+                self.covar_module = gpytorch.kernels.ScaleKernel(SphericalLinearKernel(bounds=bounds))
 
             def forward(self, x):
                 return gpytorch.distributions.MultivariateNormal(self.mean_module(x), self.covar_module(x))
 
-        model = _Model(train_x, train_y)
+        return _Model(train_x, train_y, bounds)
+
+    def test_prediction_strategy_low_rank(self):
+        """LinearPredictionStrategy when input dim d=3 maps to 3+2=5 features < n=20 training points."""
+        train_x = torch.rand(20, 3)
+        train_y = torch.randn(20)
+        model = self._make_spherical_model(train_x, train_y, UNIT_BOUNDS_3D)
         test_x = torch.rand(5, 3)
 
-        _wrapped_ps = MagicMock(wraps=gpytorch.models.exact_prediction_strategies.LinearPredictionStrategy)
-        with patch("gpytorch.models.exact_prediction_strategies.LinearPredictionStrategy", new=_wrapped_ps) as ps_mock:
+        _wrapped = MagicMock(wraps=gpytorch.models.exact_prediction_strategies.LinearPredictionStrategy)
+        with patch("gpytorch.models.exact_prediction_strategies.LinearPredictionStrategy", new=_wrapped) as ps_mock:
+            model.eval()
+            output = model.likelihood(model(test_x))
+            _ = output.mean + output.variance
+            self.assertTrue(ps_mock.called)
+
+    def test_prediction_strategy_full_rank(self):
+        """DefaultPredictionStrategy when input dim d=20 maps to 20+2=22 features >= n=3 training points."""
+        train_x = torch.rand(3, 20)
+        train_y = torch.randn(3)
+        model = self._make_spherical_model(train_x, train_y, UNIT_BOUNDS_20D)
+        test_x = torch.rand(5, 20)
+
+        _wrapped = MagicMock(wraps=gpytorch.models.exact_prediction_strategies.DefaultPredictionStrategy)
+        with patch("gpytorch.models.exact_prediction_strategies.DefaultPredictionStrategy", new=_wrapped) as ps_mock:
             model.eval()
             output = model.likelihood(model(test_x))
             _ = output.mean + output.variance

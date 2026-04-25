@@ -159,8 +159,9 @@ class SphericalLinearKernel(Kernel):
         if x1.size() == x2.size() and torch.equal(x1, x2):
             # Use RootLinearOperator when x1 == x2 for efficiency when composing
             # with other kernels
-            n, d = x1.shape[-2:]
-            return RootLinearOperator(x1_) if d > n else LowRankRootLinearOperator(x1_)
+            n = x1.shape[-2]
+            num_features = x1_.shape[-1]  # featurized dim (d+2), not original input dim
+            return RootLinearOperator(x1_) if num_features >= n else LowRankRootLinearOperator(x1_)
 
         # Featurize x2
         x2_ = (x2 - centers) / (lengthscale * glob_ls)
@@ -171,7 +172,7 @@ class SphericalLinearKernel(Kernel):
         return MatmulLinearOperator(x1_, x2_.mT)
 
     def prediction_strategy(self, train_inputs, train_prior_dist, train_labels, likelihood):
-        # Allow for fast sampling
-        return exact_prediction_strategies.LinearPredictionStrategy(
-            train_inputs, train_prior_dist, train_labels, likelihood
+        num_features = train_inputs[0].shape[-1] + 2  # +1 stereographic projection, +1 constant
+        return exact_prediction_strategies.select_prediction_strategy(
+            num_features, train_inputs, train_prior_dist, train_labels, likelihood
         )
