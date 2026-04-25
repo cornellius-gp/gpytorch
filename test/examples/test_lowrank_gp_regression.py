@@ -88,6 +88,8 @@ class _AbstractTestLowRankRegression():
             ) as mocked_cholesky_ex,
         ):
             train_x, train_y, test_x, test_y = self.make_data()
+            n = train_y.size(-1)
+            low_rank = self.num_features < n  # LinearPredictionStrategy regime
             gp_model = self.make_model(train_x, train_y)
             mll = gpytorch.mlls.ExactMarginalLogLikelihood(gp_model.likelihood, gp_model)
 
@@ -115,60 +117,66 @@ class _AbstractTestLowRankRegression():
 
                 # Check that we have the right LinearOperator type
                 kernel = gp_model.likelihood(gp_model(train_x)).lazy_covariance_matrix.evaluate_kernel()
-                if train_y.size(-1) >= self.num_features:
+                if low_rank:
                     self.assertIsInstance(kernel, linear_operator.operators.LowRankRootAddedDiagLinearOperator)
                 else:
                     self.assertIsInstance(kernel, linear_operator.operators.AddedDiagLinearOperator)
+                    self.assertNotIsInstance(kernel, linear_operator.operators.LowRankRootAddedDiagLinearOperator)
 
             for param in gp_model.parameters():
                 self.assertTrue(param.grad is not None)
                 self.assertGreater(param.grad.norm().item(), 0)
+
+            n_train_chols = len(cholesky_sizes)
 
             # Test the model
             gp_model.eval()
 
             with torch.no_grad():
                 calls_before = mocked_cholesky_ex.call_count
-
                 test_dist = gp_model(test_x)
                 _ = test_dist.covariance_matrix  # Force computation of covariances
                 _ = test_dist.rsample(torch.Size((1000,)))  # Force sampling
                 mean_abs_error = torch.mean(torch.abs(test_y - test_dist.mean))
-
                 calls_after = mocked_cholesky_ex.call_count
 
-                # Assert exactly two calls (mean/covar + sampling) during prediction
-                self.assertEqual(
-                    calls_after - calls_before,
-                    1,
-                    f"Expected 1 cholesky call during prediction, got {calls_after - calls_before}",
-                )
+            # LinearPredictionStrategy: 1 Cholesky (d×d Woodbury scatter matrix)
+            # DefaultPredictionStrategy: 4 Choleskys (n×n mean cache, n×n covar cache,
+            #   test_n×test_n for covariance_matrix evaluation, test_n×test_n for rsample root)
+            expected_pred_chols = 1 if low_rank else 4
+            self.assertEqual(
+                calls_after - calls_before,
+                expected_pred_chols,
+                f"Expected {expected_pred_chols} cholesky calls during prediction, got {calls_after - calls_before}",
+            )
 
         # Check that the model makes good predictions
         self.assertLess(mean_abs_error.squeeze().item(), 0.15)
 
-        # Check sizes of cholesky systems during training
-        for idx, size in enumerate(cholesky_sizes[:-2]):
-            expected_size = min(self.num_features, train_y.size(-1))
+        # Check sizes of all Cholesky calls
+        expected_train_size = min(self.num_features, n)
+        for idx, size in enumerate(cholesky_sizes[:n_train_chols]):
             self.assertEqual(
                 size,
-                torch.Size([expected_size, expected_size]),
-                f"Expected tensor of size [{expected_size} x {expected_size}] for prediction call {idx}, got {size}",
+                torch.Size([expected_train_size, expected_train_size]),
+                f"Training cholesky {idx}: expected {expected_train_size}×{expected_train_size}, got {size}",
             )
-        # Check sizes of first prediction Cholesky system
-        expected_size = min(self.num_features, train_y.size(-1))
-        self.assertEqual(
-            cholesky_sizes[-2],
-            torch.Size([expected_size, expected_size]),
-            f"Expected tensor of size [{expected_size} x {expected_size}] for prediction call {idx}, got {size}",
-        )
-        # Check sizes of first prediction Cholesky system
-        expected_size = self.num_features
-        self.assertEqual(
-            cholesky_sizes[-1],
-            torch.Size([expected_size, expected_size]),
-            f"Expected tensor of size [{expected_size} x {expected_size}] for prediction call {idx}, got {size}",
-        )
+        if low_rank:
+            # LinearPredictionStrategy: one d×d scatter Cholesky per prediction call
+            for idx, size in enumerate(cholesky_sizes[n_train_chols:]):
+                self.assertEqual(
+                    size,
+                    torch.Size([self.num_features, self.num_features]),
+                    f"Prediction cholesky {idx}: expected {self.num_features}×{self.num_features}, got {size}",
+                )
+        else:
+            # DefaultPredictionStrategy: all prediction Choleskys are <= n x n
+            for idx, size in enumerate(cholesky_sizes[n_train_chols:]):
+                self.assertLessEqual(
+                    max(size),
+                    n,
+                    f"Prediction cholesky {idx} unexpectedly large: {size}",
+                )
 
 
 class TestRFFRegression(_AbstractTestLowRankRegression, unittest.TestCase):
@@ -225,7 +233,9 @@ class TestRFFRegression(_AbstractTestLowRankRegression, unittest.TestCase):
         # (slicing RootLinearOperator with different row/col indices).
         subset_size = test_x.shape[0] // 2
         test_mean_subset = joint_mean[..., num_train : num_train + subset_size]
-        test_test_covar_subset = joint_covar[..., num_train : num_train + subset_size, num_train : num_train + subset_size]
+        test_test_covar_subset = joint_covar[
+            ..., num_train : num_train + subset_size, num_train : num_train + subset_size
+        ]
         test_train_covar_subset = joint_covar[..., num_train : num_train + subset_size, :num_train]
 
         default_mean_s, default_covar_s = default_pred_strat.exact_prediction(
@@ -316,7 +326,7 @@ class TestLinearRegressionLargeD(_AbstractTestLowRankRegression, unittest.TestCa
         beta = torch.randn(self.num_features) / math.sqrt(10)
         train_y = train_x @ beta + torch.randn_like(train_x[..., 0]) * 0.01
         test_x = torch.randn(51, self.num_features) * feature_sizes
-        test_y = test_x  @ beta
+        test_y = test_x @ beta
         return train_x, train_y, test_x, test_y
 
     def make_model(self, train_x, train_y):
