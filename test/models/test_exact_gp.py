@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import math
 import unittest
 
 import torch
@@ -196,6 +197,35 @@ class TestExactGP(BaseModelTestCase, unittest.TestCase):
             new_y = torch.randn(new_n)
             # just check that this can run without error
             model.get_fantasy_model(new_x, new_y)
+
+    @unittest.skipIf(not torch.backends.mps.is_available(), "MPS not available")
+    def test_exact_gp_mps(self):
+        device = torch.device("mps")
+
+        train_x = torch.linspace(0, 1, 50, device=device).float()
+        train_y = torch.sin(train_x * (2 * math.pi)).float()
+
+        likelihood = gpytorch.likelihoods.GaussianLikelihood().to(device)
+        model = ExactGPModel(train_x, train_y, likelihood).to(device)
+
+        model.eval()
+        likelihood.eval()
+        with torch.no_grad():
+            test_x = torch.linspace(0.05, 0.95, 25, device=device).float()
+            output = model(test_x)
+            self.assertEqual(output.mean.device.type, "mps")
+
+        model.train()
+        likelihood.train()
+        mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
+
+        output = model(train_x)
+        loss = -mll(output, train_y)
+        loss.backward()
+
+        for param in model.parameters():
+            if param.requires_grad:
+                self.assertIsNotNone(param.grad)
 
 
 class TestInterpolatedExactGP(TestExactGP):
