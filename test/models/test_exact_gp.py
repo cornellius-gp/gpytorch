@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
+import math
 import unittest
 
 import torch
-import math
 
 import gpytorch
 from gpytorch import settings
