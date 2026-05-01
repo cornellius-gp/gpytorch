@@ -8,6 +8,7 @@ from collections.abc import Iterable
 from copy import deepcopy
 
 import torch
+from linear_operator import LinearOperator
 from torch import Tensor
 
 from gpytorch.distributions import Distribution
@@ -357,7 +358,7 @@ class ExactGP(GP):
         train_inputs: Iterable[Tensor],
         test_inputs: Iterable[Tensor],
         **kwargs,
-    ) -> tuple[Tensor, Tensor, Tensor, torch.Size, torch.Size, type[Distribution]]:
+    ) -> tuple[Tensor, LinearOperator, LinearOperator, torch.Size, torch.Size, type[Distribution]]:
         """Computes the prior mean and covariances on the test set.
 
         Override this method to customize test-set covariance computations, e.g.,
@@ -420,11 +421,13 @@ class ExactGP(GP):
         test_mean = joint_mean[..., num_train:]
 
         # Extract test covariances. Slicing is lazy; K(train, train) is never computed.
-        # evaluate_kernel() converts to the linear operator type needed by prediction.
+        # NOTE: We do not call ``.evaluate_kernel()`` even for test covariances. Keeping these covariances lazy allows
+        # downstream code to compute only what's needed (e.g., just the diagonal for variance). Prediction strategies
+        # should call ``.evaluate_kernel()`` themselves if needed.
         # NOTE: We must slice row and column indices together (not sequentially) for
         # compatibility with BlockInterleavedLinearOperator used in multitask GPs.
-        test_test_covar = joint_covar[..., num_train:, num_train:].evaluate_kernel()
-        test_train_covar = joint_covar[..., num_train:, :num_train].evaluate_kernel()
+        test_test_covar = joint_covar[..., num_train:, num_train:]
+        test_train_covar = joint_covar[..., num_train:, :num_train]
 
         posterior_class = full_output.__class__
         return (test_mean, test_test_covar, test_train_covar, batch_shape, test_shape, posterior_class)
