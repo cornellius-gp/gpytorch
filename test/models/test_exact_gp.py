@@ -210,6 +210,7 @@ class TestExactGP(BaseModelTestCase, unittest.TestCase):
 
         model.eval()
         likelihood.eval()
+
         with torch.no_grad():
             test_x = torch.linspace(0.05, 0.95, 25, device=device).float()
             output = model(test_x)
