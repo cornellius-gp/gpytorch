@@ -38,6 +38,11 @@ class SpectralMixtureKernel(Kernel):
         a few input dimensions. The ints corresponds to the indices of the dimensions. (Default: `None`.)
     :type active_dims: float, optional
 
+    :param correct_multidimensional_mixture: If True, use the corrected multidimensional
+        formula from `Correction to Spectral Mixture (SM) Kernel Derivation for Multidimensional Inputs`_.
+        If False (default), use the product-of-1D-kernels formula as shown in the original paper
+        (deprecated for ard_num_dims > 1).
+    :type correct_multidimensional_mixture: bool, optional
     :param mixture_scales_prior: A prior to set on the mixture_scales parameter
     :type mixture_scales_prior: ~gpytorch.priors.Prior, optional
     :param mixture_scales_constraint: A constraint to set on the mixture_scales parameter
@@ -70,6 +75,8 @@ class SpectralMixtureKernel(Kernel):
 
     .. _Gaussian Process Kernels for Pattern Discovery and Extrapolation:
         https://arxiv.org/pdf/1302.4245.pdf
+    .. _Correction to Spectral Mixture (SM) Kernel Derivation for Multidimensional Inputs:
+        https://www.cs.cmu.edu/~andrewgw/typo.pdf
     """
 
     is_stationary = True  # kernel is stationary even though it does not have a lengthscale
@@ -100,7 +107,7 @@ class SpectralMixtureKernel(Kernel):
 
         if not correct_multidimensional_mixture and ard_num_dims > 1:
             warnings.warn(
-                "SpectralMixtureKernel with ard_num_dims > 1 computes the product kernel."
+                "SpectralMixtureKernel with ard_num_dims > 1 computes the product kernel. "
                 "To use the correct formula, pass correct_multidimensional_mixture=True.",
                 DeprecationWarning,
             )
