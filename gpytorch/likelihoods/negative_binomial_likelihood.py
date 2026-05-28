@@ -66,6 +66,19 @@ class NegativeBinomialLikelihood(_OneDimensionalLikelihood):
 
         self.num_failures_param = num_failures_param
 
+    def _set_probs(self, value: Tensor) -> None:
+        if not torch.is_tensor(value):
+            value = torch.as_tensor(value).to(self.raw_probs)
+        self.initialize(raw_probs=self.raw_probs_constraint.inverse_transform(value))
+
+    def forward(self, function_samples: Tensor, *args: Any, **kwargs: Any) -> NegativeBinomial:
+        probs = torch.clamp(self.probs, 1e-06, 1 - 1e-06)
+        if self.num_failures_param:
+            num_failures = torch.nn.functional.softplus(function_samples)
+        else:
+            num_failures = torch.nn.functional.softplus(function_samples) * (1 - probs) / probs
+        return base_distributions.NegativeBinomial(total_count=num_failures, probs=probs)
+
     @property
     def probs(self) -> Tensor:
         return self.raw_probs_constraint.transform(self.raw_probs)
