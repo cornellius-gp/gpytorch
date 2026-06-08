@@ -10,6 +10,7 @@ from .cosine_kernel import CosineKernel
 from .cylindrical_kernel import CylindricalKernel
 from .distributional_input_kernel import DistributionalInputKernel
 from .gaussian_symmetrized_kl_kernel import GaussianSymmetrizedKLKernel
+from .gibbs_kernel import GibbsKernel
 from .grid_interpolation_kernel import GridInterpolationKernel
 from .grid_kernel import GridKernel
 from .hamming_kernel import HammingIMQKernel
@@ -50,6 +51,7 @@ __all__ = [
     "CosineKernel",
     "DistributionalInputKernel",
     "GaussianSymmetrizedKLKernel",
+    "GibbsKernel",
     "GridKernel",
     "GridInterpolationKernel",
     "HammingIMQKernel",

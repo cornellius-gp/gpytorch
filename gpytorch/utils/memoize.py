@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import functools
 import pickle
+import weakref
 
 from .errors import CachingError
 
@@ -44,6 +45,24 @@ def pop_from_cache_ignore_args(obj, name):
 
 def clear_cache_hook(module, *args, **kwargs):
     module._memoize_cache = {}
+
+
+def register_cache_clear_hook(tsr, module):
+    """Register a backward hook on tsr's grad_fn that clears module's cache.
+
+    Uses a weak reference to module to avoid creating an uncollectable
+    reference cycle through the C++ grad_fn object (which Python's cycle
+    GC cannot see through).
+    """
+    if tsr.grad_fn is not None:
+        weak_module = weakref.ref(module)
+
+        def hook(*args, **kwargs):
+            obj = weak_module()
+            if obj is not None:
+                obj._memoize_cache = {}
+
+        tsr.grad_fn.register_hook(hook)
 
 
 def _cached(method=None, name=None):
