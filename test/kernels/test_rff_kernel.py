@@ -99,7 +99,7 @@ class TestRFFKernel(unittest.TestCase, BaseKernelTestCase):
         output = model.likelihood(model(train_x)).lazy_covariance_matrix.evaluate_kernel()
         self.assertIsInstance(output, linear_operator.operators.LowRankRootAddedDiagLinearOperator)
 
-        # Make sure we're calling the correct prediction strategy
+        # Make sure we're calling the correct prediction strategy (d < n: LinearPredictionStrategy)
         _wrapped_ps = MagicMock(wraps=gpytorch.models.exact_prediction_strategies.LinearPredictionStrategy)
         with patch("gpytorch.models.exact_prediction_strategies.LinearPredictionStrategy", new=_wrapped_ps) as ps_mock:
             model.eval()
@@ -125,9 +125,9 @@ class TestRFFKernel(unittest.TestCase, BaseKernelTestCase):
         self.assertIsInstance(output, linear_operator.operators.AddedDiagLinearOperator)
         self.assertNotIsInstance(output, linear_operator.operators.LowRankRootAddedDiagLinearOperator)
 
-        # Make sure we're calling the correct prediction strategy
-        _wrapped_ps = MagicMock(wraps=gpytorch.models.exact_prediction_strategies.LinearPredictionStrategy)
-        with patch("gpytorch.models.exact_prediction_strategies.LinearPredictionStrategy", new=_wrapped_ps) as ps_mock:
+        # Make sure we're calling the correct prediction strategy (d >= n: DefaultPredictionStrategy)
+        _wrapped_ps = MagicMock(wraps=gpytorch.models.exact_prediction_strategies.DefaultPredictionStrategy)
+        with patch("gpytorch.models.exact_prediction_strategies.DefaultPredictionStrategy", new=_wrapped_ps) as ps_mock:
             model.eval()
             output = model.likelihood(model(test_x))
             _ = output.mean + output.variance  # Compute something to break through any lazy evaluations

@@ -36,6 +36,13 @@ def prediction_strategy(train_inputs, train_prior_dist, train_labels, likelihood
     return cls(train_inputs, train_prior_dist, train_labels, likelihood)
 
 
+def select_prediction_strategy(num_features, train_inputs, train_prior_dist, train_labels, likelihood):
+    n = train_inputs[0].shape[-2]
+    if num_features >= n:
+        return DefaultPredictionStrategy(train_inputs, train_prior_dist, train_labels, likelihood)
+    return LinearPredictionStrategy(train_inputs, train_prior_dist, train_labels, likelihood)
+
+
 class DefaultPredictionStrategy:
     def __init__(
         self,
