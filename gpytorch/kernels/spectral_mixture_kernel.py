@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import math
+import warnings
 
 import torch
 
@@ -37,6 +38,11 @@ class SpectralMixtureKernel(Kernel):
         a few input dimensions. The ints corresponds to the indices of the dimensions. (Default: `None`.)
     :type active_dims: float, optional
 
+    :param correct_multidimensional_mixture: If True, use the corrected multidimensional
+        formula from `Correction to Spectral Mixture (SM) Kernel Derivation for Multidimensional Inputs`_.
+        If False (default), use the product-of-1D-kernels formula as shown in the original paper
+        (deprecated for ard_num_dims > 1).
+    :type correct_multidimensional_mixture: bool, optional
     :param mixture_scales_prior: A prior to set on the mixture_scales parameter
     :type mixture_scales_prior: ~gpytorch.priors.Prior, optional
     :param mixture_scales_constraint: A constraint to set on the mixture_scales parameter
@@ -69,6 +75,8 @@ class SpectralMixtureKernel(Kernel):
 
     .. _Gaussian Process Kernels for Pattern Discovery and Extrapolation:
         https://arxiv.org/pdf/1302.4245.pdf
+    .. _Correction to Spectral Mixture (SM) Kernel Derivation for Multidimensional Inputs:
+        https://www.cs.cmu.edu/~andrewgw/typo.pdf
     """
 
     is_stationary = True  # kernel is stationary even though it does not have a lengthscale
@@ -78,6 +86,7 @@ class SpectralMixtureKernel(Kernel):
         num_mixtures: int | None = None,
         ard_num_dims: int | None = 1,
         batch_shape: torch.Size | None = torch.Size([]),
+        correct_multidimensional_mixture: bool = False,
         mixture_scales_prior: Prior | None = None,
         mixture_scales_constraint: Interval | None = None,
         mixture_means_prior: Prior | None = None,
@@ -94,6 +103,14 @@ class SpectralMixtureKernel(Kernel):
         # This kernel does not use the default lengthscale
         super().__init__(ard_num_dims=ard_num_dims, batch_shape=batch_shape, **kwargs)
         self.num_mixtures = num_mixtures
+        self.correct_multidimensional_mixture = correct_multidimensional_mixture
+
+        if not correct_multidimensional_mixture and ard_num_dims > 1:
+            warnings.warn(
+                "SpectralMixtureKernel with ard_num_dims > 1 computes the product kernel. "
+                "To use the correct formula, pass correct_multidimensional_mixture=True.",
+                DeprecationWarning,
+            )
 
         if mixture_scales_constraint is None:
             mixture_scales_constraint = Positive()
@@ -328,27 +345,55 @@ class SpectralMixtureKernel(Kernel):
         x1_cos = x1_ * self.mixture_means
         x2_cos = x2_ * self.mixture_means
 
-        # Create grids
-        x1_exp_, x2_exp_ = self._create_input_grid(x1_exp, x2_exp, diag=diag, **params)
-        x1_cos_, x2_cos_ = self._create_input_grid(x1_cos, x2_cos, diag=diag, **params)
+        if self.correct_multidimensional_mixture:
+            # Compute the exponential term
+            exp_term = self.covar_dist(
+                x1_exp, x2_exp, square_dist=True, diag=diag, last_dim_is_batch=last_dim_is_batch
+            ).mul_(-2 * math.pi**2)
 
-        # Compute the exponential and cosine terms
-        exp_term = (x1_exp_ - x2_exp_).pow_(2).mul_(-2 * math.pi**2)
-        cos_term = (x1_cos_ - x2_cos_).mul_(2 * math.pi)
-        res = exp_term.exp_() * cos_term.cos_()
+            # Compute the cosine term
+            x1_cos_, x2_cos_ = self._create_input_grid(
+                x1_cos, x2_cos, diag=diag, last_dim_is_batch=last_dim_is_batch, **params
+            )
+            cos_term = (x1_cos_ - x2_cos_).mul(2 * math.pi).sum(-1)
 
-        # Sum over mixtures
-        mixture_weights = self.mixture_weights.view(*self.mixture_weights.shape, 1, 1)
-        if not diag:
-            mixture_weights = mixture_weights.unsqueeze(-2)
+            res = exp_term.exp_() * cos_term.cos_()
 
-        res = (res * mixture_weights).sum(-3 if diag else -4)
+            # Sum over mixtures
+            if last_dim_is_batch:
+                # last_dim_is_batch=True: res (... x k x d x n x m)
+                mixture_weights = self.mixture_weights.view(*self.mixture_weights.shape, 1, 1, 1)
+                if diag:
+                    mixture_weights = mixture_weights.squeeze(-1)
+                return (res * mixture_weights).sum(-3 if diag else -4)
+            else:
+                mixture_weights = self.mixture_weights.view(*self.mixture_weights.shape, 1, 1)
+                if diag:
+                    mixture_weights = mixture_weights.squeeze(-1)
+                return (res * mixture_weights).sum(-2 if diag else -3)
 
-        # Product over dimensions
-        if last_dim_is_batch:
-            # Put feature-dimension in front of data1/data2 dimensions
-            res = res.permute(*list(range(0, res.dim() - 3)), -1, -3, -2)
         else:
-            res = res.prod(-1)
+            # Create grids
+            x1_exp_, x2_exp_ = self._create_input_grid(x1_exp, x2_exp, diag=diag, **params)
+            x1_cos_, x2_cos_ = self._create_input_grid(x1_cos, x2_cos, diag=diag, **params)
 
-        return res
+            # Compute the exponential and cosine terms
+            exp_term = (x1_exp_ - x2_exp_).pow_(2).mul_(-2 * math.pi**2)
+            cos_term = (x1_cos_ - x2_cos_).mul_(2 * math.pi)
+            res = exp_term.exp_() * cos_term.cos_()
+
+            # Sum over mixtures
+            mixture_weights = self.mixture_weights.view(*self.mixture_weights.shape, 1, 1)
+            if not diag:
+                mixture_weights = mixture_weights.unsqueeze(-2)
+
+            res = (res * mixture_weights).sum(-3 if diag else -4)
+
+            # Product over dimensions
+            if last_dim_is_batch:
+                # Put feature-dimension in front of data1/data2 dimensions
+                res = res.permute(*list(range(0, res.dim() - 3)), -1, -3, -2)
+            else:
+                res = res.prod(-1)
+
+            return res
