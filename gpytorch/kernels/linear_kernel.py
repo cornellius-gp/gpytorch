@@ -35,7 +35,7 @@ class LinearKernel(Kernel):
 
     .. note::
 
-        To implement this efficiently, we use a
+        To implement this efficiently (when :math:`D < N`), we use a
         :obj:`~linear_operator.operators.RootLinearOperator` during training
         and a :class:`~linear_operator.operators.MatmulLinearOperator` during
         test. These lazy tensors represent matrices of the form :math:`\mathbf
@@ -98,7 +98,7 @@ class LinearKernel(Kernel):
             # Use RootLinearOperator when x1 == x2 for efficiency when composing
             # with other kernels
             n, d = x1.shape[-2:]
-            prod = RootLinearOperator(x1_) if d > n else LowRankRootLinearOperator(x1_)
+            prod = RootLinearOperator(x1_) if d >= n else LowRankRootLinearOperator(x1_)
 
         else:
             x2_ = x2 * self.variance.sqrt()
@@ -113,7 +113,7 @@ class LinearKernel(Kernel):
             return prod
 
     def prediction_strategy(self, train_inputs, train_prior_dist, train_labels, likelihood):
-        # Allow for fast sampling
-        return exact_prediction_strategies.LinearPredictionStrategy(
-            train_inputs, train_prior_dist, train_labels, likelihood
+        num_features = train_inputs[0].shape[-1]
+        return exact_prediction_strategies.select_prediction_strategy(
+            num_features, train_inputs, train_prior_dist, train_labels, likelihood
         )

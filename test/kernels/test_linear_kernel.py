@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
 import unittest
+from unittest.mock import MagicMock, patch
 
 import torch
 
+import gpytorch
 from gpytorch.kernels import LinearKernel
 from gpytorch.priors import NormalPrior
 from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
@@ -81,6 +83,43 @@ class TestLinearKernel(unittest.TestCase, BaseKernelTestCase):
         res = kernel(a, a, last_dim_is_batch=True).diagonal(dim1=-1, dim2=-2)
         actual = actual.diagonal(dim1=-2, dim2=-1)
         self.assertLess(torch.norm(res - actual), 1e-4)
+
+    def _make_model(self, train_x, train_y):
+        class _Model(gpytorch.models.ExactGP):
+            def __init__(self, train_x, train_y):
+                likelihood = gpytorch.likelihoods.GaussianLikelihood()
+                super().__init__(train_x, train_y, likelihood)
+                self.mean_module = gpytorch.means.ZeroMean()
+                self.covar_module = LinearKernel()
+
+            def forward(self, x):
+                return gpytorch.distributions.MultivariateNormal(self.mean_module(x), self.covar_module(x))
+
+        return _Model(train_x, train_y)
+
+    def test_prediction_strategy_low_rank(self):
+        train_x = torch.rand(20, 3)  # d=3 < n=20
+        train_y = torch.randn(20)
+        model = self._make_model(train_x, train_y)
+        test_x = torch.rand(5, 3)
+        _wrapped = MagicMock(wraps=gpytorch.models.exact_prediction_strategies.LinearPredictionStrategy)
+        with patch("gpytorch.models.exact_prediction_strategies.LinearPredictionStrategy", new=_wrapped) as ps_mock:
+            model.eval()
+            output = model.likelihood(model(test_x))
+            _ = output.mean + output.variance
+            self.assertTrue(ps_mock.called)
+
+    def test_prediction_strategy_full_rank(self):
+        train_x = torch.rand(3, 20)  # d=20 >= n=3
+        train_y = torch.randn(3)
+        model = self._make_model(train_x, train_y)
+        test_x = torch.rand(2, 20)
+        _wrapped = MagicMock(wraps=gpytorch.models.exact_prediction_strategies.DefaultPredictionStrategy)
+        with patch("gpytorch.models.exact_prediction_strategies.DefaultPredictionStrategy", new=_wrapped) as ps_mock:
+            model.eval()
+            output = model.likelihood(model(test_x))
+            _ = output.mean + output.variance
+            self.assertTrue(ps_mock.called)
 
     def create_kernel_with_prior(self, variance_prior):
         return self.create_kernel_no_ard(variance_prior=variance_prior)
