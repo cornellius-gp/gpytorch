@@ -772,6 +772,12 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
               ``(*batch_shape, num_test, num_tasks)``
             - ``predictive_covar``: LinearOperator with same shape as ``test_test_covar``
         """
+        # Only ``test_train_covar`` must be a concrete ``InterpolatedLinearOperator`` so that we can access its
+        # interpolation indices and values. ``test_test_covar`` is only ever used in an addition and thus it is left
+        # lazy to avoid eagerly materializing the test-test covariance.
+        if hasattr(test_train_covar, "evaluate_kernel"):
+            test_train_covar = test_train_covar.evaluate_kernel()
+
         return (
             self.exact_predictive_mean(test_mean, test_train_covar),
             self.exact_predictive_covar(test_test_covar, test_train_covar),
@@ -1074,6 +1080,11 @@ class SGPRPredictionStrategy(DefaultPredictionStrategy):
                 test_test_covar.last_dim_is_batch,
                 **test_test_covar.params,
             )
+
+        # Evaluate test_train_covar to get concrete type for isinstance checks
+        # in exact_predictive_covar (MatmulLinearOperator, etc.)
+        if hasattr(test_train_covar, "evaluate_kernel"):
+            test_train_covar = test_train_covar.evaluate_kernel()
 
         return (
             self.exact_predictive_mean(test_mean, test_train_covar),
