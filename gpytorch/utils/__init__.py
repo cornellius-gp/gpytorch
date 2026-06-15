@@ -8,6 +8,7 @@ from typing import Any
 import linear_operator
 
 from . import deprecation, errors, generic, grid, interpolation, quadrature, transforms, warnings
+from .inducing_point_initialization import kmeans_inducing_points, median_heuristic_lengthscale
 from .memoize import cached
 from .nearest_neighbors import NNUtil
 from .sum_interaction_terms import sum_interaction_terms
@@ -19,6 +20,8 @@ __all__ = [
     "generic",
     "grid",
     "interpolation",
+    "kmeans_inducing_points",
+    "median_heuristic_lengthscale",
     "quadrature",
     "sum_interaction_terms",
     "transforms",
