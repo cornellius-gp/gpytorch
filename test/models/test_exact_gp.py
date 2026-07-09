@@ -197,6 +197,74 @@ class TestExactGP(BaseModelTestCase, unittest.TestCase):
             # just check that this can run without error
             model.get_fantasy_model(new_x, new_y)
 
+    def test_fantasy_mean_cache_key_continuity(self):
+        """Regression test for #2669: fantasy model mean_cache key must include observation_nan_policy."""
+        train_x = self.create_test_data()
+        likelihood, labels = self.create_likelihood_and_labels()
+        model = self.create_model(train_x, labels, likelihood)
+        model.eval()
+
+        # Populate parent caches
+        test_x = self.create_test_data()
+        model(test_x)
+
+        # Get the parent's mean_cache key for reference
+        parent_keys = list(model.prediction_strategy._memoize_cache.keys())
+        parent_mean_cache_keys = [k for k in parent_keys if k[0] == "mean_cache"]
+        self.assertTrue(len(parent_mean_cache_keys) > 0, "Parent should have mean_cache in memoize_cache")
+        parent_key = parent_mean_cache_keys[0]
+        expected_args = parent_key[1]  # Should be ("ignore",) by default
+
+        # Create fantasy model
+        fantasy_x = torch.randn(5, 1)
+        fantasy_y = torch.randn(5)
+        fantasy_model = model.get_fantasy_model(fantasy_x, fantasy_y)
+
+        # Check fantasy's mean_cache key
+        fantasy_keys = list(fantasy_model.prediction_strategy._memoize_cache.keys())
+        fantasy_mean_cache_keys = [k for k in fantasy_keys if k[0] == "mean_cache"]
+        self.assertTrue(len(fantasy_mean_cache_keys) > 0, "Fantasy should have mean_cache in memoize_cache")
+        fantasy_key = fantasy_mean_cache_keys[0]
+
+        # The args must match: fantasy key must include observation_nan_policy
+        self.assertEqual(
+            fantasy_key[1],
+            expected_args,
+            f"Fantasy mean_cache key args {fantasy_key[1]} don't match parent's {expected_args}. "
+            f"This means observation_nan_policy is missing from the cache key (#2669).",
+        )
+
+    def test_fantasy_mean_cache_is_cache_hit(self):
+        """Regression test for #2669: calling fantasy model should NOT recompute mean_cache."""
+        train_x = self.create_test_data()
+        likelihood, labels = self.create_likelihood_and_labels()
+        model = self.create_model(train_x, labels, likelihood)
+        model.eval()
+
+        # Populate parent caches
+        test_x = self.create_test_data()
+        model(test_x)
+
+        # Create fantasy model
+        fantasy_x = torch.randn(5, 1)
+        fantasy_y = torch.randn(5)
+        fantasy_model = model.get_fantasy_model(fantasy_x, fantasy_y)
+
+        # Record cache size before calling fantasy model
+        cache_size_before = len(fantasy_model.prediction_strategy._memoize_cache)
+
+        # Call the fantasy model (should use cached mean_cache)
+        fantasy_model(test_x)
+
+        # Cache should NOT have grown - mean_cache was a cache hit
+        cache_size_after = len(fantasy_model.prediction_strategy._memoize_cache)
+        self.assertEqual(
+            cache_size_before,
+            cache_size_after,
+            "Calling fantasy model added new entries to _memoize_cache. "
+            "mean_cache was recomputed instead of using the cached value (#2669).",
+        )
+
 
 class TestInterpolatedExactGP(TestExactGP):
     def create_model(self, train_x, train_y, likelihood):
