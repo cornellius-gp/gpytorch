@@ -576,7 +576,15 @@ class Kernel(Module):
             new_kernel.batch_shape = new_param.shape[:new_batch_shape_len]
 
         for buffr_name, buffr in self.named_buffers(recurse=False):
-            # For a given buffer, get the number of dimensions that do not correspond to the batch shape
+            # Skip non-batch buffers (e.g. active_dims, has_initialized_grid).
+            # Only index buffers whose leading dimensions match the batch shape
+            # AND whose total ndim exceeds batch_ndim (i.e. they have non-batch dims).
+            # active_dims is 1D metadata — when batch_ndim >= 1, its ndim <= batch_ndim
+            # so we correctly skip it even when its shape coincidentally matches batch_shape.
+            batch_ndim = len(self.batch_shape)
+            if batch_ndim > 0:
+                if buffr.shape[:batch_ndim] != self.batch_shape or buffr.ndim <= batch_ndim:
+                    continue
             new_buffr = new_kernel.__getattr__(buffr_name)
             new_buffr.data = new_buffr.__getitem__(index)
             ndim_removed = len(buffr.shape) - len(new_buffr.shape)
