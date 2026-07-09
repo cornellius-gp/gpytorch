@@ -392,6 +392,13 @@ class Kernel(Module):
 
         # Reshape the buffers of the kernel
         for buffr_name, buffr in self.named_buffers(recurse=False):
+            # Skip non-batch buffers (e.g. active_dims, has_initialized_grid).
+            # Only expand buffers whose leading dimensions match the original batch shape
+            # AND whose total ndim exceeds batch_ndim (i.e. they have non-batch dims).
+            batch_ndim = len(orig_batch_shape)
+            if batch_ndim > 0:
+                if buffr.shape[:batch_ndim] != orig_batch_shape or buffr.ndim <= batch_ndim:
+                    continue
             # For a given buffer, get the number of dimensions that do not correspond to the batch shape
             non_batch_shape = buffr.shape[len(orig_batch_shape) :]
             new_buffer_shape = torch.Size([*new_batch_shape, *non_batch_shape])

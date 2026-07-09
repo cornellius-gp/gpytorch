@@ -337,3 +337,28 @@ class TestKernelBatchGetitemActiveDims(unittest.TestCase):
             torch.equal(indexed.active_dims, torch.tensor([0])),
             f"active_dims corrupted: {indexed.active_dims}",
         )
+
+    def test_expand_batch_preserves_active_dims(self):
+        """expand_batch should not expand non-batch buffers like active_dims."""
+        kernel = gpytorch.kernels.RBFKernel(
+            active_dims=torch.tensor([0, 1]),
+            batch_shape=torch.Size([2]),
+        )
+
+        expanded = kernel.expand_batch(torch.Size([4, 2]))
+        self.assertEqual(expanded.batch_shape, torch.Size([4, 2]))
+        self.assertTrue(
+            torch.equal(expanded.active_dims, torch.tensor([0, 1])),
+            f"active_dims corrupted after expand_batch: {expanded.active_dims}",
+        )
+
+    def test_expand_batch_expands_batch_buffers(self):
+        """expand_batch should correctly expand batch-shaped buffers."""
+        kernel = gpytorch.kernels.RBFKernel(
+            batch_shape=torch.Size([2]),
+        )
+        orig_ls = kernel.lengthscale
+
+        expanded = kernel.expand_batch(torch.Size([4, 2]))
+        self.assertEqual(expanded.batch_shape, torch.Size([4, 2]))
+        self.assertEqual(expanded.lengthscale.shape, torch.Size([4, 2, 1, 1]))
