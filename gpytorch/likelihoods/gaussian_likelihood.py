@@ -447,7 +447,7 @@ class DirichletClassificationLikelihood(FixedNoiseGaussianLikelihood):
         self.noise_covar = old_noise_covar
 
         old_noise = old_noise_covar.noise
-        new_targets = kwargs.get("noise")
+        new_targets = kwargs.get("targets")
         new_noise, new_targets, _ = fantasy_liklihood._prepare_targets(new_targets, self.alpha_epsilon)
         fantasy_liklihood.targets = torch.cat([fantasy_liklihood.targets, new_targets], -1)
 
