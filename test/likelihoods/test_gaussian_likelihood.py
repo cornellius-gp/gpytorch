@@ -6,10 +6,13 @@ import unittest
 import torch
 from linear_operator.operators import DiagLinearOperator
 
+import gpytorch
 from gpytorch import settings
 from gpytorch.distributions import MultivariateNormal
+from gpytorch.kernels import RBFKernel, ScaleKernel
 from gpytorch.likelihoods import DirichletClassificationLikelihood, FixedNoiseGaussianLikelihood, GaussianLikelihood
 from gpytorch.likelihoods.noise_models import FixedGaussianNoise
+from gpytorch.models import ExactGP
 from gpytorch.priors import GammaPrior
 from gpytorch.test.base_likelihood_test_case import BaseLikelihoodTestCase
 
@@ -226,6 +229,99 @@ class TestGaussianLikelihoodWithMissingObs(BaseLikelihoodTestCase, unittest.Test
         self.assertTrue(abs(float(likelihood.noise.sqrt()) - 0.5) < 0.02)
         # Check log marginal works
         likelihood.log_marginal(samples[0], mvn)
+
+
+class _DirichletGPModel(ExactGP):
+    def __init__(self, train_x, train_y, likelihood, num_classes):
+        super().__init__(train_x, train_y, likelihood)
+        self.mean_module = gpytorch.means.ConstantMean(batch_shape=torch.Size((num_classes,)))
+        self.covar_module = ScaleKernel(
+            RBFKernel(batch_shape=torch.Size((num_classes,))),
+            batch_shape=torch.Size((num_classes,)),
+        )
+
+    def forward(self, x):
+        mean_x = self.mean_module(x)
+        covar_x = self.covar_module(x)
+        return MultivariateNormal(mean_x, covar_x)
+
+
+class TestDirichletClassificationLikelihoodFantasy(unittest.TestCase):
+    def test_dirichlet_fantasy_model_creation(self):
+        """Regression test for #2579: get_fantasy_model should succeed for Dirichlet models."""
+        torch.manual_seed(42)
+        n_classes = 3
+        n_train = 20
+
+        train_x = torch.randn(n_train, 2)
+        train_labels = torch.randint(0, n_classes, (n_train,))
+
+        likelihood = DirichletClassificationLikelihood(
+            targets=train_labels, learn_additional_noise=True
+        )
+        model = _DirichletGPModel(
+            train_x, likelihood.transformed_targets, likelihood, num_classes=n_classes
+        )
+
+        # Train a few steps
+        model.train()
+        likelihood.train()
+        optimizer = torch.optim.Adam(list(model.parameters()) + list(likelihood.parameters()), lr=0.1)
+        for _ in range(3):
+            optimizer.zero_grad()
+            output = model(train_x)
+            loss = -likelihood(output, targets=train_labels).log_prob(likelihood.transformed_targets).sum()
+            loss.backward()
+            optimizer.step()
+
+        # Run prediction to set up prediction_strategy
+        model.eval()
+        likelihood.eval()
+        with gpytorch.settings.fast_pred_var():
+            model(train_x)
+
+        # Create fantasy data
+        fant_x = torch.randn(5, 2)
+        fant_labels = torch.randint(0, n_classes, (5,))
+        fant_y = likelihood.transformed_targets[:, :5]
+
+        # This should succeed without RuntimeError (was broken before fix)
+        fant_model = model.get_fantasy_model(fant_x, fant_y)
+
+        # Verify fantasy model has correct training size
+        self.assertEqual(fant_model.train_inputs[0].shape[-2], n_train + 5)
+
+    def test_dirichlet_fantasy_preserves_num_classes(self):
+        """Fantasy model should preserve num_classes from the original likelihood."""
+        torch.manual_seed(42)
+        n_classes = 4
+        n_train = 30
+
+        train_labels = torch.randint(0, n_classes, (n_train,))
+        likelihood = DirichletClassificationLikelihood(
+            targets=train_labels, learn_additional_noise=True
+        )
+
+        new_labels = torch.randint(0, n_classes, (8,))
+        fantasy_lik = likelihood.get_fantasy_likelihood(targets=new_labels)
+
+        self.assertEqual(fantasy_lik.num_classes, n_classes)
+
+    def test_dirichlet_fantasy_preserves_alpha_epsilon(self):
+        """Fantasy model should preserve alpha_epsilon from the original likelihood."""
+        torch.manual_seed(42)
+        n_classes = 3
+        n_train = 30
+
+        train_labels = torch.randint(0, n_classes, (n_train,))
+        likelihood = DirichletClassificationLikelihood(
+            targets=train_labels, alpha_epsilon=0.05, learn_additional_noise=True
+        )
+
+        new_labels = torch.randint(0, n_classes, (8,))
+        fantasy_lik = likelihood.get_fantasy_likelihood(targets=new_labels)
+
+        self.assertEqual(fantasy_lik.alpha_epsilon, 0.05)
 
 
 if __name__ == "__main__":
