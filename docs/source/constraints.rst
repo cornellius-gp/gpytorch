@@ -57,7 +57,7 @@ behavior of the underlying transform.
    m.scale  # -> tensor constrained to (0, infinity)
 
 
-Parameter Constraints (full reference)
+Constraint Reference
 -----------------------------
 
 :hidden:`Interval`
