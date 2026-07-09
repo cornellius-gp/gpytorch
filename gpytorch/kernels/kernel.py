@@ -586,7 +586,7 @@ class Kernel(Module):
             # Skip non-batch buffers (e.g. active_dims, has_initialized_grid).
             # Only index buffers whose leading dimensions match the batch shape
             # AND whose total ndim exceeds batch_ndim (i.e. they have non-batch dims).
-            # active_dims is 1D metadata — when batch_ndim >= 1, its ndim <= batch_ndim
+            # active_dims is 1D metadata -- when batch_ndim >= 1, its ndim <= batch_ndim
             # so we correctly skip it even when its shape coincidentally matches batch_shape.
             batch_ndim = len(self.batch_shape)
             if batch_ndim > 0:
