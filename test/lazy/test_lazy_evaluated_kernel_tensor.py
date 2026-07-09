@@ -211,3 +211,129 @@ class TestLazyEvaluatedKernelTensorAdditive(TestLazyEvaluatedKernelTensorBatch):
         lazy_tensor = self.create_linear_op()
         lazy_tensor.kernel.base_kernel.raw_lengthscale_constraint.transform = lambda x: x + 0.1
         self._test_half(lazy_tensor)
+
+
+class TestKernelBatchGetitemActiveDims(unittest.TestCase):
+    """Test that batch indexing works correctly when kernels have active_dims.
+
+    Regression tests for https://github.com/cornellius-gp/gpytorch/issues/2591
+    """
+
+    def test_active_dims_batch_index_crash(self):
+        """Indexing a batched kernel with active_dims having fewer elements
+        than batch_size should not crash with IndexError."""
+        kernel = gpytorch.kernels.RBFKernel(
+            active_dims=torch.tensor([0]),
+            batch_shape=torch.Size([2]),
+        )
+        x = torch.randn(2, 5, 3)
+
+        result = kernel(x)[1]
+        self.assertEqual(result.shape, torch.Size([5, 5]))
+
+    def test_active_dims_batch_index_preserves_active_dims(self):
+        """After batch indexing, active_dims should remain unchanged."""
+        kernel = gpytorch.kernels.RBFKernel(
+            active_dims=torch.tensor([0, 1]),
+            batch_shape=torch.Size([2]),
+        )
+        x = torch.randn(2, 5, 3)
+
+        result = kernel(x)[1]
+        indexed_kernel = result.kernel
+        self.assertTrue(
+            torch.equal(indexed_kernel.active_dims, torch.tensor([0, 1])),
+            f"active_dims corrupted after indexing: {indexed_kernel.active_dims}",
+        )
+
+    def test_active_dims_batch_index_preserves_batch_shape(self):
+        """Scalar index should remove the batch dim, not corrupt it."""
+        kernel = gpytorch.kernels.RBFKernel(
+            active_dims=torch.tensor([0, 1]),
+            batch_shape=torch.Size([2]),
+        )
+        x = torch.randn(2, 5, 3)
+
+        result = kernel(x)[1]
+        indexed_kernel = result.kernel
+        self.assertEqual(
+            indexed_kernel.batch_shape,
+            torch.Size([]),
+            f"batch_shape corrupted: {indexed_kernel.batch_shape}",
+        )
+
+    def test_active_dims_batch_slice_index(self):
+        """Slice indexing should preserve batch dim in batch_shape."""
+        kernel = gpytorch.kernels.RBFKernel(
+            active_dims=torch.tensor([0, 1]),
+            batch_shape=torch.Size([3]),
+        )
+        x = torch.randn(3, 5, 3)
+
+        result = kernel(x)[0:2]
+        indexed_kernel = result.kernel
+        self.assertEqual(
+            indexed_kernel.batch_shape,
+            torch.Size([2]),
+            f"batch_shape wrong after slice: {indexed_kernel.batch_shape}",
+        )
+        self.assertTrue(
+            torch.equal(indexed_kernel.active_dims, torch.tensor([0, 1])),
+            f"active_dims corrupted: {indexed_kernel.active_dims}",
+        )
+
+    def test_scale_kernel_active_dims_batch_index(self):
+        """ScaleKernel wrapping an RBFKernel with active_dims should also
+        handle batch indexing correctly."""
+        kernel = gpytorch.kernels.ScaleKernel(
+            gpytorch.kernels.RBFKernel(
+                active_dims=torch.tensor([0, 1]),
+                batch_shape=torch.Size([2]),
+            ),
+            batch_shape=torch.Size([2]),
+        )
+        x = torch.randn(2, 5, 3)
+
+        result = kernel(x)[1]
+        self.assertEqual(result.shape, torch.Size([5, 5]))
+
+    def test_active_dims_batch_index_semantic_correctness(self):
+        """The indexed result should be semantically equivalent to
+        evaluating the corresponding batch slice directly."""
+        kernel = gpytorch.kernels.RBFKernel(
+            active_dims=torch.tensor([0, 1]),
+            batch_shape=torch.Size([2]),
+        )
+        x = torch.randn(2, 5, 3)
+
+        result_lazy = kernel(x)[1].evaluate()
+        result_direct = kernel(x[1:2]).evaluate()[0]
+
+        self.assertTrue(
+            torch.allclose(result_lazy, result_direct, atol=1e-5),
+            "Results differ: lazy vs direct",
+        )
+
+    def test_active_dims_none_batch_index(self):
+        """When active_dims is None (the default), batch indexing should
+        still work correctly (no regression)."""
+        kernel = gpytorch.kernels.RBFKernel(batch_shape=torch.Size([2]))
+        x = torch.randn(2, 5, 3)
+
+        result = kernel(x)[1]
+        self.assertEqual(result.shape, torch.Size([5, 5]))
+
+    def test_active_dims_batch_getitem_direct_kernel(self):
+        """Direct kernel indexing (not via LazyEvaluatedKernelTensor)
+        should also work correctly."""
+        kernel = gpytorch.kernels.RBFKernel(
+            active_dims=torch.tensor([0]),
+            batch_shape=torch.Size([2]),
+        )
+
+        indexed = kernel[1]
+        self.assertEqual(indexed.batch_shape, torch.Size([]))
+        self.assertTrue(
+            torch.equal(indexed.active_dims, torch.tensor([0])),
+            f"active_dims corrupted: {indexed.active_dims}",
+        )
