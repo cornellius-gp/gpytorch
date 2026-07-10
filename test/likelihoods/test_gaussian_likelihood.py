@@ -251,20 +251,23 @@ class TestDirichletClassificationLikelihoodFantasy(unittest.TestCase):
     def test_dirichlet_fantasy_model_creation(self):
         """Regression test for #2579: get_fantasy_model should succeed for Dirichlet models.
 
-        This test exercises the full get_fantasy_model pipeline. The original #2579
-        RuntimeError is fixed by this PR. A separate, pre-existing issue
-        ("view size is not compatible") in DefaultPredictionStrategy.get_fantasy_strategy
+        This test exercises the full get_fantasy_model pipeline with a batch GP
+        (batched train_x) to ensure indexing operations are batch compatible.
+        The original #2579 RuntimeError is fixed by this PR. A separate, pre-existing
+        issue ("view size is not compatible") in DefaultPredictionStrategy.get_fantasy_strategy
         for batched models is tracked separately and is marked expectedFailure
         until that issue is addressed.
         """
         torch.manual_seed(42)
         n_classes = 3
         n_train = 20
+        batch_size = 2
 
-        train_x = torch.randn(n_train, 2)
-        train_labels = torch.randint(0, n_classes, (n_train,))
+        # Batched train data: (batch, n, d) and (batch, n)
+        train_x = torch.randn(batch_size, n_train, 2)
+        train_labels = torch.randint(0, n_classes, (batch_size, n_train))
 
-        likelihood = DirichletClassificationLikelihood(targets=train_labels, learn_additional_noise=True)
+        likelihood = DirichletClassificationLikelihood(targets=train_labels[0], learn_additional_noise=True)
         model = _DirichletGPModel(train_x, likelihood.transformed_targets, likelihood, num_classes=n_classes)
 
         # Train a few steps
@@ -274,7 +277,7 @@ class TestDirichletClassificationLikelihoodFantasy(unittest.TestCase):
         for _ in range(3):
             optimizer.zero_grad()
             output = model(train_x)
-            loss = -likelihood(output, targets=train_labels).log_prob(likelihood.transformed_targets).sum()
+            loss = -likelihood(output, targets=train_labels[0]).log_prob(likelihood.transformed_targets).sum()
             loss.backward()
             optimizer.step()
 
@@ -285,8 +288,7 @@ class TestDirichletClassificationLikelihoodFantasy(unittest.TestCase):
             model(train_x)
 
         # Create fantasy data
-        fant_x = torch.randn(5, 2)
-        fant_labels = torch.randint(0, n_classes, (5,))
+        fant_x = torch.randn(batch_size, 5, 2)
         fant_y = likelihood.transformed_targets[:, :5]
 
         # This should succeed without RuntimeError (was broken before fix)

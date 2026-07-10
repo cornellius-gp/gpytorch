@@ -450,7 +450,7 @@ class DirichletClassificationLikelihood(FixedNoiseGaussianLikelihood):
         new_targets = kwargs.get("targets")
         # Convert transformed targets to raw class labels if needed
         if new_targets.dim() > 1:
-            new_targets = new_targets.argmax(dim=0)
+            new_targets = new_targets.argmax(dim=-2)
         new_noise, _, _ = fantasy_liklihood._prepare_targets(new_targets, self.alpha_epsilon)
         fantasy_liklihood.targets = torch.cat([fantasy_liklihood.targets, new_targets], -1)
 
