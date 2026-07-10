@@ -17,12 +17,37 @@ softplus = torch.nn.Softplus()
 class Interval(Module):
     def __init__(self, lower_bound, upper_bound, transform=sigmoid, inv_transform=inv_sigmoid, initial_value=None):
         """
-        Defines an interval constraint for GP model parameters, specified by a lower bound and upper bound. For usage
-        details, see the documentation for :meth:`~gpytorch.module.Module.register_constraint`.
+        Defines a bounded interval constraint ``[lower_bound, upper_bound]`` for a GP model parameter.
+
+        A constraint is enforced by a pair of inverse transformations: an unconstrained ``tensor`` is
+        mapped to the constrained domain via :meth:`transform`, and a constrained value is mapped back
+        via :meth:`inverse_transform`. For numerical optimization the unconstrained parameter is
+        stored, and the constraint is applied on every read.
+
+        For usage details, see the documentation for
+        :meth:`~gpytorch.module.Module.register_constraint`.
 
         Args:
             lower_bound (float or torch.Tensor): The lower bound on the parameter.
             upper_bound (float or torch.Tensor): The upper bound on the parameter.
+            transform (callable, optional): Map from the unconstrained (real) line to ``[0, 1]``.
+                Defaults to ``torch.sigmoid``. Ignored for the abstract :class:`Interval` (use a
+                derived class like :class:`GreaterThan` or :class:`LessThan` for one-sided bounds).
+            inv_transform (callable, optional): Inverse of ``transform``. If ``None``, an inverse is
+                derived automatically from the registered transforms module.
+            initial_value (float or torch.Tensor, optional): A value within the interval used to
+                initialize the underlying unconstrained parameter when the constraint is registered.
+
+        Example:
+            >>> import torch
+            >>> from gpytorch.constraints import Interval
+            >>> # Constrain a parameter to live in [0.1, 1.0]
+            >>> constraint = Interval(0.1, 1.0)
+            >>> raw = torch.tensor(0.0)  # unconstrained
+            >>> constraint.transform(raw)
+            tensor(0.5500)
+            >>> constraint.inverse_transform(constraint.transform(raw)).item()
+            0.0
         """
         dtype = torch.get_default_dtype()
         lower_bound = torch.as_tensor(lower_bound).to(dtype)
@@ -111,11 +136,19 @@ class Interval(Module):
         """
         Transforms a tensor to satisfy the specified bounds.
 
-        If upper_bound is finite, we assume that `self.transform` saturates at 1 as tensor -> infinity. Similarly,
-        if lower_bound is finite, we assume that `self.transform` saturates at 0 as tensor -> -infinity.
+        If upper_bound is finite, we assume that ``self._transform`` saturates at 1 as tensor -> infinity.
+        Similarly, if lower_bound is finite, we assume that ``self._transform`` saturates at 0 as
+        tensor -> -infinity.
 
-        Example transforms for one of the bounds being finite include torch.exp and torch.nn.functional.softplus.
-        An example transform for the case where both are finite is torch.nn.functional.sigmoid.
+        Example transforms for one of the bounds being finite include ``torch.exp`` and
+        ``torch.nn.functional.softplus``. An example transform for the case where both are finite is
+        ``torch.nn.functional.sigmoid``.
+
+        Args:
+            tensor (torch.Tensor): The unconstrained tensor to be transformed.
+
+        Returns:
+            torch.Tensor: A tensor whose values lie in ``[lower_bound, upper_bound]``.
         """
         if not self.enforced:
             return tensor
@@ -126,7 +159,15 @@ class Interval(Module):
 
     def inverse_transform(self, transformed_tensor: Tensor) -> Tensor:
         """
-        Applies the inverse transformation.
+        Applies the inverse transformation, mapping a constrained tensor back to its unconstrained
+        representation.
+
+        Args:
+            transformed_tensor (torch.Tensor): A tensor whose values lie in
+                ``[lower_bound, upper_bound]``.
+
+        Returns:
+            torch.Tensor: The unconstrained tensor.
         """
         if not self.enforced:
             return transformed_tensor
@@ -138,7 +179,8 @@ class Interval(Module):
     @property
     def initial_value(self) -> Tensor | None:
         """
-        The initial parameter value (if specified, None otherwise)
+        The initial value assigned to the constrained parameter at registration time
+        (if one was provided to :meth:`__init__`, otherwise ``None``).
         """
         return self._initial_value
 
@@ -155,6 +197,26 @@ class Interval(Module):
 
 class GreaterThan(Interval):
     def __init__(self, lower_bound, transform=softplus, inv_transform=inv_softplus, initial_value=None):
+        """
+        Defines a lower-bound constraint ``x >= lower_bound`` for a GP model parameter.
+
+        Uses the softplus transform by default, which is the natural choice for strictly positive
+        quantities and is the most common constraint in GPyTorch (e.g. lengthscales, noise scales,
+        outputscales).
+
+        Args:
+            lower_bound (float or torch.Tensor): The lower bound on the parameter.
+            transform (callable, optional): Map from the unconstrained (real) line to ``[0, infinity)``.
+                Defaults to ``torch.nn.functional.softplus``.
+            inv_transform (callable, optional): Inverse of ``transform``. Defaults to the inverse
+                softplus.
+            initial_value (float or torch.Tensor, optional): A value ``>= lower_bound`` used to
+                initialize the underlying unconstrained parameter when the constraint is registered.
+
+        Example:
+            >>> from gpytorch.constraints import GreaterThan
+            >>> constraint = GreaterThan(1e-3)  # typical lengthscale lower bound
+        """
         super().__init__(
             lower_bound=lower_bound,
             upper_bound=math.inf,
@@ -180,6 +242,24 @@ class GreaterThan(Interval):
 
 class Positive(GreaterThan):
     def __init__(self, transform=softplus, inv_transform=inv_softplus, initial_value=None):
+        """
+        Defines a positivity constraint ``x > 0`` for a GP model parameter.
+
+        This is a special case of :class:`GreaterThan` with ``lower_bound=0`` and is the most
+        commonly used constraint in GPyTorch.
+
+        Args:
+            transform (callable, optional): Map from the unconstrained (real) line to ``[0, infinity)``.
+                Defaults to ``torch.nn.functional.softplus``.
+            inv_transform (callable, optional): Inverse of ``transform``. Defaults to the inverse
+                softplus.
+            initial_value (float or torch.Tensor, optional): A strictly positive value used to
+                initialize the underlying unconstrained parameter when the constraint is registered.
+
+        Example:
+            >>> from gpytorch.constraints import Positive
+            >>> constraint = Positive()  # equivalent to GreaterThan(0.0)
+        """
         super().__init__(lower_bound=0.0, transform=transform, inv_transform=inv_transform, initial_value=initial_value)
 
     def __repr__(self) -> str:
@@ -196,6 +276,25 @@ class Positive(GreaterThan):
 
 class LessThan(Interval):
     def __init__(self, upper_bound, transform=softplus, inv_transform=inv_softplus, initial_value=None):
+        """
+        Defines an upper-bound constraint ``x <= upper_bound`` for a GP model parameter.
+
+        Uses the softplus transform on the negated tensor, which is the natural choice for strictly
+        bounded above quantities.
+
+        Args:
+            upper_bound (float or torch.Tensor): The upper bound on the parameter.
+            transform (callable, optional): Map from the unconstrained (real) line to ``[0, infinity)``.
+                Defaults to ``torch.nn.functional.softplus``.
+            inv_transform (callable, optional): Inverse of ``transform``. Defaults to the inverse
+                softplus.
+            initial_value (float or torch.Tensor, optional): A value ``<= upper_bound`` used to
+                initialize the underlying unconstrained parameter when the constraint is registered.
+
+        Example:
+            >>> from gpytorch.constraints import LessThan
+            >>> constraint = LessThan(1.0)  # parameter must stay <= 1.0
+        """
         super().__init__(
             lower_bound=-math.inf,
             upper_bound=upper_bound,

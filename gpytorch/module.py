@@ -327,6 +327,47 @@ class Module(nn.Module):
         self._priors[name] = (prior, closure, setting_closure)
 
     def register_constraint(self, param_name: str, constraint: Interval, replace: bool = True) -> None:
+        """
+        Attach a :class:`~gpytorch.constraints.Interval` constraint to a parameter of this module.
+
+        Once registered, the parameter is stored unconstrained and exposed via the constrained
+        value at read time. Constraints interact with priors and initialization: if a prior is also
+        registered for the same ``param_name``, the prior is applied to the unconstrained value; if
+        the constraint supplies an ``initial_value``, the unconstrained parameter is re-initialized
+        to match it at registration time.
+
+        Args:
+            param_name (str): Name of the parameter (must already be registered via
+                ``register_parameter`` or as a ``nn.Parameter`` attribute on this module).
+            constraint (Interval): The constraint to enforce. Typically a
+                :class:`~gpytorch.constraints.Positive`, :class:`~gpytorch.constraints.GreaterThan`,
+                :class:`~gpytorch.constraints.LessThan`, or :class:`~gpytorch.constraints.Interval`.
+            replace (bool, optional): If ``False`` and an existing constraint is already registered
+                for the same parameter, the new constraint is intersected with the existing one
+                instead of replacing it. Defaults to ``True``.
+
+        Raises:
+            RuntimeError: If ``param_name`` is not a registered parameter on this module.
+
+        Example:
+            >>> import torch
+            >>> import gpytorch
+            >>>
+            >>> class MyKernel(gpytorch.kernels.Kernel):
+            ...     def __init__(self):
+            ...         super().__init__()
+            ...         self.register_parameter(
+            ...             "raw_lengthscale",
+            ...             torch.nn.Parameter(torch.zeros(())),
+            ...         )
+            ...         # Constrain lengthscale to be strictly positive.
+            ...         self.register_constraint("raw_lengthscale", gpytorch.constraints.Positive())
+            ...
+            ...     def forward(self, x):
+            ...         # Access the constrained value via the auto-generated property:
+            ...         ls = self.lengthscale
+            ...         return x / ls
+        """
         if param_name not in self._parameters:
             raise RuntimeError("Attempting to register constraint for nonexistent parameter.")
 
