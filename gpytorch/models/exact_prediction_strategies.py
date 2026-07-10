@@ -260,7 +260,7 @@ class DefaultPredictionStrategy:
             root=new_root,
             inv_root=new_covar_cache,
         )
-        add_to_cache(fant_strat, "mean_cache", fant_mean_cache)
+        add_to_cache(fant_strat, "mean_cache", fant_mean_cache, settings.observation_nan_policy.value())
         add_to_cache(fant_strat, "covar_cache", new_covar_cache.to_dense())
         return fant_strat
 
