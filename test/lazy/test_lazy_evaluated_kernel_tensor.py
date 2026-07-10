@@ -357,8 +357,6 @@ class TestKernelBatchGetitemActiveDims(unittest.TestCase):
         kernel = gpytorch.kernels.RBFKernel(
             batch_shape=torch.Size([2]),
         )
-        orig_ls = kernel.lengthscale
-
         expanded = kernel.expand_batch(torch.Size([4, 2]))
         self.assertEqual(expanded.batch_shape, torch.Size([4, 2]))
         self.assertEqual(expanded.lengthscale.shape, torch.Size([4, 2, 1, 1]))
