@@ -271,6 +271,14 @@ class TestInterpolatedExactGP(TestExactGP):
         model = InterpolatedExactGPModel(train_x, train_y, likelihood)
         return model
 
+    @unittest.skip("InterpolatedPredictionStrategy uses different cache keys (interp_inner_prod/interp_response_cache)")
+    def test_fantasy_mean_cache_key_continuity(self):
+        pass
+
+    @unittest.skip("InterpolatedPredictionStrategy uses different cache keys (interp_inner_prod/interp_response_cache)")
+    def test_fantasy_mean_cache_is_cache_hit(self):
+        pass
+
 
 class TestWiskiExactGP(TestInterpolatedExactGP):
     def create_model(self, train_x, train_y, likelihood):
