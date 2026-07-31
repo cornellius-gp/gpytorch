@@ -94,6 +94,12 @@ reduce the variance when computing approximate GP objective functions.
 .. autoclass:: StudentTLikelihood
    :members:
 
+:hidden:`OrdinalLikelihood`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: OrdinalLikelihood
+   :members:
+
 
 Multi-Dimensional Likelihoods
 -----------------------------
