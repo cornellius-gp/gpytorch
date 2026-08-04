@@ -26,6 +26,27 @@ class TestSmoothedBoxPrior(unittest.TestCase):
         with self.assertRaises(ValueError):
             SmoothedBoxPrior(torch.ones(2), torch.zeros(2), validate_args=True)
 
+    def test_smoothed_box_prior_shape(self):
+        # univariate distribution should have empty batch and event shapes
+        prior = SmoothedBoxPrior(a=1.0, b=2.0, sigma=0.1)
+        self.assertEqual(prior.batch_shape, torch.Size([]))
+        self.assertEqual(prior.event_shape, torch.Size([]))
+
+        # still univariate distribution, but with tensor arguments
+        prior = SmoothedBoxPrior(a=torch.tensor(1.0), b=2.0, sigma=0.1)
+        self.assertEqual(prior.batch_shape, torch.Size([]))
+        self.assertEqual(prior.event_shape, torch.Size([]))
+
+        # "multivariate" distribution, where the dimension is 1
+        prior = SmoothedBoxPrior(a=torch.tensor([1.0]), b=2.0, sigma=0.1)
+        self.assertEqual(prior.batch_shape, torch.Size([]))
+        self.assertEqual(prior.event_shape, torch.Size([1]))
+
+        # real multivariate distribution with batch shape
+        prior = SmoothedBoxPrior(a=torch.ones(2, 3), b=2.0, sigma=0.1)
+        self.assertEqual(prior.batch_shape, torch.Size([2]))
+        self.assertEqual(prior.event_shape, torch.Size([3]))
+
     def test_smoothed_box_prior_log_prob(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
         a, b = torch.zeros(2, device=device), torch.ones(2, device=device)
