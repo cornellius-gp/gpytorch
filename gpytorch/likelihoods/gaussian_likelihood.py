@@ -439,7 +439,7 @@ class DirichletClassificationLikelihood(FixedNoiseGaussianLikelihood):
         # we assume that the number of classes does not change.
 
         if "targets" not in kwargs:
-            raise RuntimeError("FixedNoiseGaussianLikelihood.fantasize requires a `targets` kwarg")
+            raise RuntimeError("DirichletClassificationLikelihood.get_fantasy_likelihood requires a `targets` kwarg")
 
         old_noise_covar = self.noise_covar
         self.noise_covar = None  # pyre-fixme[8]
@@ -447,8 +447,11 @@ class DirichletClassificationLikelihood(FixedNoiseGaussianLikelihood):
         self.noise_covar = old_noise_covar
 
         old_noise = old_noise_covar.noise
-        new_targets = kwargs.get("noise")
-        new_noise, new_targets, _ = fantasy_liklihood._prepare_targets(new_targets, self.alpha_epsilon)
+        new_targets = kwargs.get("targets")
+        # Convert transformed targets to raw class labels if needed
+        if new_targets.dim() > 1:
+            new_targets = new_targets.argmax(dim=-2)
+        new_noise, _, _ = fantasy_liklihood._prepare_targets(new_targets, self.alpha_epsilon)
         fantasy_liklihood.targets = torch.cat([fantasy_liklihood.targets, new_targets], -1)
 
         if old_noise.dim() != new_noise.dim():

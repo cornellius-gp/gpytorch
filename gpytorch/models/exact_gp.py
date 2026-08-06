@@ -231,6 +231,9 @@ class ExactGP(GP):
         except KeyError:
             fantasy_kwargs = {}
 
+        if targets is not None:
+            fantasy_kwargs["targets"] = targets
+
         full_output = super().__call__(*full_inputs, **kwargs)
 
         # Copy model without copying training data or prediction strategy (since we'll overwrite those)
@@ -249,6 +252,7 @@ class ExactGP(GP):
         self.likelihood = old_likelihood
 
         new_model.likelihood = old_likelihood.get_fantasy_likelihood(**fantasy_kwargs)
+        fantasy_kwargs.pop("targets", None)
         new_model.prediction_strategy = old_pred_strat.get_fantasy_strategy(
             inputs, targets, full_inputs, full_targets, full_output, **fantasy_kwargs
         )

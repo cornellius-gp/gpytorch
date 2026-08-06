@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import math
 import unittest
 
 import torch
@@ -62,6 +63,28 @@ class TestPiecewisePolynomialKernel(unittest.TestCase, BaseKernelTestCase):
         # batch_dims + diag
         res = kernel(a, b, last_dim_is_batch=True).diagonal(dim1=-1, dim2=-2)
         actual = torch.cat([actual[i].diagonal(dim1=-1, dim2=-2).unsqueeze(0) for i in range(actual.size(0))])
+        self.assertLess(torch.norm(res - actual), 1e-5)
+
+    def test_computes_piecewise_polynomial_kernel_q2(self):
+        # Points must be close enough that r < 1 (i.e. inside the kernel's
+        # compact support), otherwise (1 - r)_+ zeros out the polynomial term
+        # and the q=2 coefficient is never exercised.
+        a = torch.tensor([[0.0, 0.0], [0.1, 0.2], [0.3, 0.1]], dtype=torch.float)
+        b = torch.tensor([[0.05, 0.05], [0.2, 0.1], [0.15, 0.25]], dtype=torch.float)
+        D = a.shape[-1]
+        kernel = PiecewisePolynomialKernel(q=2)
+        kernel.eval()
+
+        # Reconstruct the reference value using the kernel's own distance (so the
+        # only thing under test is the q=2 covariance polynomial coefficient).
+        r = kernel.covar_dist(a.div(kernel.lengthscale), b.div(kernel.lengthscale))
+        self.assertTrue((r < 1).any())  # ensure the polynomial term is actually exercised
+        j = math.floor(D / 2.0) + kernel.q + 1
+        fmax = torch.clamp(1 - r, min=0.0).pow(j + kernel.q)
+        # Closed form from Rasmussen & Williams Eq. 4.21
+        cov = 1 + (j + 2) * r + ((j**2 + 4 * j + 3) / 3.0) * r**2
+        actual = fmax * cov
+        res = kernel(a, b).to_dense()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
     def test_piecewise_polynomial_kernel_batch(self):

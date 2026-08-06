@@ -18,7 +18,7 @@ def _get_cov(r: Tensor, j: int, q: int) -> Tensor:
     if q == 1:
         return (j + 1) * r + 1
     if q == 2:
-        return 1 + (j + 2) * r + ((j + 4 * j + 3) / 3.0) * (r**2)
+        return 1 + (j + 2) * r + ((j**2 + 4 * j + 3) / 3.0) * (r**2)
     if q == 3:
         return (
             1
