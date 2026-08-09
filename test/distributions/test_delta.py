@@ -45,3 +45,12 @@ class TestDelta(BaseTestCase, unittest.TestCase):
         torch_var = np.var(torch_samples)
         self.assertEqual(torch_mean, self.analytic_mean)
         self.assertEqual(torch_var, self.analytic_var)
+
+    def test_expand(self):
+        delta = dist.Delta(torch.tensor([1.0, 2.0]))
+        expanded = delta.expand(torch.Size([3, 2]))
+
+        self.assertEqual(delta.batch_shape, torch.Size([2]))
+        self.assertEqual(expanded.batch_shape, torch.Size([3, 2]))
+        self.assertEqual(expanded.event_shape, torch.Size())
+        self.assertEqual(expanded.v, torch.tensor([[1.0, 2.0]]).expand(3, 2))
