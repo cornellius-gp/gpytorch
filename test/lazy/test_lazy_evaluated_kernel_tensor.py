@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import math
+import threading
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -161,6 +162,103 @@ class TestLazyEvaluatedKernelTensorBatch(LinearOperatorTestCase, unittest.TestCa
             lazy_tensor = k(X)
         self.assertFalse(lazy_tensor.to_dense().requires_grad)
 
+    def test_evaluate_kernel_does_not_mutate_active_dims(self):
+        """evaluate_kernel must not temporarily clear the shared kernel's active_dims.
+
+        Mutating active_dims creates a race when the same kernel is evaluated
+        concurrently (see cornellius-gp/gpytorch#2763).
+        """
+        kernel = gpytorch.kernels.RBFKernel(active_dims=[0])
+        kernel.eval()
+        x1 = torch.tensor([[0.0, 0.0]])
+        x2 = torch.tensor([[0.0, 2.0]])
+        lazy_tensor = kernel(x1, x2)
+
+        active_dims_before = kernel.active_dims
+        self.assertIsNotNone(active_dims_before)
+
+        writes: list = []
+        original_setattr = torch.nn.Module.__setattr__
+
+        def tracking_setattr(module, name, value):
+            if name == "active_dims" and module is kernel:
+                writes.append(value)
+            return original_setattr(module, name, value)
+
+        with patch.object(torch.nn.Module, "__setattr__", tracking_setattr):
+            res = lazy_tensor.evaluate_kernel().to_dense()
+
+        self.assertEqual(writes, [])
+        self.assertIs(kernel.active_dims, active_dims_before)
+        # Feature 0 only: both points are 0 -> covariance 1 (not exp(-2) from full features)
+        self.assertAlmostEqual(res.item(), 1.0, places=5)
+
+    def test_active_dims_override_skips_slicing(self):
+        """Passing active_dims=None skips slicing without changing the kernel buffer."""
+        kernel = gpytorch.kernels.RBFKernel(active_dims=[0])
+        kernel.eval()
+        active_dims_before = kernel.active_dims.clone()
+
+        # Already restricted to the active dimension
+        x1 = torch.tensor([[0.0]])
+        x2 = torch.tensor([[0.0]])
+        with gpytorch.settings.lazily_evaluate_kernels(False):
+            res = kernel(x1, x2, active_dims=None).to_dense()
+
+        self.assertTrue(torch.equal(kernel.active_dims, active_dims_before))
+        self.assertAlmostEqual(res.item(), 1.0, places=5)
+
+        # Full features with default active_dims still use only dim 0
+        x1_full = torch.tensor([[0.0, 0.0]])
+        x2_full = torch.tensor([[0.0, 2.0]])
+        with gpytorch.settings.lazily_evaluate_kernels(False):
+            res_sliced = kernel(x1_full, x2_full).to_dense()
+        self.assertAlmostEqual(res_sliced.item(), 1.0, places=5)
+
+    def test_active_dims_concurrent_evaluate_kernel(self):
+        """Concurrent lazy eval and eager calls must not observe active_dims=None."""
+        kernel = gpytorch.kernels.RBFKernel(active_dims=[0])
+        kernel.eval()
+        x1 = torch.tensor([[0.0, 0.0]])
+        x2 = torch.tensor([[0.0, 2.0]])
+        expected = 1.0
+        # Wrong value if active_dims is observed as None (uses both features)
+        racy_wrong = math.exp(-2.0)
+
+        stop = threading.Event()
+        errors: list[float] = []
+        barrier = threading.Barrier(2)
+
+        def lazy_eval_loop():
+            barrier.wait()
+            while not stop.is_set():
+                # New LazyEvaluatedKernelTensor each time so evaluate_kernel is not cached
+                kernel(x1, x2).to_dense()
+
+        def eager_eval_loop():
+            barrier.wait()
+            while not stop.is_set():
+                with gpytorch.settings.lazily_evaluate_kernels(False):
+                    val = kernel(x1, x2).to_dense().item()
+                if abs(val - expected) > 1e-4:
+                    errors.append(val)
+                    stop.set()
+                    return
+            # also stop if we finish without error (timeout path sets stop)
+
+        t_lazy = threading.Thread(target=lazy_eval_loop)
+        t_eager = threading.Thread(target=eager_eval_loop)
+        t_lazy.start()
+        t_eager.start()
+        t_eager.join(timeout=2.0)
+        stop.set()
+        t_lazy.join(timeout=2.0)
+
+        self.assertFalse(
+            errors,
+            f"Concurrent eval observed wrong values (e.g. racy {racy_wrong:.4f}): {errors}",
+        )
+
 
 class TestLazyEvaluatedKernelTensorMultitaskBatch(TestLazyEvaluatedKernelTensorBatch):
     seed = 0
@@ -181,6 +279,16 @@ class TestLazyEvaluatedKernelTensorMultitaskBatch(TestLazyEvaluatedKernelTensorB
         lazy_tensor = self.create_linear_op()
         lazy_tensor.kernel.data_covar_module.raw_lengthscale_constraint.transform = lambda x: x + 0.1
         self._test_half(lazy_tensor)
+
+    # Race / mutation tests are specific to plain RBFKernel + active_dims
+    def test_evaluate_kernel_does_not_mutate_active_dims(self):
+        pass
+
+    def test_active_dims_override_skips_slicing(self):
+        pass
+
+    def test_active_dims_concurrent_evaluate_kernel(self):
+        pass
 
 
 class TestLazyEvaluatedKernelTensorAdditive(TestLazyEvaluatedKernelTensorBatch):
@@ -211,3 +319,12 @@ class TestLazyEvaluatedKernelTensorAdditive(TestLazyEvaluatedKernelTensorBatch):
         lazy_tensor = self.create_linear_op()
         lazy_tensor.kernel.base_kernel.raw_lengthscale_constraint.transform = lambda x: x + 0.1
         self._test_half(lazy_tensor)
+
+    def test_evaluate_kernel_does_not_mutate_active_dims(self):
+        pass
+
+    def test_active_dims_override_skips_slicing(self):
+        pass
+
+    def test_active_dims_concurrent_evaluate_kernel(self):
+        pass
