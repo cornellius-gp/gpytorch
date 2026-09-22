@@ -104,6 +104,9 @@ class IndexKernel(Kernel):
         covar_matrix = self._eval_covar_matrix()
         batch_shape = torch.broadcast_shapes(i1.shape[:-2], i2.shape[:-2], self.batch_shape)
 
+        if i1.size(-2) == 0 or i2.size(-2) == 0:
+            return covar_matrix.new_zeros(batch_shape + (i1.size(-2), i2.size(-2)))
+
         res = InterpolatedLinearOperator(
             base_linear_op=covar_matrix,
             left_interp_indices=i1.expand(batch_shape + i1.shape[-2:]),
