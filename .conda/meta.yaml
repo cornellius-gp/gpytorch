@@ -43,7 +43,7 @@ test:
     - gpytorch.variational
 
 about:
-  home: https://gpytorch.ai
+  home: https://github.com/cornellius-gp/gpytorch
   license: MIT
   license_file: LICENSE
   summary: An implementation of Gaussian Processes in Pytorch

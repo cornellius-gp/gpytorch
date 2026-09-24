@@ -61,7 +61,7 @@ setup(
     long_description=readme,
     long_description_content_type="text/markdown",
     author="Jake Gardner, Geoff Pleiss",
-    url="https://gpytorch.ai",
+    url="https://github.com/cornellius-gp/gpytorch",
     author_email="gpleiss@gmail.com",
     project_urls={
         "Documentation": "https://gpytorch.readthedocs.io",
