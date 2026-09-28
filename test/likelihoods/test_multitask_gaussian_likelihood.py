@@ -52,7 +52,7 @@ class TestMultitaskGaussianLikelihood(BaseLikelihoodTestCase, unittest.TestCase)
 
         # test rank 0 setters
         likelihood.noise = 0.5
-        self.assertAlmostEqual(0.5, likelihood.noise.item())
+        self.assertAllClose(torch.tensor([0.5]), likelihood.noise)
 
         likelihood.task_noises = torch.tensor([0.04, 0.04, 0.04])
         for i in range(3):
@@ -65,7 +65,7 @@ class TestMultitaskGaussianLikelihood(BaseLikelihoodTestCase, unittest.TestCase)
         # test low rank setters
         likelihood = MultitaskGaussianLikelihood(num_tasks=3, rank=2)
         likelihood.noise = 0.5
-        self.assertAlmostEqual(0.5, likelihood.noise.item())
+        self.assertAllClose(torch.tensor([0.5]), likelihood.noise)
 
         likelihood.task_noise_covar = mat
         self.assertAllClose(mat, likelihood.task_noise_covar)
