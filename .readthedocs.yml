@@ -12,7 +12,7 @@ build:
   jobs:
     pre_install:  # Lock dependencies at their minimum supported versions
       - pip install "numpy>=2.0,<2.1"
-      - pip install torch==2.4.1 --index-url https://download.pytorch.org/whl/cpu
+      - pip install torch==2.4.1 --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.org/simple
     pre_build:
       - pip install "setuptools<78"  # setuptools 78+ removed pkg_resources, which m2r2 needs
       - python -m setuptools_scm  # Get correct version number
