@@ -6,7 +6,7 @@ import random
 import unittest
 
 import torch
-from linear_operator.operators import DiagLinearOperator, KroneckerProductLinearOperator
+from linear_operator.operators import DenseLinearOperator, DiagLinearOperator, KroneckerProductLinearOperator
 
 from gpytorch.distributions import MultitaskMultivariateNormal, MultivariateNormal
 from gpytorch.test.base_test_case import BaseTestCase
@@ -195,6 +195,69 @@ class TestMultiTaskMultivariateNormal(BaseTestCase, unittest.TestCase):
             res = MultitaskMultivariateNormal(mean, DiagLinearOperator(var)).log_prob(values)
             actual = -0.5 * (math.log(math.pi * 2) * 12 + var.log().sum(-1) + (diffs / var * diffs).sum(-1))
             self.assertLess((res - actual).div(res).abs().norm(), 1e-2)
+
+    def test_log_prob_event_order(self) -> None:
+        for dtype in (torch.float32, torch.float64):
+            for lazy in (False, True):
+                for batch_shape in ((), (2,), (2, 1)):
+                    for sample_shape in ((), (2, 3)):
+                        for interleaved in (False, True):
+                            for strided in (False, True):
+                                with self.subTest(
+                                    dtype=dtype,
+                                    lazy=lazy,
+                                    batch=batch_shape,
+                                    sample=sample_shape,
+                                    interleaved=interleaved,
+                                    strided=strided,
+                                ):
+                                    n, t = 2, 3
+                                    mean = torch.arange(6, dtype=dtype).reshape(n, t).expand(*batch_shape, n, t)
+                                    mean = (mean / 3).clone().requires_grad_()
+                                    factor = torch.arange(36, dtype=dtype).reshape(6, 6).tril() / 50 + torch.eye(6)
+                                    factor = factor.expand(*batch_shape, 6, 6).clone().requires_grad_()
+                                    value = (
+                                        torch.arange(
+                                            torch.Size(sample_shape + batch_shape + (n, t)).numel(), dtype=dtype
+                                        )
+                                        .sin()
+                                        .reshape(*sample_shape, *batch_shape, n, t)
+                                    )
+                                    if strided:
+                                        value = value.transpose(-1, -2).contiguous().transpose(-1, -2)
+                                    value = value.requires_grad_()
+                                    reference_mean = mean.detach().clone().requires_grad_()
+                                    reference_factor = factor.detach().clone().requires_grad_()
+                                    reference_value = value.detach().clone().requires_grad_()
+                                    covariance = factor @ factor.mT
+                                    reference_covariance = reference_factor @ reference_factor.mT
+                                    if lazy:
+                                        covariance = DenseLinearOperator(covariance)
+                                    distribution = MultitaskMultivariateNormal(
+                                        mean,
+                                        covariance,
+                                        interleaved=interleaved,
+                                    )
+                                    flat_mean = reference_mean if interleaved else reference_mean.transpose(-1, -2)
+                                    flat_value = reference_value if interleaved else reference_value.transpose(-1, -2)
+                                    reference = torch.distributions.MultivariateNormal(
+                                        flat_mean.reshape(*batch_shape, 6),
+                                        covariance_matrix=reference_covariance,
+                                    )
+                                    expected = reference.log_prob(flat_value.reshape(*sample_shape, *batch_shape, 6))
+                                    actual = distribution.log_prob(value)
+                                    self.assertEqual(actual.shape, expected.shape)
+                                    torch.testing.assert_close(actual, expected)
+                                    weights = torch.linspace(1, 2, expected.numel(), dtype=dtype).reshape(
+                                        expected.shape
+                                    )
+                                    actual_grads = torch.autograd.grad((actual * weights).sum(), (mean, factor, value))
+                                    expected_grads = torch.autograd.grad(
+                                        (expected * weights).sum(),
+                                        (reference_mean, reference_factor, reference_value),
+                                    )
+                                    for actual_grad, expected_grad in zip(actual_grads, expected_grads):
+                                        torch.testing.assert_close(actual_grad, expected_grad)
 
     def test_log_prob_cuda(self):
         if torch.cuda.is_available():
