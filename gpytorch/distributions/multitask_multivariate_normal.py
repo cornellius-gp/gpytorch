@@ -364,7 +364,9 @@ class MultitaskMultivariateNormal(MultivariateNormal):
                 # A block of the reversely interleaved covariance matrix
                 row_idx = _normalize_slice(row_idx, num_rows)
                 col_idx = _normalize_index(col_idx, num_cols)
-                new_slice = slice(row_idx.start + col_idx, row_idx.stop * num_cols + col_idx, row_idx.step * num_cols)
+                new_slice = slice(
+                    row_idx.start * num_cols + col_idx, row_idx.stop * num_cols + col_idx, row_idx.step * num_cols
+                )
                 new_cov = self.lazy_covariance_matrix[batch_idx + (new_slice, new_slice)]
                 return MultivariateNormal(mean=new_mean, covariance_matrix=new_cov)
             elif (
