@@ -212,3 +212,86 @@ class TestMetricsBatchedMultiTask(TestMetricsMultiTask):
     def setUp(self):
         batch_shape = torch.Size((4,))
         super().setUp(batch_shape=batch_shape)
+
+
+class TestMetricStandardizationBatch(unittest.TestCase):
+    @staticmethod
+    def _fixture(
+        dtype: torch.dtype, batch_shape: tuple[int, ...], multitask: bool
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, int]:
+        tasks = 3 if multitask else 1
+        parameter_shape = (*batch_shape, tasks) if multitask else batch_shape
+        scales = torch.arange(torch.Size(parameter_shape).numel(), dtype=dtype).reshape(parameter_shape) + 1
+        offsets = scales * 10
+        data_dim = -2 if multitask else -1
+        test_points = torch.arange(4, dtype=dtype)
+        train_points = torch.arange(5, dtype=dtype)
+        if multitask:
+            test_points = test_points.unsqueeze(-1)
+            train_points = train_points.unsqueeze(-1)
+        test_y = offsets.unsqueeze(data_dim) + scales.unsqueeze(data_dim) * test_points
+        train_y = offsets.unsqueeze(data_dim) + scales.unsqueeze(data_dim) * train_points
+        mean = (test_y + 1).requires_grad_()
+        variance = torch.full_like(mean, 2, requires_grad=True)
+        return mean, variance, test_y, train_y, scales, offsets, data_dim
+
+    @staticmethod
+    def _distribution(mean: torch.Tensor, variance: torch.Tensor, layout: bool | None) -> MultivariateNormal:
+        if layout is None:
+            return MultivariateNormal(mean, torch.diag_embed(variance))
+        flat_variance = variance if layout else variance.transpose(-1, -2)
+        covariance = torch.diag_embed(flat_variance.flatten(-2))
+        return MultitaskMultivariateNormal(mean, covariance, interleaved=layout)
+
+    def test_smse_preserves_batch_and_task_statistics(self) -> None:
+        for dtype in (torch.float32, torch.float64):
+            for batch_shape in ((), (2,), (2, 1)):
+                for layout in (None, False, True):
+                    with self.subTest(dtype=dtype, batch=batch_shape, layout=layout):
+                        mean, variance, test_y, _, scales, _, data_dim = self._fixture(
+                            dtype,
+                            batch_shape,
+                            layout is not None,
+                        )
+                        distribution = self._distribution(mean, variance, layout)
+                        # Sample variance of [0, 1, 2, 3] is 5/3, independently of offsets.
+                        expected = (mean - test_y).square().mean(data_dim) / (scales.square() * (5 / 3))
+                        actual = standardized_mean_squared_error(distribution, test_y)
+                        self.assertEqual(actual.shape, expected.shape)
+                        torch.testing.assert_close(actual, expected)
+                        weights = torch.linspace(1, 2, expected.numel(), dtype=dtype).reshape(expected.shape)
+                        actual_grad = torch.autograd.grad((actual * weights).sum(), mean, retain_graph=True)[0]
+                        expected_grad = torch.autograd.grad((expected * weights).sum(), mean)[0]
+                        torch.testing.assert_close(actual_grad, expected_grad)
+
+    def test_msll_training_baseline_preserves_batch_and_task_statistics(self) -> None:
+        for dtype in (torch.float32, torch.float64):
+            for batch_shape in ((), (2,), (2, 1)):
+                for layout in (None, False, True):
+                    with self.subTest(dtype=dtype, batch=batch_shape, layout=layout):
+                        mean, variance, test_y, train_y, scales, offsets, data_dim = self._fixture(
+                            dtype,
+                            batch_shape,
+                            layout is not None,
+                        )
+                        distribution = self._distribution(mean, variance, layout)
+                        model_loss = -torch.distributions.Normal(mean, variance.sqrt()).log_prob(test_y).mean(data_dim)
+                        # Training values [0,1,2,3,4] have mean2 and sample variance5/2.
+                        trivial_model = torch.distributions.Normal(
+                            (offsets + 2 * scales).unsqueeze(data_dim),
+                            (scales * math.sqrt(5 / 2)).unsqueeze(data_dim),
+                        )
+                        expected = model_loss + trivial_model.log_prob(test_y).mean(data_dim)
+                        actual = mean_standardized_log_loss(distribution, test_y, train_y)
+                        self.assertEqual(actual.shape, expected.shape)
+                        torch.testing.assert_close(actual, expected)
+                        torch.testing.assert_close(mean_standardized_log_loss(distribution, test_y), model_loss)
+                        weights = torch.linspace(1, 2, expected.numel(), dtype=dtype).reshape(expected.shape)
+                        actual_grads = torch.autograd.grad(
+                            (actual * weights).sum(),
+                            (mean, variance),
+                            retain_graph=True,
+                        )
+                        expected_grads = torch.autograd.grad((expected * weights).sum(), (mean, variance))
+                        for actual_grad, expected_grad in zip(actual_grads, expected_grads):
+                            torch.testing.assert_close(actual_grad, expected_grad)
