@@ -69,6 +69,20 @@ class SumExactGPModel(ExactGP):
         return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
 
 
+class BatchExactGPModel(ExactGP):
+    def __init__(self, train_x, train_y, likelihood, batch_shape):
+        super().__init__(train_x, train_y, likelihood)
+        self.mean_module = gpytorch.means.ConstantMean(batch_shape=batch_shape)
+        self.covar_module = gpytorch.kernels.ScaleKernel(
+            gpytorch.kernels.RBFKernel(batch_shape=batch_shape), batch_shape=batch_shape
+        )
+
+    def forward(self, x):
+        mean_x = self.mean_module(x)
+        covar_x = self.covar_module(x)
+        return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
+
+
 class TestExactGP(BaseModelTestCase, unittest.TestCase):
     def create_model(self, train_x, train_y, likelihood):
         model = ExactGPModel(train_x, train_y, likelihood)
@@ -174,6 +188,53 @@ class TestExactGP(BaseModelTestCase, unittest.TestCase):
             prior_out_cm = model(test_data)
         self.assertTrue(torch.allclose(prior_out.mean, prior_out_cm.mean))
         self.assertTrue(torch.allclose(prior_out.covariance_matrix, prior_out_cm.covariance_matrix))
+
+    def test_batched_multioutput_prediction_singleton_batch(self):
+        # Regression test for the batched multi-output prediction bug where a 4-dim
+        # mean_cache with a singleton batch dim (dim 1) was incorrectly squeezed,
+        # causing the batch dimensions to mis-broadcast. See BoTorch issue #3336.
+        torch.manual_seed(0)
+        dtype = torch.double
+        # aug batch = [b0, b1, m] = [4, 1, 2] -> mean_cache is 4-dim -> triggers the path
+        b0, b1, m, n, d = 4, 1, 2, 7, 2
+        aug_batch = torch.Size([b0, b1, m])
+        train_x = torch.rand(b0, b1, m, n, d, dtype=dtype)
+        train_y = torch.rand(b0, b1, m, n, dtype=dtype)
+
+        likelihood = GaussianLikelihood(batch_shape=aug_batch).to(dtype=dtype)
+        model = BatchExactGPModel(train_x, train_y, likelihood, aug_batch).to(dtype=dtype)
+        model.eval()
+        likelihood.eval()
+
+        # Leading MC-sample batch of 64, then [b0, b1]; output dim inserted at position -3.
+        test_x = torch.rand(64, b0, b1, 1, 5, d, dtype=dtype)
+        with torch.no_grad(), gpytorch.settings.fast_pred_var(False):
+            mean = model(test_x).mean
+        self.assertEqual(mean.shape, torch.Size([64, b0, b1, m, 5]))
+
+        # Ground truth: each output modeled independently (mean_cache is 3-dim, unaffected).
+        # Only the batched tensors (dim >= 3) carry the output dim to slice; scalar
+        # constraint bounds are shared across outputs and copied verbatim.
+        for j in range(m):
+            likelihood_j = GaussianLikelihood(batch_shape=torch.Size([b0, b1])).to(dtype=dtype)
+            likelihood_j.load_state_dict(
+                {k: (v[:, :, j] if v.dim() >= 3 else v) for k, v in likelihood.state_dict().items()}
+            )
+            model_j = BatchExactGPModel(train_x[:, :, j], train_y[:, :, j], likelihood_j, torch.Size([b0, b1])).to(
+                dtype=dtype
+            )
+            model_j.load_state_dict(
+                {
+                    k: (v[:, :, j] if v.dim() >= 3 else v)
+                    for k, v in model.state_dict().items()
+                    if k in model_j.state_dict()
+                }
+            )
+            model_j.eval()
+            likelihood_j.eval()
+            with torch.no_grad(), gpytorch.settings.fast_pred_var(False):
+                mean_j = model_j(test_x[..., 0, :, :]).mean  # drop inserted output dim slot
+            self.assertLess((mean[..., j, :] - mean_j).abs().max().item(), 1e-6)
 
     def test_lanczos_fantasy_model(self):
         lanczos_thresh = 10

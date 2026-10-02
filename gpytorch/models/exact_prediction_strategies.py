@@ -386,8 +386,14 @@ class DefaultPredictionStrategy:
         # GP, and using addmv requires you to to_dense test_train_covar, which is obviously a huge no-no!
 
         # see https://github.com/cornellius-gp/gpytorch/pull/2317#discussion_r1157994719
+        # NOTE: This squeeze is only correct for multitask models, whose mean_cache
+        # carries a spurious singleton dimension at index 1. For batched multi-output
+        # models (a plain, non-multitask MultivariateNormal), a 4-dimensional
+        # mean_cache -- e.g. ``num_fantasies x batch x num_outputs x num_train`` from
+        # fantasizing -- must NOT be squeezed, otherwise a singleton batch dimension is
+        # dropped and the remaining dimensions mis-broadcast against test_train_covar.
         mean_cache = self.mean_cache
-        if len(mean_cache.shape) == 4:
+        if len(mean_cache.shape) == 4 and isinstance(self.train_prior_dist, MultitaskMultivariateNormal):
             mean_cache = mean_cache.squeeze(1)
 
         # Handle NaNs
