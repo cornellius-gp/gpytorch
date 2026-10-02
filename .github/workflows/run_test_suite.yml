@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        pytorch-version: ["main", "minimum"]
+        pytorch-version: ["main", "stable"]
         extras: ["with-extras", "no-extras"]
     steps:
     - uses: actions/checkout@v5
