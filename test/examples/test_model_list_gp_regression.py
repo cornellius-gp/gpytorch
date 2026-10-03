@@ -8,7 +8,7 @@ import torch
 import gpytorch
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.kernels import RBFKernel, ScaleKernel
-from gpytorch.likelihoods import GaussianLikelihood, LikelihoodList
+from gpytorch.likelihoods import FixedNoiseGaussianLikelihood, GaussianLikelihood, LikelihoodList
 from gpytorch.means import ConstantMean
 from gpytorch.mlls import SumMarginalLogLikelihood
 from gpytorch.models import IndependentModelList
@@ -76,6 +76,45 @@ class TestModelListGPRegression(unittest.TestCase):
         self.assertEqual(len(outputs_f), 2)
         self.assertIsInstance(predictions_obs_noise, list)
         self.assertEqual(len(predictions_obs_noise), 2)
+
+
+    def test_model_list_fixed_noise_likelihood_noise_kwarg(self):
+        # LikelihoodList must forward per-likelihood noise kwargs correctly
+        # for FixedNoiseGaussianLikelihood (see #2647).
+        train_x1 = torch.linspace(0, 0.95, 25) + 0.05 * torch.rand(25)
+        train_x2 = torch.linspace(0, 0.95, 15) + 0.05 * torch.rand(15)
+        train_y1 = torch.sin(train_x1 * (2 * math.pi)) + 0.2 * torch.randn_like(train_x1)
+        train_y2 = torch.cos(train_x2 * (2 * math.pi)) + 0.2 * torch.randn_like(train_x2)
+
+        noise1 = torch.ones_like(train_y1) * 0.1
+        noise2 = torch.ones_like(train_y2) * 0.1
+        likelihood1 = FixedNoiseGaussianLikelihood(noise=noise1)
+        likelihood2 = FixedNoiseGaussianLikelihood(noise=noise2)
+        model1 = ExactGPModel(train_x1, train_y1, likelihood1)
+        model2 = ExactGPModel(train_x2, train_y2, likelihood2)
+
+        model = IndependentModelList(model1, model2)
+        likelihood = LikelihoodList(model1.likelihood, model2.likelihood)
+
+        model.eval()
+        likelihood.eval()
+
+        with torch.no_grad(), gpytorch.settings.fast_pred_var():
+            test_x = torch.linspace(0, 1, 10)
+            test_noise = [torch.ones(len(test_x)) * 0.2, torch.ones(len(test_x)) * 0.3]
+            outputs_f = model(test_x, test_x)
+            predictions = likelihood(*outputs_f, noise=test_noise)
+
+        self.assertIsInstance(predictions, list)
+        self.assertEqual(len(predictions), 2)
+        self.assertEqual(predictions[0].mean.shape[-1], test_x.shape[0])
+        self.assertEqual(predictions[1].mean.shape[-1], test_x.shape[0])
+
+        # Also accept a stacked tensor whose first dim indexes likelihoods.
+        with torch.no_grad(), gpytorch.settings.fast_pred_var():
+            stacked = torch.stack(test_noise, dim=0)
+            predictions2 = likelihood(*outputs_f, noise=stacked)
+        self.assertEqual(len(predictions2), 2)
 
     def test_simple_model_list_gp_regression_cuda(self):
         if torch.cuda.is_available():

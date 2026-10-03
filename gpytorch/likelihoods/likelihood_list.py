@@ -29,7 +29,7 @@ class LikelihoodList(Likelihood):
             noise = kwargs.pop("noise")
             # if noise kwarg is passed, assume it's an iterable of noise tensors
             return [
-                likelihood.forward(*args_, {**kwargs, "noise": noise_})
+                likelihood.forward(*args_, **{**kwargs, "noise": noise_})
                 for likelihood, args_, noise_ in zip(self.likelihoods, _get_tuple_args_(*args), noise, strict=True)
             ]
         else:
@@ -49,7 +49,7 @@ class LikelihoodList(Likelihood):
             noise = kwargs.pop("noise")
             # if noise kwarg is passed, assume it's an iterable of noise tensors
             return [
-                likelihood(*args_, {**kwargs, "noise": noise_})
+                likelihood(*args_, **{**kwargs, "noise": noise_})
                 for likelihood, args_, noise_ in zip(self.likelihoods, _get_tuple_args_(*args), noise, strict=True)
             ]
         else:
