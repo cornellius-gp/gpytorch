@@ -45,3 +45,27 @@ class TestDelta(BaseTestCase, unittest.TestCase):
         torch_var = np.var(torch_samples)
         self.assertEqual(torch_mean, self.analytic_mean)
         self.assertEqual(torch_var, self.analytic_var)
+
+    def test_expand_without_pyro(self):
+        # GPyTorch's Pyro-free fallback Delta.expand is only defined when Pyro is unavailable;
+        # skip if Pyro is installed so dist.Delta does not resolve to Pyro's implementation.
+        try:
+            import pyro  # noqa: F401
+        except ImportError:
+            pass
+        else:
+            self.skipTest("Pyro is installed; this test targets GPyTorch's Pyro-free Delta.expand fallback.")
+
+        original = dist.Delta(torch.tensor([1.0, 2.0]))
+        expanded = original.expand(torch.Size([3, 2]))
+
+        # expand() must not mutate the original distribution's shape metadata.
+        self.assertEqual(original.batch_shape, torch.Size([2]))
+        self.assertEqual(original.event_shape, torch.Size())
+        self.assertEqual(original.v.shape, torch.Size([2]))
+
+        # The returned instance must be a properly initialized, independent distribution.
+        self.assertEqual(expanded.batch_shape, torch.Size([3, 2]))
+        self.assertEqual(expanded.event_shape, torch.Size())
+        self.assertEqual(expanded.v, torch.tensor([1.0, 2.0]).expand(3, 2))
+

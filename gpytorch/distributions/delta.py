@@ -53,7 +53,7 @@ except ImportError:
             batch_shape = torch.Size(batch_shape)
             new.v = self.v.expand(batch_shape + self.event_shape)
             new.log_density = self.log_density.expand(batch_shape)
-            super().__init__(batch_shape, self.event_shape, validate_args=False)
+            super(Delta, new).__init__(batch_shape, self.event_shape, validate_args=False)
             new._validate_args = self._validate_args
             return new
 
