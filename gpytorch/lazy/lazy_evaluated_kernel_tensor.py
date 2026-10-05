@@ -339,6 +339,12 @@ class LazyEvaluatedKernelTensor(LinearOperator):
             **self.params,
         )
 
+    @recall_grad_state
+    def _permute_batch(self, *dims):
+        # The stored arguments are the inputs and the kernel, not the Gram
+        # matrix. A batch permutation has to move axes of that operator.
+        return self.evaluate_kernel()._permute_batch(*dims)
+
     @cached(name="kernel_eval")
     @recall_grad_state
     def evaluate_kernel(self):

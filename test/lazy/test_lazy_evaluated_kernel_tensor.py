@@ -211,3 +211,21 @@ class TestLazyEvaluatedKernelTensorAdditive(TestLazyEvaluatedKernelTensorBatch):
         lazy_tensor = self.create_linear_op()
         lazy_tensor.kernel.base_kernel.raw_lengthscale_constraint.transform = lambda x: x + 0.1
         self._test_half(lazy_tensor)
+
+
+class TestLazyKernelBatchSum(unittest.TestCase):
+    def test_sum_over_leading_batch_matches_dense(self):
+        for batch in ([4, 3], [5, 4, 3]):
+            kern = gpytorch.kernels.ScaleKernel(
+                gpytorch.kernels.RBFKernel(batch_shape=torch.Size(batch)),
+                batch_shape=torch.Size(batch),
+            )
+            x = torch.randn(2, 5, dtype=torch.float64, requires_grad=True)
+            covar = kern(x)
+            summed = covar.sum(0).to_dense()
+            reference = covar.to_dense().sum(0)
+            self.assertEqual(summed.shape, reference.shape)
+            self.assertTrue(torch.allclose(summed, reference, atol=1e-8, rtol=1e-6))
+            summed.sum().backward()
+            self.assertTrue(torch.isfinite(x.grad).all())
+            x.grad = None
