@@ -73,6 +73,7 @@ class UniformPrior(Prior, Uniform):
     def __init__(self, a, b, validate_args=None, transform=None):
         TModule.__init__(self)
         Uniform.__init__(self, a, b, validate_args=validate_args)
+        _bufferize_attributes(self, ("low", "high"))
         self._transform = transform
 
     def expand(self, batch_shape):

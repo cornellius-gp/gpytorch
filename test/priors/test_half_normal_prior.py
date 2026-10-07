@@ -13,8 +13,9 @@ class TestHalfNormalPrior(unittest.TestCase):
     def test_half_normal_prior_to_gpu(self):
         if torch.cuda.is_available():
             prior = HalfNormalPrior(1.0).cuda()
-            self.assertEqual(prior.concentration.device.type, "cuda")
-            self.assertEqual(prior.rate.device.type, "cuda")
+            self.assertEqual(prior.scale.device.type, "cuda")
+            self.assertEqual(prior.rsample().device.type, "cuda")
+            self.assertEqual(prior.base_dist.scale.device.type, "cuda")
 
     def test_half_normal_prior_validate_args(self):
         with self.assertRaises(ValueError):

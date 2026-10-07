@@ -38,6 +38,15 @@ class Prior(Distribution, Module, ABC):
         if isinstance(self, TransformedDistribution):
             _load_transformed_to_base_dist(self)
 
+    def _apply(self, fn, *args, **kwargs):
+        # Module._apply moves registered buffers in-place via self._buffers and
+        # does not go through __setattr__, so TransformedDistribution base_dist
+        # parameters would otherwise stay on the old device after .to()/.cuda().
+        Module._apply(self, fn, *args, **kwargs)
+        if isinstance(self, TransformedDistribution):
+            _load_transformed_to_base_dist(self)
+        return self
+
     def __setattr__(self, name: str, value: Any) -> None:
         # If setting a BUFFERED_PREFIX attribute, update the base attribute instead.
         # Note: BUFFERED_PREFIX is just an indicator that this attribute belongs to a

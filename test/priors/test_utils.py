@@ -2,9 +2,17 @@
 
 import unittest
 
+import torch
 from torch import Tensor
 
-from gpytorch.priors import GammaPrior, HalfCauchyPrior, LogNormalPrior, NormalPrior
+from gpytorch.priors import (
+    GammaPrior,
+    HalfCauchyPrior,
+    HalfNormalPrior,
+    LogNormalPrior,
+    NormalPrior,
+    UniformPrior,
+)
 from gpytorch.priors.utils import BUFFERED_PREFIX
 
 
@@ -63,3 +71,66 @@ class TestPrior(unittest.TestCase):
         ln.loc = Tensor([1.01])
         self.assertEqual(getattr(ln, f"{BUFFERED_PREFIX}loc"), 1.01)
         self.assertEqual(getattr(hc, f"{BUFFERED_PREFIX}scale"), 2.2)
+
+    def test_transformed_priors_move_with_to(self):
+        # TransformedDistribution priors must move base_dist params with .to(),
+        # not only the registered _buffered_* copies (see #2581).
+        device = torch.device("cpu")
+        priors = [
+            HalfCauchyPrior(1.0),
+            HalfNormalPrior(1.0),
+            LogNormalPrior(1.0, 1.0),
+            UniformPrior(1.0, 2.0),
+            NormalPrior(1.0, 1.0),
+            GammaPrior(1.0, 1.0),
+        ]
+        for prior in priors:
+            prior = prior.to(device)
+            samples = prior.rsample()
+            self.assertEqual(samples.device.type, device.type)
+            for value in prior.state_dict().values():
+                if torch.is_tensor(value):
+                    self.assertEqual(value.device.type, device.type)
+            base = getattr(prior, "base_dist", None)
+            if base is not None:
+                for name in ("loc", "scale", "low", "high", "concentration", "rate"):
+                    if hasattr(base, name):
+                        tensor = getattr(base, name)
+                        if torch.is_tensor(tensor):
+                            self.assertEqual(
+                                tensor.device.type,
+                                device.type,
+                                msg=f"{type(prior).__name__}.base_dist.{name}",
+                            )
+
+    def test_transformed_priors_move_with_to_cuda(self):
+        if not torch.cuda.is_available():
+            self.skipTest("CUDA not available")
+        device = torch.device("cuda:0")
+        for prior in (
+            HalfCauchyPrior(1.0),
+            HalfNormalPrior(1.0),
+            LogNormalPrior(0.5, 0.5),
+            UniformPrior(1.0, 2.0),
+        ):
+            prior = prior.to(device)
+            samples = prior.rsample()
+            self.assertEqual(samples.device.type, "cuda")
+            for value in prior.state_dict().values():
+                if torch.is_tensor(value):
+                    self.assertEqual(value.device.type, "cuda")
+            base = getattr(prior, "base_dist", None)
+            if base is not None:
+                for name in ("loc", "scale"):
+                    if hasattr(base, name):
+                        tensor = getattr(base, name)
+                        if torch.is_tensor(tensor):
+                            self.assertEqual(tensor.device.type, "cuda")
+
+    def test_uniform_prior_state_dict_buffers(self):
+        prior = UniformPrior(1.0, 2.0)
+        state = prior.state_dict()
+        self.assertIn("low", state)
+        self.assertIn("high", state)
+        self.assertEqual(state["low"], 1.0)
+        self.assertEqual(state["high"], 2.0)
