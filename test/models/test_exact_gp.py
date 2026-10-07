@@ -197,11 +197,50 @@ class TestExactGP(BaseModelTestCase, unittest.TestCase):
             # just check that this can run without error
             model.get_fantasy_model(new_x, new_y)
 
+    def test_fantasy_mean_cache_key_continuity(self):
+        # Regression for #2669: fantasy mean_cache must use the same memoize args as the parent.
+        train_x = self.create_test_data()
+        likelihood, labels = self.create_likelihood_and_labels()
+        model = self.create_model(train_x, labels, likelihood)
+        model.eval()
+        model(self.create_test_data())
+
+        parent_mean_keys = [k for k in model.prediction_strategy._memoize_cache if k[0] == "mean_cache"]
+        self.assertTrue(parent_mean_keys)
+        expected_args = parent_mean_keys[0][1]
+
+        fantasy_model = model.get_fantasy_model(torch.randn(5, 1), torch.randn(5))
+        fantasy_mean_keys = [k for k in fantasy_model.prediction_strategy._memoize_cache if k[0] == "mean_cache"]
+        self.assertTrue(fantasy_mean_keys)
+        self.assertEqual(fantasy_mean_keys[0][1], expected_args)
+
+    def test_fantasy_mean_cache_is_cache_hit(self):
+        # Regression for #2669: evaluating the fantasy model must hit the preattached mean_cache.
+        train_x = self.create_test_data()
+        likelihood, labels = self.create_likelihood_and_labels()
+        model = self.create_model(train_x, labels, likelihood)
+        model.eval()
+        test_x = self.create_test_data()
+        model(test_x)
+
+        fantasy_model = model.get_fantasy_model(torch.randn(5, 1), torch.randn(5))
+        cache_size_before = len(fantasy_model.prediction_strategy._memoize_cache)
+        fantasy_model(test_x)
+        self.assertEqual(len(fantasy_model.prediction_strategy._memoize_cache), cache_size_before)
+
 
 class TestInterpolatedExactGP(TestExactGP):
     def create_model(self, train_x, train_y, likelihood):
         model = InterpolatedExactGPModel(train_x, train_y, likelihood)
         return model
+
+    @unittest.skip("InterpolatedPredictionStrategy uses different cache keys")
+    def test_fantasy_mean_cache_key_continuity(self):
+        pass
+
+    @unittest.skip("InterpolatedPredictionStrategy uses different cache keys")
+    def test_fantasy_mean_cache_is_cache_hit(self):
+        pass
 
 
 class TestWiskiExactGP(TestInterpolatedExactGP):
