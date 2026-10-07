@@ -198,6 +198,83 @@ class TestExactGP(BaseModelTestCase, unittest.TestCase):
             model.get_fantasy_model(new_x, new_y)
 
 
+def _build_trained_exact_gp(n: int = 20, seed: int = 0, dtype: torch.dtype = torch.float64) -> ExactGPModel:
+    """Helper: build a trained 1D ExactGPModel with fixed, non-degenerate hyperparameters.
+
+    Non-trivial lengthscale/outputscale/noise (not near-identity, not near-zero) so the
+    posterior covariance isn't a degenerate case that would mask a formula bug.
+    """
+    gen = torch.Generator().manual_seed(seed)
+    train_x = torch.rand(n, 1, generator=gen, dtype=dtype)
+    train_y = torch.sin(3 * train_x.squeeze(-1)) + 0.05 * torch.randn(n, generator=gen, dtype=dtype)
+    likelihood = GaussianLikelihood().to(dtype=dtype)
+    model = ExactGPModel(train_x, train_y, likelihood).to(dtype=dtype)
+    model.covar_module.base_kernel.lengthscale = 0.3
+    model.covar_module.outputscale = 1.2
+    likelihood.noise = 0.04
+    model.mean_module.constant.data.fill_(0.2)
+    model.eval()
+    likelihood.eval()
+    return model
+
+
+def _reference_posterior(model: ExactGPModel, test_x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    """Compute posterior mean and covariance from first principles.
+
+    Returns (mean, covar) matching the raw GP MVN (no outcome transform / likelihood wrapping).
+    """
+    train_x = model.train_inputs[0]
+    train_y = model.train_targets
+    noise = model.likelihood.noise_covar.noise.squeeze()
+    K_TT = model.covar_module(train_x).to_dense()
+    K_Tt = model.covar_module(train_x, test_x).to_dense()
+    K_tt = model.covar_module(test_x).to_dense()
+    eye = torch.eye(K_TT.shape[-1], dtype=K_TT.dtype, device=K_TT.device)
+    K_TT_noisy = K_TT + noise * eye
+    mean_T = model.mean_module(train_x)
+    mean_t = model.mean_module(test_x)
+    alpha = torch.linalg.solve(K_TT_noisy, (train_y - mean_T).unsqueeze(-1))
+    K_Tt_solved = torch.linalg.solve(K_TT_noisy, K_Tt)
+    mean_ref = (K_Tt.transpose(-1, -2) @ alpha).squeeze(-1) + mean_t
+    cov_ref = K_tt - K_Tt.transpose(-1, -2) @ K_Tt_solved
+    return mean_ref, cov_ref
+
+
+class TestExactPredictiveCovar(unittest.TestCase):
+    """Parity of posterior mean/covar values and gradients against a from-scratch reference."""
+
+    def test_posterior_matches_math_reference(self):
+        # Covers non-batch and batched test inputs. Checks values and gradients w.r.t.
+        # test_x. Values protect the forward formula; gradients protect the autograd path
+        # (catches a backward bug even when the forward happens to agree by cancellation).
+        for test_shape in [(10, 1), (4, 10, 1)]:
+            model = _build_trained_exact_gp(n=20)
+            gen = torch.Generator().manual_seed(1)
+            base = torch.rand(*test_shape, generator=gen, dtype=torch.float64)
+
+            test_x_got = base.clone().requires_grad_(True)
+            model.prediction_strategy = None
+            out = model(test_x_got)
+            (out.mean.sum() + out.covariance_matrix.sum()).backward()
+
+            test_x_ref = base.clone().requires_grad_(True)
+            mean_ref, cov_ref = _reference_posterior(model, test_x_ref)
+            (mean_ref.sum() + cov_ref.sum()).backward()
+
+            self.assertTrue(
+                torch.allclose(out.mean, mean_ref, atol=1e-10, rtol=0),
+                f"mean diff {(out.mean - mean_ref).abs().max().item():.3e} for shape {test_shape}",
+            )
+            self.assertTrue(
+                torch.allclose(out.covariance_matrix, cov_ref, atol=1e-10, rtol=0),
+                f"covar diff {(out.covariance_matrix - cov_ref).abs().max().item():.3e} for shape {test_shape}",
+            )
+            self.assertTrue(
+                torch.allclose(test_x_got.grad, test_x_ref.grad, atol=1e-9, rtol=0),
+                f"grad diff {(test_x_got.grad - test_x_ref.grad).abs().max().item():.3e} for shape {test_shape}",
+            )
+
+
 class TestInterpolatedExactGP(TestExactGP):
     def create_model(self, train_x, train_y, likelihood):
         model = InterpolatedExactGPModel(train_x, train_y, likelihood)
