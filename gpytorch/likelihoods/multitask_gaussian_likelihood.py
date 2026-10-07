@@ -109,7 +109,11 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
             covar = covar.evaluate_kernel()
 
         covar_kron_lt = self._shaped_noise_covar(
-            mean.shape, add_noise=self.has_global_noise, interleaved=function_dist._interleaved
+            mean.shape,
+            *params,
+            add_noise=self.has_global_noise,
+            interleaved=function_dist._interleaved,
+            **kwargs,
         )
         covar = covar + covar_kron_lt
 

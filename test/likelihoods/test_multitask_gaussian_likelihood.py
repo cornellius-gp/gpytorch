@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import unittest
+from unittest.mock import patch
 
 import torch
 from linear_operator.operators import KroneckerProductLinearOperator, RootLinearOperator, ToeplitzLinearOperator
@@ -43,6 +44,18 @@ class TestMultitaskGaussianLikelihood(BaseLikelihoodTestCase, unittest.TestCase)
         input = self._create_marginal_input()
         variance = likelihood(input).variance
         self.assertAllClose(variance, torch.tensor([2.1, 8.1, 18.1, 32.1]).repeat(5, 1))
+
+    def test_marginal_forwards_kwargs(self):
+        # Ensure kwargs (e.g. noise=...) reach _shaped_noise_covar, matching
+        # _GaussianLikelihoodBase.marginal — needed for FixedNoise-style multitask use (#2630).
+        likelihood = MultitaskGaussianLikelihood(num_tasks=4, rank=0)
+        function_dist = self._create_marginal_input()
+        sentinel = object()
+        with patch.object(likelihood, "_shaped_noise_covar", wraps=likelihood._shaped_noise_covar) as mocked:
+            likelihood.marginal(function_dist, noise=sentinel)
+        self.assertTrue(mocked.called)
+        _, kwargs = mocked.call_args
+        self.assertIs(kwargs.get("noise"), sentinel)
 
     def test_setters(self):
         likelihood = MultitaskGaussianLikelihood(num_tasks=3, rank=0)
