@@ -170,7 +170,7 @@ def pivoted_cholesky(
     .. _Harbrecht et al., 2012:
         https://www.sciencedirect.com/science/article/pii/S0168927411001814
     """
-    return linear_operator.pivoted_cholesky(input=input, rank=rank, return_pivots=return_pivots)
+    return linear_operator.pivoted_cholesky(input=input, rank=rank, error_tol=error_tol, return_pivots=return_pivots)
 
 
 def root_decomposition(input: Anysor, method: str | None = None) -> LinearOperator:
