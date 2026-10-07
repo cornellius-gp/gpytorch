@@ -39,6 +39,15 @@ class MaternKernel(Kernel):
         This kernel does not have an `outputscale` parameter. To add a scaling parameter,
         decorate this kernel with a :class:`gpytorch.kernels.ScaleKernel`.
 
+    .. note::
+
+        For ARD kernels (when :attr:`ard_num_dims` is not None), it is highly recommended
+        to standardize the input data (e.g., subtract the mean and divide by the standard
+        deviation) before passing it to the kernel. With input data that has very different
+        scales across dimensions, the kernel matrix can numerically underflow to zero,
+        causing zero gradients for the lengthscale parameters. Standardizing the data
+        ensures numerical stability and proper gradient flow during training.
+
     :param nu: (Default: 2.5) The smoothness parameter.
     :type nu: float (0.5, 1.5, or 2.5)
     :param ard_num_dims: (Default: `None`) Set this if you want a separate lengthscale for each
