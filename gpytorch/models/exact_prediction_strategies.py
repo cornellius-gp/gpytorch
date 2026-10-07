@@ -170,7 +170,6 @@ class DefaultPredictionStrategy:
             num_tasks = full_output.event_shape[-1]
             full_mean = full_mean.view(*batch_shape, -1, num_tasks)
             fant_mean = full_mean[..., (num_train // num_tasks) :, :]
-            full_targets = full_targets.view(*target_batch_shape, -1)
         else:
             full_mean = full_mean.view(*batch_shape, -1)
             fant_mean = full_mean[..., num_train:]
@@ -214,8 +213,14 @@ class DefaultPredictionStrategy:
             [fant_train_covar, self.mean_cache],
         )
 
-        small_system_rhs = targets - fant_mean - ftcm
-        small_system_rhs = small_system_rhs.unsqueeze(-1)
+        small_system_rhs = targets - fant_mean
+        if isinstance(full_output, MultitaskMultivariateNormal):
+            # The mean cache - and therefore ftcm - is flattened over the task dimension, in the same
+            # interleaved ordering as the joint covariance matrix. The fantasy residuals are shaped
+            # `... x m x t`, so the task dimension has to be flattened away before the solve. Only the
+            # last two dimensions are collapsed, which leaves any batch dimensions untouched.
+            small_system_rhs = small_system_rhs.reshape(*small_system_rhs.shape[:-2], -1)
+        small_system_rhs = (small_system_rhs - ftcm).unsqueeze(-1)
         # Schur complement of a spd matrix is guaranteed to be positive definite
         schur_cholesky = psd_safe_cholesky(schur_complement)
         fant_cache_lower = torch.cholesky_solve(small_system_rhs, schur_cholesky)
@@ -238,9 +243,12 @@ class DefaultPredictionStrategy:
             new_covar_cache = new_lt.root_inv_decomposition().root
 
         # Expand inputs accordingly if necessary (for fantasies at the same points)
-        if full_inputs[0].dim() <= full_targets.dim():
+        # In the multitask case, full_targets and full_mean carry a trailing task dimension, which
+        # has to be excluded when counting batch dimensions.
+        num_data_dims = 2 if isinstance(full_output, MultitaskMultivariateNormal) else 1
+        if full_inputs[0].dim() - 2 < full_targets.dim() - num_data_dims:
             fant_batch_shape = full_targets.shape[:1]
-            n_batch = len(full_mean.shape[:-1])
+            n_batch = len(full_mean.shape[:-num_data_dims])
             repeat_shape = fant_batch_shape + torch.Size([1] * n_batch)
             full_inputs = [fi.expand(fant_batch_shape + fi.shape) for fi in full_inputs]
             full_mean = full_mean.expand(fant_batch_shape + full_mean.shape)

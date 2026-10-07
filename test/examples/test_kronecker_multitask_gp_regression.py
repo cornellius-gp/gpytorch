@@ -12,6 +12,7 @@ from gpytorch.distributions import MultitaskMultivariateNormal
 from gpytorch.kernels import MultitaskKernel, RBFKernel
 from gpytorch.likelihoods import MultitaskGaussianLikelihood
 from gpytorch.means import ConstantMean, MultitaskMean
+from gpytorch.utils.memoize import get_from_cache
 
 
 # Simple training data: let's try to learn a sine function
@@ -89,6 +90,62 @@ class TestKroneckerMultiTaskGPRegression(unittest.TestCase):
 
         self.assertLess(mean_abs_error_task_1.squeeze().item(), 0.05)
         self.assertLess(mean_abs_error_task_2.squeeze().item(), 0.05)
+
+    def _get_fantasy_data(self):
+        # A well spaced subset of the data, so that the kernel matrix of the untrained model is well conditioned
+        sub_x, sub_y = train_x[::5], train_y[::5]
+        return sub_x[:15], sub_y[:15], sub_x[15:], sub_y[15:], sub_x, sub_y
+
+    def _get_full_model(self, model, full_x, full_y):
+        # The same model, but conditioned on the fantasy points from the start
+        full_model = MultitaskGPModel(full_x, full_y, MultitaskGaussianLikelihood(num_tasks=2))
+        full_model.load_state_dict(model.state_dict())
+        full_model.eval()
+        return full_model
+
+    def test_multitask_fantasy_model(self):
+        # Fantasy updates used to fail for multitask models whenever more than one point was added
+        obs_x, obs_y, fant_x, fant_y, full_x, full_y = self._get_fantasy_data()
+        test_x = torch.linspace(0, 1, 11)
+
+        model = MultitaskGPModel(obs_x, obs_y, MultitaskGaussianLikelihood(num_tasks=2))
+        model.eval()
+        model(test_x)  # Fill in the test time caches
+        fant_model = model.get_fantasy_model(fant_x, fant_y)
+
+        # A fantasy update has to give the same posterior as conditioning on all of the data at once
+        full_model = self._get_full_model(model, full_x, full_y)
+        fant_pred, full_pred = fant_model(test_x), full_model(test_x)
+        self.assertEqual(fant_pred.mean.shape, full_pred.mean.shape)
+        self.assertTrue(torch.allclose(fant_pred.mean, full_pred.mean, atol=1e-4))
+        self.assertTrue(torch.allclose(fant_pred.covariance_matrix, full_pred.covariance_matrix, atol=1e-4))
+
+        # Check the incrementally updated mean cache - which is what the fantasy strategy computes -
+        # against the one obtained by solving the full system from scratch
+        self.assertTrue(
+            torch.allclose(
+                get_from_cache(fant_model.prediction_strategy, "mean_cache"),
+                full_model.prediction_strategy.mean_cache,
+                atol=1e-4,
+            )
+        )
+
+    def test_multitask_fantasy_model_batch_targets(self):
+        # The fantasy targets may have an extra batch dimension (f x m x t) with shared fantasy inputs
+        obs_x, obs_y, fant_x, fant_y, full_x, full_y = self._get_fantasy_data()
+        test_x = torch.linspace(0, 1, 11)
+        num_fantasies = 3
+
+        model = MultitaskGPModel(obs_x, obs_y, MultitaskGaussianLikelihood(num_tasks=2))
+        model.eval()
+        model(test_x)  # Fill in the test time caches
+        fant_model = model.get_fantasy_model(fant_x, fant_y.unsqueeze(0).repeat(num_fantasies, 1, 1))
+
+        full_model = self._get_full_model(model, full_x, full_y)
+        fant_pred, full_pred = fant_model(test_x), full_model(test_x)
+        self.assertEqual(fant_pred.mean.shape, torch.Size([num_fantasies, *full_pred.mean.shape]))
+        for fantasy_mean in fant_pred.mean:
+            self.assertTrue(torch.allclose(fantasy_mean, full_pred.mean, atol=1e-4))
 
 
 if __name__ == "__main__":
