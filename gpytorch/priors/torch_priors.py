@@ -152,6 +152,12 @@ class MultivariateNormalPrior(Prior, MultivariateNormal):
         _del_attributes(module, MVN_LAZY_PROPERTIES)
         return module
 
+    def to(self, *args, **kwargs):
+        """Applies module-level to() call and resets all lazy properties"""
+        module = TModule.to(self, *args, **kwargs)
+        _del_attributes(module, MVN_LAZY_PROPERTIES)
+        return module
+
     def expand(self, batch_shape):
         batch_shape = torch.Size(batch_shape)
         cov_shape = batch_shape + self.event_shape

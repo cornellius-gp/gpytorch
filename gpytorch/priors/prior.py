@@ -42,7 +42,11 @@ class Prior(Distribution, Module, ABC):
         # If setting a BUFFERED_PREFIX attribute, update the base attribute instead.
         # Note: BUFFERED_PREFIX is just an indicator that this attribute belongs to a
         # TransformedDistribution, the value itself is not transformed.
-        if hasattr(self, name) and BUFFERED_PREFIX in name:
+        #
+        # Check BUFFERED_PREFIX before hasattr: torch.distributions lazy_property
+        # descriptors re-enter via setattr to cache (e.g. covariance_matrix), and
+        # hasattr() on those names would recurse infinitely.
+        if BUFFERED_PREFIX in name and hasattr(self, name):
             base_attr_name = name.replace(BUFFERED_PREFIX, "")
             # Convert to Tensor if needed
             tensor_value = torch.as_tensor(value)

@@ -18,6 +18,19 @@ class TestMultivariateNormalPrior(unittest.TestCase):
             self.assertEqual(prior.scale_tril.device.type, "cuda")
             self.assertEqual(prior.precision_matrix.device.type, "cuda")
 
+    def test_multivariate_normal_prior_device_move_no_recursion(self):
+        # Accessing torch.distributions lazy properties after a device move must not
+        # RecursionError via Prior.__setattr__ / lazy_property caching.
+        prior = MultivariateNormalPrior(torch.tensor([0.0, 1.0]), covariance_matrix=torch.eye(2))
+        _ = prior.covariance_matrix  # cache lazy properties first
+        prior = prior.to(torch.device("cpu"))
+        self.assertEqual(prior.loc.device.type, "cpu")
+        self.assertEqual(prior.covariance_matrix.device.type, "cpu")
+        self.assertEqual(prior.scale_tril.device.type, "cpu")
+        self.assertEqual(prior.precision_matrix.device.type, "cpu")
+        prior = prior.cpu()
+        self.assertEqual(prior.covariance_matrix.device.type, "cpu")
+
     def test_multivariate_normal_prior_validate_args(self):
         with self.assertRaises(ValueError):
             mean = torch.tensor([0.0, 1.0])
