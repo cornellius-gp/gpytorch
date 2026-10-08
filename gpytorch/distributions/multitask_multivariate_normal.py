@@ -212,11 +212,10 @@ class MultitaskMultivariateNormal(MultivariateNormal):
             return base_samples.view(new_shape).transpose(-1, -2).contiguous()
         return base_samples.view(*sample_shape, *self._output_shape)
 
-    def log_prob(self, value):
+    def log_prob(self, value: torch.Tensor) -> torch.Tensor:
         if not self._interleaved:
-            # flip shape of last two dimensions
-            new_shape = value.shape[:-2] + value.shape[:-3:-1]
-            value = value.view(new_shape).transpose(-1, -2).contiguous()
+            # Flatten values in the same task-major order as the mean and covariance.
+            value = value.transpose(-1, -2)
         return super().log_prob(value.reshape(*value.shape[:-2], -1))
 
     @property
