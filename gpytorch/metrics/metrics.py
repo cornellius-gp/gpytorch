@@ -38,12 +38,13 @@ def mean_squared_error(
 def standardized_mean_squared_error(
     pred_dist: MultivariateNormal,
     test_y: torch.Tensor,
-):
+) -> torch.Tensor:
     """Standardized mean squared error.
 
-    Standardizes the mean squared error by the variance of the test data.
+    Standardizes the mean squared error by the test-data variance for each batch and task.
     """
-    return mean_squared_error(pred_dist, test_y, squared=True) / test_y.var()
+    combine_dim = -2 if isinstance(pred_dist, MultitaskMultivariateNormal) else -1
+    return mean_squared_error(pred_dist, test_y, squared=True) / test_y.var(dim=combine_dim)
 
 
 def negative_log_predictive_density(
@@ -62,7 +63,7 @@ def mean_standardized_log_loss(
     pred_dist: MultivariateNormal,
     test_y: torch.Tensor,
     train_y: torch.Tensor | None = None,
-):
+) -> torch.Tensor:
     """
     Mean standardized log loss.
 
@@ -70,6 +71,7 @@ def mean_standardized_log_loss(
     under the trivial model which predicts with the mean and variance of the training
     data from the mean log loss. See p.23 of Rasmussen and Williams (2006).
 
+    Training statistics are computed along the data dimension, independently for each batch and task.
     If no training data is supplied, the mean log loss is computed.
     """
     combine_dim = -2 if isinstance(pred_dist, MultitaskMultivariateNormal) else -1
@@ -80,8 +82,8 @@ def mean_standardized_log_loss(
     res = loss_model
 
     if train_y is not None:
-        data_mean = train_y.mean(dim=combine_dim)
-        data_var = train_y.var()
+        data_mean = train_y.mean(dim=combine_dim, keepdim=True)
+        data_var = train_y.var(dim=combine_dim, keepdim=True)
         loss_trivial_model = (
             0.5 * torch.log(2 * pi * data_var) + torch.square(test_y - data_mean) / (2 * data_var)
         ).mean(dim=combine_dim)
