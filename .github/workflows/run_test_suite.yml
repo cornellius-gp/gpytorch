@@ -14,9 +14,9 @@ jobs:
   run_linter:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v5
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v6
       with:
         python-version: "3.10"
     - name: Install dependencies
@@ -40,18 +40,18 @@ jobs:
         pytorch-version: ["main", "stable"]
         extras: ["with-extras", "no-extras"]
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v5
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v6
       with:
         python-version: "3.10"
     - name: Install dependencies
       run: |
         if [[ ${{ matrix.pytorch-version }} = "main" ]]; then
-          pip install --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html;
+          pip install --pre torch --index-url https://download.pytorch.org/whl/nightly/cpu;
         else
-          pip install "numpy<2"  # Numpy 2.0 is not fully supported until PyTorch 2.2
-          pip install torch==2.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
+          pip install "numpy>=2.0,<2.1"
+          pip install torch==2.4.1 --index-url https://download.pytorch.org/whl/cpu
         fi
         pip install -e .
         if [[ ${{ matrix.extras }} == "with-extras" ]]; then
@@ -67,16 +67,16 @@ jobs:
   run_examples:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v5
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v6
       with:
         python-version: "3.10"
     - name: Install dependencies
       run: |
-        pip install "numpy<2"  # Numpy 2.0 is not fully supported until PyTorch 2.2
-        pip install torch==2.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
-        pip install pytest nbval jupyter tqdm matplotlib torchvision scipy
+        pip install "numpy>=2.0,<2.1"
+        pip install torch==2.4.1 torchvision==0.19.1 --index-url https://download.pytorch.org/whl/cpu
+        pip install pytest nbval jupyter tqdm matplotlib scipy
         pip install -e .
         pip install "pyro-ppl>=1.8";
         pip install pykeops;
