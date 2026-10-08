@@ -480,6 +480,50 @@ class TestMultiTaskMultivariateNormal(BaseTestCase, unittest.TestCase):
         indices = torch.tensor([flat(2, 1), flat(0, 0), flat(2, 0)])
         self.assertAllClose(part.covariance_matrix, covar[..., indices, :][..., indices])
 
+    def test_getitem_strided_covariance_offset(self) -> None:
+        for dtype in (torch.float32, torch.float64):
+            for interleaved in (False, True):
+                for batch_shape in ((), (2,), (2, 1)):
+                    for selection in (
+                        slice(None),
+                        slice(1, None),
+                        slice(-2, None),
+                        slice(1, -1),
+                        slice(1, None, 2),
+                        slice(0, None, 2),
+                    ):
+                        with self.subTest(dtype=dtype, interleaved=interleaved, batch=batch_shape, selection=selection):
+                            mean = torch.randn(*batch_shape, 5, 4, dtype=dtype, requires_grad=True)
+                            factor = torch.randn(*batch_shape, 20, 20, dtype=dtype, requires_grad=True)
+                            covariance = factor @ factor.transpose(-1, -2) + torch.eye(20, dtype=dtype)
+                            distribution = MultitaskMultivariateNormal(mean, covariance, interleaved=interleaved)
+                            grid = torch.arange(20).reshape(5, 4)
+                            if not interleaved:
+                                grid = torch.arange(20).reshape(4, 5).transpose(-1, -2)
+                            event_index = (selection, 2) if interleaved else (2, selection)
+                            indices = grid[event_index]
+                            index = (Ellipsis,) + event_index
+                            expected_mean = mean[index]
+                            expected_covariance = covariance.index_select(-2, indices).index_select(-1, indices)
+                            actual = distribution[index]
+                            self.assertIsInstance(actual, MultivariateNormal)
+                            self.assertNotIsInstance(actual, MultitaskMultivariateNormal)
+                            self.assertEqual(actual.batch_shape, torch.Size(batch_shape))
+                            self.assertEqual(actual.event_shape, expected_mean.shape[-1:])
+                            self.assertAllClose(actual.mean, expected_mean)
+                            self.assertAllClose(actual.covariance_matrix, expected_covariance)
+                            weights = torch.arange(1, indices.numel() + 1, dtype=dtype)
+                            actual_objective = (actual.mean * weights).sum() + (
+                                actual.covariance_matrix * weights.unsqueeze(-1)
+                            ).sum()
+                            expected_objective = (expected_mean * weights).sum() + (
+                                expected_covariance * weights.unsqueeze(-1)
+                            ).sum()
+                            actual_gradients = torch.autograd.grad(actual_objective, (mean, factor), retain_graph=True)
+                            expected_gradients = torch.autograd.grad(expected_objective, (mean, factor))
+                            for actual_gradient, expected_gradient in zip(actual_gradients, expected_gradients):
+                                self.assertAllClose(actual_gradient, expected_gradient)
+
     def test_repr(self):
         mean = torch.randn(5, 1, 3)
         covar = torch.eye(6)
