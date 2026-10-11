@@ -470,6 +470,6 @@ class DirichletClassificationLikelihood(FixedNoiseGaussianLikelihood):
         if "targets" in kwargs:
             targets = kwargs.pop("targets")
             dtype = self.transformed_targets.dtype
-            new_noise, _, _ = self._prepare_targets(targets, dtype=dtype)
+            new_noise, _, _ = self._prepare_targets(targets, alpha_epsilon=self.alpha_epsilon, dtype=dtype)
             kwargs["noise"] = new_noise
         return super().__call__(input, *args, **kwargs)

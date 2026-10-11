@@ -129,6 +129,21 @@ class TestDirichletClassificationLikelihood(BaseLikelihoodTestCase, unittest.Tes
     def test_nonbatch(self):
         pass
 
+    def test_supplied_targets_preserve_alpha_epsilon(self):
+        labels = torch.tensor([0, 1, 2, 0, 1, 2])
+        for dtype in (torch.float, torch.double):
+            for epsilon in (0.01, 0.2, 1.0):
+                with self.subTest(dtype=dtype, epsilon=epsilon):
+                    likelihood = DirichletClassificationLikelihood(labels, alpha_epsilon=epsilon, dtype=dtype)
+                    latent = MultivariateNormal(
+                        torch.zeros(3, labels.numel(), dtype=dtype),
+                        DiagLinearOperator(torch.ones(3, labels.numel(), dtype=dtype)),
+                    )
+                    alpha = epsilon + torch.nn.functional.one_hot(labels, num_classes=3).to(dtype).T
+                    expected_variance = 1 + torch.log1p(alpha.reciprocal())
+                    torch.testing.assert_close(likelihood(latent, targets=labels).variance, expected_variance)
+                    torch.testing.assert_close(likelihood(latent, targets=labels).variance, likelihood(latent).variance)
+
     def test_dirichlet_classification_likelihood(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
         for dtype in (torch.float, torch.double):
