@@ -18,6 +18,7 @@ class LinearMeanGradGrad(Mean):
         \nabla^2 \mu(\mathbf x) &= \mathbf 0 \\
 
     where :math:`\mathbf W` and :math:`B` are learned constants.
+    Input and parameter batch dimensions are broadcast together.
 
     :param input_size: dimension of input :math:`\mathbf x`.
     :type input_size: int
@@ -39,10 +40,10 @@ class LinearMeanGradGrad(Mean):
         else:
             self.bias = None
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         res = x.matmul(self.weights)
         if self.bias is not None:
             res = res + self.bias.unsqueeze(-1)
-        dres = self.weights.expand(x.transpose(-1, -2).shape).transpose(-1, -2)
+        dres = self.weights.transpose(-1, -2).expand(*res.shape[:-1], self.dim)
         ddres = torch.zeros_like(dres)
         return torch.cat((res, dres, ddres), -1)

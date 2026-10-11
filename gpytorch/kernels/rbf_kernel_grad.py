@@ -52,7 +52,9 @@ class RBFKernelGrad(RBFKernel):
     """
 
     def forward(self, x1, x2, diag=False, **params):
-        batch_shape = x1.shape[:-2]
+        batch_shape = torch.broadcast_shapes(x1.shape[:-2], x2.shape[:-2], self.batch_shape)
+        x1 = x1.expand(*batch_shape, *x1.shape[-2:])
+        x2 = x2.expand(*batch_shape, *x2.shape[-2:])
         n_batch_dims = len(batch_shape)
         n1, d = x1.shape[-2:]
         n2 = x2.shape[-2]
