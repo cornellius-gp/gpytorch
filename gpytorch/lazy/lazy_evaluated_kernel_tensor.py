@@ -350,16 +350,16 @@ class LazyEvaluatedKernelTensor(LinearOperator):
         x2 = self.x2
 
         with settings.lazily_evaluate_kernels(False):
-            temp_active_dims = self.kernel.active_dims
-            self.kernel.active_dims = None
+            # Inputs were already sliced by Kernel.__call__; pass active_dims=None so
+            # we skip slicing without mutating the shared kernel's active_dims buffer.
             res = self.kernel(
                 x1,
                 x2,
                 diag=False,
                 last_dim_is_batch=self.last_dim_is_batch,
+                active_dims=None,
                 **self.params,
             )
-            self.kernel.active_dims = temp_active_dims
 
         # Check the size of the output
         if settings.debug.on():

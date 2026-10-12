@@ -6,6 +6,7 @@ import warnings
 from abc import abstractmethod
 from collections.abc import Callable, Iterable
 from copy import deepcopy
+from types import EllipsisType
 
 import torch
 from linear_operator import to_dense, to_linear_operator
@@ -452,7 +453,13 @@ class Kernel(Module):
             yield kernel
 
     def __call__(
-        self, x1: Tensor, x2: Tensor | None = None, diag: bool = False, last_dim_is_batch: bool = False, **params
+        self,
+        x1: Tensor,
+        x2: Tensor | None = None,
+        diag: bool = False,
+        last_dim_is_batch: bool = False,
+        active_dims: Tensor | None | EllipsisType = ...,
+        **params,
     ) -> LazyEvaluatedKernelTensor | LinearOperator | Tensor:
         r"""
         Computes the covariance between :math:`\mathbf x_1` and :math:`\mathbf x_2`.
@@ -471,6 +478,9 @@ class Kernel(Module):
         :param last_dim_is_batch: If True, treat the last dimension
             of `x1` and `x2` as another batch dimension.
             (Useful for additive structure over the dimensions). (Default: False.)
+        :param active_dims: Dimensions of the last feature axis to use. Defaults to
+            :attr:`self.active_dims`. Pass ``None`` to skip slicing (e.g. when inputs
+            have already been restricted to the active dimensions).
 
         :return: An object that will lazily evaluate to the kernel matrix or vector.
             The shape depends on the kernel's evaluation mode:
@@ -491,11 +501,12 @@ class Kernel(Module):
 
         x1_, x2_ = x1, x2
 
-        # Select the active dimensions
-        if self.active_dims is not None:
-            x1_ = x1_.index_select(-1, self.active_dims)
+        # Select the active dimensions (override does not mutate self.active_dims)
+        dims = self.active_dims if active_dims is ... else active_dims
+        if dims is not None:
+            x1_ = x1_.index_select(-1, dims)
             if x2_ is not None:
-                x2_ = x2_.index_select(-1, self.active_dims)
+                x2_ = x2_.index_select(-1, dims)
 
         # Give x1_ and x2_ a last dimension, if necessary
         if x1_.ndimension() == 1:
