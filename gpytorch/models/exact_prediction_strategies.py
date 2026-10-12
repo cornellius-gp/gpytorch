@@ -8,7 +8,9 @@ from linear_operator import to_dense, to_linear_operator
 from linear_operator.operators import (
     AddedDiagLinearOperator,
     BatchRepeatLinearOperator,
+    BlockInterleavedLinearOperator,
     ConstantMulLinearOperator,
+    DiagLinearOperator,
     InterpolatedLinearOperator,
     LinearOperator,
     LowRankRootAddedDiagLinearOperator,
@@ -27,10 +29,34 @@ from ..lazy import LazyEvaluatedKernelTensor
 from ..utils.memoize import add_to_cache, cached, pop_from_cache, register_cache_clear_hook
 
 
+def _find_lazy_evaluated_kernel_tensor(covar):
+    r"""Walk LinearOperator wrappers to recover a :class:`LazyEvaluatedKernelTensor`.
+
+    Batch-independent multitask ExactGP models wrap the train covariance in a
+    :class:`~linear_operator.operators.BlockInterleavedLinearOperator`, which is not
+    itself a :class:`~gpytorch.lazy.LazyEvaluatedKernelTensor`. Walking ``base_linear_op``
+    recovers the underlying kernel tensor so kernel-declared prediction strategies
+    (e.g. SGPR) remain available.
+    """
+    seen = set()
+    while isinstance(covar, LinearOperator):
+        if isinstance(covar, LazyEvaluatedKernelTensor):
+            return covar
+        covar_id = id(covar)
+        if covar_id in seen:
+            break
+        seen.add(covar_id)
+        if not hasattr(covar, "base_linear_op"):
+            break
+        covar = covar.base_linear_op
+    return None
+
+
 def prediction_strategy(train_inputs, train_prior_dist, train_labels, likelihood):
     train_train_covar = train_prior_dist.lazy_covariance_matrix
-    if isinstance(train_train_covar, LazyEvaluatedKernelTensor):
-        cls = train_train_covar.kernel.prediction_strategy
+    lazy_kernel_tensor = _find_lazy_evaluated_kernel_tensor(train_train_covar)
+    if lazy_kernel_tensor is not None:
+        cls = lazy_kernel_tensor.kernel.prediction_strategy
     else:
         cls = DefaultPredictionStrategy
     return cls(train_inputs, train_prior_dist, train_labels, likelihood)
@@ -1019,6 +1045,29 @@ class LinearPredictionStrategy(DefaultPredictionStrategy):
 
 
 class SGPRPredictionStrategy(DefaultPredictionStrategy):
+    @staticmethod
+    def _batch_sgpr_train_covar(train_train_covar):
+        r"""Recover a batch-space SGPR train covariance from interleaved wrappers.
+
+        Batch-independent multitask models store
+        ``AddedDiag(BlockInterleaved(K_batch), I \otimes D)``. Folding the interleaved
+        noise back onto the batch factor yields a standard low-rank-plus-diagonal
+        operator that Woodbury SGPR expects.
+        """
+        train_train_covar = train_train_covar.evaluate_kernel()
+        if isinstance(train_train_covar, AddedDiagLinearOperator) and isinstance(
+            train_train_covar._linear_op, BlockInterleavedLinearOperator
+        ):
+            base = train_train_covar._linear_op.base_linear_op
+            num_tasks = base.size(-3)
+            diag_vec = train_train_covar._diag_tensor.diagonal(dim1=-1, dim2=-2)
+            n = diag_vec.size(-1) // num_tasks
+            batch_diag = diag_vec.view(*diag_vec.shape[:-1], n, num_tasks).transpose(-1, -2)
+            return base + DiagLinearOperator(batch_diag)
+        if isinstance(train_train_covar, BlockInterleavedLinearOperator):
+            return train_train_covar.base_linear_op
+        return train_train_covar
+
     @property
     @cached(name="covar_cache")
     def covar_cache(self):
@@ -1026,7 +1075,7 @@ class SGPRPredictionStrategy(DefaultPredictionStrategy):
         # This is easily computed using Woodbury
         # K_{XX} + \sigma^2 I = R R^T + \sigma^2 I
         #                     = \sigma^{-2} ( I - \sigma^{-2} R (I + \sigma^{-2} R^T R)^{-1} R^T  )
-        train_train_covar = self.lik_train_train_covar.evaluate_kernel()
+        train_train_covar = self._batch_sgpr_train_covar(self.lik_train_train_covar)
 
         # Get terms needed for woodbury
         root = train_train_covar._linear_op.root_decomposition().root.to_dense()  # R
@@ -1064,16 +1113,19 @@ class SGPRPredictionStrategy(DefaultPredictionStrategy):
         from ..kernels.inducing_point_kernel import InducingPointKernel
 
         # If we're in lazy evaluation mode, let's use the base kernel of the SGPR output to compute the prior covar
-        if isinstance(test_test_covar, LazyEvaluatedKernelTensor) and isinstance(
-            test_test_covar.kernel, InducingPointKernel
-        ):
-            test_test_covar = LazyEvaluatedKernelTensor(
-                test_test_covar.x1,
-                test_test_covar.x2,
-                test_test_covar.kernel.base_kernel,
-                test_test_covar.last_dim_is_batch,
-                **test_test_covar.params,
+        lazy_test_test = _find_lazy_evaluated_kernel_tensor(test_test_covar)
+        if lazy_test_test is not None and isinstance(lazy_test_test.kernel, InducingPointKernel):
+            replaced = LazyEvaluatedKernelTensor(
+                lazy_test_test.x1,
+                lazy_test_test.x2,
+                lazy_test_test.kernel.base_kernel,
+                lazy_test_test.last_dim_is_batch,
+                **lazy_test_test.params,
             )
+            if isinstance(test_test_covar, BlockInterleavedLinearOperator):
+                test_test_covar = BlockInterleavedLinearOperator(replaced)
+            else:
+                test_test_covar = replaced
 
         return (
             self.exact_predictive_mean(test_mean, test_train_covar),
@@ -1083,6 +1135,14 @@ class SGPRPredictionStrategy(DefaultPredictionStrategy):
     def exact_predictive_covar(self, test_test_covar, test_train_covar):
         covar_cache = self.covar_cache
         # covar_cache = K_{UU}^{-1/2} K_{UX}( K_{XX} + \sigma^2 I )^{-1} K_{XU} K_{UU}^{-1/2}
+
+        # Batch-independent multitask SGPR stores Matmul / LowRankRoot factors under
+        # BlockInterleavedLinearOperator; unwrap, compute in batch space, then rewrap.
+        rewrap_block_interleaved = isinstance(test_train_covar, BlockInterleavedLinearOperator)
+        if rewrap_block_interleaved:
+            test_train_covar = test_train_covar.base_linear_op
+            if isinstance(test_test_covar, BlockInterleavedLinearOperator):
+                test_test_covar = test_test_covar.base_linear_op
 
         # Decompose test_train_covar = l, r
         # Main case: test_x and train_x are different - test_train_covar is a MatmulLinearOperator
@@ -1100,4 +1160,6 @@ class SGPRPredictionStrategy(DefaultPredictionStrategy):
             )
 
         res = test_test_covar - MatmulLinearOperator(L, covar_cache @ L.mT)
+        if rewrap_block_interleaved:
+            res = BlockInterleavedLinearOperator(res)
         return res
