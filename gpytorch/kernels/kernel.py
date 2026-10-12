@@ -564,10 +564,23 @@ class Kernel(Module):
         if len(self.batch_shape) == 0:
             return self
 
-        new_kernel = deepcopy(self)
         # Process the index
         index = index if isinstance(index, tuple) else (index,)
+        # The index applies to the leading dimensions of the parameters, which are followed by non-batch
+        # dimensions (e.g. lengthscale is batch_shape x 1 x d). So indexing more dimensions than the batch
+        # dimensions would silently index the non-batch dimensions instead of raising an IndexError.
+        num_indexed_dims = sum(
+            idx.dim() if torch.is_tensor(idx) and idx.dtype == torch.bool else 1
+            for idx in index
+            if idx is not None and idx is not Ellipsis
+        )
+        if not any(idx is Ellipsis for idx in index) and num_indexed_dims > len(self.batch_shape):
+            raise IndexError(
+                f"Too many indices for a kernel with batch_shape {self.batch_shape}: "
+                f"{num_indexed_dims} batch dimensions were indexed."
+            )
 
+        new_kernel = deepcopy(self)
         for param_name, param in self.named_parameters(recurse=False):
             new_param = new_kernel.__getattr__(param_name)
             new_param.data = new_param.__getitem__(index)

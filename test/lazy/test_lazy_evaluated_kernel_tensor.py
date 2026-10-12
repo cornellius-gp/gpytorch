@@ -122,6 +122,25 @@ class TestLazyEvaluatedKernelTensorBatch(LinearOperatorTestCase, unittest.TestCa
         self.assertEqual(k.size(), torch.Size([2, 5, 5]))
         self.assertEqual(k[..., :4, :3].size(), torch.Size([2, 4, 3]))
 
+    def test_batch_getitem_kernel_with_fewer_batch_dims(self):
+        """Indexing was wrong when the data had more batch dimensions than the
+        kernel"""
+        kern = gpytorch.kernels.RBFKernel(batch_shape=torch.Size([2]))
+        kern.lengthscale = torch.tensor([[[0.3]], [[2.0]]])
+        for num_data in (2, 4):  # with 2 data points, the results used to be wrong without an error
+            k = kern(torch.randn(5, 2, num_data, 1))
+            evaluated = k.to_dense()
+            for index in ((slice(None), 0), (slice(None), 1), (slice(1, 3), 0), (2, 1)):
+                self.assertAllClose(k[index].to_dense(), evaluated[index])
+        self.assertEqual(k.size(), torch.Size([5, 2, 4, 4]))
+        # Tensor indices of the kernel batch dimension that are 0 (or 1) everywhere
+        index = (torch.arange(3), torch.zeros(3, dtype=torch.long), torch.arange(3), torch.arange(3))
+        self.assertAllClose(k.unsqueeze(1)[index[0], 0, index[1], index[2], index[3]], evaluated[index])
+        self.assertAllClose(k.unsqueeze(0)[0, index[0], index[1]].to_dense(), evaluated[index[0], index[1]])
+        # The kernel itself cannot be indexed with more indices than batch dimensions
+        with self.assertRaisesRegex(IndexError, "Too many indices"):
+            kern[:, 0]
+
     def test_batch_getitem_multioutput(self):
         """Ensure slicing is efficient when using a multioutput kernel"""
         x1 = torch.randn(5, 6)
