@@ -84,6 +84,17 @@ class TestLinearKernel(unittest.TestCase, BaseKernelTestCase):
         actual = actual.diagonal(dim1=-2, dim2=-1)
         self.assertLess(torch.norm(res - actual), 1e-4)
 
+    def test_diag_with_shared_inputs(self) -> None:
+        x = torch.tensor([[1.0], [3.0]], dtype=torch.double)
+        variance = torch.tensor([1.0, 2.0], dtype=torch.double).view(2, 1, 1)
+        kernel = self.create_kernel_no_ard(batch_shape=torch.Size([2])).double().initialize(variance=variance)
+        expected = torch.tensor([[1.0, 9.0], [2.0, 18.0]], dtype=torch.double)
+
+        self.assertAllClose(kernel(x).to_dense().diagonal(dim1=-2, dim2=-1), expected)
+        diagonal = kernel(x, diag=True)
+        self.assertEqual(diagonal.shape, expected.shape)
+        self.assertAllClose(diagonal, expected)
+
     def _make_model(self, train_x, train_y):
         class _Model(gpytorch.models.ExactGP):
             def __init__(self, train_x, train_y):
