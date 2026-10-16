@@ -98,15 +98,23 @@ class IndexKernel(Kernel):
         res = PsdSumLinearOperator(RootLinearOperator(self.covar_factor), DiagLinearOperator(var))
         return res
 
-    def forward(self, i1, i2, **params):
+    def forward(self, i1, i2, diag=False, **params):
 
         i1, i2 = i1.long(), i2.long()
         covar_matrix = self._eval_covar_matrix()
         batch_shape = torch.broadcast_shapes(i1.shape[:-2], i2.shape[:-2], self.batch_shape)
+        i1 = i1.expand(batch_shape + i1.shape[-2:])
+        i2 = i2.expand(batch_shape + i2.shape[-2:])
+
+        if diag:
+            # The covariances between the tasks of the k-th elements of i1 and i2
+            covar_matrix = covar_matrix.expand(batch_shape + covar_matrix.shape[-2:])
+            covar_rows = covar_matrix.gather(-2, i1.expand(*i1.shape[:-1], covar_matrix.size(-1)))
+            return covar_rows.gather(-1, i2).squeeze(-1)
 
         res = InterpolatedLinearOperator(
             base_linear_op=covar_matrix,
-            left_interp_indices=i1.expand(batch_shape + i1.shape[-2:]),
-            right_interp_indices=i2.expand(batch_shape + i2.shape[-2:]),
+            left_interp_indices=i1,
+            right_interp_indices=i2,
         )
         return res
