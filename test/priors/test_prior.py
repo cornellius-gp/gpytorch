@@ -2,9 +2,10 @@
 
 import unittest
 
+import torch
 from torch import Tensor
 
-from gpytorch.priors import GammaPrior, HalfCauchyPrior, LogNormalPrior, NormalPrior
+from gpytorch.priors import GammaPrior, HalfCauchyPrior, HalfNormalPrior, LogNormalPrior, NormalPrior
 from gpytorch.priors.utils import BUFFERED_PREFIX
 
 
@@ -63,3 +64,19 @@ class TestPrior(unittest.TestCase):
         ln.loc = Tensor([1.01])
         self.assertEqual(getattr(ln, f"{BUFFERED_PREFIX}loc"), 1.01)
         self.assertEqual(getattr(hc, f"{BUFFERED_PREFIX}scale"), 2.2)
+
+    def test_transformed_priors_to_dtype(self):
+        # The base distribution of a TransformedDistribution prior follows `.to()`, so that the
+        # log density of a double precision model is computed in double precision.
+        x = torch.tensor([0.05, 0.7, 2.3], dtype=torch.double)
+        for prior_cls, args in ((HalfCauchyPrior, (0.3,)), (HalfNormalPrior, (0.3,)), (LogNormalPrior, (0.1, 0.3))):
+            prior = prior_cls(*args).to(torch.double)
+            self.assertEqual(prior.base_dist.scale.dtype, torch.double)
+            prior_double = prior_cls(*(torch.tensor(a, dtype=torch.float).double() for a in args))
+            log_prob = prior.log_prob(x)
+            self.assertEqual(log_prob.dtype, torch.double)
+            self.assertTrue(torch.equal(log_prob, prior_double.log_prob(x)))
+            # converting back
+            prior = prior.to(torch.float)
+            self.assertEqual(prior.base_dist.scale.dtype, torch.float)
+            self.assertEqual(prior.log_prob(x.float()).dtype, torch.float)

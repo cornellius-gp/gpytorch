@@ -38,6 +38,15 @@ class Prior(Distribution, Module, ABC):
         if isinstance(self, TransformedDistribution):
             _load_transformed_to_base_dist(self)
 
+    def _apply(self, fn, *args, **kwargs):
+        module = super()._apply(fn, *args, **kwargs)
+        if isinstance(self, TransformedDistribution):
+            # The buffers of a TransformedDistribution are copies of the parameters of its base
+            # distribution (see `_bufferize_attributes`). Update the base distribution, so that it
+            # follows conversions such as `.to()` and `.cuda()`.
+            _load_transformed_to_base_dist(self)
+        return module
+
     def __setattr__(self, name: str, value: Any) -> None:
         # If setting a BUFFERED_PREFIX attribute, update the base attribute instead.
         # Note: BUFFERED_PREFIX is just an indicator that this attribute belongs to a
