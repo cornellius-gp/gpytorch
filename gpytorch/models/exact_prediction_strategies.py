@@ -386,8 +386,11 @@ class DefaultPredictionStrategy:
         # GP, and using addmv requires you to to_dense test_train_covar, which is obviously a huge no-no!
 
         # see https://github.com/cornellius-gp/gpytorch/pull/2317#discussion_r1157994719
+        # Only squeeze an extra dimension of the mean cache, i.e. one that is not part
+        # of the batch shape of `test_train_covar`. Otherwise, we would squeeze a batch
+        # dimension of size one, e.g. of a model with batch shape `b x 1 x c`.
         mean_cache = self.mean_cache
-        if len(mean_cache.shape) == 4:
+        if mean_cache.dim() == test_train_covar.dim():
             mean_cache = mean_cache.squeeze(1)
 
         # Handle NaNs

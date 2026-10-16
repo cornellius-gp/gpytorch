@@ -102,6 +102,24 @@ class TestExactGP(BaseModelTestCase, unittest.TestCase):
         with gpytorch.settings.max_eager_kernel_size(1), gpytorch.settings.fast_pred_var(True):
             self.test_multi_batch_forward_eval()
 
+    def test_multi_batch_forward_eval_with_singleton_batch_dim(self):
+        batch_shape = torch.Size([2, 1, 3])
+        batch_data = self.create_batch_test_data(batch_shape=batch_shape)
+        likelihood, labels = self.create_batch_likelihood_and_labels(batch_shape=batch_shape)
+        model = self.create_model(batch_data, labels, likelihood)
+        model.eval()
+        test_data = torch.randn(*batch_shape, 5, 1)
+        output = model(test_data)
+        self.assertEqual(output.mean.shape, torch.Size([*batch_shape, 5]))
+
+        # Compare with the same model without the batch dimension of size one
+        likelihood, _ = self.create_batch_likelihood_and_labels(batch_shape=torch.Size([2, 3]))
+        squeezed_model = self.create_model(batch_data.squeeze(1), labels.squeeze(1), likelihood)
+        squeezed_model.eval()
+        squeezed_output = squeezed_model(test_data.squeeze(1))
+        self.assertTrue(torch.allclose(output.mean.squeeze(1), squeezed_output.mean, atol=1e-5))
+        self.assertTrue(torch.allclose(output.variance.squeeze(1), squeezed_output.variance, atol=1e-5))
+
     def test_batch_forward_then_nonbatch_forward_eval(self):
         batch_data = self.create_batch_test_data()
         likelihood, labels = self.create_batch_likelihood_and_labels()
