@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import torch
 from linear_operator.utils.cholesky import psd_safe_cholesky
-from torch.distributions import constraints, LKJCholesky
+from torch import Tensor
+from torch.distributions import Beta, constraints, LKJCholesky
 from torch.nn import Module as TModule
 
 from .. import settings
@@ -34,8 +35,24 @@ class LKJCholeskyFactorPrior(Prior, LKJCholesky):
         TModule.__init__(self)
         LKJCholesky.__init__(self, dim=n, concentration=eta, validate_args=validate_args)
         self.n = self.dim
-        self.eta = self.concentration
+        # Register the concentration as a buffer, so that it follows the dtype and device of
+        # the module. It is not persistent, so that the state dict does not change.
+        concentration = self.concentration
+        del self.concentration
+        self.register_buffer("concentration", concentration, persistent=False)
         self._transform = transform
+
+    @property
+    def eta(self) -> Tensor:
+        return self.concentration
+
+    def _apply(self, fn, *args, **kwargs):
+        module = super()._apply(fn, *args, **kwargs)
+        # The Beta distribution from which `sample` draws is derived from the concentration.
+        beta = getattr(self, "_beta", None)
+        if beta is not None:
+            self._beta = Beta(fn(beta.concentration1), fn(beta.concentration0))
+        return module
 
     # TODO: change from sample to rsample if pytorch #69281 goes in providing rsample method
 

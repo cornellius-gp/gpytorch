@@ -128,6 +128,28 @@ class TestLKJCholeskyFactorPrior(unittest.TestCase):
         self.assertTrue(_is_valid_correlation_matrix_cholesky_factor(random_samples))
         self.assertEqual(random_samples.shape, torch.Size((6, 2, 2)))
 
+    def test_lkj_prior_to_dtype(self):
+        # The concentration and the distribution used for sampling follow the dtype of the
+        # module, so that the log densities of double precision models are computed in double.
+        R = torch.tensor([[1.0, 0.3, 0.1], [0.3, 1.0, -0.2], [0.1, -0.2, 1.0]], dtype=torch.double)
+        L = torch.linalg.cholesky(R)
+        expected = LKJCholesky(3, torch.tensor(1.5, dtype=torch.double)).log_prob(L)
+        for prior, X in (
+            (LKJCholeskyFactorPrior(3, 1.5), L),
+            (LKJPrior(3, 1.5), R),
+            (LKJCovariancePrior(3, 1.5, SmoothedBoxPrior(exp(-1), exp(1))).correlation_prior, R),
+        ):
+            prior = prior.to(torch.double)
+            self.assertEqual(prior.concentration.dtype, torch.double)
+            self.assertEqual(prior.eta.dtype, torch.double)
+            self.assertTrue(torch.allclose(prior.log_prob(X), expected, rtol=0.0, atol=1e-12))
+            self.assertEqual(prior.sample(torch.Size([2])).dtype, torch.double)
+            # the concentration is not part of the state dict
+            self.assertNotIn("concentration", prior.state_dict())
+        # LKJCovariancePrior can be converted
+        prior = LKJCovariancePrior(3, 1.5, SmoothedBoxPrior(exp(-1), exp(1))).to(torch.double)
+        self.assertEqual(prior.correlation_prior.concentration.dtype, torch.double)
+
 
 class TestLKJCovariancePrior(unittest.TestCase):
     def test_lkj_covariance_prior_to_gpu(self):
