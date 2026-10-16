@@ -107,6 +107,10 @@ class LKJCovariancePrior(LKJPrior):
         correlations = torch.matmul(torch.matmul(sd_diag_mat, X), sd_diag_mat)
         log_prob_corr = self.correlation_prior.log_prob(correlations)
         log_prob_sd = self.sd_prior.log_prob(marginal_sd)
+        if log_prob_sd.dim() > log_prob_corr.dim():
+            # A univariate sd_prior returns the log densities of the n standard deviations,
+            # whose sum is the log density of the n (independent) standard deviations.
+            log_prob_sd = log_prob_sd.sum(-1)
         return log_prob_corr + log_prob_sd
 
     def sample(self, sample_shape=torch.Size()):

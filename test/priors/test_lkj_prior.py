@@ -6,7 +6,14 @@ from math import exp
 import torch
 from torch.distributions import LKJCholesky
 
-from gpytorch.priors import LKJCholeskyFactorPrior, LKJCovariancePrior, LKJPrior, SmoothedBoxPrior
+from gpytorch.priors import (
+    GammaPrior,
+    HalfCauchyPrior,
+    LKJCholeskyFactorPrior,
+    LKJCovariancePrior,
+    LKJPrior,
+    SmoothedBoxPrior,
+)
 from gpytorch.priors.lkj_prior import _is_valid_correlation_matrix, _is_valid_correlation_matrix_cholesky_factor
 from gpytorch.test.utils import approx_equal, least_used_cuda_device
 
@@ -210,6 +217,31 @@ class TestLKJCovariancePrior(unittest.TestCase):
         if torch.cuda.is_available():
             with least_used_cuda_device():
                 self.test_lkj_covariance_prior_batch_log_prob(cuda=True)
+
+    def test_lkj_covariance_prior_log_prob_univariate_sd_prior(self):
+        # A univariate sd_prior is the prior of each of the n standard deviations, and the
+        # log density of the correlations is counted once.
+        n = 3
+        for dtype in (torch.float, torch.double):
+            eta = torch.tensor(1.5, dtype=dtype)
+            for sd_prior in (GammaPrior(2.0, 1.5), HalfCauchyPrior(1.0)):
+                sd_prior = sd_prior.to(dtype)
+                prior = LKJCovariancePrior(n, eta, sd_prior)
+                corr_dist = LKJCholesky(n, eta)
+                sd = torch.tensor([0.5, 1.0, 2.0], dtype=dtype)
+                R = torch.tensor([[1.0, 0.3, 0.1], [0.3, 1.0, -0.2], [0.1, -0.2, 1.0]], dtype=dtype)
+                S = sd.unsqueeze(-1) * R * sd
+                expected = corr_dist.log_prob(torch.linalg.cholesky(R)) + sd_prior.log_prob(sd).sum()
+                log_prob = prior.log_prob(S)
+                self.assertEqual(log_prob.shape, torch.Size([]))
+                self.assertTrue(torch.allclose(log_prob, expected))
+                # a batch of covariance matrices
+                S_batch = torch.stack([S, torch.eye(n, dtype=dtype)])
+                expected_batch = torch.stack([expected, corr_dist.log_prob(torch.eye(n, dtype=dtype))])
+                expected_batch[1] = expected_batch[1] + sd_prior.log_prob(torch.ones(n, dtype=dtype)).sum()
+                log_prob = prior.log_prob(S_batch)
+                self.assertEqual(log_prob.shape, torch.Size([2]))
+                self.assertTrue(torch.allclose(log_prob, expected_batch))
 
     def test_lkj_prior_sample(self):
         prior = LKJCovariancePrior(2, 0.5, sd_prior=SmoothedBoxPrior(exp(-1), exp(1)))
