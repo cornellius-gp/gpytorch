@@ -49,6 +49,12 @@ class MultitaskKernel(Kernel):
         covar_i = self.task_covar_module.covar_matrix
         if len(x1.shape[:-2]):
             covar_i = covar_i.repeat(*x1.shape[:-2], 1, 1)
+        # Calling ``forward`` (rather than ``__call__``) skips the selection of the
+        # ``active_dims`` of the data kernel, so we select them here.
+        active_dims = self.data_covar_module.active_dims
+        if active_dims is not None:
+            x1 = x1.index_select(-1, active_dims)
+            x2 = x2.index_select(-1, active_dims)
         covar_x = to_linear_operator(self.data_covar_module.forward(x1, x2, **params))
         res = KroneckerProductLinearOperator(covar_x, covar_i)
         return res.diagonal(dim1=-1, dim2=-2) if diag else res
