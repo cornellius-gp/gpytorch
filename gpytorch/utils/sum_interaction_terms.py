@@ -32,7 +32,7 @@ def sum_interaction_terms(
 
     :param covars: A batch of covariance matrices, representing the base covariances to sum over
     :param max_degree: The maximum degree of the interaction terms to compute.
-        If not provided, this will default to `D`.
+        If not provided, this will default to `D = covars.size(dim)`, including all interaction degrees.
     :param dim: The dimension to sum over (i.e. the batch dimension containing the base covariance matrices).
         Note that dim must be a negative integer (i.e. -3, not 0).
     """
@@ -40,6 +40,8 @@ def sum_interaction_terms(
         raise ValueError("Argument 'dim' must be a negative integer.")
 
     covars = to_dense(covars)
+    if max_degree is None:
+        max_degree = covars.size(dim)
     ks = torch.arange(max_degree, dtype=covars.dtype, device=covars.device)
     neg_one = torch.tensor(-1.0, dtype=covars.dtype, device=covars.device)
 
