@@ -130,8 +130,12 @@ class PeriodicKernel(Kernel):
 
         x1_ = x1.div(self.period_length / math.pi)
         x2_ = x2.div(self.period_length / math.pi)
-        # We are automatically overriding last_dim_is_batch here so that we can manually sum over dimensions.
-        diff = self.covar_dist(x1_, x2_, diag=diag, last_dim_is_batch=True, **params)
+        # sin(diff)^2 is even, so signed differences avoid cdist's unsupported
+        # double backward without introducing abs or norm singularities.
+        if diag:
+            diff = (x1_ - x2_).transpose(-1, -2)
+        else:
+            diff = (x1_.unsqueeze(-2) - x2_.unsqueeze(-3)).movedim(-1, -3)
 
         if diag:
             lengthscale = lengthscale[..., 0, :, None]

@@ -100,6 +100,17 @@ class CosineKernel(Kernel):
     def forward(self, x1, x2, **params):
         x1_ = x1.div(self.period_length)
         x2_ = x2.div(self.period_length)
-        diff = self.covar_dist(x1_, x2_, **params)
-        res = torch.cos(diff.mul(math.pi))
-        return res
+        squared = self.covar_dist(x1_, x2_, square_dist=True, **params)
+        # exp([[0, -pi^2 s], [1, 0]])[0, 0] = cos(pi sqrt(s)). This
+        # entire matrix function also retains all derivatives at s=0, where
+        # differentiating sqrt(s) and masking afterwards would be singular.
+        small = squared < 1e-4
+        near_zero = squared.masked_fill(~small, 0.0)
+        zeros = torch.zeros_like(squared)
+        ones = torch.ones_like(squared)
+        row1 = torch.stack((zeros, -math.pi**2 * near_zero), dim=-1)
+        row2 = torch.stack((ones, zeros), dim=-1)
+        local = torch.linalg.matrix_exp(torch.stack((row1, row2), dim=-2))[..., 0, 0]
+        # Away from zero, use the ordinary cosine for large-argument accuracy.
+        regular = torch.cos(math.pi * squared.masked_fill(small, 1.0).sqrt())
+        return torch.where(small, local, regular)
