@@ -415,6 +415,10 @@ class Kernel(Module):
             if module is not self and isinstance(module, Kernel):
                 yield name, module
 
+    def _last_dim_batch_shape(self, input_dim: int) -> torch.Size:
+        """Feature batch shape after this kernel's active dimensions are selected."""
+        return torch.Size([input_dim])
+
     def num_outputs_per_input(self, x1: Tensor, x2: Tensor) -> int:
         """
         For most kernels, `num_outputs_per_input = 1`.
@@ -620,6 +624,14 @@ class AdditiveKernel(Kernel):
 
         return res
 
+    def _last_dim_batch_shape(self, input_dim: int) -> torch.Size:
+        return torch.broadcast_shapes(
+            *(
+                kernel._last_dim_batch_shape(input_dim if kernel.active_dims is None else len(kernel.active_dims))
+                for kernel in self.kernels
+            )
+        )
+
     def num_outputs_per_input(self, x1, x2):
         return self.kernels[0].num_outputs_per_input(x1, x2)
 
@@ -676,6 +688,14 @@ class ProductKernel(Kernel):
                     res = res * next_term
 
         return res
+
+    def _last_dim_batch_shape(self, input_dim: int) -> torch.Size:
+        return torch.broadcast_shapes(
+            *(
+                kernel._last_dim_batch_shape(input_dim if kernel.active_dims is None else len(kernel.active_dims))
+                for kernel in self.kernels
+            )
+        )
 
     def num_outputs_per_input(self, x1: Tensor, x2: Tensor) -> int:
         return self.kernels[0].num_outputs_per_input(x1, x2)

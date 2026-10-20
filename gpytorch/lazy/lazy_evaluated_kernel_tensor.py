@@ -134,6 +134,10 @@ class LazyEvaluatedKernelTensor(LinearOperator):
 
     @recall_grad_state
     def _getitem(self, row_index, col_index, *batch_indices):
+        if self.last_dim_is_batch and any(True for _ in self.kernel.named_sub_kernels()):
+            # Child feature selections can differ from the outer input columns.
+            # Slice the evaluated feature batch rather than slicing those columns.
+            return self.evaluate_kernel()._getitem(row_index, col_index, *batch_indices)
         x1 = self.x1
         x2 = self.x2
         num_outs_per_in = self.kernel.num_outputs_per_input(x1, x2)
@@ -314,7 +318,7 @@ class LazyEvaluatedKernelTensor(LinearOperator):
 
         # Handle when the last dim is batch
         if self.last_dim_is_batch:
-            expected_size = expected_size[:-2] + x1.shape[-1:] + expected_size[-2:]
+            expected_size = expected_size[:-2] + self.kernel._last_dim_batch_shape(x1.size(-1)) + expected_size[-2:]
         return expected_size
 
     @recall_grad_state

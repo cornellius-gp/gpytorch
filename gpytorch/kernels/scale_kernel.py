@@ -117,6 +117,10 @@ class ScaleKernel(Kernel):
             outputscales = outputscales.view(*outputscales.shape, 1, 1)
             return orig_output.mul(outputscales)
 
+    def _last_dim_batch_shape(self, input_dim: int) -> torch.Size:
+        # forward bypasses base_kernel.__call__, so its active_dims are not selected again.
+        return self.base_kernel._last_dim_batch_shape(input_dim)
+
     def num_outputs_per_input(self, x1, x2):
         return self.base_kernel.num_outputs_per_input(x1, x2)
 
