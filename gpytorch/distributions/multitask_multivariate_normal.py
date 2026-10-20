@@ -116,9 +116,10 @@ class MultitaskMultivariateNormal(MultivariateNormal):
                 f"task_dim of {orig_task_dim} is incompatible with MVN batch shape of {batch_mvn.batch_shape}"
             )
 
-        num_dim = batch_mvn.mean.dim()
+        mean = batch_mvn.mean.expand(batch_mvn.batch_shape + batch_mvn.event_shape)
+        num_dim = mean.dim()
         res = cls(
-            mean=batch_mvn.mean.permute(*range(0, task_dim), *range(task_dim + 1, num_dim), task_dim),
+            mean=mean.permute(*range(0, task_dim), *range(task_dim + 1, num_dim), task_dim),
             covariance_matrix=BlockInterleavedLinearOperator(batch_mvn.lazy_covariance_matrix, block_dim=task_dim),
         )
         return res

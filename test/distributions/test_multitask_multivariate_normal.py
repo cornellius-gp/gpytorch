@@ -14,6 +14,23 @@ from gpytorch.test.utils import least_used_cuda_device
 
 
 class TestMultiTaskMultivariateNormal(BaseTestCase, unittest.TestCase):
+    def test_from_batch_mvn_with_broadcast_mean(self):
+        for mean_shape in [(3,), (1, 3)]:
+            for task_dim in [0, 1, -1, -2]:
+                with self.subTest(mean_shape=mean_shape, task_dim=task_dim):
+                    mean = torch.randn(*mean_shape, dtype=torch.double, requires_grad=True)
+                    variance = torch.rand(2, 4, 3, dtype=torch.double) + 1
+                    base = MultivariateNormal(mean, DiagLinearOperator(variance))
+                    result = MultitaskMultivariateNormal.from_batch_mvn(base, task_dim=task_dim)
+                    reference = MultitaskMultivariateNormal.from_batch_mvn(
+                        MultivariateNormal(mean.expand(2, 4, 3), DiagLinearOperator(variance)),
+                        task_dim=task_dim,
+                    )
+                    self.assertTrue(torch.equal(result.mean, reference.mean))
+                    self.assertTrue(torch.equal(result.covariance_matrix, reference.covariance_matrix))
+                    grad = torch.autograd.grad(result.mean.sum(), mean)[0]
+                    self.assertTrue(torch.equal(grad, torch.full_like(mean, 8)))
+
     def setUp(self):
         if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
             self.rng_state = torch.get_rng_state()
