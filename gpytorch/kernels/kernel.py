@@ -522,7 +522,9 @@ class Kernel(Module):
             # Did this Kernel eat the diag option?
             # If it does not return a LazyEvaluatedKernelTensor, we can call diag on the output
             if not isinstance(res, LazyEvaluatedKernelTensor):
-                if res.dim() == x1_.dim() and res.shape[-2:] == torch.Size((x1_.size(-2), x2_.size(-2))):
+                full_rank = len(torch.broadcast_shapes(x1_.shape[:-2], x2_.shape[:-2], self.batch_shape))
+                full_rank += 2 + int(last_dim_is_batch)
+                if res.dim() == full_rank and res.shape[-2:] == torch.Size((x1_.size(-2), x2_.size(-2))):
                     res = res.diagonal(dim1=-1, dim2=-2)
             return res
 
