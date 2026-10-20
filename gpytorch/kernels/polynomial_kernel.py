@@ -85,13 +85,16 @@ class PolynomialKernel(Kernel):
         **params,
     ) -> torch.Tensor:
         offset = self.offset.view(*self.batch_shape, 1, 1)
+        diagonal_offset = self.offset
 
         if last_dim_is_batch:
             x1 = x1.transpose(-1, -2).unsqueeze(-1)
             x2 = x2.transpose(-1, -2).unsqueeze(-1)
+            offset = offset.unsqueeze(-3)
+            diagonal_offset = diagonal_offset.unsqueeze(-2)
 
         if diag:
-            return ((x1 * x2).sum(dim=-1) + self.offset).pow(self.power)
+            return ((x1 * x2).sum(dim=-1) + diagonal_offset).pow(self.power)
 
         if (x1.dim() == 2 and x2.dim() == 2) and offset.dim() == 2:
             return torch.addmm(offset, x1, x2.transpose(-2, -1)).pow(self.power)

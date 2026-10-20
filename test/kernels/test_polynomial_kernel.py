@@ -10,6 +10,26 @@ from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
 
 
 class TestPolynomialKernel(unittest.TestCase, BaseKernelTestCase):
+    def test_model_batch_with_feature_batches(self):
+        kernel = PolynomialKernel(power=3, batch_shape=torch.Size([2])).double()
+        kernel.offset = torch.tensor([[0.2], [0.7]], dtype=torch.double)
+        for input_batch in [(), (2,)]:
+            with self.subTest(input_batch=input_batch):
+                x1 = torch.rand(*input_batch, 4, 3, dtype=torch.double, requires_grad=True)
+                x2 = torch.rand(*input_batch, 5, 3, dtype=torch.double)
+                actual = kernel(x1, x2, last_dim_is_batch=True).to_dense()
+                expected = torch.stack(
+                    [kernel(x1[..., i : i + 1], x2[..., i : i + 1]).to_dense() for i in range(3)], dim=-3
+                )
+                self.assertTrue(torch.allclose(actual, expected))
+                actual_grad = torch.autograd.grad(actual.sum(), (x1, kernel.raw_offset))
+                expected_grad = torch.autograd.grad(expected.sum(), (x1, kernel.raw_offset))
+                for a, b in zip(actual_grad, expected_grad):
+                    self.assertTrue(torch.allclose(a, b))
+                actual = kernel(x1, x1, diag=True, last_dim_is_batch=True)
+                expected = torch.stack([kernel(x1[..., i : i + 1], diag=True) for i in range(3)], dim=-2)
+                self.assertTrue(torch.allclose(actual, expected))
+
     def create_kernel_no_ard(self, **kwargs):
         return PolynomialKernel(power=2, **kwargs)
 
