@@ -17,7 +17,6 @@ from torch.distributions import Distribution
 from .constraints import Interval
 from .priors import Prior
 
-
 NnModuleSelf = TypeVar("NnModuleSelf", bound=nn.Module)  # TODO: replace w/ typing.Self in Python 3.11
 ModuleSelf = TypeVar("ModuleSelf", bound="Module")  # TODO: replace w/ typing.Self in Python 3.11
 RandomModuleSelf = TypeVar("RandomModuleSelf", bound="RandomModuleMixin")  # TODO: replace w/ typing.Self in Python 3.11
@@ -612,8 +611,13 @@ def _extract_named_added_loss_terms(module, memo=None, prefix=""):
 
 
 def _extract_named_priors(
-    module: nn.Module, prefix: str = ""
+    module: nn.Module, prefix: str = "", memo: MutableSet[nn.Module] | None = None
 ) -> Iterator[tuple[str, nn.Module, Prior, Closure, SettingClosure | None]]:
+    if memo is None:
+        memo = set()
+    if module in memo:
+        return
+    memo.add(module)
     if isinstance(module, Module):
         for name, (prior, closure, inv_closure) in module._priors.items():
             if prior is not None:
@@ -621,7 +625,9 @@ def _extract_named_priors(
                 yield full_name, module, prior, closure, inv_closure
     for mname, module_ in module.named_children():
         submodule_prefix = prefix + ("." if prefix else "") + mname
-        for name, parent_module, prior, closure, inv_closure in _extract_named_priors(module_, prefix=submodule_prefix):
+        for name, parent_module, prior, closure, inv_closure in _extract_named_priors(
+            module_, prefix=submodule_prefix, memo=memo
+        ):
             yield name, parent_module, prior, closure, inv_closure
 
 
