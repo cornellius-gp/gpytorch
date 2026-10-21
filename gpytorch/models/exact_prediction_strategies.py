@@ -162,7 +162,8 @@ class DefaultPredictionStrategy:
 
         full_mean, full_covar = full_output.mean, full_output.lazy_covariance_matrix
 
-        batch_shape = full_inputs[0].shape[:-2]
+        # Parameter batches can expand shared inputs beyond their own batch shape.
+        batch_shape = full_output.batch_shape
 
         num_train = self.num_train
 
