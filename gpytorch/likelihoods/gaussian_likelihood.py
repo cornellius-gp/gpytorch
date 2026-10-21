@@ -345,7 +345,10 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
         res = self.noise_covar(*params, shape=shape, **kwargs)
 
         if self.second_noise_covar is not None:
-            res = res + self.second_noise_covar(*params, shape=shape, **kwargs)
+            # An explicit noise override replaces the fixed observations,
+            # while the separately learned noise remains additive.
+            second_kwargs = {key: value for key, value in kwargs.items() if key != "noise"}
+            res = res + self.second_noise_covar(*params, shape=shape, **second_kwargs)
         elif isinstance(res, ZeroLinearOperator):
             warnings.warn(
                 "You have passed data through a FixedNoiseGaussianLikelihood that did not match the size "
