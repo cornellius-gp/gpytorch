@@ -189,6 +189,14 @@ class ExactGP(GP):
         input_batch_shape = inputs[0].shape[:-2]
         tbdim, ibdim = len(target_batch_shape), len(input_batch_shape)
 
+        if tbdim > ibdim + 1 and ibdim < len(model_batch_shape):
+            # Shared locations may omit model batch axes as well as the
+            # target-only fantasy axis. Restore the model axes before checking
+            # that there is at most one additional target batch dimension.
+            input_batch_shape = torch.broadcast_shapes(model_batch_shape, input_batch_shape)
+            inputs = [i.expand(input_batch_shape + i.shape[-2:]) for i in inputs]
+            ibdim = len(input_batch_shape)
+
         if not (tbdim == ibdim + 1 or tbdim == ibdim):
             raise RuntimeError(
                 f"Unsupported batch shapes: The target batch shape ({target_batch_shape}) must have either the "
