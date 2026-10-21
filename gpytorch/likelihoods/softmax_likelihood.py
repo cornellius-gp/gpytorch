@@ -60,8 +60,9 @@ class SoftmaxLikelihood(Likelihood):
     def forward(self, function_samples: Tensor, *params: Any, **kwargs: Any) -> Categorical:
         num_data, num_features = function_samples.shape[-2:]
 
-        # Catch legacy mode
-        if num_data == self.num_features:
+        # Catch unambiguous legacy mode. Square inputs already have the modern
+        # trailing feature dimension and must preserve their data/task axes.
+        if num_features != self.num_features and num_data == self.num_features:
             warnings.warn(
                 "The input to SoftmaxLikelihood should be a MultitaskMultivariateNormal (num_data x num_tasks). "
                 "Batch MultivariateNormal inputs (num_tasks x num_data) will be deprectated.",
