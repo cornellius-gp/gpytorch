@@ -6,11 +6,69 @@ import random
 import unittest
 
 import torch
-from linear_operator.operators import DiagLinearOperator, KroneckerProductLinearOperator
+from linear_operator.operators import DenseLinearOperator, DiagLinearOperator, KroneckerProductLinearOperator
 
 from gpytorch.distributions import MultitaskMultivariateNormal, MultivariateNormal
 from gpytorch.test.base_test_case import BaseTestCase
 from gpytorch.test.utils import least_used_cuda_device
+
+
+class TestMultitaskExpandDenseAndLazy(unittest.TestCase):
+    def test_expand_moments_samples_log_prob_and_derivatives(self):
+        devices = ("cpu", "cuda") if torch.cuda.is_available() else ("cpu",)
+        for device in devices:
+            for interleaved in (False, True):
+                for lazy in (False, True):
+                    for batch in ((), (2, 1)):
+                        with self.subTest(device=device, interleaved=interleaved, lazy=lazy, batch=batch):
+                            mean = torch.arange(6, device=device, dtype=torch.double).reshape(3, 2) / 7
+                            mean = mean.expand(*batch, 3, 2).clone().requires_grad_()
+                            factor = torch.eye(6, dtype=mean.dtype, device=device) * 0.8
+                            factor = (factor + 0.03 * mean.new_ones(6, 6)).requires_grad_()
+                            covariance = factor @ factor.mT
+                            source = MultitaskMultivariateNormal(
+                                mean,
+                                DenseLinearOperator(covariance) if lazy else covariance,
+                                interleaved=interleaved,
+                            )
+                            target_batch = torch.Size([4, 2, 3]) if batch else torch.Size([2, 3])
+                            expanded = source.expand(list(target_batch))
+                            self.assertEqual(expanded.batch_shape, target_batch)
+                            self.assertEqual(expanded.event_shape, torch.Size([3, 2]))
+                            self.assertEqual(expanded.islazy, lazy)
+                            torch.testing.assert_close(expanded.mean, mean.expand(*target_batch, 3, 2))
+                            torch.testing.assert_close(
+                                expanded.covariance_matrix, covariance.expand(*target_batch, 6, 6)
+                            )
+                            flat_mean = mean.flatten(-2) if interleaved else mean.mT.flatten(-2)
+                            reference = torch.distributions.MultivariateNormal(
+                                flat_mean.expand(*target_batch, 6), covariance_matrix=covariance
+                            )
+                            value = mean.new_full((*target_batch, 3, 2), 0.1)
+                            flat_value = value.flatten(-2) if interleaved else value.mT.flatten(-2)
+                            actual_loss = expanded.log_prob(value).sum()
+                            reference_loss = reference.log_prob(flat_value).sum()
+                            torch.testing.assert_close(actual_loss, reference_loss)
+                            rows = []
+                            for loss in (actual_loss, reference_loss):
+                                first = torch.autograd.grad(loss, (mean, factor), create_graph=True, retain_graph=True)
+                                second = torch.autograd.grad(
+                                    sum(g.square().sum() for g in first), (mean, factor), retain_graph=True
+                                )
+                                rows.append((first, second))
+                            for observed, expected in zip(*rows):
+                                for a, b in zip(observed, expected):
+                                    torch.testing.assert_close(a, b)
+                            base = mean.new_full((2, *target_batch, 3, 2), 0.4)
+                            actual_sample = expanded.rsample(base_samples=base)
+                            expected_sample = reference.mean + (
+                                reference.scale_tril @ base.flatten(-2).unsqueeze(-1)
+                            ).squeeze(-1)
+                            if interleaved:
+                                expected_sample = expected_sample.reshape(2, *target_batch, 3, 2)
+                            else:
+                                expected_sample = expected_sample.reshape(2, *target_batch, 2, 3).mT
+                            torch.testing.assert_close(actual_sample, expected_sample)
 
 
 class TestMultiTaskMultivariateNormal(BaseTestCase, unittest.TestCase):

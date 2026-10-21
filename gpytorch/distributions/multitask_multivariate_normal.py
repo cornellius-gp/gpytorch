@@ -200,7 +200,8 @@ class MultitaskMultivariateNormal(MultivariateNormal):
 
     def expand(self, batch_size):
         new_mean = self.mean.expand(torch.Size(batch_size) + self.mean.shape[-2:])
-        new_covar = self._covar.expand(torch.Size(batch_size) + self._covar.shape[-2:])
+        covar = self._covar if self.islazy else self.covariance_matrix
+        new_covar = covar.expand(torch.Size(batch_size) + covar.shape[-2:])
         res = self.__class__(new_mean, new_covar, interleaved=self._interleaved)
         return res
 
