@@ -535,8 +535,13 @@ class Kernel(Module):
 
     def __getstate__(self):
         # JIT ScriptModules cannot be pickled
-        self.distance_module = None
-        return self.__dict__
+        state = self.__dict__.copy()
+        if "distance_module" in self._modules:
+            state["_modules"] = self._modules.copy()
+            state["_modules"]["distance_module"] = None
+        else:
+            state["distance_module"] = None
+        return state
 
     def __add__(self, other: Kernel) -> Kernel:
         kernels = []
