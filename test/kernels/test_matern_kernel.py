@@ -3,10 +3,16 @@
 import math
 import pickle
 import unittest
+from unittest.mock import patch
 
 import torch
 
+from gpytorch.distributions import MultivariateNormal
 from gpytorch.kernels import MaternKernel
+from gpytorch.likelihoods import GaussianLikelihood
+from gpytorch.means import ZeroMean
+from gpytorch.mlls import ExactMarginalLogLikelihood
+from gpytorch.models import ExactGP
 from gpytorch.priors import NormalPrior
 from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
 
@@ -31,7 +37,106 @@ class TestMatern05BaseKernel(unittest.TestCase, BaseKernelTestCase):
         return kernel
 
 
+class _ExactMaternModel(ExactGP):
+    def __init__(self, x: torch.Tensor, y: torch.Tensor, nu: float) -> None:
+        super().__init__(x, y, GaussianLikelihood().to(x))
+        self.mean_module = ZeroMean()
+        self.covar_module = MaternKernel(nu=nu).to(x)
+
+    def forward(self, x: torch.Tensor) -> MultivariateNormal:
+        return MultivariateNormal(self.mean_module(x), self.covar_module(x))
+
+
 class TestMaternKernel(unittest.TestCase, BaseKernelTestCase):
+    def test_input_lengthscale_mixed_derivatives_keep_generic_dispatch(self) -> None:
+        devices = [torch.device("cpu")]
+        if torch.cuda.is_available():
+            devices.append(torch.device("cuda"))
+        for device in devices:
+            for nu in (0.5, 1.5, 2.5):
+                with self.subTest(device=device, nu=nu):
+                    x = torch.tensor(
+                        [[0.03, 0.2], [0.29, 0.6], [0.58, 0.1], [0.87, 0.8]],
+                        dtype=torch.double,
+                        device=device,
+                        requires_grad=True,
+                    )
+                    kernel = MaternKernel(nu=nu).to(x)
+                    kernel.lengthscale = 0.31
+                    raw = kernel.raw_lengthscale
+                    # Exclude the coincident-input cusp of Matérn-1/2.
+                    weights = 1 - torch.eye(len(x), dtype=x.dtype, device=device)
+                    with patch("gpytorch.functions.MaternCovariance.apply", side_effect=AssertionError):
+                        actual = (kernel(x).to_dense() * weights).sum()
+                    distance = (x.unsqueeze(-2) - x.unsqueeze(-3)).square().sum(-1).clamp_min(1e-30).sqrt()
+                    scaled = math.sqrt(2 * nu) * distance / kernel.lengthscale
+                    polynomial = 1 if nu == 0.5 else 1 + scaled
+                    if nu == 2.5:
+                        polynomial = polynomial + scaled.square() / 3
+                    expected = (polynomial * (-scaled).exp() * weights).sum()
+                    gradients = [
+                        torch.autograd.grad(value, (x, raw), create_graph=True) for value in (actual, expected)
+                    ]
+                    for index in (0, 1):
+                        torch.testing.assert_close(gradients[0][index], gradients[1][index], atol=1e-10, rtol=1e-9)
+                    direction = torch.arange(1, x.numel() + 1, dtype=x.dtype, device=device).reshape_as(x)
+                    hessians = [
+                        torch.autograd.grad((gx * direction).sum() + gl.sum(), (x, raw)) for gx, gl in gradients
+                    ]
+                    for index in (0, 1):
+                        torch.testing.assert_close(hessians[0][index], hessians[1][index], atol=1e-9, rtol=1e-8)
+
+    def test_optimized_parameter_hessian_matches_gaussian_law_and_gradient_differences(self) -> None:
+        devices = [torch.device("cpu")]
+        if torch.cuda.is_available():
+            devices.append(torch.device("cuda"))
+        for device in devices:
+            for nu in (0.5, 1.5, 2.5):
+                for objective in ("covariance", "mll"):
+                    with self.subTest(device=device, nu=nu, objective=objective):
+                        x = torch.tensor([[0.03], [0.29], [0.58], [0.87]], dtype=torch.double, device=device)
+                        y = (4 * x).sin().squeeze(-1)
+                        model = _ExactMaternModel(x, y, nu)
+                        model.covar_module.lengthscale = 0.31
+                        model.likelihood.noise = 0.05
+                        raw = model.covar_module.raw_lengthscale
+
+                        def evaluate() -> torch.Tensor:
+                            if objective == "covariance":
+                                return model.covar_module(x).to_dense().sum()
+                            return ExactMarginalLogLikelihood(model.likelihood, model)(model(x), y)
+
+                        distance = (x.unsqueeze(-2) - x.unsqueeze(-3)).square().sum(-1).sqrt()
+                        scaled = math.sqrt(2 * nu) * distance / model.covar_module.lengthscale
+                        polynomial = 1 if nu == 0.5 else 1 + scaled
+                        if nu == 2.5:
+                            polynomial = polynomial + scaled.square() / 3
+                        covariance = polynomial * (-scaled).exp()
+                        expected = covariance.sum()
+                        if objective == "mll":
+                            expected = torch.distributions.MultivariateNormal(
+                                torch.zeros_like(y),
+                                covariance_matrix=covariance + torch.diag_embed(model.likelihood.noise.expand_as(y)),
+                            ).log_prob(y) / len(y)
+                        values = (evaluate(), expected)
+                        gradients = [torch.autograd.grad(value, raw, create_graph=True)[0] for value in values]
+                        hessians = [torch.autograd.grad(gradient.sum(), raw)[0] for gradient in gradients]
+                        torch.testing.assert_close(*values, atol=1e-11, rtol=1e-10)
+                        torch.testing.assert_close(*gradients, atol=1e-10, rtol=1e-9)
+                        torch.testing.assert_close(*hessians, atol=1e-9, rtol=1e-8)
+                        original = raw.detach().clone()
+                        differences = []
+                        step = 1e-5
+                        for sign in (-1, 1):
+                            with torch.no_grad():
+                                raw.copy_(original + sign * step)
+                            differences.append(torch.autograd.grad(evaluate(), raw)[0])
+                        with torch.no_grad():
+                            raw.copy_(original)
+                        torch.testing.assert_close(
+                            hessians[0], (differences[1] - differences[0]) / (2 * step), atol=2e-7, rtol=2e-7
+                        )
+
     def create_kernel_no_ard(self, **kwargs):
         return MaternKernel(nu=1.5, **kwargs)
 
