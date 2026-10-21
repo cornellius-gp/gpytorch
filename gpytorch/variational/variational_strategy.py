@@ -22,10 +22,8 @@ from linear_operator.utils.errors import NotPSDError
 from torch import Tensor
 
 from gpytorch import settings
-
 from gpytorch.variational._variational_strategy import _VariationalStrategy
 from gpytorch.variational.cholesky_variational_distribution import CholeskyVariationalDistribution
-
 from ..distributions import MultivariateNormal
 from ..models import ApproximateGP
 from ..settings import _linalg_dtype_cholesky, trace_mode
@@ -75,8 +73,9 @@ class ComputePredictiveUpdates(torch.autograd.Function):
         mean_update = (interp_term.mT @ inducing_values.unsqueeze(-1)).squeeze(-1)
         variance_update = torch.sum(interp_term.mT * (interp_term.mT @ middle), dim=-1)
 
-        # NOTE: The backward call does not need `induc_data_covar`. Access to it is always through `interp_term`.
-        ctx.save_for_backward(chol, interp_term, middle, inducing_values)
+        # Reuse the interpolation for ordinary backward, but retain its inputs
+        # so higher derivatives can reconstruct the solve's original graph.
+        ctx.save_for_backward(chol, induc_data_covar, interp_term, middle, inducing_values)
 
         return mean_update, variance_update
 
@@ -92,7 +91,9 @@ class ComputePredictiveUpdates(torch.autograd.Function):
         number of data points. In contrast, PyTorch's backward pass would require three O(m^2 n) matmuls and a O(m^2 n)
         triangular solve. Thus, this implementation is about 2x faster when `m << n`.
         """
-        chol, interp_term, middle, inducing_values = ctx.saved_tensors
+        chol, induc_data_covar, interp_term, middle, inducing_values = ctx.saved_tensors
+        if torch.is_grad_enabled():
+            interp_term = torch.linalg.solve_triangular(chol, induc_data_covar, upper=False)
 
         # Common terms that will be used more than once
         interp_term_times_dmean = interp_term @ d_mean.unsqueeze(-1)
