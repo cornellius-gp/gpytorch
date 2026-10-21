@@ -50,7 +50,7 @@ class IndependentMultitaskVariationalStrategy(_VariationalStrategy):
         return self.base_variational_strategy.variational_params_initialized
 
     def kl_divergence(self):
-        return super().kl_divergence().sum(dim=-1)
+        return self.base_variational_strategy.kl_divergence().sum(dim=self.task_dim)
 
     def __call__(
         self,

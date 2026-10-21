@@ -158,7 +158,7 @@ class LMCVariationalStrategy(_VariationalStrategy):
         return self.base_variational_strategy.variational_params_initialized
 
     def kl_divergence(self) -> Tensor:
-        return super().kl_divergence().sum(dim=self.latent_dim)
+        return self.base_variational_strategy.kl_divergence().sum(dim=self.latent_dim)
 
     def __call__(
         self,
