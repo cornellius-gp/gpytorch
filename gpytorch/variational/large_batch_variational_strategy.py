@@ -26,14 +26,17 @@ class QuadFormDiagonal(torch.autograd.Function):
         """
         product = matrix @ rhs
 
-        # The backward pass does not need `matrix`
-        ctx.save_for_backward(rhs, product)
+        # Keep the inputs so double backward can reconstruct the product's
+        # graph. Autograd does not record operations inside this forward.
+        ctx.save_for_backward(matrix, rhs, product)
 
         return torch.sum(rhs * product, dim=-2)
 
     @staticmethod
     def backward(ctx, d_diag: Tensor):
-        rhs, product = ctx.saved_tensors
+        matrix, rhs, product = ctx.saved_tensors
+        if torch.is_grad_enabled():
+            product = matrix @ rhs
 
         d_matrix = rhs @ (d_diag.unsqueeze(-1) * rhs.mT)
         d_rhs = 2.0 * product * d_diag.unsqueeze(-2)

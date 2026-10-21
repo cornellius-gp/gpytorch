@@ -12,6 +12,30 @@ from .test_variational_strategy import TestVariationalGP
 
 
 class TestQuadFormDiagonal(BaseTestCase, unittest.TestCase):
+    def test_double_backward(self):
+        for device in ("cpu", "cuda") if torch.cuda.is_available() else ("cpu",):
+            for batch_shape in ((), (2,)):
+                with self.subTest(device=device, batch_shape=batch_shape):
+                    matrix = torch.randn(*batch_shape, 2, 2, dtype=torch.double, device=device, requires_grad=True)
+                    rhs = torch.randn(*batch_shape, 2, 3, dtype=torch.double, device=device, requires_grad=True)
+
+                    def quadratic_form(matrix, rhs):
+                        return QuadFormDiagonal.apply((matrix + matrix.mT) / 2, rhs)
+
+                    self.assertTrue(torch.autograd.gradcheck(quadratic_form, (matrix, rhs)))
+                    self.assertTrue(torch.autograd.gradgradcheck(quadratic_form, (matrix, rhs)))
+
+    def test_rhs_only_double_backward(self):
+        matrix = torch.tensor([[1.3, 0.2], [0.2, 0.9]], dtype=torch.double)
+        rhs = torch.tensor([[0.3, -0.2], [0.4, 0.7]], dtype=torch.double, requires_grad=True)
+        actual = torch.autograd.grad(QuadFormDiagonal.apply(matrix, rhs).sum(), rhs, create_graph=True)[0]
+        expected = torch.autograd.grad((rhs * (matrix @ rhs)).sum(), rhs, create_graph=True)[0]
+        self.assertAllClose(actual, expected)
+        self.assertAllClose(
+            torch.autograd.grad(actual.sum(), rhs)[0],
+            torch.autograd.grad(expected.sum(), rhs)[0],
+        )
+
     def create_inputs(self):
         m = 2
         n = 3
