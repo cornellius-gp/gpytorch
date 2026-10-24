@@ -129,7 +129,7 @@ class MultitaskMultivariateNormal(MultivariateNormal):
         Convert an iterable of MVNs into a :obj:`~gpytorch.distributions.MultitaskMultivariateNormal`.
         The resulting distribution will have ``len(mvns)`` tasks, and the tasks will be independent.
 
-        :param ~gpytorch.distributions.MultitaskNormal mvn: The base MVN distributions.
+        :param ~gpytorch.distributions.MultivariateNormal mvns: The base MVN distributions.
         :returns: the independent multitask distribution
         :rtype: gpytorch.distributions.MultitaskMultivariateNormal
 
@@ -177,7 +177,7 @@ class MultitaskMultivariateNormal(MultivariateNormal):
         Convert a single MVN into a :obj:`~gpytorch.distributions.MultitaskMultivariateNormal`,
         where each task shares the same mean and covariance.
 
-        :param ~gpytorch.distributions.MultitaskNormal mvn: The base MVN distribution.
+        :param ~gpytorch.distributions.MultivariateNormal mvn: The base MVN distribution.
         :param int num_tasks: How many tasks to create.
         :returns: the independent multitask distribution
         :rtype: gpytorch.distributions.MultitaskMultivariateNormal
