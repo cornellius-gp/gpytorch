@@ -178,20 +178,30 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             # If dim is negative, get the positive equivalent.
             dim = len(self.batch_shape) + dim + 1
 
-        new_loc = self.loc.unsqueeze(dim)
+        new_loc = self.loc.expand(self.batch_shape + self.event_shape).unsqueeze(dim)
         if self.islazy:
-            new_covar = self._covar.unsqueeze(dim)
+            new_covar = self._covar
+            if 0 in new_covar.batch_shape:
+                # Some operators cannot expand zero-sized batches. Padding the
+                # rank preserves broadcasting without expanding those axes.
+                for _ in range(len(self.batch_shape) - len(new_covar.batch_shape)):
+                    new_covar = new_covar.unsqueeze(0)
+            elif new_covar.batch_shape != self.batch_shape:
+                new_covar = new_covar.expand(*self.batch_shape, -1, -1)
+            new_covar = new_covar.unsqueeze(dim)
             new = self.__class__(mean=new_loc, covariance_matrix=new_covar)
             if self.__unbroadcasted_scale_tril is not None:
                 # Reuse the scale tril if available.
-                new.__unbroadcasted_scale_tril = self.__unbroadcasted_scale_tril.unsqueeze(dim)
+                new.__unbroadcasted_scale_tril = self.__unbroadcasted_scale_tril.expand(
+                    *self.batch_shape, -1, -1
+                ).unsqueeze(dim)
         else:
             # Non-lazy MVN is represented using scale_tril in PyTorch.
             # Constructing it from scale_tril will avoid unnecessary computation.
             # Initialize using  __new__, so that we can skip __init__ and use scale_tril.
             new = self.__new__(type(self))
             new._islazy = False
-            new_scale_tril = self.__unbroadcasted_scale_tril.unsqueeze(dim)
+            new_scale_tril = self.__unbroadcasted_scale_tril.expand(*self.batch_shape, -1, -1).unsqueeze(dim)
             super(MultivariateNormal, new).__init__(loc=new_loc, scale_tril=new_scale_tril)
             # Set the covar matrix, since it is always available for GPyTorch MVN.
             new.covariance_matrix = self.covariance_matrix.unsqueeze(dim)

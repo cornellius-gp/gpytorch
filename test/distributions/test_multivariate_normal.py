@@ -10,6 +10,7 @@ from linear_operator.operators import DenseLinearOperator, DiagLinearOperator, L
 from torch.distributions import MultivariateNormal as TMultivariateNormal
 
 from gpytorch.distributions import MultivariateNormal
+from gpytorch.kernels import RBFKernel
 from gpytorch.test.base_test_case import BaseTestCase
 from gpytorch.test.utils import least_used_cuda_device
 
@@ -348,6 +349,68 @@ class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
             self.assertEqual(expanded.covariance_matrix.shape, torch.Size([2, 3, 3]))
             self.assertTrue(torch.allclose(expanded.scale_tril, mvn.scale_tril.expand(2, -1, -1)))
             self.assertEqual(expanded.scale_tril.shape, torch.Size([2, 3, 3]))
+
+    def test_multivariate_normal_unsqueeze_broadcast(self):
+        batch_shapes = (((), (2, 3)), ((2, 3), ()), ((3,), (2, 1)), ((2, 1), (3,)), ((2, 3), (2, 3)))
+        for (mean_batch, covar_batch), dtype, (lazy, cached), dim in product(
+            batch_shapes,
+            (torch.float, torch.double),
+            ((False, True), (True, False), (True, True)),
+            range(-3, 3),
+        ):
+            with self.subTest(
+                mean_batch=mean_batch, covar_batch=covar_batch, dtype=dtype, lazy=lazy, cached=cached, dim=dim
+            ):
+                mean = torch.randn(*mean_batch, 4, dtype=dtype, requires_grad=True)
+                root = torch.randn(*covar_batch, 4, 4, dtype=dtype)
+                covar = (root @ root.transpose(-1, -2) + torch.eye(4, dtype=dtype)).requires_grad_()
+                mvn = MultivariateNormal(mean, DenseLinearOperator(covar) if lazy else covar)
+                if cached:
+                    mvn.scale_tril
+
+                positive_dim = dim % 3
+                expected_mean = mean.expand(2, 3, 4).unsqueeze(positive_dim)
+                expected_covar = covar.expand(2, 3, 4, 4).unsqueeze(positive_dim)
+                reference = TMultivariateNormal(expected_mean, expected_covar)
+                result = mvn.unsqueeze(dim)
+
+                self.assertEqual(result.batch_shape, reference.batch_shape)
+                self.assertEqual(result.event_shape, reference.event_shape)
+                self.assertEqual(result.islazy, lazy)
+                self.assertAllClose(result.mean, reference.mean)
+                self.assertAllClose(result.covariance_matrix, reference.covariance_matrix)
+                self.assertAllClose(result.scale_tril, reference.scale_tril)
+
+                value = torch.randn_like(expected_mean)
+                actual_log_prob = result.log_prob(value)
+                expected_log_prob = reference.log_prob(value)
+                self.assertAllClose(actual_log_prob, expected_log_prob)
+                actual_grads = torch.autograd.grad(actual_log_prob.sum(), (mean, covar), retain_graph=True)
+                expected_grads = torch.autograd.grad(expected_log_prob.sum(), (mean, covar), retain_graph=True)
+                for actual, expected in zip(actual_grads, expected_grads, strict=True):
+                    self.assertAllClose(actual, expected)
+
+                base_samples = torch.randn(2, *expected_mean.shape, dtype=dtype)
+                expected_samples = expected_mean + (reference.scale_tril @ base_samples.unsqueeze(-1)).squeeze(-1)
+                self.assertAllClose(result.rsample(base_samples=base_samples), expected_samples)
+                self.assertEqual(result.rsample(torch.Size([2])).shape, expected_samples.shape)
+
+    def test_multivariate_normal_unsqueeze_empty_lazy_batch(self):
+        x = torch.arange(4, dtype=torch.double).reshape(1, 4, 1)[:0]
+        covariance = RBFKernel().double()(x)
+        for mean_batch in ((0,), (2, 0), (2, 3, 0)):
+            mean = torch.zeros(*mean_batch, 4, dtype=torch.double)
+            mvn = MultivariateNormal(mean, covariance)
+            for dim in range(-len(mean_batch) - 1, len(mean_batch) + 1):
+                with self.subTest(mean_batch=mean_batch, dim=dim):
+                    positive_dim = dim % (len(mean_batch) + 1)
+                    expected_mean = mean.unsqueeze(positive_dim)
+                    expected_covar = covariance.to_dense().expand(*mean_batch, 4, 4).unsqueeze(positive_dim)
+                    result = mvn.unsqueeze(dim)
+                    self.assertEqual(result.batch_shape, expected_mean.shape[:-1])
+                    self.assertAllClose(result.mean, expected_mean)
+                    self.assertAllClose(result.covariance_matrix.expand_as(expected_covar), expected_covar)
+                    self.assertEqual(result.variance.shape, expected_mean.shape)
 
     def test_multivariate_normal_unsqueeze(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
