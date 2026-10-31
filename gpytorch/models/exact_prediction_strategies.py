@@ -428,7 +428,11 @@ class DefaultPredictionStrategy:
         if settings.skip_posterior_variances.on():
             return ZeroLinearOperator(*test_test_covar.size())
 
-        if settings.fast_pred_var.off():
+        # The covariance must only condition on observed training labels (as the mean cache does).
+        # The fast_pred_var cache includes all training points, so use the direct computation instead.
+        nan_policy = settings.observation_nan_policy.value()
+        has_missing = nan_policy != "ignore" and bool(torch.isnan(self.train_labels).any())
+        if settings.fast_pred_var.off() or has_missing:
             dist = self.train_prior_dist.__class__(
                 torch.zeros_like(self.train_prior_dist.mean),
                 self.train_prior_dist.lazy_covariance_matrix,
@@ -438,6 +442,18 @@ class DefaultPredictionStrategy:
                 train_train_covar = train_train_covar.detach()
 
             test_train_covar = to_dense(test_train_covar)
+            if has_missing and nan_policy == "mask":
+                observed = settings.observation_nan_policy._get_observed(
+                    self.train_labels, torch.Size((self.train_labels.shape[-1],))
+                )
+                train_train_covar = MaskedLinearOperator(train_train_covar.evaluate_kernel(), observed, observed)
+                test_train_covar = test_train_covar[..., observed]
+            elif has_missing:  # 'fill'
+                observed = (~torch.isnan(self.train_labels)).to(test_train_covar.dtype)
+                kernel_mask = observed[..., None] * observed[..., None, :]
+                torch.diagonal(kernel_mask, dim1=-2, dim2=-1)[...] = 1
+                train_train_covar = train_train_covar.evaluate_kernel() * kernel_mask
+                test_train_covar = test_train_covar * observed[..., None, :]
             train_test_covar = test_train_covar.transpose(-1, -2)
             # TODO: Use just a single triangular solve for dense inference
             # A Cholesky solve requires two triangular solves.

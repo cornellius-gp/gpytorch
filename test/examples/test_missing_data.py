@@ -1,4 +1,5 @@
 import unittest
+import warnings
 
 import torch
 
@@ -173,6 +174,38 @@ class TestMissingData(BaseTestCase, unittest.TestCase):
 
         with settings.observation_nan_policy("mask"):
             self._check(model, likelihood, train_x, train_y, test_x, test_y, optimizer, mll)
+
+    def test_exact_prediction_matches_observed_only_model(self):
+        # Predictions with missing labels must equal those of a model trained on the observed labels only
+        batch_shape = torch.Size((2,))
+        train_x = torch.linspace(0, 1, 9, dtype=torch.float64).unsqueeze(-1).repeat(2, 1, 1)
+        train_y = torch.sin(2 * torch.pi * train_x).squeeze(-1)
+        test_x = torch.linspace(-0.1, 1.1, 7, dtype=torch.float64).unsqueeze(-1).repeat(2, 1, 1)
+
+        def predict(x, y, **kwargs):
+            model = SingleGPModel(x, y, GaussianLikelihood(batch_shape=batch_shape), batch_shape=batch_shape)
+            model.double().eval()
+            with torch.no_grad(), warnings.catch_warnings():
+                warnings.simplefilter("ignore", RuntimeWarning)
+                return model(test_x)
+
+        for nan_policy in ("mask", "fill"):
+            for fast_pred_var in (False, True):
+                with self.subTest(nan_policy=nan_policy, fast_pred_var=fast_pred_var):
+                    missing_y = train_y.clone()
+                    missing_y[0, 2] = missing_y[1, 5] = torch.nan
+                    with settings.observation_nan_policy(nan_policy), settings.fast_pred_var(fast_pred_var):
+                        prediction = predict(train_x, missing_y)
+
+                    # 'mask' drops an observation from every batch, 'fill' only from the affected batch
+                    expected_means, expected_covars = [], []
+                    for i in range(batch_shape[0]):
+                        observed = ~missing_y.isnan().any(0) if nan_policy == "mask" else ~missing_y[i].isnan()
+                        expected = predict(train_x[:, observed], train_y[:, observed])
+                        expected_means.append(expected.mean[i])
+                        expected_covars.append(expected.covariance_matrix[i])
+                    self.assertAllClose(prediction.mean, torch.stack(expected_means))
+                    self.assertAllClose(prediction.covariance_matrix, torch.stack(expected_covars))
 
     def test_multitask(self):
         num_tasks = 10
