@@ -14,6 +14,9 @@ Multi-output (vector valued functions)
   - If the outputs share the same kernel and mean, you can train a `Batch Independent Multioutput GP`_.
   - Otherwise, you can train a `ModelList Multioutput GP`_.
 
+- **Partially correlated output dimensions**: for cases with a massive number of outputs.
+  See the `Parallel Partial GP Regression`_ example, which implements the inference strategy defined in `Gu et al., 2016`_.
+
 .. toctree::
    :maxdepth: 1
    :hidden:
@@ -21,6 +24,7 @@ Multi-output (vector valued functions)
    Multitask_GP_Regression.ipynb
    Batch_Independent_Multioutput_GP.ipynb
    ModelList_GP_Regression.ipynb
+   Parallel_Partial_GP_Regression.ipynb
 
 Scalar function with multiple tasks
 ----------------------------------------
@@ -41,11 +45,17 @@ This setting should be used only when each input corresponds to a single task.
 .. _Bonilla et al., 2008:
   https://papers.nips.cc/paper/3189-multi-task-gaussian-process-prediction
 
+.. _Gu et al., 2016:
+  https://projecteuclid.org/journals/annals-of-applied-statistics/volume-10/issue-3/Parallel-partial-Gaussian-process-emulation-for-computer-models-with-massive/10.1214/16-AOAS934.pdf
+
 .. _Batch Independent Multioutput GP:
   ./Batch_Independent_Multioutput_GP.ipynb
 
 .. _ModelList Multioutput GP:
   ./ModelList_GP_Regression.ipynb
+
+.. _Parallel Partial GP Regression:
+  ./Parallel_Partial_GP_Regression.ipynb
 
 .. _Hadamard Multitask GP Regression:
   ./Hadamard_Multitask_GP_Regression.ipynb
