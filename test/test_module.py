@@ -9,6 +9,27 @@ from gpytorch.test.base_test_case import BaseTestCase
 
 
 class TestModule(BaseTestCase, unittest.TestCase):
+    def test_apply_cache_and_recurse(self):
+        class CachedModule(Module):
+            def __init__(self):
+                super().__init__()
+                self.register_buffer("value", torch.tensor(1.0))
+                self.cache = self.value.clone()
+
+            def _clear_cache(self):
+                self.cache = None
+
+        module = CachedModule()
+        module.child = CachedModule()
+        self.assertIs(module._apply(lambda tensor: tensor, recurse=False), module)
+        self.assertIsNone(module.cache)
+        self.assertIsNotNone(module.child.cache)
+        module.double()
+        self.assertIsNone(module.child.cache)
+        self.assertEqual(module.value.dtype, torch.float64)
+        self.assertEqual(module.child.value.dtype, torch.float64)
+        self.assertIs(Module().to(dtype=torch.float64).__class__, Module)
+
     def test_register_prior(self):
         mock_prior = Module()
         m = Module()

@@ -28,6 +28,27 @@ class _TestModel(gpytorch.models.ExactGP):
 
 
 class TestInducingPointKernel(unittest.TestCase):
+    def test_dtype_conversion_clears_kernel_cache(self):
+        x = torch.tensor([[0.2], [0.8]])
+        inducing_points = torch.tensor([[0.0], [0.5], [1.0]])
+        for source_dtype, target_dtype in ((torch.float32, torch.float64), (torch.float64, torch.float32)):
+            with self.subTest(source_dtype=source_dtype), torch.no_grad():
+                kernel = InducingPointKernel(
+                    RBFKernel(), inducing_points.clone(), gpytorch.likelihoods.GaussianLikelihood()
+                )
+                kernel.to(dtype=source_dtype).eval()
+                kernel(x.to(dtype=source_dtype)).to_dense()
+                kernel.to(dtype=target_dtype)
+                reference = InducingPointKernel(
+                    RBFKernel(), inducing_points.clone(), gpytorch.likelihoods.GaussianLikelihood()
+                )
+                reference.to(dtype=target_dtype).eval()
+                reference.load_state_dict(kernel.state_dict())
+                actual = kernel(x.to(dtype=target_dtype)).to_dense()
+                expected = reference(x.to(dtype=target_dtype)).to_dense()
+                self.assertEqual(actual.dtype, target_dtype)
+                torch.testing.assert_close(actual, expected)
+
     def test_kernel_output(self):
         train_x = torch.randn(1000, 3)
         train_y = torch.randn(1000)

@@ -268,6 +268,29 @@ class TestSumExactGP(TestExactGP):
 class TestExactGPHooks(unittest.TestCase):
     """Tests for the new modular prediction hooks in ExactGP."""
 
+    def test_dtype_conversion_clears_prediction_cache(self):
+        train_x = torch.tensor([0.0, 0.4, 1.0])
+        train_y = torch.tensor([0.3, -0.1, 0.7])
+        test_x = torch.tensor([0.2, 0.8])
+        for source_dtype, target_dtype in ((torch.float32, torch.float64), (torch.float64, torch.float32)):
+            for conversion in ("to", "double" if target_dtype == torch.float64 else "float"):
+                with self.subTest(source_dtype=source_dtype, conversion=conversion), torch.no_grad():
+                    model = ExactGPModel(train_x, train_y, GaussianLikelihood()).to(dtype=source_dtype).eval()
+                    model(test_x.to(dtype=source_dtype)).covariance_matrix
+                    self.assertIsNotNone(model.prediction_strategy)
+                    if conversion == "to":
+                        model.to(dtype=target_dtype)
+                    else:
+                        getattr(model, conversion)()
+                    reference = ExactGPModel(train_x, train_y, GaussianLikelihood()).to(dtype=target_dtype).eval()
+                    reference.load_state_dict(model.state_dict())
+                    actual = model(test_x.to(dtype=target_dtype))
+                    expected = reference(test_x.to(dtype=target_dtype))
+                    self.assertEqual(actual.mean.dtype, target_dtype)
+                    self.assertEqual(actual.covariance_matrix.dtype, target_dtype)
+                    torch.testing.assert_close(actual.mean, expected.mean)
+                    torch.testing.assert_close(actual.covariance_matrix, expected.covariance_matrix)
+
     def test_get_train_prior_distribution_hook(self):
         """Test that _get_train_prior_distribution can be overridden."""
         call_count = [0]

@@ -91,6 +91,11 @@ class Module(nn.Module):
         Should be implemented by any module that caches any computation at test time.
         """
 
+    def _apply(self: ModuleSelf, fn: Callable[[Tensor], Tensor], recurse: bool = True) -> ModuleSelf:
+        # Cached computations may contain tensors with the old device or dtype.
+        self._clear_cache()
+        return super()._apply(fn, recurse=recurse)
+
     def _get_module_and_name(self, parameter_name: str) -> tuple[nn.Module, str]:
         """Get module and name from full parameter name."""
         module, name = parameter_name.split(".", 1)
