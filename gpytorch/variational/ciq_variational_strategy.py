@@ -26,7 +26,8 @@ class _NgdInterpTerms(torch.autograd.Function):
 
     and returns
 
-        - the predictive distribution mean/covariance
+        - the predictive distribution mean
+        - the predictive distribution variance (if ``diag`` is True) or covariance (if ``diag`` is False)
         - the inducing KL divergence KL( q(u) || p(u))
 
     However, the gradients will be with respect to the **cannonical parameters**
@@ -40,10 +41,11 @@ class _NgdInterpTerms(torch.autograd.Function):
         interp_term: torch.Tensor,
         natural_vec: torch.Tensor,
         natural_mat: torch.Tensor,
+        diag: bool = True,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # Compute precision
         prec = natural_mat.mul(-2.0)
-        diag = prec.diagonal(dim1=-1, dim2=-2).unsqueeze(-1)
+        prec_diag = prec.diagonal(dim1=-1, dim2=-2).unsqueeze(-1)
 
         # Make sure that interp_term and natural_vec are the same batch shape
         batch_shape = torch.broadcast_shapes(interp_term.shape[:-2], natural_vec.shape[:-1])
@@ -60,7 +62,7 @@ class _NgdInterpTerms(torch.autograd.Function):
             max_iter=settings.max_cg_iterations.value(),
             tolerance=min(settings.eval_cg_tolerance.value(), settings.cg_tolerance.value()),
             max_tridiag_iter=settings.max_lanczos_quadrature_iterations.value(),
-            preconditioner=lambda x: x / diag,
+            preconditioner=lambda x: x / prec_diag,
         )
         expec_vec = solves[..., 0]
         s_times_interp_term = solves[..., 1:]
@@ -69,9 +71,16 @@ class _NgdInterpTerms(torch.autograd.Function):
         # k^T K^{-1/2} m
         interp_mean = (s_times_interp_term.transpose(-1, -2) @ natural_vec.unsqueeze(-1)).squeeze(-1)
 
-        # Compute the interpolated variance
+        # Compute the interpolated variance/covariance
         # k^T K^{-1/2} S K^{-1/2} k = k^T K^{-1/2} (expec_mat - expec_vec expec_vec^T) K^{-1/2} k
-        interp_var = (s_times_interp_term * interp_term).sum(dim=-2)
+        # If diag is True, only the diagonal entries (the marginal variances) are computed.
+        if diag:
+            interp_var = (s_times_interp_term * interp_term).sum(dim=-2)
+        else:
+            interp_var = s_times_interp_term.transpose(-1, -2) @ interp_term
+            # The covariance matrix is symmetric in exact arithmetic, but the CG solves are only approximate.
+            # Symmetrizing here keeps the matrix positive definite in the presence of roundoff error.
+            interp_var = (interp_var + interp_var.transpose(-1, -2)).mul(0.5)
 
         # Let's not bother actually computing the KL-div in the foward pass
         # 1/2 ( -log | S | + tr(S) + m^T m - len(m) )
@@ -80,6 +89,7 @@ class _NgdInterpTerms(torch.autograd.Function):
 
         # We're done!
         ctx.save_for_backward(interp_term, s_times_interp_term, interp_mean, natural_vec, expec_vec, prec)
+        ctx.diag = diag
         return interp_mean, interp_var, kl_div
 
     @staticmethod
@@ -88,6 +98,47 @@ class _NgdInterpTerms(torch.autograd.Function):
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, None]:
         # Get the saved terms
         interp_term, s_times_interp_term, interp_mean, natural_vec, expec_vec, prec = ctx.saved_tensors
+        diag = ctx.diag
+
+        eye = torch.eye(expec_vec.size(-1), device=expec_vec.device, dtype=expec_vec.dtype)
+
+        if not diag:
+            # Full covariance case: the upstream gradient is the (n x n) matrix dL/dC.
+            # Only the symmetric part of a matrix gradient matters for a symmetric matrix.
+            # The symmetrization has to be explicit, otherwise the gradient w.r.t. the expected matrix
+            # is not symmetric, and subsequent natural gradient steps would make the natural matrix
+            # non-symmetric (which breaks the CG solves).
+            total_covar_grad = interp_var_grad + interp_var_grad.transpose(-1, -2)  # G + G^T
+            covar_grad = total_covar_grad.mul(0.5)  # (G + G^T) / 2
+
+            # Compute gradient of interp term (K^{-1/2} k), where C = A^T S A
+            # interp_mean component: m
+            # interp_covar component: S A (G + G^T)
+            # kl component: 0
+            interp_term_grad = s_times_interp_term @ total_covar_grad + (
+                interp_mean_grad.unsqueeze(-2) * expec_vec.unsqueeze(-1)
+            )
+
+            # Compute gradient of expected vector (m = eta_1)
+            # interp_mean component: A
+            # interp_covar component: -A (G + G^T) (A^T m)
+            # kl component: eta_1
+            expec_vec_grad = (
+                (interp_mean_grad.unsqueeze(-2) * interp_term).sum(dim=-1)
+                - (interp_term @ total_covar_grad @ interp_mean.unsqueeze(-1)).squeeze(-1)
+                + (kl_div_grad.unsqueeze(-1) * natural_vec)
+            )
+
+            # Compute gradient of expected matrix (mm^T + S)
+            # interp_mean component: 0
+            # interp_covar component: A G A^T
+            # kl component: 1/2 ( I - S^{-1} )
+            expec_mat_grad = torch.add(
+                interp_term @ covar_grad @ interp_term.transpose(-1, -2),
+                (kl_div_grad.unsqueeze(-1).unsqueeze(-1) * (eye - prec).mul(0.5)),
+            )
+
+            return interp_term_grad, expec_vec_grad, expec_mat_grad, None  # Extra "None" for the kwarg
 
         # Expand data-depenedent gradients
         interp_mean_grad = interp_mean_grad.unsqueeze(-2)
@@ -115,7 +166,6 @@ class _NgdInterpTerms(torch.autograd.Function):
         # interp_mean component: 0
         # interp_var component: K^{-1/2} k k^T K^{-1/2}
         # kl component: 1/2 ( I - S^{-1} )
-        eye = torch.eye(expec_vec.size(-1), device=expec_vec.device, dtype=expec_vec.dtype)
         expec_mat_grad = torch.add(
             (interp_var_grad * interp_term) @ interp_term.transpose(-1, -2),
             (kl_div_grad.unsqueeze(-1).unsqueeze(-1) * (eye - prec).mul(0.5)),
@@ -219,16 +269,33 @@ class CiqVariationalStrategy(_VariationalStrategy):
         # Compute interpolated mean and variance terms
         # We have separate computation rules for NGD versus standard GD
         if self._ngd():
+            # In train mode with diag=True, we only need the marginal variances of the predictive
+            # distribution, which can be computed in O(n M) time. In eval mode (or when diag=False),
+            # the full predictive covariance is required. (See the docstring of
+            # _VariationalStrategy.forward.)
+            marginal = diag and self.training
+
             interp_mean, interp_var, kl_div = _NgdInterpTerms.apply(
                 interp_term,
                 self._variational_distribution.natural_vec,
                 self._variational_distribution.natural_mat,
+                marginal,
             )
 
             # Compute the covariance of q(f)
-            predictive_var = data_data_covar.diagonal(dim1=-1, dim2=-2) - interp_term.pow(2).sum(dim=-2) + interp_var
-            predictive_var = torch.clamp_min(predictive_var, settings.min_variance.value(predictive_var.dtype))
-            predictive_covar = DiagLinearOperator(predictive_var)
+            if marginal:
+                # K_XX - A^T A + A^T S A, but only the diagonal entries
+                predictive_var = (
+                    data_data_covar.diagonal(dim1=-1, dim2=-2) - interp_term.pow(2).sum(dim=-2) + interp_var
+                )
+                predictive_var = torch.clamp_min(predictive_var, settings.min_variance.value(predictive_var.dtype))
+                predictive_covar = DiagLinearOperator(predictive_var)
+            else:
+                # K_XX - A^T A + A^T S A
+                predictive_covar = SumLinearOperator(
+                    data_data_covar,
+                    to_linear_operator(interp_var - interp_term.transpose(-1, -2) @ interp_term),
+                )
 
             # Also compute and cache the KL divergence
             if not hasattr(self, "_memoize_cache"):
