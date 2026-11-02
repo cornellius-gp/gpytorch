@@ -15,8 +15,10 @@ class GibbsKernel(Kernel):
     Gibbs kernel with input-dependent lengthscale :math:`\ell(x)` (Gibbs, 1997)
 
     .. math::
-        k(x, x') = \sqrt{\frac{2\ell(x)\ell(x')}{\ell(x)^2 + \ell(x')^2}}
-        \exp\left(-\frac{(x-x')^2}{\ell(x)^2 + \ell(x')^2}\right)
+        k(x, x') = \left(\frac{2\ell(x)\ell(x')}{\ell(x)^2 + \ell(x')^2}\right)^{D/2}
+        \exp\left(-\frac{\|x-x'\|^2}{\ell(x)^2 + \ell(x')^2}\right)
+
+    Here :math:`D` is the input dimension and the scalar lengthscale is isotropic.
 
     :param lengthscale_fn: A callable torch.nn.Module mapping inputs to
         positive lengthscales. Must output tensors of shape (... x N x 1)
@@ -78,5 +80,6 @@ class GibbsKernel(Kernel):
             S = l1.pow(2) + l2.pow(2).transpose(-2, -1)
             prod = l1 * l2.transpose(-2, -1)
 
-        prefactor = (2.0 * prod / S).sqrt()
+        num_dims = 1 if params.get("last_dim_is_batch", False) else x1.size(-1)
+        prefactor = (2.0 * prod / S).pow(num_dims / 2)
         return prefactor * (-dist_sq / S).exp()
