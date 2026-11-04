@@ -341,17 +341,26 @@ class MultitaskMultivariateNormal(MultivariateNormal):
                 num_rows = self._output_shape[-1]
                 num_cols = self._output_shape[-2]
 
+            # Normalize event coordinates independently before flattening them.
+            if isinstance(row_idx, int):
+                row_idx = _normalize_index(row_idx, num_rows)
+            elif torch.is_tensor(row_idx) and row_idx.ndim <= 1 and row_idx.dtype in (torch.int32, torch.int64):
+                row_idx = row_idx.to(dtype=torch.long)
+                row_idx = torch.where(row_idx < 0, row_idx + num_rows, row_idx)
+            if isinstance(col_idx, int):
+                col_idx = _normalize_index(col_idx, num_cols)
+            elif torch.is_tensor(col_idx) and col_idx.ndim <= 1 and col_idx.dtype in (torch.int32, torch.int64):
+                col_idx = col_idx.to(dtype=torch.long)
+                col_idx = torch.where(col_idx < 0, col_idx + num_cols, col_idx)
+
             if isinstance(row_idx, int) and isinstance(col_idx, int):
                 # Single sample with single task
-                row_idx = _normalize_index(row_idx, num_rows)
-                col_idx = _normalize_index(col_idx, num_cols)
                 new_cov = DiagLinearOperator(
                     self.lazy_covariance_matrix.diagonal()[batch_idx + (row_idx * num_cols + col_idx,)]
                 )
                 return MultivariateNormal(mean=new_mean, covariance_matrix=new_cov)
             elif isinstance(row_idx, int) and isinstance(col_idx, slice):
                 # A block of the covariance matrix
-                row_idx = _normalize_index(row_idx, num_rows)
                 col_idx = _normalize_slice(col_idx, num_cols)
                 new_slice = slice(
                     col_idx.start + row_idx * num_cols,
@@ -363,7 +372,6 @@ class MultitaskMultivariateNormal(MultivariateNormal):
             elif isinstance(row_idx, slice) and isinstance(col_idx, int):
                 # A block of the reversely interleaved covariance matrix
                 row_idx = _normalize_slice(row_idx, num_rows)
-                col_idx = _normalize_index(col_idx, num_cols)
                 new_slice = slice(row_idx.start + col_idx, row_idx.stop * num_cols + col_idx, row_idx.step * num_cols)
                 new_cov = self.lazy_covariance_matrix[batch_idx + (new_slice, new_slice)]
                 return MultivariateNormal(mean=new_mean, covariance_matrix=new_cov)

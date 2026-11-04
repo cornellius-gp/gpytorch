@@ -480,6 +480,42 @@ class TestMultiTaskMultivariateNormal(BaseTestCase, unittest.TestCase):
         indices = torch.tensor([flat(2, 1), flat(0, 0), flat(2, 0)])
         self.assertAllClose(part.covariance_matrix, covar[..., indices, :][..., indices])
 
+    def test_getitem_negative_tensor_event_indices(self) -> None:
+        for dtype in (torch.float32, torch.float64):
+            mean = torch.arange(12, dtype=dtype).reshape(2, 3, 2) / 4
+            covariance = torch.diag(torch.arange(1, 7, dtype=dtype).square()) + 0.1
+            covariance = torch.stack([covariance, 2 * covariance])
+            rows = torch.tensor([0, 99, -1, 99])[::2]
+            tasks = torch.tensor([-1, 99, 0, 99])[::2]
+            for interleaved in (True, False):
+                distribution = MultitaskMultivariateNormal(mean, covariance, interleaved=interleaved)
+                grid = torch.arange(6).reshape(3, 2) if interleaved else torch.arange(6).reshape(2, 3).T
+                for row_index, task_index in ((rows, tasks), (slice(None), tasks.int()), (rows.int(), slice(None))):
+                    with self.subTest(dtype=dtype, interleaved=interleaved, index=(row_index, task_index)):
+                        index = (Ellipsis, row_index, task_index)
+                        part = distribution[index]
+                        indices = grid[row_index, task_index]
+                        if isinstance(part, MultitaskMultivariateNormal) and not interleaved:
+                            indices = indices.T
+                        indices = indices.reshape(-1)
+                        expected_mean = mean[index]
+                        expected_covariance = covariance.index_select(-2, indices).index_select(-1, indices)
+                        self.assertAllClose(part.mean, expected_mean)
+                        self.assertAllClose(part.covariance_matrix, expected_covariance)
+                        if not isinstance(part, MultitaskMultivariateNormal):
+                            expected = torch.distributions.MultivariateNormal(expected_mean, expected_covariance)
+                            value = expected_mean + 0.25
+                            self.assertAllClose(part.log_prob(value), expected.log_prob(value))
+
+    def test_getitem_tensor_event_indices_out_of_bounds(self) -> None:
+        mean = torch.zeros(3, 2)
+        for interleaved in (True, False):
+            distribution = MultitaskMultivariateNormal(mean, torch.eye(6), interleaved=interleaved)
+            for rows, tasks in (([0, 3], [0, 1]), ([-4, 0], [0, 1]), ([0, 1], [0, 2]), ([0, 1], [-3, 0])):
+                with self.subTest(interleaved=interleaved, rows=rows, tasks=tasks):
+                    with self.assertRaises(IndexError):
+                        distribution[torch.tensor(rows), torch.tensor(tasks)]
+
     def test_repr(self):
         mean = torch.randn(5, 1, 3)
         covar = torch.eye(6)
