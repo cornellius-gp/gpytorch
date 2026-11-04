@@ -65,6 +65,47 @@ class TestHammingIMQKernel(unittest.TestCase):
         # Check the result.
         self.assertLess(torch.norm(res - actual), 1e-5)
 
+    def test_batched_covariance(self) -> None:
+        for dtype in (torch.float32, torch.float64):
+            for n in (2, 3):
+                for m in (2, 4):
+                    with self.subTest(dtype=dtype, n=n, m=m):
+                        kernel = HammingIMQKernel(vocab_size=3, batch_shape=torch.Size([2])).to(dtype=dtype)
+                        alpha = torch.tensor([1.0, 3.0], dtype=dtype)
+                        beta = torch.tensor([0.5, 2.0], dtype=dtype)
+                        kernel.initialize(alpha=alpha, beta=beta)
+                        categories1 = torch.arange(2 * n * 4).reshape(2, n, 4) % 3
+                        categories2 = (torch.arange(2 * m * 4).reshape(2, m, 4) + 1) % 3
+                        x1 = torch.nn.functional.one_hot(categories1, num_classes=3).flatten(-2).to(dtype=dtype)
+                        x2 = torch.nn.functional.one_hot(categories2, num_classes=3).flatten(-2).to(dtype=dtype)
+                        distance = (categories1.unsqueeze(-2) != categories2.unsqueeze(-3)).sum(-1)
+                        expected = ((1 + alpha[:, None, None]) / (alpha[:, None, None] + distance)).pow(
+                            beta[:, None, None]
+                        )
+                        torch.testing.assert_close(kernel(x1, x2).to_dense(), expected)
+
+    def test_batched_covariance_diagonal_and_gradients(self) -> None:
+        for dtype in (torch.float32, torch.float64):
+            with self.subTest(dtype=dtype):
+                kernel = HammingIMQKernel(vocab_size=2, batch_shape=torch.Size([2])).to(dtype=dtype)
+                kernel.initialize(alpha=torch.tensor([1.0, 3.0]), beta=torch.tensor([0.5, 2.0]))
+                categories = torch.tensor([[[0, 0, 0], [1, 1, 1]], [[0, 1, 0], [1, 0, 1]]])
+                x = torch.nn.functional.one_hot(categories, num_classes=2).flatten(-2).to(dtype=dtype)
+                actual = kernel(x).to_dense()
+                torch.testing.assert_close(actual.diagonal(dim1=-2, dim2=-1), kernel(x, diag=True))
+                other = x.roll(1, dims=-2)
+                cross = kernel(x, other).to_dense()
+                torch.testing.assert_close(cross.diagonal(dim1=-2, dim2=-1), kernel(x, other, diag=True))
+                distance = (categories.unsqueeze(-2) != categories.unsqueeze(-3)).sum(-1)
+                alpha = kernel.alpha.unsqueeze(-1)
+                beta = kernel.beta.unsqueeze(-1)
+                expected = ((1 + alpha) / (alpha + distance)).pow(beta)
+                weights = torch.tensor([[[0.5, 1.0], [-0.3, 0.8]], [[1.1, -0.4], [0.6, 0.2]]], dtype=dtype)
+                actual_grads = torch.autograd.grad((actual * weights).sum(), (kernel.raw_alpha, kernel.raw_beta))
+                expected_grads = torch.autograd.grad((expected * weights).sum(), (kernel.raw_alpha, kernel.raw_beta))
+                for actual_grad, expected_grad in zip(actual_grads, expected_grads):
+                    torch.testing.assert_close(actual_grad, expected_grad)
+
     def test_initialize_alpha(self):
         """
         Check that the kernel can be initialized with alpha.
