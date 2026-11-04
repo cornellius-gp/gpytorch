@@ -127,8 +127,10 @@ class HammingIMQKernel(Kernel):
             value = torch.as_tensor(value).to(self.raw_beta)
         self.initialize(raw_beta=self.raw_beta_constraint.inverse_transform(value))
 
-    def _imq(self, dist: Tensor) -> Tensor:
-        return ((1 + self.alpha) / (self.alpha + dist)).pow(self.beta)
+    def _imq(self, dist: Tensor, diag: bool = False) -> Tensor:
+        alpha = self.alpha if diag else self.alpha.unsqueeze(-1)
+        beta = self.beta if diag else self.beta.unsqueeze(-1)
+        return ((1 + alpha) / (alpha + dist)).pow(beta)
 
     def forward(self, x1: Tensor, x2: Tensor, diag: bool = False, **params):
         # GPyTorch is pretty particular about dimensions so we need to unflatten the one-hot encoding
@@ -144,7 +146,7 @@ class HammingIMQKernel(Kernel):
                 return res.expand(*skip_dims, x1.size(-3))
             else:
                 dist = x1.size(-2) - (x1 * x2).sum(dim=(-1, -2))
-                return self._imq(dist)
+                return self._imq(dist, diag=True)
 
         else:
             dist = hamming_dist(x1, x2, x1_eq_x2)
