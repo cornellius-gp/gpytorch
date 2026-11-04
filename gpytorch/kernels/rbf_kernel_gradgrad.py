@@ -93,17 +93,16 @@ class RBFKernelGradGrad(RBFKernel):
             K[..., n1 : (n1 * (d + 1)), n2 : (n2 * (d + 1))] = chain_rule * K_11.repeat([*([1] * n_batch_dims), d, d])
 
             # 5) 1-3 block
-            douter1dx2 = KroneckerProductLinearOperator(
-                torch.ones(1, d, device=x1.device, dtype=x1.dtype).repeat(*batch_shape, 1, 1) / self.lengthscale.pow(2),
-                torch.ones(n1, n2, device=x1.device, dtype=x1.dtype).repeat(*batch_shape, 1, 1),
-            ).to_dense()
+            inverse_lengthscale_sq = self.lengthscale.pow(2).reciprocal().expand(*batch_shape, 1, d)
+            column_precision = inverse_lengthscale_sq.repeat_interleave(n2, dim=-1)
+            row_precision = inverse_lengthscale_sq.transpose(-1, -2).repeat_interleave(n1, dim=-2)
 
-            K_13 = (-douter1dx2 + outer1 * outer1) * K_11.repeat(
+            K_13 = (-column_precision + outer1 * outer1) * K_11.repeat(
                 [*([1] * (n_batch_dims + 1)), d]
             )  # verified for n1=n2=1 case
             K[..., :n1, (n2 * (d + 1)) :] = K_13
 
-            K_31 = (-douter1dx2.transpose(-1, -2) + outer2 * outer2) * K_11.repeat(
+            K_31 = (-row_precision + outer2 * outer2) * K_11.repeat(
                 [*([1] * n_batch_dims), d, 1]
             )  # verified for n1=n2=1 case
             K[..., (n1 * (d + 1)) :, :n2] = K_31
@@ -112,29 +111,27 @@ class RBFKernelGradGrad(RBFKernel):
             outer1 = outer1.repeat([*([1] * n_batch_dims), d, 1])
             outer2 = outer2.repeat([*([1] * (n_batch_dims + 1)), d])
             # II = (torch.eye(d,d,device=x1.device,dtype=x1.dtype)/lengthscale.pow(2)).repeat(*batch_shape,n1,n2)
-            kp2 = KroneckerProductLinearOperator(
-                torch.ones(d, d, device=x1.device, dtype=x1.dtype).repeat(*batch_shape, 1, 1) / self.lengthscale.pow(2),
-                torch.ones(n1, n2, device=x1.device, dtype=x1.dtype).repeat(*batch_shape, 1, 1),
-            ).to_dense()
 
             # II may not be the correct thing to use. It might be more appropriate to use kp instead??
             II = kp.to_dense()
             K_11dd = K_11.repeat([*([1] * (n_batch_dims)), d, d])
 
-            K_23 = ((-kp2 + outer1 * outer1) * (-outer2) + 2.0 * II * outer1) * K_11dd  # verified for n1=n2=1 case
+            K_23 = (
+                (-column_precision + outer1 * outer1) * (-outer2) + 2.0 * II * outer1
+            ) * K_11dd  # verified for n1=n2=1 case
 
             K[..., n1 : (n1 * (d + 1)), (n2 * (d + 1)) :] = K_23
 
             K_32 = (
-                (-kp2.transpose(-1, -2) + outer2 * outer2) * outer1 - 2.0 * II * outer2
+                (-row_precision + outer2 * outer2) * outer1 - 2.0 * II * outer2
             ) * K_11dd  # verified for n1=n2=1 case
 
             K[..., (n1 * (d + 1)) :, n2 : (n2 * (d + 1))] = K_32
 
             K_33 = (
-                (-kp2.transpose(-1, -2) + outer2 * outer2) * (-kp2) - 2.0 * II * outer2 * outer1 + 2.0 * (II) ** 2
+                (-row_precision + outer2 * outer2) * (-column_precision) - 2.0 * II * outer2 * outer1 + 2.0 * (II) ** 2
             ) * K_11dd + (
-                (-kp2.transpose(-1, -2) + outer2 * outer2) * outer1 - 2.0 * II * outer2
+                (-row_precision + outer2 * outer2) * outer1 - 2.0 * II * outer2
             ) * outer1 * K_11dd  # verified for n1=n2=1 case
 
             K[..., (n1 * (d + 1)) :, (n2 * (d + 1)) :] = K_33
