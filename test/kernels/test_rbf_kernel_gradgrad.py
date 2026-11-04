@@ -176,6 +176,22 @@ class TestRBFKernelGradGrad(unittest.TestCase, BaseKernelTestCase):
 
         self.assertLess(torch.norm(res - actual), 1e-5)
 
+    def test_kernel_rectangular(self):
+        for ard in (False, True):
+            for batch_shape in (torch.Size(), torch.Size([2])):
+                for n1, n2 in ((1, 3), (3, 1), (2, 3), (3, 2)):
+                    with self.subTest(ard=ard, batch_shape=batch_shape, n1=n1, n2=n2):
+                        a = torch.randn(*batch_shape, n1, 4, dtype=torch.double)[..., ::2]
+                        b = torch.randn(*batch_shape, n2, 4, dtype=torch.double)[..., ::2]
+                        kernel = RBFKernelGradGrad(ard_num_dims=2 if ard else None, batch_shape=batch_shape).double()
+                        if ard:
+                            kernel.lengthscale = torch.tensor([0.7, 1.3], dtype=torch.double)
+                        else:
+                            kernel.lengthscale = 0.9
+                        joint = kernel(torch.cat((a, b), dim=-2)).to_dense()
+                        expected = joint[..., : n1 * 5, n1 * 5 :]
+                        torch.testing.assert_close(kernel(a, b).to_dense(), expected)
+
     def test_initialize_lengthscale(self):
         kernel = RBFKernelGradGrad()
         kernel.initialize(lengthscale=3.14)
