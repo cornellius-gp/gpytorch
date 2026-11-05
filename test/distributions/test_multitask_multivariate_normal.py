@@ -6,7 +6,7 @@ import random
 import unittest
 
 import torch
-from linear_operator.operators import DiagLinearOperator, KroneckerProductLinearOperator
+from linear_operator.operators import DenseLinearOperator, DiagLinearOperator, KroneckerProductLinearOperator
 
 from gpytorch.distributions import MultitaskMultivariateNormal, MultivariateNormal
 from gpytorch.test.base_test_case import BaseTestCase
@@ -14,6 +14,92 @@ from gpytorch.test.utils import least_used_cuda_device
 
 
 class TestMultiTaskMultivariateNormal(BaseTestCase, unittest.TestCase):
+    def test_arithmetic_preserves_event_order(self):
+        for dtype in (torch.float32, torch.float64):
+            mean = torch.arange(6, dtype=dtype).reshape(3, 2) / 4
+            covariance = torch.diag(torch.arange(1, 7, dtype=dtype)) + 0.1
+            for interleaved in (False, True):
+                order = [0, 1, 2, 3, 4, 5] if interleaved else [0, 2, 4, 1, 3, 5]
+                stored = covariance[order][:, order]
+                for lazy in (False, True):
+                    for batch in ((), (2, 1)):
+                        covar = stored.expand(*batch, 6, 6)
+                        distribution = MultitaskMultivariateNormal(
+                            mean, DenseLinearOperator(covar) if lazy else covar, interleaved=interleaved
+                        )
+                        canonical = covariance.expand(*batch, 6, 6)
+                        cases = [
+                            (distribution + 1, distribution.mean + 1, canonical),
+                            (distribution * -2, distribution.mean * -2, canonical * 4),
+                            (distribution / 2, distribution.mean / 2, canonical / 4),
+                            (distribution.add_jitter(0.25), distribution.mean, canonical + 0.25 * torch.eye(6)),
+                            (distribution + distribution, distribution.mean * 2, canonical * 2),
+                        ]
+                        for result, expected_mean, expected_covar in cases:
+                            with self.subTest(dtype=dtype, interleaved=interleaved, lazy=lazy, batch=batch):
+                                expected_peak = -0.5 * (
+                                    6 * math.log(2 * math.pi) + torch.linalg.slogdet(expected_covar).logabsdet
+                                )
+                                self.assertAllClose(result.log_prob(expected_mean), expected_peak)
+                                self.assertAllClose(result.mean, expected_mean)
+                                actual_covar = result.covariance_matrix
+                                if not result._interleaved:
+                                    inverse = [0, 3, 1, 4, 2, 5]
+                                    actual_covar = actual_covar[..., inverse, :][..., :, inverse]
+                                self.assertAllClose(actual_covar, expected_covar)
+
+    def test_sum_with_different_event_orders(self):
+        for dtype in (torch.float32, torch.float64):
+            for left_interleaved in (False, True):
+                for right_interleaved in (False, True):
+                    for lazy in (False, True):
+                        with self.subTest(dtype=dtype, left=left_interleaved, right=right_interleaved, lazy=lazy):
+                            left_var = (
+                                torch.stack(
+                                    [
+                                        torch.ones(6, dtype=dtype),
+                                        torch.arange(1, 7, dtype=dtype),
+                                        torch.arange(2, 8, dtype=dtype),
+                                    ]
+                                )
+                                .unsqueeze(0)
+                                .requires_grad_()
+                            )
+                            right_var = torch.arange(1, 13, dtype=dtype).reshape(2, 1, 6).requires_grad_()
+                            left_mean = torch.arange(12, dtype=dtype).reshape(2, 1, 3, 2) / 4
+                            right_mean = torch.arange(18, dtype=dtype).reshape(1, 3, 3, 2) / 8
+                            left_order = [0, 1, 2, 3, 4, 5] if left_interleaved else [0, 2, 4, 1, 3, 5]
+                            right_order = [0, 1, 2, 3, 4, 5] if right_interleaved else [0, 2, 4, 1, 3, 5]
+                            left_covar = DiagLinearOperator(left_var[..., left_order])
+                            right_covar = DiagLinearOperator(right_var[..., right_order])
+                            left = MultitaskMultivariateNormal(
+                                left_mean, left_covar if lazy else left_covar.to_dense(), interleaved=left_interleaved
+                            )
+                            right = MultitaskMultivariateNormal(
+                                right_mean,
+                                right_covar if lazy else right_covar.to_dense(),
+                                interleaved=right_interleaved,
+                            )
+                            result = left + right
+                            variance = (left_var + right_var).reshape(2, 3, 3, 2)
+                            residual = torch.tensor([[0.5, -0.75], [1.0, 0.25], [-0.5, 1.25]], dtype=dtype)
+                            expected_mean = left_mean + right_mean
+                            expected_log_prob = -0.5 * (
+                                math.log(2 * math.pi) + variance.log() + residual.square() / variance
+                            ).sum(-1)
+                            actual_log_prob = result.to_data_independent_dist(jitter_val=0).log_prob(
+                                expected_mean + residual
+                            )
+                            self.assertAllClose(result.mean, expected_mean)
+                            self.assertAllClose(result.variance, variance)
+                            self.assertAllClose(actual_log_prob, expected_log_prob)
+                            left_grad, right_grad = torch.autograd.grad(actual_log_prob.sum(), (left_var, right_var))
+                            derivative = (
+                                0.5 * (residual.square() / variance.square() - variance.reciprocal())
+                            ).reshape(2, 3, 6)
+                            self.assertAllClose(left_grad, derivative.sum(0, keepdim=True))
+                            self.assertAllClose(right_grad, derivative.sum(1, keepdim=True))
+
     def setUp(self):
         if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
             self.rng_state = torch.get_rng_state()

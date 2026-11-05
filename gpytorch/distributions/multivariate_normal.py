@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import warnings
 from numbers import Number
+from typing import Any
 
 import torch
 from linear_operator import to_dense, to_linear_operator
@@ -101,7 +102,10 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
 
         :param noise: The size of the constant diagonal.
         """
-        return self.__class__(self.mean, self.lazy_covariance_matrix.add_jitter(noise))
+        return self._new(self.mean, self.lazy_covariance_matrix.add_jitter(noise))
+
+    def _new(self, *args: Any, **kwargs: Any) -> MultivariateNormal:
+        return self.__class__(*args, **kwargs)
 
     @property
     def base_sample_shape(self) -> torch.Size:
@@ -383,12 +387,12 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
 
     def __add__(self, other: MultivariateNormal) -> MultivariateNormal:
         if isinstance(other, MultivariateNormal):
-            return self.__class__(
+            return self._new(
                 mean=self.mean + other.mean,
                 covariance_matrix=(self.lazy_covariance_matrix + other.lazy_covariance_matrix),
             )
         elif isinstance(other, int) or isinstance(other, float):
-            return self.__class__(self.mean + other, self.lazy_covariance_matrix)
+            return self._new(self.mean + other, self.lazy_covariance_matrix)
         else:
             raise RuntimeError(f"Unsupported type {type(other)} for addition w/ MultivariateNormal")
 
@@ -438,7 +442,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             raise RuntimeError("Can only multiply by scalars")
         if other == 1:
             return self
-        return self.__class__(mean=self.mean * other, covariance_matrix=self.lazy_covariance_matrix * (other**2))
+        return self._new(mean=self.mean * other, covariance_matrix=self.lazy_covariance_matrix * (other**2))
 
     def __radd__(self, other: MultivariateNormal) -> MultivariateNormal:
         if other == 0:

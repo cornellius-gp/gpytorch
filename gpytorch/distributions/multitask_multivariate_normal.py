@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import torch
 from linear_operator import LinearOperator, to_linear_operator
 from linear_operator.operators import (
@@ -69,6 +71,18 @@ class MultitaskMultivariateNormal(MultivariateNormal):
         else:
             mean_mvn = mean.transpose(-1, -2).reshape(*mean.shape[:-2], -1)
         super().__init__(mean=mean_mvn, covariance_matrix=covariance_matrix, validate_args=validate_args)
+
+    def _new(self, *args: Any, **kwargs: Any) -> MultitaskMultivariateNormal:
+        if not self._interleaved:
+            covariance_matrix = args[1] if len(args) > 1 else kwargs["covariance_matrix"]
+            indices = torch.arange(covariance_matrix.size(-1), device=covariance_matrix.device)
+            indices = indices.reshape(self.event_shape[::-1]).mT.reshape(-1)
+            covariance_matrix = covariance_matrix[..., indices, :][..., :, indices]
+            if len(args) > 1:
+                args = (args[0], covariance_matrix, *args[2:])
+            else:
+                kwargs["covariance_matrix"] = covariance_matrix
+        return super()._new(*args, **kwargs)
 
     @property
     def base_sample_shape(self):
@@ -283,6 +297,14 @@ class MultitaskMultivariateNormal(MultivariateNormal):
             new_shape = self._output_shape[:-2] + self._output_shape[:-3:-1]
             return var.view(new_shape).transpose(-1, -2).contiguous()
         return var.view(self._output_shape)
+
+    def __add__(self, other: MultivariateNormal) -> MultitaskMultivariateNormal:
+        if isinstance(other, MultitaskMultivariateNormal) and self._interleaved != other._interleaved:
+            shape = other.event_shape if other._interleaved else other.event_shape[::-1]
+            indices = torch.arange(other.event_shape.numel(), device=other.mean.device).reshape(shape).mT.reshape(-1)
+            other_covar = other.lazy_covariance_matrix[..., indices, :][..., :, indices]
+            return self._new(self.mean + other.mean, self.lazy_covariance_matrix + other_covar)
+        return super().__add__(other)
 
     def __getitem__(self, idx) -> MultivariateNormal:
         """
