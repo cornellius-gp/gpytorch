@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 import torch
@@ -17,10 +18,11 @@ from linear_operator.operators import (
 from torch import Tensor
 from torch.distributions import Normal
 
+from .. import settings
 from ..constraints import GreaterThan, Interval
-from ..distributions import base_distributions, MultitaskMultivariateNormal
+from ..distributions import MultitaskMultivariateNormal, MultivariateNormal, base_distributions
 from ..lazy import LazyEvaluatedKernelTensor
-from ..likelihoods import _GaussianLikelihoodBase, Likelihood
+from ..likelihoods import Likelihood, _GaussianLikelihoodBase
 from ..priors import Prior
 from .noise_models import FixedGaussianNoise, Noise
 
@@ -167,6 +169,9 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
     allows for a different `noise` parameter for each task.)
 
     Like the Gaussian likelihood, this object can be used with exact inference.
+    With correlated task noise, conditional probabilities and approximate-inference
+    objectives retain the joint task distribution at each input. Analytic expected
+    log probabilities require a nonsingular noise covariance on the observed tasks.
 
     .. note::
         At least one of :attr:`has_global_noise` or :attr:`has_task_noise` should be specified.
@@ -287,10 +292,73 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
             raise AttributeError("Cannot set non-diagonal task noises when covariance is diagonal.")
 
     def _eval_covar_matrix(self) -> Tensor:
-        covar_factor = self.task_noise_covar_factor
-        noise = self.noise
-        D = noise * torch.eye(self.num_tasks, dtype=noise.dtype, device=noise.device)  # pyre-fixme[16]
-        return covar_factor.matmul(covar_factor.transpose(-1, -2)) + D
+        covar = self.task_noise_covar
+        if self.has_global_noise:
+            eye = torch.eye(self.num_tasks, dtype=covar.dtype, device=covar.device)
+            covar = covar + self.noise.unsqueeze(-1) * eye
+        return covar
+
+    def forward(self, function_samples: Tensor, *params: Any, **kwargs: Any) -> torch.distributions.Distribution:
+        if self.rank == 0 or not self.has_task_noise:
+            return super().forward(function_samples, *params, **kwargs)
+        if self.has_global_noise:
+            scale_tril = torch.linalg.cholesky(self._eval_covar_matrix()).unsqueeze(-3)
+            return base_distributions.MultivariateNormal(function_samples, scale_tril=scale_tril)
+
+        # Factor-only noise can be singular. Keep its sampling law without adding jitter.
+        batch_shape = torch.broadcast_shapes(function_samples.shape[:-2], self.task_noise_covar_factor.shape[:-2])
+        mean = function_samples.expand(*batch_shape, *function_samples.shape[-2:])
+        root = self.task_noise_covar_factor.unsqueeze(-3).expand(*mean.shape[:-1], self.num_tasks, self.rank)
+        return MultivariateNormal(mean, RootLinearOperator(root))
+
+    def _correlated_log_prob(self, target: Tensor, input: MultitaskMultivariateNormal, expected: bool) -> Tensor:
+        # Discard cross-input dependence, but retain every within-input task covariance.
+        point_covar = input.to_data_independent_dist(jitter_val=0).covariance_matrix
+        covar = self._eval_covar_matrix().unsqueeze(-3)
+        if not expected:
+            covar = covar + point_covar
+        residual = target - input.mean
+
+        nan_policy = settings.observation_nan_policy.value()
+        missing = None
+        if nan_policy == "mask":
+            missing = ~settings.observation_nan_policy._get_observed(target, input.event_shape)
+        elif nan_policy == "fill":
+            missing = torch.isnan(target)
+        if missing is not None:
+            residual = residual.masked_fill(missing, 0)
+            observed = (~missing).to(dtype=covar.dtype)
+            selection = observed.unsqueeze(-1) * observed.unsqueeze(-2)
+            # Unobserved axes become independent standard normals, whose density is
+            # removed below. This also handles points with no observed tasks.
+            covar = covar * selection + torch.diag_embed(missing.to(dtype=covar.dtype))
+            if expected:
+                point_covar = point_covar * selection
+
+        distribution = base_distributions.MultivariateNormal(
+            torch.zeros_like(residual), scale_tril=torch.linalg.cholesky(covar), validate_args=False
+        )
+        result = distribution.log_prob(residual)
+        if expected:
+            trace = (distribution.precision_matrix * point_covar.transpose(-1, -2)).sum(dim=(-2, -1))
+            result = result - 0.5 * trace
+        if missing is not None:
+            result = result + 0.5 * math.log(2 * math.pi) * missing.sum(-1)
+        return result
+
+    def expected_log_prob(
+        self, target: Tensor, input: MultitaskMultivariateNormal, *params: Any, **kwargs: Any
+    ) -> Tensor:
+        if self.rank == 0 or not self.has_task_noise:
+            return super().expected_log_prob(target, input, *params, **kwargs)
+        return self._correlated_log_prob(target, input, expected=True)
+
+    def log_marginal(
+        self, observations: Tensor, function_dist: MultitaskMultivariateNormal, *params: Any, **kwargs: Any
+    ) -> Tensor:
+        if self.rank == 0 or not self.has_task_noise:
+            return super().log_marginal(observations, function_dist, *params, **kwargs)
+        return self._correlated_log_prob(observations, function_dist, expected=False)
 
     def marginal(
         self, function_dist: MultitaskMultivariateNormal, *args: Any, **kwargs: Any
