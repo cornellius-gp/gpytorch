@@ -78,6 +78,24 @@ class TestInterval(unittest.TestCase, BaseTestCase):
             gpytorch.constraints.Interval(-math.inf, 0.0)
 
 
+    def test_intersect(self):
+        c1 = gpytorch.constraints.Interval(0.1, 2.0)
+        c2 = gpytorch.constraints.Interval(0.5, 3.0)
+        intersection = c1.intersect(c2)
+        self.assertAlmostEqual(intersection.lower_bound.item(), 0.5)
+        self.assertAlmostEqual(intersection.upper_bound.item(), 2.0)
+
+        # Conflicting transforms should raise RuntimeError
+        c3 = gpytorch.constraints.Interval(0.1, 2.0, transform=None)
+        with self.assertRaisesRegex(RuntimeError, "Cant intersect Interval constraints with conflicting transforms!"):
+            c1.intersect(c3)
+
+    def test_register_constraint_replace_false(self):
+        kernel = gpytorch.kernels.RBFKernel(lengthscale_constraint=gpytorch.constraints.Interval(0.1, 2.0))
+        kernel.register_constraint("raw_lengthscale", gpytorch.constraints.Interval(0.5, 3.0), replace=False)
+        self.assertAlmostEqual(kernel.raw_lengthscale_constraint.lower_bound.item(), 0.5)
+        self.assertAlmostEqual(kernel.raw_lengthscale_constraint.upper_bound.item(), 2.0)
+
 class TestGreaterThan(unittest.TestCase, BaseTestCase):
     def test_transform_float_greater_than(self):
         constraint = gpytorch.constraints.GreaterThan(1.0)

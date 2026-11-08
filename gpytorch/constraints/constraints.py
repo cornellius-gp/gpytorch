@@ -125,12 +125,17 @@ class Interval(Module):
         Returns:
             Interval: intersection if this interval with the other one.
         """
-        if self.transform != other.transform:
+        if self._transform != other._transform or self._inv_transform != other._inv_transform:
             raise RuntimeError("Cant intersect Interval constraints with conflicting transforms!")
 
         lower_bound = torch.max(self.lower_bound, other.lower_bound)
         upper_bound = torch.min(self.upper_bound, other.upper_bound)
-        return Interval(lower_bound, upper_bound)
+        return Interval(
+            lower_bound,
+            upper_bound,
+            transform=self._transform,
+            inv_transform=self._inv_transform,
+        )
 
     def transform(self, tensor: Tensor) -> Tensor:
         """
