@@ -46,7 +46,7 @@ class HalfNormalPrior(Prior, HalfNormal):
         self._transform = transform
 
     def expand(self, batch_shape):
-        return HalfNormal(self.scale.expand(batch_shape))
+        return HalfNormalPrior(self.scale.expand(batch_shape))
 
 
 class LogNormalPrior(Prior, LogNormal):
