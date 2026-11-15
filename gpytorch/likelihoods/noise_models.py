@@ -14,7 +14,25 @@ from .. import settings
 from ..constraints import GreaterThan
 from ..distributions import MultivariateNormal
 from ..module import Module
+from ..priors import Prior
 from ..utils.warnings import NumericalWarning
+
+
+def _default_noise_constraint(noise_prior: Prior | None = None) -> GreaterThan:
+    """Default noise constraint: ``GreaterThan(1e-4)``, lowered to the lower end of the support of ``noise_prior``
+    if that support starts in ``[0, 1e-4)`` (e.g. a ``GammaPrior``, whose support starts at 0). Otherwise a prior
+    sample in ``[lower, 1e-4)`` lies outside the constraint, and loading it into the noise (e.g. in
+    ``pyro_sample_from_prior``) silently yields NaN."""
+    try:
+        lower = noise_prior.support.lower_bound if noise_prior is not None else None
+    except (AttributeError, NotImplementedError):
+        # a prior that does not define its support keeps the usual default
+        lower = None
+    if torch.is_tensor(lower):
+        lower = lower.min().item() if lower.numel() > 0 else None
+    if isinstance(lower, (int, float)) and 0.0 <= lower < 1e-4:
+        return GreaterThan(float(lower))
+    return GreaterThan(1e-4)
 
 
 class Noise(Module):
@@ -27,7 +45,7 @@ class _HomoskedasticNoiseBase(Noise):
     def __init__(self, noise_prior=None, noise_constraint=None, batch_shape=torch.Size(), num_tasks=1):
         super().__init__()
         if noise_constraint is None:
-            noise_constraint = GreaterThan(1e-4)
+            noise_constraint = _default_noise_constraint(noise_prior)
 
         self.register_parameter(name="raw_noise", parameter=Parameter(torch.zeros(*batch_shape, num_tasks)))
         if noise_prior is not None:

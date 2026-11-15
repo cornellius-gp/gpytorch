@@ -7,6 +7,7 @@ from linear_operator.operators import KroneckerProductLinearOperator, RootLinear
 
 from gpytorch.distributions import MultitaskMultivariateNormal
 from gpytorch.likelihoods import MultitaskGaussianLikelihood
+from gpytorch.priors import GammaPrior
 from gpytorch.test.base_likelihood_test_case import BaseLikelihoodTestCase
 
 
@@ -73,6 +74,15 @@ class TestMultitaskGaussianLikelihood(BaseLikelihoodTestCase, unittest.TestCase)
         with self.assertRaises(AttributeError) as context:
             likelihood.task_noises = torch.tensor([0.04, 0.04, 0.04])
         self.assertTrue("task noises" in str(context.exception))
+
+
+class TestMultitaskGaussianLikelihoodPriorSupport(unittest.TestCase):
+    def test_default_noise_constraint_matches_prior_support(self):
+        likelihood = MultitaskGaussianLikelihood(num_tasks=2, rank=0, noise_prior=GammaPrior(1.0, 0.5))
+        self.assertEqual(likelihood.raw_noise_constraint.lower_bound.item(), 0.0)
+        self.assertEqual(likelihood.raw_task_noises_constraint.lower_bound.item(), 0.0)
+        likelihood = MultitaskGaussianLikelihood(num_tasks=2, rank=0)
+        self.assertAlmostEqual(likelihood.raw_noise_constraint.lower_bound.item(), 1e-4)
 
 
 class TestMultitaskGaussianLikelihoodNonInterleaved(TestMultitaskGaussianLikelihood, unittest.TestCase):
