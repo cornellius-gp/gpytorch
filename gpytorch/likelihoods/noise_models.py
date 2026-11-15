@@ -19,14 +19,10 @@ from ..utils.warnings import NumericalWarning
 
 
 def _default_noise_constraint(noise_prior: Prior | None = None) -> GreaterThan:
-    """Default noise constraint: ``GreaterThan(1e-4)``, lowered to the lower end of the support of ``noise_prior``
-    if that support starts in ``[0, 1e-4)`` (e.g. a ``GammaPrior``, whose support starts at 0). Otherwise a prior
-    sample in ``[lower, 1e-4)`` lies outside the constraint, and loading it into the noise (e.g. in
-    ``pyro_sample_from_prior``) silently yields NaN."""
+    """``GreaterThan(1e-4)``, lowered to the start of the support of ``noise_prior`` if that lies in ``[0, 1e-4)``."""
     try:
         lower = noise_prior.support.lower_bound if noise_prior is not None else None
     except (AttributeError, NotImplementedError):
-        # a prior that does not define its support keeps the usual default
         lower = None
     if torch.is_tensor(lower):
         lower = lower.min().item() if lower.numel() > 0 else None
