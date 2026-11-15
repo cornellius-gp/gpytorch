@@ -4,11 +4,14 @@ import unittest
 
 import torch
 
+from gpytorch import settings
 from gpytorch.constraints.constraints import GreaterThan
+from gpytorch.distributions import MultitaskMultivariateNormal
 from gpytorch.distributions.multivariate_normal import MultivariateNormal
 from gpytorch.kernels.matern_kernel import MaternKernel
 from gpytorch.kernels.scale_kernel import ScaleKernel
 from gpytorch.likelihoods.gaussian_likelihood import GaussianLikelihood
+from gpytorch.likelihoods.multitask_gaussian_likelihood import MultitaskGaussianLikelihood
 from gpytorch.means.constant_mean import ConstantMean
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.models.exact_gp import ExactGP
@@ -49,6 +52,29 @@ class ExactGPModel(ExactGP):
 
 
 class TestExactMarginalLogLikelihood(unittest.TestCase):
+    def test_masked_independent_tasks(self):
+        target = torch.tensor([[0.5, float("nan")], [1.0, -0.5], [float("nan"), 0.0]], dtype=torch.double)
+        likelihood = MultitaskGaussianLikelihood(num_tasks=2, has_global_noise=False).double()
+        likelihood.task_noises = target.new_tensor([0.2, 0.6])
+        mll = ExactMarginalLogLikelihood(likelihood, ExactGP(None, None, likelihood))
+        means = target.new_tensor([[0.5, 0.0, -1.0], [1.0, -0.5, 0.25]])
+        covariances = target.new_tensor(
+            [[[2.0, 0.5, 0.0], [0.5, 1.0, 0.3], [0.0, 0.3, 2.0]], [[1.0, 0.2, 0.1], [0.2, 3.0, 0.8], [0.1, 0.8, 2.0]]]
+        )
+        output = MultitaskMultivariateNormal.from_independent_mvns(
+            [MultivariateNormal(mean, covar) for mean, covar in zip(means, covariances)]
+        )
+        with settings.observation_nan_policy("mask"):
+            actual = mll(output, target)
+
+        expected = 0
+        for task, noise in enumerate(likelihood.task_noises):
+            observed = ~target[:, task].isnan()
+            covar = covariances[task][observed][:, observed] + noise * torch.eye(observed.sum(), dtype=target.dtype)
+            dist = torch.distributions.MultivariateNormal(means[task, observed], covar)
+            expected += dist.log_prob(target[observed, task])
+        torch.testing.assert_close(actual, expected / target.numel())
+
     def test_batched_eval(self):
         train_x = torch.rand(10, 2)
         train_y = torch.randn(10)

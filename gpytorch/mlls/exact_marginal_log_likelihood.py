@@ -5,7 +5,7 @@ from __future__ import annotations
 from linear_operator.operators import MaskedLinearOperator
 
 from .. import settings
-from ..distributions import MultivariateNormal
+from ..distributions import MultitaskMultivariateNormal, MultivariateNormal
 from ..likelihoods import _GaussianLikelihoodBase
 from .marginal_log_likelihood import MarginalLogLikelihood
 
@@ -70,8 +70,12 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
         # Remove NaN values if enabled
         if settings.observation_nan_policy.value() == "mask":
             observed = settings.observation_nan_policy._get_observed(target, output.event_shape)
+            mean = output.mean
+            if isinstance(output, MultitaskMultivariateNormal) and not output._interleaved:
+                # The covariance indexes observations within each task.
+                mean, target, observed = mean.mT, target.mT, observed.mT
             output = MultivariateNormal(
-                mean=output.mean[..., observed],
+                mean=mean[..., observed],
                 covariance_matrix=MaskedLinearOperator(
                     output.lazy_covariance_matrix, observed.reshape(-1), observed.reshape(-1)
                 ),
