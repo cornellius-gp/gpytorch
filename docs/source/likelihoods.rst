@@ -110,6 +110,13 @@ where :math:`t` is the number of output dimensions.)
    :members:
 
 
+:hidden:`NonGaussianMultitaskLikelihood`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: NonGaussianMultitaskLikelihood
+   :members:
+
+
 :hidden:`SoftmaxLikelihood`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
