@@ -13,20 +13,13 @@ from .likelihood import Likelihood
 
 class NonGaussianMultitaskLikelihood(Likelihood):
     r"""
-    Wraps a one-dimensional likelihood (e.g. :obj:`~gpytorch.likelihoods.BernoulliLikelihood` or
-    :obj:`~gpytorch.likelihoods.PoissonLikelihood`) so that it can be used with multitask models
-    (e.g. :obj:`~gpytorch.variational.LMCVariationalStrategy` or
-    :obj:`~gpytorch.variational.IndependentMultitaskVariationalStrategy`)
-    whose function distribution is a :obj:`~gpytorch.distributions.MultitaskMultivariateNormal`
-    with a (... x N x T) mean and :math:`T` tasks.
+    Wraps a one-dimensional likelihood (e.g. :obj:`~gpytorch.likelihoods.BernoulliLikelihood`) so that it can be
+    used with multitask models (e.g. :obj:`~gpytorch.variational.LMCVariationalStrategy`) whose function
+    distribution is a :obj:`~gpytorch.distributions.MultitaskMultivariateNormal` with a (... x N x T) mean.
 
-    The same ``base_likelihood`` is applied independently to every task and every data point.
-    The likelihood terms are summed over the :math:`T` tasks,
-    so that :meth:`expected_log_prob` and :meth:`log_marginal` return a (... x N) tensor,
+    The ``base_likelihood`` is applied independently to every task and data point, and the terms are summed
+    over the :math:`T` tasks, so that :meth:`expected_log_prob` and :meth:`log_marginal` return a (... x N) tensor,
     as :obj:`~gpytorch.likelihoods.MultitaskGaussianLikelihood` does.
-    Without this wrapper, a one-dimensional likelihood returns a (... x N x T) tensor,
-    and :obj:`~gpytorch.mlls.VariationalELBO` sums it over the tasks
-    instead of over the data points.
 
     :param base_likelihood: The one-dimensional likelihood that is applied to every task.
 

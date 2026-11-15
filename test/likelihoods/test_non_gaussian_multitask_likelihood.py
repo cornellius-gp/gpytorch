@@ -45,7 +45,6 @@ class TestNonGaussianMultitaskLikelihood(unittest.TestCase):
 
     def _check_elbo(self, base_likelihood, train_y, task_log_prob):
         likelihood = NonGaussianMultitaskLikelihood(base_likelihood)
-        # one value per data point (summed over the tasks), as MultitaskGaussianLikelihood returns
         elp = likelihood.expected_log_prob(train_y, self.function_dist)
         self.assertEqual(elp.shape, torch.Size([self.n]))
         expected = torch.stack(
@@ -57,7 +56,6 @@ class TestNonGaussianMultitaskLikelihood(unittest.TestCase):
         ).sum(-1)
         self.assertTrue(torch.allclose(elp, expected, atol=1e-4))
 
-        # the ELBO is a scalar that can be backpropagated, and sums over every task and data point
         mll = gpytorch.mlls.VariationalELBO(likelihood, self.model, num_data=self.n)
         loss = -mll(self.function_dist, train_y)
         self.assertEqual(loss.shape, torch.Size([]))
@@ -68,7 +66,6 @@ class TestNonGaussianMultitaskLikelihood(unittest.TestCase):
         train_y = torch.bernoulli(torch.full((self.n, self.t), 0.5))
 
         def task_log_prob(y, mean, var):
-            # the one-dimensional likelihood, applied to each task as if it were a separate GP with N points
             dist = gpytorch.distributions.MultivariateNormal(mean, torch.diag_embed(var))
             return BernoulliLikelihood().expected_log_prob(y, dist)
 
