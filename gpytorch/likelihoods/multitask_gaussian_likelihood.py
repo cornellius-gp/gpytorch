@@ -17,12 +17,12 @@ from linear_operator.operators import (
 from torch import Tensor
 from torch.distributions import Normal
 
-from ..constraints import GreaterThan, Interval
+from ..constraints import Interval
 from ..distributions import base_distributions, MultitaskMultivariateNormal
 from ..lazy import LazyEvaluatedKernelTensor
 from ..likelihoods import _GaussianLikelihoodBase, Likelihood
 from ..priors import Prior
-from .noise_models import FixedGaussianNoise, Noise
+from .noise_models import _default_noise_constraint, FixedGaussianNoise, Noise
 
 
 class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
@@ -204,7 +204,7 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
     ) -> None:
         super(Likelihood, self).__init__()  # pyre-ignore[20]
         if noise_constraint is None:
-            noise_constraint = GreaterThan(1e-4)
+            noise_constraint = _default_noise_constraint(noise_prior)
 
         if not has_task_noise and not has_global_noise:
             raise ValueError(

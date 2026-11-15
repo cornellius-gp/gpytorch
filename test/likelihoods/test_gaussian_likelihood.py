@@ -5,15 +5,17 @@ import unittest
 
 import torch
 from linear_operator.operators import DiagLinearOperator
+from torch.distributions import Distribution
 
 import gpytorch
 from gpytorch import settings
+from gpytorch.constraints import GreaterThan
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.kernels import RBFKernel, ScaleKernel
 from gpytorch.likelihoods import DirichletClassificationLikelihood, FixedNoiseGaussianLikelihood, GaussianLikelihood
 from gpytorch.likelihoods.noise_models import FixedGaussianNoise
 from gpytorch.models import ExactGP
-from gpytorch.priors import GammaPrior
+from gpytorch.priors import GammaPrior, NormalPrior, Prior
 from gpytorch.test.base_likelihood_test_case import BaseLikelihoodTestCase
 
 
@@ -49,6 +51,48 @@ class TestGaussianLikelihoodMultiBatch(TestGaussianLikelihood):
 
     def test_batch(self):
         pass
+
+
+class TestGaussianLikelihoodPriorSupport(unittest.TestCase):
+    def test_default_noise_constraint_matches_prior_support(self):
+        likelihood = GaussianLikelihood(noise_prior=GammaPrior(1.0, 0.5))
+        self.assertEqual(likelihood.noise_covar.raw_noise_constraint.lower_bound.item(), 0.0)
+        self.assertAlmostEqual(GaussianLikelihood().noise_covar.raw_noise_constraint.lower_bound.item(), 1e-4)
+        likelihood = GaussianLikelihood(noise_prior=NormalPrior(0.0, 1.0))
+        self.assertAlmostEqual(likelihood.noise_covar.raw_noise_constraint.lower_bound.item(), 1e-4)
+        likelihood = GaussianLikelihood(noise_prior=GammaPrior(1.0, 0.5), noise_constraint=GreaterThan(1e-3))
+        self.assertAlmostEqual(likelihood.noise_covar.raw_noise_constraint.lower_bound.item(), 1e-3)
+
+    def test_load_prior_sample_below_default_lower_bound(self):
+        likelihood = GaussianLikelihood(noise_prior=GammaPrior(1.0, 0.5))
+        likelihood.pyro_load_from_samples({"noise_covar.noise_prior": torch.tensor([5e-5])})
+        self.assertFalse(torch.isnan(likelihood.noise).any())
+        self.assertAlmostEqual(likelihood.noise.item(), 5e-5, places=8)
+
+    def test_pyro_sample_from_prior_has_no_nan(self):
+        try:
+            import pyro  # noqa F401
+        except ImportError:
+            self.skipTest("pyro not installed")
+        torch.manual_seed(0)
+        likelihood = GaussianLikelihood(noise_prior=GammaPrior(0.5, 10.0), batch_shape=torch.Size([1000]))
+        noise = likelihood.pyro_sample_from_prior().noise
+        self.assertFalse(torch.isnan(noise).any())
+        self.assertTrue((noise < 1e-4).any())
+
+    def test_prior_without_support_keeps_default_constraint(self):
+        class NoSupportPrior(Prior, Distribution):
+            arg_constraints = {}
+
+            def __init__(self):
+                Distribution.__init__(self, batch_shape=torch.Size(), validate_args=False)
+                Prior.__init__(self)
+
+            def log_prob(self, x):
+                return -x
+
+        likelihood = GaussianLikelihood(noise_prior=NoSupportPrior())
+        self.assertAlmostEqual(likelihood.noise_covar.raw_noise_constraint.lower_bound.item(), 1e-4)
 
 
 class TestFixedNoiseGaussianLikelihood(BaseLikelihoodTestCase, unittest.TestCase):

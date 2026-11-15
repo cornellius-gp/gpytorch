@@ -14,7 +14,21 @@ from .. import settings
 from ..constraints import GreaterThan
 from ..distributions import MultivariateNormal
 from ..module import Module
+from ..priors import Prior
 from ..utils.warnings import NumericalWarning
+
+
+def _default_noise_constraint(noise_prior: Prior | None = None) -> GreaterThan:
+    """``GreaterThan(1e-4)``, lowered to the start of the support of ``noise_prior`` if that lies in ``[0, 1e-4)``."""
+    try:
+        lower = noise_prior.support.lower_bound if noise_prior is not None else None
+    except (AttributeError, NotImplementedError):
+        lower = None
+    if torch.is_tensor(lower):
+        lower = lower.min().item() if lower.numel() > 0 else None
+    if isinstance(lower, (int, float)) and 0.0 <= lower < 1e-4:
+        return GreaterThan(float(lower))
+    return GreaterThan(1e-4)
 
 
 class Noise(Module):
@@ -27,7 +41,7 @@ class _HomoskedasticNoiseBase(Noise):
     def __init__(self, noise_prior=None, noise_constraint=None, batch_shape=torch.Size(), num_tasks=1):
         super().__init__()
         if noise_constraint is None:
-            noise_constraint = GreaterThan(1e-4)
+            noise_constraint = _default_noise_constraint(noise_prior)
 
         self.register_parameter(name="raw_noise", parameter=Parameter(torch.zeros(*batch_shape, num_tasks)))
         if noise_prior is not None:
