@@ -359,7 +359,9 @@ class DefaultPredictionStrategy:
             (extra_batch x ... x num_test), and (extra_batch x ... x num_test x num_test)
         """
         # sum(test_train_covar.shape[-2:]) = joint_covar.size(-1)
-        if sum(test_train_covar.shape[-2:]) <= settings.max_eager_kernel_size.value():
+        # In trace mode, always evaluate eagerly: lazily evaluated kernels create new LinearOperator objects on every
+        # call, which torch.jit.trace records as different graphs.
+        if settings.trace_mode.on() or sum(test_train_covar.shape[-2:]) <= settings.max_eager_kernel_size.value():
             test_train_covar = test_train_covar.to_dense()
             test_test_covar = test_test_covar.to_dense()
 

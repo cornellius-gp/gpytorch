@@ -337,5 +337,44 @@ class TestExactGPHooks(unittest.TestCase):
         self.assertEqual(call_count[0], 2)
 
 
+class TestExactGPTracing(unittest.TestCase):
+    def test_trace_above_max_eager_kernel_size(self):
+        # Regression test for https://github.com/cornellius-gp/gpytorch/issues/1803
+        class MeanVarModelWrapper(torch.nn.Module):
+            def __init__(self, gp):
+                super().__init__()
+                self.gp = gp
+
+            def forward(self, x):
+                output_dist = self.gp(x)
+                return output_dist.mean, output_dist.variance
+
+        train_x = torch.linspace(0, 1, N_PTS)
+        train_y = torch.sin(train_x)
+        model = ExactGPModel(train_x, train_y, GaussianLikelihood())
+        model.eval()
+
+        max_eager_kernel_size = 64
+        num_test = max_eager_kernel_size - N_PTS + 1
+        test_x = torch.linspace(0, 1, num_test)
+        with (
+            torch.no_grad(),
+            settings.fast_pred_var(),
+            settings.trace_mode(),
+            settings.max_eager_kernel_size(max_eager_kernel_size),
+        ):
+            model(test_x)  # Do precomputation
+            traced_model = torch.jit.trace(MeanVarModelWrapper(model), test_x)
+
+            new_test_x = torch.rand(num_test)
+            traced_mean, traced_var = traced_model(new_test_x)
+            expected = model(new_test_x)
+            self.assertAllClose(traced_mean, expected.mean)
+            self.assertAllClose(traced_var, expected.variance)
+
+    def assertAllClose(self, actual, expected):
+        self.assertTrue(torch.allclose(actual, expected, rtol=1e-4, atol=1e-5))
+
+
 if __name__ == "__main__":
     unittest.main()
