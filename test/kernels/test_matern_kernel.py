@@ -64,7 +64,7 @@ class TestMaternKernel(unittest.TestCase, BaseKernelTestCase):
                     kernel = MaternKernel(nu=nu).to(x)
                     kernel.lengthscale = 0.31
                     raw = kernel.raw_lengthscale
-                    # Exclude the coincident-input cusp of Matérn-1/2.
+                    # Exclude the coincident-input cusp of Matern-1/2.
                     weights = 1 - torch.eye(len(x), dtype=x.dtype, device=device)
                     with patch("gpytorch.functions.MaternCovariance.apply", side_effect=AssertionError):
                         actual = (kernel(x).to_dense() * weights).sum()
