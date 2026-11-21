@@ -57,7 +57,7 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
             self.register_parameter("task_noise_corr", torch.nn.Parameter(task_noise_corr))
             if task_correlation_prior is not None:
                 self.register_prior(
-                    "MultitaskErrorCorrelationPrior", task_correlation_prior, lambda m: m._eval_corr_matrix
+                    "MultitaskErrorCorrelationPrior", task_correlation_prior, lambda m: m._eval_corr_matrix()
                 )
         elif task_correlation_prior is not None:
             raise ValueError("Can only specify task_correlation_prior if rank>0")
@@ -119,7 +119,10 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
         self, shape: torch.Size, add_noise: bool | None = True, interleaved: bool = True, *params: Any, **kwargs: Any
     ) -> LinearOperator:
         if not self.has_task_noise:
-            noise = ConstantDiagLinearOperator(self.noise, diag_shape=shape[-2] * self.num_tasks)
+            batch_shape = torch.broadcast_shapes(self.noise.shape[:-1], shape[:-2])
+            noise = ConstantDiagLinearOperator(
+                self.noise.expand(*batch_shape, 1), diag_shape=shape[-2] * self.num_tasks
+            )
             return noise
 
         if self.rank == 0:
@@ -133,17 +136,22 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
             dtype, device = task_noise_covar_factor.dtype, task_noise_covar_factor.device
             ckl_init = KroneckerProductLinearOperator
 
+        if add_noise and self.has_global_noise:
+            batch_shape = torch.broadcast_shapes(task_var_lt.batch_shape, self.noise.shape[:-1], shape[:-2])
+        else:
+            batch_shape = torch.broadcast_shapes(task_var_lt.batch_shape, shape[:-2])
+
         eye_lt = ConstantDiagLinearOperator(
-            torch.ones(*shape[:-2], 1, dtype=dtype, device=device), diag_shape=shape[-2]
+            torch.ones(*batch_shape, 1, dtype=dtype, device=device), diag_shape=shape[-2]
         )
-        task_var_lt = task_var_lt.expand(*shape[:-2], *task_var_lt.matrix_shape)  # pyre-ignore[6]
+        task_var_lt = task_var_lt.expand(*batch_shape, *task_var_lt.matrix_shape)  # pyre-ignore[6]
 
         # to add the latent noise we exploit the fact that
         # I \kron D_T + \sigma^2 I_{NT} = I \kron (D_T + \sigma^2 I)
         # which allows us to move the latent noise inside the task dependent noise
         # thereby allowing exploitation of Kronecker structure in this likelihood.
         if add_noise and self.has_global_noise:
-            noise = ConstantDiagLinearOperator(self.noise, diag_shape=task_var_lt.shape[-1])
+            noise = ConstantDiagLinearOperator(self.noise.expand(*batch_shape, 1), diag_shape=task_var_lt.shape[-1])
             task_var_lt = task_var_lt + noise
 
         if interleaved:
@@ -228,7 +236,7 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
                     parameter=torch.nn.Parameter(torch.randn(*batch_shape, num_tasks, rank)),
                 )
                 if task_prior is not None:
-                    self.register_prior("MultitaskErrorCovariancePrior", task_prior, lambda m: m._eval_covar_matrix)
+                    self.register_prior("MultitaskErrorCovariancePrior", task_prior, lambda m: m._eval_covar_matrix())
         self.num_tasks = num_tasks
         self.rank = rank
 
@@ -288,9 +296,14 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
 
     def _eval_covar_matrix(self) -> Tensor:
         covar_factor = self.task_noise_covar_factor
-        noise = self.noise
-        D = noise * torch.eye(self.num_tasks, dtype=noise.dtype, device=noise.device)  # pyre-fixme[16]
-        return covar_factor.matmul(covar_factor.transpose(-1, -2)) + D
+        covar = covar_factor.matmul(covar_factor.transpose(-1, -2))
+        if self.has_global_noise:
+            noise = self.noise
+            D = noise.unsqueeze(-1) * torch.eye(
+                self.num_tasks, dtype=noise.dtype, device=noise.device
+            )  # pyre-fixme[16]
+            covar = covar + D
+        return covar
 
     def marginal(
         self, function_dist: MultitaskMultivariateNormal, *args: Any, **kwargs: Any

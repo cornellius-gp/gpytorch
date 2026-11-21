@@ -16,7 +16,7 @@ from ..priors import Prior
 from .noise_models import MultitaskHomoskedasticNoise
 
 
-def _check_task_indices(task_idcs: torch.Tensor, base_shape: torch.Size) -> None:
+def _check_task_indices(task_idcs: torch.Tensor, base_shape: torch.Size, num_tasks: int | None = None) -> None:
     r"""
     Check that the task indices have valid dtype, and are the correct shape.
 
@@ -26,13 +26,24 @@ def _check_task_indices(task_idcs: torch.Tensor, base_shape: torch.Size) -> None
     Args:
         task_idcs: Tensor of task indices.
         base_shape: Shape of the data.
+        num_tasks: Optional number of tasks for bounds validation.
     """
     is_int_dtype = task_idcs.dtype in (torch.uint8, torch.int8, torch.int16, torch.int32, torch.int64)
-    task_batch_shape = task_idcs.shape[:-1]
-    sub_base_shape = base_shape[-len(task_batch_shape) :]
-    shape_matches = task_batch_shape == sub_base_shape and task_idcs.shape[-1] == 1
-    if not (torch.is_tensor(task_idcs) and shape_matches and is_int_dtype):
+    if not (torch.is_tensor(task_idcs) and is_int_dtype and task_idcs.dim() >= 2 and task_idcs.shape[-1] == 1):
+        sub_base_shape = base_shape[-max(task_idcs.dim() - 1, 1) :]
         raise ValueError(f"Expected task indexes must be a tensor of shape {(*sub_base_shape, 1)}, with integer dtype.")
+    task_batch_shape = task_idcs.shape[:-1]
+    try:
+        torch.broadcast_shapes(task_batch_shape, base_shape)
+    except RuntimeError:
+        sub_base_shape = base_shape[-len(task_batch_shape) :]
+        raise ValueError(f"Expected task indexes must be a tensor of shape {(*sub_base_shape, 1)}, with integer dtype.")
+    if task_idcs.shape[-2] != base_shape[-1]:
+        sub_base_shape = base_shape[-len(task_batch_shape) :]
+        raise ValueError(f"Expected task indexes must be a tensor of shape {(*sub_base_shape, 1)}, with integer dtype.")
+    if num_tasks is not None and task_idcs.numel() > 0:
+        if task_idcs.min() < 0 or task_idcs.max() >= num_tasks:
+            raise ValueError(f"Task indices must be in [0, {num_tasks}), got [{task_idcs.min()}, {task_idcs.max()}].")
 
 
 class HadamardGaussianLikelihood(_GaussianLikelihoodBase):
@@ -86,6 +97,23 @@ class HadamardGaussianLikelihood(_GaussianLikelihoodBase):
         self.noise_covar.initialize(raw_noise=value)
 
     def _shaped_noise_covar(self, base_shape: torch.Size, *params: Any, **kwargs: Any) -> LinearOperator:
+        if "noise" in kwargs and kwargs["noise"] is not None:
+            noise_override = kwargs["noise"]
+            if len(params) > 0 and len(params[0]) > 0:
+                task_idcs = params[0] if torch.is_tensor(params[0]) else params[0][0]
+                if task_idcs.shape[-1] > 1:
+                    if self.task_feature_index is None:
+                        raise ValueError(
+                            "Task indices must be a single dimension if task_feature_index is not provided."
+                        )
+                    task_idcs = task_idcs[..., self.task_feature_index].unsqueeze(-1)
+                task_idcs = task_idcs.long()
+                _check_task_indices(task_idcs, base_shape, num_tasks=self.num_tasks)
+                batch_shape = torch.broadcast_shapes(noise_override.shape[:-1], task_idcs.shape[:-2], base_shape[:-1])
+            else:
+                batch_shape = torch.broadcast_shapes(noise_override.shape[:-1], base_shape[:-1])
+            return DiagLinearOperator(noise_override.expand(*batch_shape, base_shape[-1]))
+
         # params contains input data, shape (*task_batch_shape, num_data, d)
         if len(params) == 0 or len(params[0]) == 0:
             raise ValueError("Task indices must be provided.")
@@ -97,18 +125,15 @@ class HadamardGaussianLikelihood(_GaussianLikelihoodBase):
             # rather than just the task indices
             task_idcs = task_idcs[..., self.task_feature_index].unsqueeze(-1)
         task_idcs = task_idcs.long()
-        _check_task_indices(task_idcs, base_shape)
-        noise_base_covar_matrix = self.noise_covar(task_idcs, *params[1:], shape=base_shape, **kwargs)
-        if self.num_tasks > 1:
-            # squeeze to remove the `1` dimension returned by `MultitaskHomoskedasticNoise`
-            # when there is more than 1 task
-            noise_base_covar_matrix = noise_base_covar_matrix.squeeze(
-                -4
-            )  # (*batch_shape, num_tasks, num_data, num_data)
-        all_tasks = torch.arange(self.num_tasks, device=task_idcs.device).unsqueeze(-1)  # (num_tasks, 1)
-        diag = torch.eq(all_tasks, task_idcs.mT)  # (num_tasks, num_data)
-        mask = DiagLinearOperator(diag)  # (num_tasks, num_data, num_data)
-        return (noise_base_covar_matrix @ mask).sum(dim=-3)
+        _check_task_indices(task_idcs, base_shape, num_tasks=self.num_tasks)
+        noise = self.noise
+        idx = task_idcs.squeeze(-1)
+        gather_batch_shape = torch.broadcast_shapes(noise.shape[:-1], idx.shape[:-1])
+        batch_shape = torch.broadcast_shapes(gather_batch_shape, base_shape[:-1])
+        obs_noise = noise.expand(*gather_batch_shape, self.num_tasks).gather(
+            -1, idx.expand(*gather_batch_shape, base_shape[-1])
+        )
+        return DiagLinearOperator(obs_noise.expand(*batch_shape, base_shape[-1]))
 
     def forward(
         self,
@@ -123,4 +148,5 @@ class HadamardGaussianLikelihood(_GaussianLikelihoodBase):
         mean, covar = function_dist.mean, function_dist.lazy_covariance_matrix
         noise_covar = self._shaped_noise_covar(mean.shape, *params, **kwargs)
         full_covar = covar + noise_covar
+        mean = mean.expand(*full_covar.batch_shape, *mean.shape[-1:])
         return function_dist.__class__(mean, full_covar)
