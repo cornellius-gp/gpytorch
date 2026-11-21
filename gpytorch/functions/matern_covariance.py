@@ -1,13 +1,22 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
+from typing import Any
 
 import torch
 
 
 class MaternCovariance(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, x1, x2, lengthscale, nu, dist_func):
+    def forward(
+        ctx: Any,
+        x1: torch.Tensor,
+        x2: torch.Tensor,
+        lengthscale: torch.Tensor,
+        nu: float,
+        dist_func: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
+    ) -> torch.Tensor:
         if any(ctx.needs_input_grad[:2]):
             raise RuntimeError("MaternCovariance cannot compute gradients with " "respect to x1 and x2")
         if lengthscale.size(-1) > 1:
@@ -46,11 +55,32 @@ class MaternCovariance(torch.autograd.Function):
             else:
                 covar_mat = exp_component.mul_(linear_term.add_(quadratic_term))
         if needs_grad:
-            ctx.save_for_backward(d_output_d_input)
+            ctx.save_for_backward(x1, x2, lengthscale, lengthscale.clone(), d_output_d_input)
+            ctx.dist_func = dist_func
+            ctx.nu = nu
         return covar_mat
 
     @staticmethod
-    def backward(ctx, grad_output):
-        d_output_d_input = ctx.saved_tensors[0]
+    def backward(ctx: Any, grad_output: torch.Tensor) -> tuple[None, None, torch.Tensor, None, None]:
+        x1, x2, lengthscale, forward_lengthscale, d_output_d_input = ctx.saved_tensors
+        if torch.is_grad_enabled():
+            # Inputs are fixed in this optimized path. Evaluate normalized
+            # distances at the forward scale, then recover their exact 1/l
+            # dependence. The frozen normalization avoids differentiating
+            # through cdist (which has no double backward), without computing
+            # potentially overflowing distances in the original input units.
+            mean = x1.mean(dim=-2, keepdim=True)
+            distance = ctx.dist_func((x1 - mean) / forward_lengthscale, (x2 - mean) / forward_lengthscale)
+            finite = lengthscale.isfinite()
+            live_scale = lengthscale.masked_fill(~finite, 1)
+            saved_scale = forward_lengthscale.masked_fill(~finite, 1)
+            scaled = math.sqrt(2 * ctx.nu) * distance * (saved_scale / live_scale)
+            if ctx.nu == 0.5:
+                polynomial = scaled
+            elif ctx.nu == 1.5:
+                polynomial = scaled.square()
+            else:
+                polynomial = scaled.square() * (1 + scaled) / 3
+            d_output_d_input = (polynomial * (-scaled).exp() / live_scale).masked_fill(~finite, 0)
         lengthscale_grad = grad_output * d_output_d_input
         return None, None, lengthscale_grad, None, None
