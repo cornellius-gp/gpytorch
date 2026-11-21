@@ -119,3 +119,42 @@ class TestMultitaskGaussianLikelihood(BaseLikelihoodTestCase, unittest.TestCase)
         likelihood.noise = torch.tensor([[0.1, 0.2, 0.3, 0.4]])
         X = torch.cat([torch.zeros_like(task_idcs), task_idcs], dim=-1)
         self.assertEqual(variance, likelihood(input, [X]).variance)
+
+    def test_single_task_batched_and_multi_batch(self):
+        for batch_shape in (torch.Size([3]), torch.Size([2, 3])):
+            likelihood = HadamardGaussianLikelihood(num_tasks=1, batch_shape=batch_shape)
+            noise_val = torch.full((*batch_shape, 1), 0.25)
+            likelihood.noise = noise_val
+            mvn = self._create_marginal_input(batch_shape=batch_shape)
+            task_idcs = torch.zeros(*batch_shape, 5, 1, dtype=torch.long)
+            out = likelihood(mvn, [task_idcs])
+            self.assertEqual(out.variance.shape, (*batch_shape, 5))
+            self.assertAllClose(out.variance, torch.full((*batch_shape, 5), 1.25))
+
+    def test_noise_kwarg_override_and_broadcast_batches(self):
+        likelihood = HadamardGaussianLikelihood(num_tasks=4)
+        mvn = self._create_marginal_input()
+        task_idcs = self._create_task_input()
+        obs_noise = torch.tensor([0.05, 0.15, 0.25, 0.35, 0.45])
+        out_with_tasks = likelihood(mvn, [task_idcs], noise=obs_noise)
+        self.assertAllClose(out_with_tasks.variance, 1.0 + obs_noise)
+        out_without_tasks = likelihood(mvn, noise=obs_noise)
+        self.assertAllClose(out_without_tasks.variance, 1.0 + obs_noise)
+
+        batched_lik = HadamardGaussianLikelihood(num_tasks=4, batch_shape=torch.Size([3]))
+        batched_noises = torch.tensor([[0.1, 0.2, 0.3, 0.4], [0.2, 0.3, 0.4, 0.5], [0.3, 0.4, 0.5, 0.6]])
+        batched_lik.noise = batched_noises
+        out_batched = batched_lik(mvn, [task_idcs])
+        self.assertEqual(out_batched.mean.shape, torch.Size([3, 5]))
+        self.assertEqual(out_batched.variance.shape, torch.Size([3, 5]))
+        expected = 1.0 + batched_noises[:, [0, 1, 2, 3, 0]]
+        self.assertAllClose(out_batched.variance, expected)
+
+        loss = out_batched.variance.sum()
+        loss.backward()
+        self.assertIsNotNone(batched_lik.raw_noise.grad)
+        self.assertTrue(torch.isfinite(batched_lik.raw_noise.grad).all())
+
+        bad_task_idcs = torch.tensor([[0], [1], [4], [0], [1]], dtype=torch.long)
+        with self.assertRaises(ValueError):
+            likelihood(mvn, [bad_task_idcs])

@@ -6,7 +6,10 @@ import torch
 from linear_operator.operators import KroneckerProductLinearOperator, RootLinearOperator, ToeplitzLinearOperator
 
 from gpytorch.distributions import MultitaskMultivariateNormal
-from gpytorch.likelihoods import MultitaskGaussianLikelihood
+from gpytorch.likelihoods import _MultitaskGaussianLikelihoodBase, MultitaskGaussianLikelihood
+from gpytorch.likelihoods.noise_models import HomoskedasticNoise
+from gpytorch.priors import LKJPrior
+from gpytorch.priors.wishart_prior import WishartPrior
 from gpytorch.test.base_likelihood_test_case import BaseLikelihoodTestCase
 
 
@@ -93,3 +96,80 @@ class TestMultitaskGaussianLikelihoodBatch(TestMultitaskGaussianLikelihood):
 
     def test_nonbatch(self):
         pass
+
+    def test_batched_likelihood_with_unbatched_and_broadcast_inputs(self):
+        unbatched_mvn = self._create_marginal_input(batch_shape=torch.Size([]))
+        broadcast_mvn = self._create_marginal_input(batch_shape=torch.Size([2, 1]))
+        unbatched_samples = self._create_conditional_input(batch_shape=torch.Size([]))
+        for has_task_noise, has_global_noise, rank in [
+            (True, True, 0),
+            (True, False, 0),
+            (True, True, 2),
+            (True, False, 2),
+            (False, True, 0),
+        ]:
+            lik = MultitaskGaussianLikelihood(
+                num_tasks=4,
+                rank=rank,
+                batch_shape=torch.Size([3]),
+                has_task_noise=has_task_noise,
+                has_global_noise=has_global_noise,
+            )
+            out_unbatched = lik(unbatched_mvn)
+            self.assertEqual(out_unbatched.batch_shape, torch.Size([3]))
+            self.assertEqual(out_unbatched.event_shape, torch.Size([5, 4]))
+
+            out_broadcast = lik(broadcast_mvn)
+            self.assertEqual(out_broadcast.batch_shape, torch.Size([2, 3]))
+            self.assertEqual(out_broadcast.event_shape, torch.Size([5, 4]))
+
+            cond_unbatched = lik(unbatched_samples)
+            self.assertEqual(cond_unbatched.batch_shape, torch.Size([3, 5]))
+            self.assertEqual(cond_unbatched.event_shape, torch.Size([4]))
+
+    def test_task_prior_and_correlation_prior_closures(self):
+        covar_prior = WishartPrior(nu=6, K=torch.eye(4))
+        lik = MultitaskGaussianLikelihood(
+            num_tasks=4,
+            rank=2,
+            batch_shape=torch.Size([3]),
+            task_prior=covar_prior,
+            has_global_noise=True,
+        )
+        for _, module, prior, closure, _ in lik.named_priors():
+            val = closure(module)
+            self.assertEqual(val.shape, torch.Size([3, 4, 4]))
+            lp = prior.log_prob(val)
+            self.assertEqual(lp.shape, torch.Size([3]))
+            self.assertTrue(torch.isfinite(lp).all())
+
+        lik_no_global = MultitaskGaussianLikelihood(
+            num_tasks=4,
+            rank=4,
+            task_prior=WishartPrior(nu=6, K=torch.eye(4)),
+            has_global_noise=False,
+        )
+        lik_no_global.task_noise_covar_factor.data.copy_(torch.eye(4))
+        for _, module, prior, closure, _ in lik_no_global.named_priors():
+            val = closure(module)
+            self.assertEqual(val.shape, torch.Size([4, 4]))
+            lp = prior.log_prob(val)
+            self.assertTrue(torch.isfinite(lp).all())
+
+        base_lik = _MultitaskGaussianLikelihoodBase(
+            num_tasks=4,
+            noise_covar=HomoskedasticNoise(),
+            rank=2,
+            task_correlation_prior=LKJPrior(n=4, eta=1.0),
+            batch_shape=torch.Size([3]),
+        )
+        found_corr_prior = False
+        for name, module, prior, closure, _ in base_lik.named_priors():
+            if name == "MultitaskErrorCorrelationPrior":
+                found_corr_prior = True
+                corr = closure(module)
+                self.assertEqual(corr.shape, torch.Size([3, 4, 4]))
+                lp = prior.log_prob(corr)
+                self.assertEqual(lp.shape, torch.Size([3]))
+                self.assertTrue(torch.isfinite(lp).all())
+        self.assertTrue(found_corr_prior)
