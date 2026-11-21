@@ -215,6 +215,24 @@ class TestRBFKernel(unittest.TestCase, BaseKernelTestCase):
         kernel = self.create_kernel_with_prior(NormalPrior(0, 1))
         pickle.loads(pickle.dumps(kernel))  # Should be able to pickle and unpickle with a prior
 
+    def test_coincident_points_mixed_second_derivative(self):
+        torch.manual_seed(0)
+        for dtype in (torch.float, torch.double):
+            x = torch.randn(32, 4, dtype=dtype)
+            x1 = x.clone().requires_grad_(True)
+            x2 = x.clone().requires_grad_(True)
+            lengthscale = 1.7
+            kernel = RBFKernel().to(dtype=dtype)
+            kernel.initialize(lengthscale=lengthscale)
+            covar = kernel(x1, x2).to_dense()
+            diag_sum = covar.diagonal().sum()
+            grad_x1 = torch.autograd.grad(diag_sum, x1, create_graph=True)[0]
+            self.assertTrue(torch.allclose(grad_x1, torch.zeros_like(grad_x1), atol=1e-6))
+            for dim in range(4):
+                mixed_diag = torch.autograd.grad(grad_x1[:, dim].sum(), x2, retain_graph=True)[0][:, dim]
+                expected = torch.full_like(mixed_diag, 1.0 / (lengthscale**2))
+                self.assertTrue(torch.allclose(mixed_diag, expected, rtol=1e-4, atol=1e-5))
+
 
 if __name__ == "__main__":
     unittest.main()
