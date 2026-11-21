@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import warnings
 
+import torch
 from linear_operator.operators import to_linear_operator
 
 from .kernel import Kernel
@@ -72,8 +73,11 @@ class ProductStructureKernel(Kernel):
             raise RuntimeError("ProductStructureKernel does not accept the last_dim_is_batch argument.")
 
         res = self.base_kernel(x1, x2, diag=diag, last_dim_is_batch=True, **params)
-        res = res.prod(-2 if diag else -3)
-        return res
+        if diag:
+            return res.prod(-2)
+        if x1.shape != x2.shape or not torch.equal(x1, x2):
+            return to_linear_operator(res.to_dense().prod(-3))
+        return res.prod(-3)
 
     def num_outputs_per_input(self, x1, x2):
         return self.base_kernel.num_outputs_per_input(x1, x2)
@@ -91,5 +95,7 @@ class ProductStructureKernel(Kernel):
         kernel matrix.
         """
         res = super().__call__(x1_, x2_, diag=diag, last_dim_is_batch=last_dim_is_batch, **params)
+        if diag:
+            return res
         res = to_linear_operator(res).evaluate_kernel()
         return res
