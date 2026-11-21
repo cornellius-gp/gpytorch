@@ -564,13 +564,34 @@ class Kernel(Module):
         if len(self.batch_shape) == 0:
             return self
 
-        new_kernel = deepcopy(self)
         # Process the index
         index = index if isinstance(index, tuple) else (index,)
+        num_ellipses = sum(idx is Ellipsis for idx in index)
+        if num_ellipses > 1:
+            raise IndexError("An index can only have a single ellipsis ('...')")
+        # The index applies to the leading dimensions of the parameters, which are followed by non-batch
+        # dimensions (e.g. lengthscale is batch_shape x 1 x d). So indexing more dimensions than the batch
+        # dimensions would silently index the non-batch dimensions instead of raising an IndexError.
+        num_indexed_dims = sum(
+            idx.dim() if torch.is_tensor(idx) and idx.dtype == torch.bool else 1
+            for idx in index
+            if idx is not None and idx is not Ellipsis
+        )
+        if num_indexed_dims > len(self.batch_shape):
+            raise IndexError(
+                f"Too many indices for a kernel with batch_shape {self.batch_shape}: "
+                f"{num_indexed_dims} batch dimensions were indexed."
+            )
+        param_index = index
+        if num_ellipses == 1:
+            ellipsis_pos = next(i for i, idx in enumerate(index) if idx is Ellipsis)
+            num_ellipsis_dims = len(self.batch_shape) - num_indexed_dims
+            param_index = index[:ellipsis_pos] + (slice(None),) * num_ellipsis_dims + index[ellipsis_pos + 1 :]
 
+        new_kernel = deepcopy(self)
         for param_name, param in self.named_parameters(recurse=False):
             new_param = new_kernel.__getattr__(param_name)
-            new_param.data = new_param.__getitem__(index)
+            new_param.data = new_param.__getitem__(param_index)
             ndim_removed = len(param.shape) - len(new_param.shape)
             new_batch_shape_len = len(self.batch_shape) - ndim_removed
             new_kernel.batch_shape = new_param.shape[:new_batch_shape_len]
@@ -578,7 +599,7 @@ class Kernel(Module):
         for buffr_name, buffr in self.named_buffers(recurse=False):
             # For a given buffer, get the number of dimensions that do not correspond to the batch shape
             new_buffr = new_kernel.__getattr__(buffr_name)
-            new_buffr.data = new_buffr.__getitem__(index)
+            new_buffr.data = new_buffr.__getitem__(param_index)
             ndim_removed = len(buffr.shape) - len(new_buffr.shape)
             new_batch_shape_len = len(self.batch_shape) - ndim_removed
             new_kernel.batch_shape = new_buffr.shape[:new_batch_shape_len]
