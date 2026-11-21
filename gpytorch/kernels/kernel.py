@@ -45,7 +45,9 @@ def sq_dist(x1, x2, x1_eq_x2=False):
     if x1_eq_x2 and not x1.requires_grad and not x2.requires_grad:
         res.diagonal(dim1=-2, dim2=-1).fill_(0)
 
-    # Zero out negative values
+    # Zero out negative values while preserving autograd first and second derivatives
+    if res.requires_grad:
+        return torch.where(res < 0, res - res.detach(), res)
     return res.clamp_min_(0)
 
 
@@ -57,6 +59,8 @@ def dist(x1, x2, x1_eq_x2=False):
         res = torch.cdist(x1, x2)
         return res.clamp_min(1e-15)
     res = sq_dist(x1, x2, x1_eq_x2=x1_eq_x2)
+    if res.requires_grad:
+        return res.clamp_min(1e-30).sqrt()
     return res.clamp_min_(1e-30).sqrt_()
 
 

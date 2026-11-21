@@ -38,6 +38,32 @@ class TestCylindricalKernel(unittest.TestCase, BaseKernelTestCase):
         self.assertRaises(TypeError, self.create_kernel_with_prior, None, 1, None)
         self.assertRaises(TypeError, self.create_kernel_with_prior, None, None, 1)
 
+    def test_unit_sphere_boundary_and_origin_stability(self):
+        for dtype in (torch.float, torch.double):
+            kernel = CylindricalKernel(3, MaternKernel(nu=2.5)).to(dtype=dtype)
+            kernel.alpha = 0.5
+            raw = torch.tensor(
+                [
+                    [0.6, 0.8, 0.0],
+                    [1.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0],
+                    [1.0, 2.0, 3.0],
+                ],
+                dtype=dtype,
+            )
+            # Normalize last row to unit norm (often 1 + ~2e-16 in IEEE-754)
+            raw[-1] = raw[-1] / raw[-1].norm()
+            x = raw.clone().requires_grad_(True)
+            covar = kernel(x, x).to_dense()
+            self.assertTrue(torch.isfinite(covar).all())
+            covar.sum().backward()
+            self.assertIsNotNone(x.grad)
+            self.assertTrue(torch.isfinite(x.grad).all())
+
+            outside = torch.tensor([[1.05, 0.0, 0.0]], dtype=dtype)
+            with self.assertRaises(RuntimeError):
+                kernel(outside, outside).to_dense()
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -134,16 +134,15 @@ class CylindricalKernel(Kernel):
         self.initialize(raw_beta=self.raw_beta_constraint.inverse_transform(value))
 
     def forward(self, x1: Tensor, x2: Tensor, diag: bool | None = False, **params) -> Tensor:
+        r1 = x1.pow(2).sum(dim=-1, keepdim=True).clamp_min(self.eps**2).sqrt()
+        r2 = x2.pow(2).sum(dim=-1, keepdim=True).clamp_min(self.eps**2).sqrt()
 
-        x1_, x2_ = x1.clone(), x2.clone()
-        # Jitter datapoints that are exactly 0
-        x1_[x1_ == 0], x2_[x2_ == 0] = x1_[x1_ == 0] + self.eps, x2_[x2_ == 0] + self.eps
-        r1, r2 = x1_.norm(dim=-1, keepdim=True), x2_.norm(dim=-1, keepdim=True)
-
-        if torch.any(r1 > 1.0) or torch.any(r2 > 1.0):
+        if torch.any(r1 > 1.0 + self.eps) or torch.any(r2 > 1.0 + self.eps):
             raise RuntimeError("Cylindrical kernel not defined for data points with radius > 1. Scale your data!")
 
         a1, a2 = x1.div(r1), x2.div(r2)
+        r1_kuma = torch.where(r1 > 1.0, r1 - (r1.detach() - 1.0), r1) if r1.requires_grad else r1.clamp_max(1.0)
+        r2_kuma = torch.where(r2 > 1.0, r2 - (r2.detach() - 1.0), r2) if r2.requires_grad else r2.clamp_max(1.0)
         if not diag:
             gram_mat = a1.matmul(a2.transpose(-2, -1))
             for p in range(self.num_angular_weights):
@@ -160,7 +159,7 @@ class CylindricalKernel(Kernel):
                     angular_kernel = angular_kernel + self.angular_weights[..., p, None].mul(gram_mat.pow(p))
 
         with settings.lazily_evaluate_kernels(False):
-            radial_kernel = self.radial_base_kernel(self.kuma(r1), self.kuma(r2), diag=diag, **params)
+            radial_kernel = self.radial_base_kernel(self.kuma(r1_kuma), self.kuma(r2_kuma), diag=diag, **params)
         return radial_kernel.mul(angular_kernel)
 
     def kuma(self, x: Tensor) -> Tensor:
