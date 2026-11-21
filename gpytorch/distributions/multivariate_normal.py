@@ -126,7 +126,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             dimensionality of the random variable. The first (second) Tensor is the
             lower (upper) end of the confidence region.
         """
-        std2 = self.stddev.mul_(2)
+        std2 = self.stddev.mul(2)
         mean = self.mean
         return mean.sub(std2), mean.add(std2)
 
@@ -232,17 +232,11 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         mean, covar = self.loc, self.lazy_covariance_matrix
         diff = value - mean
 
-        # Repeat the covar to match the batch shape of diff
+        # Broadcast diff and covar to a common batch shape without copying covar
         if diff.shape[:-1] != covar.batch_shape:
-            if len(diff.shape[:-1]) < len(covar.batch_shape):
-                diff = diff.expand(covar.shape[:-1])
-            else:
-                padded_batch_shape = (*(1 for _ in range(diff.dim() + 1 - covar.dim())), *covar.batch_shape)
-                covar = covar.repeat(
-                    *(diff_size // covar_size for diff_size, covar_size in zip(diff.shape[:-1], padded_batch_shape)),
-                    1,
-                    1,
-                )
+            batch_shape = torch.broadcast_shapes(diff.shape[:-1], covar.batch_shape)
+            diff = diff.expand(*batch_shape, diff.size(-1))
+            covar = covar.expand(*batch_shape, *covar.matrix_shape)
 
         # Get log determinant and first part of quadratic form
         covar = covar.evaluate_kernel()
@@ -275,34 +269,36 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         :return: A `*sample_shape x *batch_shape x N` tensor of i.i.d. reparameterized samples.
         """
         covar = self.lazy_covariance_matrix
+        loc = self.loc.expand(self._batch_shape + self._event_shape)
         if base_samples is None:
+            if sample_shape.numel() == 0:
+                return loc.new_empty(sample_shape + loc.shape)
             # Create some samples
-            num_samples = sample_shape.numel() or 1
+            num_samples = sample_shape.numel()
 
             # Get samples
-            res = covar.zero_mean_mvn_samples(num_samples) + self.loc.unsqueeze(0)
-            res = res.view(sample_shape + self.loc.shape)
+            res = covar.zero_mean_mvn_samples(num_samples) + loc.unsqueeze(0)
+            res = res.view(sample_shape + loc.shape)
 
         else:
             covar_root = covar.root_decomposition().root
 
             # Make sure that the base samples agree with the distribution
-            if (
-                self.loc.shape != base_samples.shape[-self.loc.dim() :]
-                and covar_root.shape[-1] < base_samples.shape[-1]
-            ):
+            if loc.shape != base_samples.shape[-loc.dim() :] and covar_root.shape[-1] < base_samples.shape[-1]:
                 raise RuntimeError(
                     "The size of base_samples (minus sample shape dimensions) should agree with the size "
-                    "of self.loc. Expected ...{} but got {}".format(self.loc.shape, base_samples.shape)
+                    "of self.loc. Expected ...{} but got {}".format(loc.shape, base_samples.shape)
                 )
 
             # Determine what the appropriate sample_shape parameter is
-            sample_shape = base_samples.shape[: base_samples.dim() - self.loc.dim()]
+            sample_shape = base_samples.shape[: base_samples.dim() - loc.dim()]
+            if sample_shape.numel() == 0:
+                return loc.new_empty(sample_shape + loc.shape)
 
             # Reshape samples to be batch_size x num_dim x num_samples
             # or num_bim x num_samples
-            base_samples = base_samples.view(-1, *self.loc.shape[:-1], covar_root.shape[-1])
-            base_samples = base_samples.permute(*range(1, self.loc.dim() + 1), 0)
+            base_samples = base_samples.view(-1, *loc.shape[:-1], covar_root.shape[-1])
+            base_samples = base_samples.permute(*range(1, loc.dim() + 1), 0)
 
             # Now reparameterize those base samples
             # If necessary, adjust base_samples for rank of root decomposition
@@ -311,11 +307,11 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             elif covar_root.shape[-1] > base_samples.shape[-2]:
                 # raise RuntimeError("Incompatible dimension of `base_samples`")
                 covar_root = covar_root.transpose(-2, -1)
-            res = covar_root.matmul(base_samples) + self.loc.unsqueeze(-1)
+            res = covar_root.matmul(base_samples) + loc.unsqueeze(-1)
 
             # Permute and reshape new samples to be original size
-            res = res.permute(-1, *range(self.loc.dim())).contiguous()
-            res = res.view(sample_shape + self.loc.shape)
+            res = res.permute(-1, *range(loc.dim())).contiguous()
+            res = res.view(sample_shape + loc.shape)
 
         return res
 
@@ -462,9 +458,14 @@ def kl_mvn_mvn(p_dist: MultivariateNormal, q_dist: MultivariateNormal) -> Tensor
 
     p_mean = p_dist.loc
     p_covar = p_dist.lazy_covariance_matrix
-    root_p_covar = p_covar.root_decomposition().root.to_dense()
-
     mean_diffs = p_mean - q_mean
+
+    if isinstance(p_covar, DiagLinearOperator) and isinstance(q_covar, DiagLinearOperator):
+        p_var = p_covar.diagonal(dim1=-1, dim2=-2)
+        q_var = q_covar.diagonal(dim1=-1, dim2=-2)
+        return 0.5 * (torch.log(q_var / p_var) + (p_var + mean_diffs.pow(2)) / q_var - 1.0).sum(dim=-1)
+
+    root_p_covar = p_covar.root_decomposition().root.to_dense()
     if isinstance(root_p_covar, LinearOperator):
         # right now this just catches if root_p_covar is a DiagLinearOperator,
         # but we may want to be smarter about this in the future
