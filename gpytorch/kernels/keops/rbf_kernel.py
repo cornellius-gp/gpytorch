@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-# from linear_operator.operators import KeOpsLinearOperator
 from linear_operator.operators import KernelLinearOperator
 from torch import Tensor
 
+from ..rbf_kernel import RBFKernel as GRBFKernel
 from .keops_kernel import _Anysor, _lazify_and_expand_inputs, KeOpsKernel
 
 
@@ -15,7 +15,7 @@ def _covar_func(x1: _Anysor, x2: _Anysor, **kwargs) -> _Anysor:
     return K
 
 
-class RBFKernel(KeOpsKernel):
+class RBFKernel(KeOpsKernel, GRBFKernel):
     r"""
     Implements the RBF kernel using KeOps as a driver for kernel matrix multiplies.
 
@@ -41,15 +41,10 @@ class RBFKernel(KeOpsKernel):
 
     has_lengthscale = True
 
-    def forward(self, x1: Tensor, x2: Tensor, diag: bool = False, **kwargs) -> KernelLinearOperator:
+    def forward(self, x1: Tensor, x2: Tensor, diag: bool = False, **kwargs) -> KernelLinearOperator | Tensor:
+        if diag or kwargs.get("last_dim_is_batch", False):
+            return GRBFKernel.forward(self, x1, x2, diag=diag, **kwargs)
+        kwargs.pop("last_dim_is_batch", None)
         x1_ = x1 / self.lengthscale
         x2_ = x2 / self.lengthscale
-        # return KernelLinearOperator inst only when calculating the whole covariance matrix
-        res = KernelLinearOperator(x1_, x2_, covar_func=_covar_func, **kwargs)
-
-        # TODO: diag=True mode will be removed with the GpyTorch 2.0 PR to remove LazyEvaluatedKernelTensor
-        # (it will be replaced by a `_symmetric_diag` method for quickly computing the diagonals of symmetric matrices)
-        if diag:
-            return res.diagonal(dim1=-1, dim2=-2)
-        else:
-            return res
+        return KernelLinearOperator(x1_, x2_, covar_func=_covar_func, **kwargs)

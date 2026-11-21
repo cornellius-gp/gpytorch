@@ -57,16 +57,11 @@ class PeriodicKernel(KeOpsKernel, GPeriodicKernel):
 
     has_lengthscale = True
 
-    def forward(self, x1: Tensor, x2: Tensor, diag: bool = False, **kwargs) -> KernelLinearOperator:
+    def forward(self, x1: Tensor, x2: Tensor, diag: bool = False, **kwargs) -> KernelLinearOperator | Tensor:
+        if diag or kwargs.get("last_dim_is_batch", False):
+            return GPeriodicKernel.forward(self, x1, x2, diag=diag, **kwargs)
+        kwargs.pop("last_dim_is_batch", None)
         x1_ = x1.div(self.period_length / math.pi)
         x2_ = x2.div(self.period_length / math.pi)
-        # return KernelLinearOperator inst only when calculating the whole covariance matrix
         # pass any parameters which are used inside _covar_func as *args to get gradients computed for them
-        res = KernelLinearOperator(x1_, x2_, lengthscale=self.lengthscale, covar_func=_covar_func, **kwargs)
-
-        # TODO: diag=True mode will be removed with the GpyTorch 2.0 PR to remove LazyEvaluatedKernelTensor
-        # (it will be replaced by a `_symmetric_diag` method for quickly computing the diagonals of symmetric matrices)
-        if diag:
-            return res.diagonal(dim1=-1, dim2=-2)
-        else:
-            return res
+        return KernelLinearOperator(x1_, x2_, lengthscale=self.lengthscale, covar_func=_covar_func, **kwargs)

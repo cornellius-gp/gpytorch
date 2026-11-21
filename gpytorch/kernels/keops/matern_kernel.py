@@ -7,6 +7,7 @@ import math
 from linear_operator.operators import KernelLinearOperator
 from torch import Tensor
 
+from ..matern_kernel import MaternKernel as GMaternKernel
 from .keops_kernel import _Anysor, _lazify_and_expand_inputs, KeOpsKernel
 
 
@@ -30,7 +31,7 @@ def _covar_func(x1: _Anysor, x2: _Anysor, nu: float = 2.5, **params) -> _Anysor:
     return constant_component * exp_component
 
 
-class MaternKernel(KeOpsKernel):
+class MaternKernel(KeOpsKernel, GMaternKernel):
     """
     Implements the Matern kernel using KeOps as a driver for kernel matrix multiplies.
 
@@ -65,16 +66,11 @@ class MaternKernel(KeOpsKernel):
         super().__init__(**kwargs)
         self.nu = nu
 
-    def forward(self, x1: Tensor, x2: Tensor, diag: bool = False, **kwargs) -> KernelLinearOperator:
+    def forward(self, x1: Tensor, x2: Tensor, diag: bool = False, **kwargs) -> KernelLinearOperator | Tensor:
+        if diag or kwargs.get("last_dim_is_batch", False):
+            return GMaternKernel.forward(self, x1, x2, diag=diag, **kwargs)
+        kwargs.pop("last_dim_is_batch", None)
         mean = x1.reshape(-1, x1.size(-1)).mean(0)[(None,) * (x1.dim() - 1)]
         x1_ = (x1 - mean) / self.lengthscale
         x2_ = (x2 - mean) / self.lengthscale
-        # return KernelLinearOperator inst only when calculating the whole covariance matrix
-        res = KernelLinearOperator(x1_, x2_, covar_func=_covar_func, nu=self.nu, **kwargs)
-
-        # TODO: diag=True mode will be removed with the GpyTorch 2.0 PR to remove LazyEvaluatedKernelTensor
-        # (it will be replaced by a `_symmetric_diag` method for quickly computing the diagonals of symmetric matrices)
-        if diag:
-            return res.diagonal(dim1=-1, dim2=-2)
-        else:
-            return res
+        return KernelLinearOperator(x1_, x2_, covar_func=_covar_func, nu=self.nu, **kwargs)
