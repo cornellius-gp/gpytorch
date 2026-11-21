@@ -16,7 +16,7 @@ from .torch_priors import (
     UniformPrior,
 )
 
-# from .wishart_prior import InverseWishartPrior, WishartPrior
+from .wishart_prior import InverseWishartPrior, WishartPrior
 
 
 __all__ = [
@@ -33,6 +33,6 @@ __all__ = [
     "NormalPrior",
     "SmoothedBoxPrior",
     "UniformPrior",
-    # "InverseWishartPrior",
-    # "WishartPrior",
+    "InverseWishartPrior",
+    "WishartPrior",
 ]

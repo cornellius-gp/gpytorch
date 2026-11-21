@@ -35,16 +35,18 @@ class WishartPrior(Prior):
         if K.shape[-2] != K.shape[-1]:
             raise ValueError("K must be square")
         if isinstance(nu, Number):
-            nu = torch.tensor(float(nu))
-        if torch.any(nu <= n):
+            nu = torch.tensor(float(nu), dtype=K.dtype, device=K.device)
+        else:
+            nu = nu.to(dtype=K.dtype, device=K.device)
+        if torch.any(nu <= n - 1):
             raise ValueError("Must have nu > n - 1")
-        self.n = torch.tensor(n, dtype=torch.long, device=nu.device)
-        batch_shape = nu.shape
+        self.n = n
+        batch_shape = torch.broadcast_shapes(nu.shape, K.shape[:-2])
         event_shape = torch.Size([n, n])
         # normalization constant
         logdetK = torch.logdet(K)
         C = -(nu / 2) * (logdetK + n * math.log(2)) - torch.mvlgamma(nu / 2, n)
-        K_inv = torch.inverse(K)
+        K_inv = torch.linalg.inv(K)
         # need to assign values before registering as buffers to make argument validation work
         self.nu = nu
         self.K_inv = K_inv
@@ -57,11 +59,11 @@ class WishartPrior(Prior):
         self.register_buffer("C", C)
 
     def log_prob(self, X):
-        # I'm sure this could be done more elegantly
+        if self._validate_args:
+            self._validate_sample(X)
         logdetp = torch.logdet(X)
-        Kinvp = torch.matmul(self.K_inv, X)
-        trKinvp = torch.diagonal(Kinvp, dim1=-2, dim2=-1).sum(-1)
-        return self.C + 0.5 * (self.nu - self.n - 1) * logdetp - trKinvp
+        trKinvp = (self.K_inv.mT * X).sum(dim=(-2, -1))
+        return self.C + 0.5 * ((self.nu - self.n - 1) * logdetp - trKinvp)
 
 
 class InverseWishartPrior(Prior):
@@ -83,13 +85,17 @@ class InverseWishartPrior(Prior):
         TModule.__init__(self)
         if K.dim() < 2:
             raise ValueError("K must be at least 2-dimensional")
+        if K.shape[-2] != K.shape[-1]:
+            raise ValueError("K must be square")
         n = K.shape[-1]
         if isinstance(nu, Number):
-            nu = torch.tensor(float(nu))
+            nu = torch.tensor(float(nu), dtype=K.dtype, device=K.device)
+        else:
+            nu = nu.to(dtype=K.dtype, device=K.device)
         if torch.any(nu <= 0):
             raise ValueError("Must have nu > 0")
-        self.n = torch.tensor(n, dtype=torch.long, device=nu.device)
-        batch_shape = nu.shape
+        self.n = n
+        batch_shape = torch.broadcast_shapes(nu.shape, K.shape[:-2])
         event_shape = torch.Size([n, n])
         # normalization constant
         c = (nu + n - 1) / 2
