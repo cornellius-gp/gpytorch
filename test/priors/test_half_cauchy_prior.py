@@ -12,9 +12,8 @@ from gpytorch.test.utils import least_used_cuda_device
 class TestHalfCauchyPrior(unittest.TestCase):
     def test_half_cauchy_prior_to_gpu(self):
         if torch.cuda.is_available():
-            prior = HalfCauchy(1.0).cuda()
-            self.assertEqual(prior.concentration.device.type, "cuda")
-            self.assertEqual(prior.rate.device.type, "cuda")
+            prior = HalfCauchyPrior(1.0).cuda()
+            self.assertEqual(prior.scale.device.type, "cuda")
 
     def test_half_cauchy_prior_validate_args(self):
         with self.assertRaises(ValueError):
