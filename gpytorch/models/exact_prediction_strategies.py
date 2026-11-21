@@ -43,6 +43,71 @@ def select_prediction_strategy(num_features, train_inputs, train_prior_dist, tra
     return LinearPredictionStrategy(train_inputs, train_prior_dist, train_labels, likelihood)
 
 
+def _matmul_broadcast_rhs(lhs: Tensor | LinearOperator, rhs: Tensor) -> Tensor | LinearOperator:
+    """Compute ``lhs @ rhs`` without physically broadcasting ``rhs`` across batch axes unique to ``lhs``."""
+    if not torch.is_tensor(lhs):
+        return lhs.matmul(rhs)
+
+    lhs_batch, rhs_batch = lhs.shape[:-2], rhs.shape[:-2]
+    out_batch = torch.broadcast_shapes(lhs_batch, rhs_batch)
+    ndim_batch = len(out_batch)
+    padded_rhs_batch = (1,) * (ndim_batch - len(rhs_batch)) + tuple(rhs_batch)
+    folded_axes = [i for i in range(ndim_batch) if padded_rhs_batch[i] == 1 and out_batch[i] > 1]
+    if not folded_axes:
+        return lhs.matmul(rhs)
+
+    kept_axes = [i for i in range(ndim_batch) if i not in folded_axes]
+    kept_shape = tuple(out_batch[i] for i in kept_axes)
+    folded_shape = tuple(out_batch[i] for i in folded_axes)
+
+    lhs_expanded = lhs.expand(*out_batch, lhs.size(-2), lhs.size(-1))
+    lhs_folded = lhs_expanded.permute(*kept_axes, *folded_axes, ndim_batch, ndim_batch + 1).reshape(
+        *kept_shape, -1, lhs.size(-1)
+    )
+    rhs_kept = rhs.reshape(*(padded_rhs_batch[i] for i in kept_axes), rhs.size(-2), rhs.size(-1))
+
+    prod = torch.matmul(lhs_folded, rhs_kept).reshape(*kept_shape, *folded_shape, lhs.size(-2), rhs.size(-1))
+    perm = kept_axes + folded_axes
+    inv_perm = [0] * ndim_batch
+    for pos, orig_axis in enumerate(perm):
+        inv_perm[orig_axis] = pos
+    return prod.permute(*inv_perm, ndim_batch, ndim_batch + 1)
+
+
+def _solve_broadcast_rhs(linear_op: LinearOperator, rhs: Tensor) -> Tensor:
+    """Compute ``linear_op.solve(rhs)`` by folding batch axes where ``linear_op`` is singleton/unbatched into RHS."""
+    op_batch, rhs_batch = linear_op.batch_shape, rhs.shape[:-2]
+    out_batch = torch.broadcast_shapes(op_batch, rhs_batch)
+    ndim_batch = len(out_batch)
+    offset = ndim_batch - len(op_batch)
+    padded_op_batch = (1,) * offset + tuple(op_batch)
+    folded_axes = [i for i in range(ndim_batch) if padded_op_batch[i] == 1 and out_batch[i] > 1]
+    if not folded_axes:
+        return linear_op.solve(rhs)
+
+    kept_axes = [i for i in range(ndim_batch) if i not in folded_axes]
+    kept_shape = tuple(out_batch[i] for i in kept_axes)
+    folded_shape = tuple(out_batch[i] for i in folded_axes)
+
+    op_reduced = linear_op
+    for axis in sorted((i - offset for i in folded_axes if i >= offset), reverse=True):
+        op_reduced = op_reduced.squeeze(axis)
+
+    rhs_expanded = rhs.expand(*out_batch, rhs.size(-2), rhs.size(-1))
+    rhs_folded = rhs_expanded.permute(*kept_axes, ndim_batch, *folded_axes, ndim_batch + 1).reshape(
+        *kept_shape, rhs.size(-2), -1
+    )
+    solved = op_reduced.solve(rhs_folded).reshape(*kept_shape, rhs.size(-2), *folded_shape, rhs.size(-1))
+
+    axis_positions = {}
+    for pos, orig_axis in enumerate(kept_axes):
+        axis_positions[orig_axis] = pos
+    for pos, orig_axis in enumerate(folded_axes):
+        axis_positions[orig_axis] = len(kept_axes) + 1 + pos
+    inv_perm = [axis_positions[i] for i in range(ndim_batch)] + [len(kept_axes), ndim_batch + 1]
+    return solved.permute(*inv_perm)
+
+
 class DefaultPredictionStrategy:
     def __init__(
         self,
@@ -132,7 +197,7 @@ class DefaultPredictionStrategy:
         """
         # Here the precomputed cache represents S,
         # where S S^T = (K_XX + sigma^2 I)^-1
-        return test_train_covar.matmul(precomputed_cache)
+        return _matmul_broadcast_rhs(test_train_covar, precomputed_cache)
 
     def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output, **kwargs):
         """
@@ -393,7 +458,7 @@ class DefaultPredictionStrategy:
         # Handle NaNs
         nan_policy = settings.observation_nan_policy.value()
         if nan_policy == "ignore":
-            res = (test_train_covar @ mean_cache.unsqueeze(-1)).squeeze(-1)
+            res = _matmul_broadcast_rhs(test_train_covar, mean_cache.unsqueeze(-1)).squeeze(-1)
         elif nan_policy == "mask":
             # Restrict train dimension to observed values
             observed = settings.observation_nan_policy._get_observed(mean_cache, torch.Size((mean_cache.shape[-1],)))
@@ -407,7 +472,7 @@ class DefaultPredictionStrategy:
             mask = (~torch.isnan(mean_cache)).to(torch.float)[..., None, :]
             test_train_covar = test_train_covar * mask
             mean = settings.observation_nan_policy._fill_tensor(mean_cache)
-            res = (test_train_covar @ mean.unsqueeze(-1)).squeeze(-1)
+            res = _matmul_broadcast_rhs(test_train_covar, mean.unsqueeze(-1)).squeeze(-1)
         res = res + test_mean
         return res
 
@@ -441,7 +506,7 @@ class DefaultPredictionStrategy:
             train_test_covar = test_train_covar.transpose(-1, -2)
             # TODO: Use just a single triangular solve for dense inference
             # A Cholesky solve requires two triangular solves.
-            covar_correction_rhs = train_train_covar.solve(train_test_covar)
+            covar_correction_rhs = _solve_broadcast_rhs(train_train_covar, train_test_covar)
             # For efficiency
             if torch.is_tensor(test_test_covar):
                 # We can use addmm in the 2d case
