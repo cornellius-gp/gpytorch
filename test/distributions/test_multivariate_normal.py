@@ -385,6 +385,62 @@ class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
         mvn.unsqueeze(2)
         mvn.unsqueeze(-3)
 
+    def test_confidence_region_backward(self):
+        mean = torch.tensor([0.2, -0.5, 1.1], dtype=torch.double, requires_grad=True)
+        raw_var = torch.tensor([0.3, 0.8, 1.4], dtype=torch.double, requires_grad=True)
+        mvn = MultivariateNormal(mean, DiagLinearOperator(raw_var.exp()))
+        lower, upper = mvn.confidence_region()
+        loss = (upper.square() + lower.sin()).sum()
+        grads = torch.autograd.grad(loss, (mean, raw_var))
+        expected_std = raw_var.exp().sqrt()
+        ref_loss = ((mean + 2 * expected_std).square() + (mean - 2 * expected_std).sin()).sum()
+        ref_grads = torch.autograd.grad(ref_loss, (mean, raw_var))
+        for g, rg in zip(grads, ref_grads, strict=True):
+            torch.testing.assert_close(g, rg)
+
+    def test_broadcast_log_prob_and_rsample(self):
+        torch.manual_seed(0)
+        # Singleton batch axis in value/mean against larger batch axis in covariance
+        mean = torch.randn(3, 1, 4, dtype=torch.double)
+        var = torch.rand(3, 2, 4, dtype=torch.double) + 0.5
+        mvn = MultivariateNormal(mean, DiagLinearOperator(var))
+        val = torch.randn(3, 1, 4, dtype=torch.double)
+        lp = mvn.log_prob(val)
+        ref = TMultivariateNormal(mean.expand(3, 2, 4), torch.diag_embed(var)).log_prob(val.expand(3, 2, 4))
+        torch.testing.assert_close(lp, ref)
+
+        # Unbatched mean with batched covariance in rsample and empty sample_shape
+        mvn_b = MultivariateNormal(
+            torch.zeros(4, dtype=torch.double), DiagLinearOperator(torch.ones(3, 4, dtype=torch.double))
+        )
+        self.assertEqual(mvn_b.rsample().shape, torch.Size([3, 4]))
+        self.assertEqual(mvn_b.rsample(torch.Size([2])).shape, torch.Size([2, 3, 4]))
+        self.assertEqual(mvn_b.rsample(torch.Size([0])).shape, torch.Size([0, 3, 4]))
+        base = mvn_b.get_base_samples(torch.Size([5]))
+        self.assertEqual(mvn_b.rsample(base_samples=base).shape, torch.Size([5, 3, 4]))
+
+    def test_kl_diag_matches_dense_without_root_decomposition(self):
+        torch.manual_seed(1)
+        p_mean = torch.randn(2, 6, dtype=torch.double, requires_grad=True)
+        q_mean = torch.randn(2, 6, dtype=torch.double, requires_grad=True)
+        p_var = (torch.rand(2, 6, dtype=torch.double) + 0.2).requires_grad_(True)
+        q_var = (torch.rand(2, 6, dtype=torch.double) + 0.2).requires_grad_(True)
+
+        p_diag = MultivariateNormal(p_mean, DiagLinearOperator(p_var))
+        q_diag = MultivariateNormal(q_mean, DiagLinearOperator(q_var))
+        p_dense = MultivariateNormal(p_mean, DenseLinearOperator(torch.diag_embed(p_var)))
+        q_dense = MultivariateNormal(q_mean, DenseLinearOperator(torch.diag_embed(q_var)))
+
+        kl_fast = torch.distributions.kl.kl_divergence(p_diag, q_diag)
+        kl_ref = torch.distributions.kl.kl_divergence(p_dense, q_dense)
+        torch.testing.assert_close(kl_fast, kl_ref, rtol=1e-12, atol=1e-12)
+        for g_fast, g_ref in zip(
+            torch.autograd.grad(kl_fast.sum(), (p_mean, q_mean, p_var, q_var)),
+            torch.autograd.grad(kl_ref.sum(), (p_mean, q_mean, p_var, q_var)),
+            strict=True,
+        ):
+            torch.testing.assert_close(g_fast, g_ref, rtol=1e-12, atol=1e-12)
+
 
 if __name__ == "__main__":
     unittest.main()
