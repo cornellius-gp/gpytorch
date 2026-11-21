@@ -58,7 +58,7 @@ class _ApproximateMarginalLogLikelihood(MarginalLogLikelihood, ABC):
         # Get likelihood term and KL term
         num_batch = approximate_dist_f.event_shape[0]
         log_likelihood = self._log_likelihood_term(approximate_dist_f, target, **kwargs).div(num_batch)
-        kl_divergence = self.model.variational_strategy.kl_divergence().div(self.num_data / self.beta)
+        kl_divergence = self.model.variational_strategy.kl_divergence().mul(self.beta / self.num_data)
 
         # Add any additional registered loss terms
         added_loss = torch.zeros_like(log_likelihood)
@@ -69,8 +69,20 @@ class _ApproximateMarginalLogLikelihood(MarginalLogLikelihood, ABC):
 
         # Log prior term
         log_prior = torch.zeros_like(log_likelihood)
+        batch_ndim = log_likelihood.ndim
         for name, module, prior, closure, _ in self.named_priors():
-            log_prior.add_(prior.log_prob(closure(module)).sum().div(self.num_data))
+            prior_term = prior.log_prob(closure(module))
+            if (
+                batch_ndim > 0
+                and prior_term.ndim >= batch_ndim
+                and all(
+                    s == l or s == 1 for s, l in zip(prior_term.shape[:batch_ndim], log_likelihood.shape, strict=True)
+                )
+            ):
+                prior_term = prior_term.reshape(*prior_term.shape[:batch_ndim], -1).sum(dim=-1)
+            else:
+                prior_term = prior_term.sum()
+            log_prior.add_(prior_term.div(self.num_data))
 
         if self.combine_terms:
             return log_likelihood - kl_divergence + log_prior - added_loss
