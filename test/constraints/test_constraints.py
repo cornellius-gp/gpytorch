@@ -232,6 +232,27 @@ class TestConstraintNaming(unittest.TestCase, BaseTestCase):
             elif name == "covar_module.base_kernel.raw_lengthscale":
                 self.assertIsInstance(constraint, gpytorch.constraints.Positive)
 
+    def test_repr_scalar_1d_and_multidim_bounds(self):
+        self.assertEqual(repr(gpytorch.constraints.Interval(0.1, 2.0)), "Interval(1.000E-01, 2.000E+00)")
+        self.assertEqual(
+            repr(gpytorch.constraints.Interval(torch.tensor([0.1]), torch.tensor([2.0]))),
+            "Interval(1.000E-01, 2.000E+00)",
+        )
+        self.assertEqual(
+            repr(gpytorch.constraints.Interval(torch.tensor([0.1, 0.2]), torch.tensor([2.0, 3.0]))),
+            "Interval()",
+        )
+
+        self.assertEqual(repr(gpytorch.constraints.GreaterThan(1e-4)), "GreaterThan(1.000E-04)")
+        self.assertEqual(repr(gpytorch.constraints.GreaterThan(torch.tensor([1e-4]))), "GreaterThan(1.000E-04)")
+        self.assertTrue(repr(gpytorch.constraints.GreaterThan(torch.tensor([1e-4, 2e-4]))).startswith("GreaterThan("))
+
+        self.assertEqual(repr(gpytorch.constraints.LessThan(1.0)), "LessThan(1.000E+00)")
+        self.assertEqual(repr(gpytorch.constraints.LessThan(torch.tensor([1.0]))), "LessThan(1.000E+00)")
+        self.assertTrue(repr(gpytorch.constraints.LessThan(torch.tensor([1.0, 2.0]))).startswith("LessThan("))
+
+        self.assertEqual(repr(gpytorch.constraints.Positive()), "Positive()")
+
 
 if __name__ == "__main__":
     unittest.main()

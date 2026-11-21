@@ -186,7 +186,7 @@ class Interval(Module):
 
     def __repr__(self) -> str:
         if self.lower_bound.numel() == 1 and self.upper_bound.numel() == 1:
-            return self._get_name() + f"({self.lower_bound:.3E}, {self.upper_bound:.3E})"
+            return self._get_name() + f"({self.lower_bound.item():.3E}, {self.upper_bound.item():.3E})"
         else:
             return super().__repr__()
 
@@ -227,7 +227,7 @@ class GreaterThan(Interval):
 
     def __repr__(self) -> str:
         if self.lower_bound.numel() == 1:
-            return self._get_name() + f"({self.lower_bound:.3E})"
+            return self._get_name() + f"({self.lower_bound.item():.3E})"
         else:
             return super().__repr__()
 
@@ -312,4 +312,7 @@ class LessThan(Interval):
         return tensor
 
     def __repr__(self) -> str:
-        return self._get_name() + f"({self.upper_bound:.3E})"
+        if self.upper_bound.numel() == 1:
+            return self._get_name() + f"({self.upper_bound.item():.3E})"
+        else:
+            return super().__repr__()

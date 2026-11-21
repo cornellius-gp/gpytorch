@@ -48,7 +48,7 @@ class RandomModuleMixin:
             if not isinstance(value, Tensor):
                 raise RuntimeError("Initialize in RandomModules can only be done with Tensor values.")
 
-            names = name.rsplit(".")
+            names = name.rsplit(".", 1)
             if len(names) > 1:
                 mod_name, param_name = names
                 mod = operator.attrgetter(mod_name)(self)
@@ -56,7 +56,7 @@ class RandomModuleMixin:
                 mod, param_name = self, name
 
             old_param = getattr(mod, param_name)
-            is_property = hasattr(type(self), name) and isinstance(getattr(type(self), name), property)
+            is_property = hasattr(type(mod), param_name) and isinstance(getattr(type(mod), param_name), property)
             if not isinstance(old_param, torch.nn.Parameter) or is_property:
                 # Presumably we're calling a getter that will call initialize again on the actual parameter.
                 setattr(mod, param_name, value.expand(old_param.shape))
@@ -448,10 +448,30 @@ class Module(nn.Module):
         """Sample parameter values from prior. Modifies the module's parameters in-place."""
         if prior_name not in self._priors:
             raise RuntimeError(f"Unknown prior name '{prior_name}'")
-        prior, _, setting_closure = self._priors[prior_name]
+        prior, closure, setting_closure = self._priors[prior_name]
         if setting_closure is None:
             raise RuntimeError("Must provide inverse transform to be able to sample from prior.")
-        setting_closure(self, prior.sample())
+        param_val = closure(self)
+        if not isinstance(param_val, Tensor):
+            setting_closure(self, prior.sample())
+            return
+        param_shape = param_val.shape
+        event_ndim = len(prior.event_shape)
+        target_batch_shape = param_shape[:-event_ndim] if event_ndim > 0 else param_shape
+        prior_batch_shape = prior.batch_shape
+        if prior_batch_shape == target_batch_shape or len(target_batch_shape) < len(prior_batch_shape):
+            sample = prior.sample()
+        elif len(prior_batch_shape) == 0:
+            sample = prior.sample(target_batch_shape)
+        elif target_batch_shape[len(target_batch_shape) - len(prior_batch_shape) :] == prior_batch_shape:
+            sample_shape = target_batch_shape[: len(target_batch_shape) - len(prior_batch_shape)]
+            sample = prior.sample(sample_shape)
+        else:
+            try:
+                sample = prior.expand(target_batch_shape).sample()
+            except NotImplementedError:
+                sample = prior.sample()
+        setting_closure(self, sample)
 
     def to_pyro_random_module(self) -> Module:
         return self.to_random_module()
