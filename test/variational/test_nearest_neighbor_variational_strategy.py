@@ -3,6 +3,7 @@
 import unittest
 
 import torch
+from linear_operator.operators import DiagLinearOperator
 
 import gpytorch
 from gpytorch.test.variational_test_case import VariationalTestCase
@@ -230,6 +231,87 @@ class TestVNNGPFullKL(TestVNNGP, unittest.TestCase):
     @property
     def compute_full_kl(self):
         return True
+
+
+class TestVNNGPEvalFullCovarAndMultitask(unittest.TestCase):
+    def test_eval_returns_full_predictive_covariance(self):
+        torch.manual_seed(0)
+        inducing_points = torch.linspace(0.0, 1.0, 12, dtype=torch.double).unsqueeze(-1)
+        test_x = torch.tensor([[0.21], [0.23], [0.89]], dtype=torch.double)
+
+        class Model(gpytorch.models.ApproximateGP):
+            def __init__(self):
+                vd = gpytorch.variational.MeanFieldVariationalDistribution(12, batch_shape=torch.Size([2]))
+                vs = gpytorch.variational.NNVariationalStrategy(self, inducing_points, vd, k=3)
+                super().__init__(vs)
+                self.mean_module = gpytorch.means.ConstantMean(batch_shape=torch.Size([2]))
+                self.covar_module = gpytorch.kernels.ScaleKernel(
+                    gpytorch.kernels.RBFKernel(batch_shape=torch.Size([2])), batch_shape=torch.Size([2])
+                )
+
+            def forward(self, x):
+                return gpytorch.distributions.MultivariateNormal(self.mean_module(x), self.covar_module(x))
+
+        model = Model().double()
+        with torch.no_grad():
+            model.variational_strategy._variational_distribution.variational_mean.normal_()
+            model.variational_strategy._variational_distribution._variational_stddev.fill_(0.4)
+            model.variational_strategy.variational_params_initialized.fill_(1)
+        model.eval()
+
+        out = model(test_x)
+        self.assertNotIsInstance(out.lazy_covariance_matrix, DiagLinearOperator)
+        covar = out.covariance_matrix
+        self.assertEqual(covar.shape, torch.Size([2, 3, 3]))
+        torch.testing.assert_close(out.variance, covar.diagonal(dim1=-2, dim2=-1))
+        # Nearby points [0.21] and [0.23] share nearest inducing neighbors -> non-zero cross-covariance
+        self.assertTrue((covar[:, 0, 1].abs() > 1e-4).all())
+        # Covariance matrix is symmetric positive definite
+        torch.testing.assert_close(covar, covar.mT)
+        self.assertTrue((torch.linalg.eigvalsh(covar) > 0).all())
+
+    def test_1d_inducing_points_and_lmc_multitask(self):
+        torch.manual_seed(1)
+        train_x = torch.linspace(0.0, 1.0, 24)
+        num_latents = 3
+        num_tasks = 4
+
+        class MultitaskVNNGP(gpytorch.models.ApproximateGP):
+            def __init__(self):
+                vd = gpytorch.variational.MeanFieldVariationalDistribution(
+                    train_x.size(0), batch_shape=torch.Size([num_latents])
+                )
+                base_vs = gpytorch.variational.NNVariationalStrategy(self, train_x, vd, k=4, training_batch_size=8)
+                vs = gpytorch.variational.LMCVariationalStrategy(
+                    base_vs, num_tasks=num_tasks, num_latents=num_latents, latent_dim=-1
+                )
+                super().__init__(vs)
+                self.mean_module = gpytorch.means.ConstantMean(batch_shape=torch.Size([num_latents]))
+                self.covar_module = gpytorch.kernels.ScaleKernel(
+                    gpytorch.kernels.RBFKernel(batch_shape=torch.Size([num_latents])),
+                    batch_shape=torch.Size([num_latents]),
+                )
+
+            def forward(self, x):
+                return gpytorch.distributions.MultivariateNormal(self.mean_module(x), self.covar_module(x))
+
+        model = MultitaskVNNGP().double()
+        likelihood = gpytorch.likelihoods.MultitaskGaussianLikelihood(num_tasks=num_tasks).double()
+        mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=train_x.size(0))
+
+        model.train()
+        likelihood.train()
+        train_y = torch.randn(train_x.size(0), num_tasks, dtype=torch.double)
+        for _ in range(2):
+            out = model(None)
+            idx = model.variational_strategy.base_variational_strategy.current_training_indices
+            loss = -mll(out, train_y[idx])
+            loss.backward()
+
+        model.eval()
+        pred = model(torch.linspace(0.1, 0.9, 5, dtype=torch.double))
+        self.assertEqual(pred.mean.shape, torch.Size([5, num_tasks]))
+        self.assertEqual(pred.covariance_matrix.shape, torch.Size([5 * num_tasks, 5 * num_tasks]))
 
 
 if __name__ == "__main__":

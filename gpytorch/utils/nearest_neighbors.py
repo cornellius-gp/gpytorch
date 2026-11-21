@@ -199,28 +199,23 @@ class NNUtil(Module):
                 for i in range(self.k, N):
 
                     train_neighbors = NearestNeighbors(n_neighbors=self.k, algorithm="auto").fit(x_np[bi][:i])
-                    nn_idx_i = torch.from_numpy(
-                        train_neighbors.kneighbors(
-                            x_np[bi][i][
-                                None,
-                            ]
-                        )[1]
-                    ).squeeze()
+                    nn_idx_i = torch.from_numpy(train_neighbors.kneighbors(x_np[bi][i][None,])[1]).squeeze()
 
                     nn_idx[bi][i - self.k].copy_(nn_idx_i)
         nn_idx = nn_idx.view(*self.batch_shape, N - self.k, self.k).to(device=x.device)
         return nn_idx
 
-    def to(self, device):
+    def to(self, *args, **kwargs):
         """
-        Put the utility to a cpu or gpu device.
-
-        :param torch.device device: Target device.
+        Put the utility to a cpu or gpu device (ignoring dtype-only conversions).
         """
-        if str(device) == "cpu":
+        device, *_ = torch._C._nn._parse_to(*args, **kwargs)
+        if device is None:
+            return super().to(*args, **kwargs)
+        if device.type == "cpu":
             return self.cpu()
-        elif "cuda" in str(device):
-            return self.cuda()
+        elif device.type == "cuda":
+            return self.cuda(device=device)
         else:
             raise ValueError(f"Unknown device {device}")
 
