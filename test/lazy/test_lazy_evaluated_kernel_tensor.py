@@ -140,6 +140,18 @@ class TestLazyEvaluatedKernelTensorBatch(LinearOperatorTestCase, unittest.TestCa
         # The kernel itself cannot be indexed with more indices than batch dimensions
         with self.assertRaisesRegex(IndexError, "Too many indices"):
             kern[:, 0]
+        with self.assertRaisesRegex(IndexError, "Too many indices"):
+            kern[..., 0, 0]
+        with self.assertRaisesRegex(IndexError, "single ellipsis"):
+            kern[..., ...]
+        # Ellipsis on a multi-batch kernel indexes batch dimensions rather than trailing parameter dimensions
+        kern2 = gpytorch.kernels.RBFKernel(batch_shape=torch.Size([2, 3]))
+        kern2.lengthscale = torch.linspace(0.2, 1.2, 6).view(2, 3, 1, 1)
+        x_multi = torch.randn(2, 3, 4, 1)
+        sub_kern = kern2[..., 1]
+        self.assertEqual(sub_kern.batch_shape, torch.Size([2]))
+        self.assertEqual(sub_kern.raw_lengthscale.shape, torch.Size([2, 1, 1]))
+        self.assertAllClose(sub_kern(x_multi[:, 1]).to_dense(), kern2(x_multi).to_dense()[:, 1])
 
     def test_batch_getitem_multioutput(self):
         """Ensure slicing is efficient when using a multioutput kernel"""
