@@ -162,9 +162,10 @@ Specialty Kernels
    :members:
 
 :hidden:`HammingIMQKernel`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-..autoclass:: HammingIMQKernel
-  :members:
+.. autoclass:: HammingIMQKernel
+   :members:
 
 :hidden:`IndexKernel`
 ~~~~~~~~~~~~~~~~~~~~~~
