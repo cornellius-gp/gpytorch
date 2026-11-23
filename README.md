@@ -30,7 +30,8 @@ See our [**documentation, examples, tutorials**](https://gpytorch.readthedocs.io
 
 **Requirements**:
 - Python >= 3.10
-- PyTorch >= 2.0
+- PyTorch >= 2.4.1
+- NumPy >= 2.0
 
 Install GPyTorch using pip or conda:
 

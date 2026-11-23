@@ -36,21 +36,14 @@ def find_version(*file_paths):
 readme = open("README.md").read()
 
 
-torch_min = "2.0"
 install_requires = [
+    "torch>=2.4.1",
+    "numpy>=2.0",
     "mpmath>=0.19,<=1.3",  # avoid incompatibiltiy with torch+sympy with mpmath 1.4
     "scikit-learn",
     "scipy>=1.6.0",
     "linear_operator>=0.6.1",
 ]
-# if recent dev version of PyTorch is installed, no need to install stable
-try:
-    import torch
-
-    if torch.__version__ >= torch_min:
-        install_requires = [">=".join(["torch", torch_min])] + install_requires
-except ImportError:
-    pass
 
 
 # Run the setup
