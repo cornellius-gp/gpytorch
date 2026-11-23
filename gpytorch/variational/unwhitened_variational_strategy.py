@@ -21,7 +21,8 @@ from torch import Tensor
 
 from .. import settings
 from ..distributions import MultivariateNormal
-from ..utils.memoize import add_to_cache, cached
+from ..utils.errors import CachingError
+from ..utils.memoize import add_to_cache, cached, pop_from_cache_ignore_args
 from ._variational_strategy import _VariationalStrategy
 from .cholesky_variational_distribution import CholeskyVariationalDistribution
 
@@ -153,7 +154,14 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
 
         # Compute Cholesky factorization of inducing covariance matrix
         if settings.fast_computations.log_prob.off() or (num_induc <= settings.max_cholesky_size.value()):
-            induc_induc_covar = CholLinearOperator(self._cholesky_factor(induc_induc_covar))
+            chol = self._cholesky_factor(induc_induc_covar)
+            if chol.shape != induc_induc_covar.shape:
+                try:
+                    pop_from_cache_ignore_args(self, "cholesky_factor")
+                except CachingError:
+                    pass
+                chol = self._cholesky_factor(induc_induc_covar)
+            induc_induc_covar = CholLinearOperator(chol)
 
         # If we are making predictions and don't need variances, we can do things very quickly.
         if not self.training and settings.skip_posterior_variances.on():

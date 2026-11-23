@@ -97,5 +97,31 @@ class TestUnwhitenedDeltaRobustVGP(TestUnwhitenedRobustVGP):
         return gpytorch.variational.DeltaVariationalDistribution
 
 
+class TestUnwhitenedBatchPrediction(unittest.TestCase):
+    def test_eval_with_different_batch_sizes(self):
+        inducing_points = torch.randn(20, 2)
+        variational_distribution = gpytorch.variational.CholeskyVariationalDistribution(20)
+
+        class GPModel(gpytorch.models.ApproximateGP):
+            def __init__(self):
+                variational_strategy = gpytorch.variational.UnwhitenedVariationalStrategy(
+                    self, inducing_points, variational_distribution, learn_inducing_locations=True
+                )
+                super().__init__(variational_strategy)
+                self.mean_module = gpytorch.means.ConstantMean()
+                self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
+
+            def forward(self, x):
+                return gpytorch.distributions.MultivariateNormal(self.mean_module(x), self.covar_module(x))
+
+        model = GPModel().eval()
+        with torch.no_grad():
+            first_output = model(torch.randn(10, 5, 2))
+            second_output = model(torch.randn(2, 5, 2))
+
+        self.assertEqual(first_output.batch_shape, torch.Size([10]))
+        self.assertEqual(second_output.batch_shape, torch.Size([2]))
+
+
 if __name__ == "__main__":
     unittest.main()
