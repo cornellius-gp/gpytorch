@@ -21,6 +21,7 @@ class HammingIMQKernel(Kernel):
             k_{\text{H-IMQ}}(\mathbf{x_1}, \mathbf{x_2}) =
             \left( \frac{1 + \alpha}{\alpha + d_{\text{Hamming}}(x1, x2)} \right)^\beta
        \end{equation*}
+
     where :math:`\alpha` and :math:`\beta` are strictly positive scale parameters.
     This kernel was proposed in `Biological Sequence Kernels with Guaranteed Flexibility`.
     See http://arxiv.org/abs/2304.03775 for more details.
@@ -36,7 +37,7 @@ class HammingIMQKernel(Kernel):
         a :math:`B_1 \times \ldots \times B_k \times N \times D` tensor.
     :param alpha_prior: Set this if you want to apply a prior to the
         alpha parameter.
-    :param: alpha_constraint: Set this if you want to apply a constraint
+    :param alpha_constraint: Set this if you want to apply a constraint
         to the alpha parameter. If None is passed, the default is `Positive()`.
     :param beta_prior: Set this if you want to apply a prior to the
         beta parameter.
